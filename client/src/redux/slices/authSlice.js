@@ -1,0 +1,128 @@
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { getMyProfile, loginUser, logoutUser, registerUser } from "../../services/authService";
+
+const clearStoredTokens = () => {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+};
+
+const persistTokens = (accessToken, refreshToken) => {
+  if (accessToken) {
+    localStorage.setItem("accessToken", accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem("refreshToken", refreshToken);
+  }
+};
+
+const initialState = {
+  user: null,
+  accessToken: localStorage.getItem("accessToken") || "",
+  refreshToken: localStorage.getItem("refreshToken") || "",
+  loading: false,
+  profileLoading: false,
+  profileError: "",
+};
+
+export const registerThunk = createAsyncThunk("auth/register", async (payload, { rejectWithValue }) => {
+  try {
+    const { data } = await registerUser(payload);
+    return data.data;
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || "Registration failed");
+  }
+});
+
+export const loginThunk = createAsyncThunk("auth/login", async (payload, { rejectWithValue }) => {
+  try {
+    const { data } = await loginUser(payload);
+    return data.data;
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || "Login failed");
+  }
+});
+
+export const profileThunk = createAsyncThunk("auth/profile", async (_, { rejectWithValue }) => {
+  try {
+    const { data } = await getMyProfile();
+    return data.data;
+  } catch (error) {
+    return rejectWithValue(error?.response?.data?.message || "Profile fetch failed");
+  }
+});
+
+export const logoutThunk = createAsyncThunk("auth/logoutSession", async () => {
+  try {
+    await logoutUser();
+  } catch {
+    // Always clear local session even if revoke request fails.
+  }
+});
+
+const authSlice = createSlice({
+  name: "auth",
+  initialState,
+  reducers: {
+    logout: (state) => {
+      state.user = null;
+      state.accessToken = "";
+      state.refreshToken = "";
+      clearStoredTokens();
+    },
+    setAccessToken: (state, action) => {
+      state.accessToken = action.payload || "";
+      if (action.payload) {
+        localStorage.setItem("accessToken", action.payload);
+      }
+    },
+    setAuthSession: (state, action) => {
+      state.user = action.payload?.user || null;
+      state.accessToken = action.payload?.accessToken || "";
+      state.refreshToken = action.payload?.refreshToken || state.refreshToken;
+      state.profileError = "";
+      persistTokens(action.payload?.accessToken, action.payload?.refreshToken);
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loginThunk.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(loginThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken || "";
+        state.profileError = "";
+        persistTokens(action.payload.accessToken, action.payload.refreshToken);
+      })
+      .addCase(loginThunk.rejected, (state) => {
+        state.loading = false;
+      })
+      .addCase(profileThunk.pending, (state) => {
+        state.profileLoading = true;
+        state.profileError = "";
+      })
+      .addCase(profileThunk.fulfilled, (state, action) => {
+        state.profileLoading = false;
+        state.user = action.payload;
+      })
+      .addCase(profileThunk.rejected, (state, action) => {
+        state.profileLoading = false;
+        state.user = null;
+        state.accessToken = "";
+        state.refreshToken = "";
+        state.profileError = action.payload || "Profile fetch failed";
+        clearStoredTokens();
+      })
+      .addCase(logoutThunk.fulfilled, (state) => {
+        state.user = null;
+        state.accessToken = "";
+        state.refreshToken = "";
+        clearStoredTokens();
+      });
+  },
+});
+
+export const { logout, setAccessToken, setAuthSession } = authSlice.actions;
+export default authSlice.reducer;

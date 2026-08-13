@@ -1,0 +1,101 @@
+import { currency } from "../../../../utils/format";
+import { NOTE_MAX, cardClass, fieldClass, labelClass } from "./constants";
+
+const SummaryPanel = ({
+  itemCount,
+  totals,
+  discountPercent,
+  taxPercent,
+  serviceChargePercent,
+  orderType,
+  notes,
+  onNotesChange,
+  onTaxPercentChange,
+  onServiceChargePercentChange,
+}) => (
+  <aside className="lg:sticky lg:top-4 lg:self-start">
+    <section className={`${cardClass} space-y-4`}>
+      <h3 className="text-base font-semibold text-slate-900">Order Summary</h3>
+
+      <div className="space-y-2.5 text-sm">
+        <div className="flex justify-between text-slate-600">
+          <span>Subtotal ({itemCount} {itemCount === 1 ? "item" : "items"})</span>
+          <span className="font-medium text-slate-900">{currency(totals.subtotal)}</span>
+        </div>
+
+        <div className="flex justify-between text-slate-600">
+          <span>Discount{discountPercent ? ` (${discountPercent}%)` : ""}</span>
+          <span className="font-medium text-rose-600">-{currency(totals.discount)}</span>
+        </div>
+
+        <div>
+          <label htmlFor="summary-tax" className={labelClass}>Tax {taxPercent ? `(${taxPercent}%)` : ""}</label>
+          <input
+            id="summary-tax"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            className={fieldClass}
+            value={taxPercent}
+            onChange={(e) => onTaxPercentChange(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div className="flex justify-between text-slate-600">
+          <span>Tax</span>
+          <span className="font-medium text-slate-900">{currency(totals.tax)}</span>
+        </div>
+
+        <div>
+          <label htmlFor="summary-service" className={labelClass}>Service Charge {serviceChargePercent ? `(${serviceChargePercent}%)` : ""}</label>
+          <input
+            id="summary-service"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            className={fieldClass}
+            value={serviceChargePercent}
+            onChange={(e) => onServiceChargePercentChange(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div className="flex justify-between text-slate-600">
+          <span>Service Charge</span>
+          <span className="font-medium text-slate-900">{currency(totals.serviceCharge)}</span>
+        </div>
+
+        {orderType === "DELIVERY" ? (
+          <div className="flex justify-between text-slate-600">
+            <span>Delivery Charge</span>
+            <span className="font-medium text-slate-900">{currency(totals.deliveryCharge)}</span>
+          </div>
+        ) : null}
+
+        <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900">
+          <span>Grand Total</span>
+          <span className="text-brand-700">{currency(totals.total)}</span>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <label htmlFor="customer-note" className={labelClass}>
+          Customer Note <span className="font-normal text-slate-400">(Optional)</span>
+        </label>
+        <textarea
+          id="customer-note"
+          rows={3}
+          maxLength={NOTE_MAX}
+          className={fieldClass}
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          placeholder="Add a note for this order..."
+        />
+        <p className="mt-1 text-right text-xs text-slate-400">{notes.length}/{NOTE_MAX}</p>
+      </div>
+    </section>
+  </aside>
+);
+
+export default SummaryPanel;

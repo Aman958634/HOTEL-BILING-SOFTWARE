@@ -1,0 +1,24 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Restaurant Management API",
+    "version": "1.0.0",
+    "description": "Enterprise Restaurant Management REST API"
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api/v1" }
+  ],
+  "paths": {
+    "/auth/register": { "post": { "summary": "Register user", "responses": { "201": { "description": "Created" } } } },
+    "/auth/login": { "post": { "summary": "Login user", "responses": { "200": { "description": "OK" } } } },
+    "/orders": {
+      "get": { "summary": "List orders", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create order", "responses": { "201": { "description": "Created" } } }
+    },
+    "/reservations": {
+      "get": { "summary": "List reservations", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create reservation", "responses": { "201": { "description": "Created" } } }
+    },
+    "/analytics/dashboard": { "get": { "summary": "Dashboard analytics", "responses": { "200": { "description": "OK" } } } }
+  }
+}

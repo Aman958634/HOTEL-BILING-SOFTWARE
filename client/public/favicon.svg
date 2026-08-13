@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="RestoSphere">
+  <rect width="64" height="64" rx="16" fill="#0f766e" />
+  <path d="M18 20h28a4 4 0 0 1 4 4v4H14v-4a4 4 0 0 1 4-4Zm-4 14h36v6a8 8 0 0 1-8 8H22a8 8 0 0 1-8-8v-6Zm8 4a2 2 0 1 0 0 4h4a2 2 0 1 0 0-4h-4Zm12 0a2 2 0 1 0 0 4h4a2 2 0 1 0 0-4h-4Z" fill="#ecfeff"/>
+</svg>

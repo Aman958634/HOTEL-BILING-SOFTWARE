@@ -1,0 +1,153 @@
+import { useEffect, useMemo, useState } from "react";
+import { FiCalendar, FiCoffee, FiDollarSign, FiLayers, FiShoppingCart, FiTag } from "react-icons/fi";
+import toast from "react-hot-toast";
+import StatCard from "../../components/admin/StatCard";
+import SalesChart from "../../components/admin/SalesChart";
+import RecentOrders from "../../components/admin/RecentOrders";
+import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, updateAdminOrderStatus } from "../../services/adminService";
+import { useSocket } from "../../context/SocketContext";
+
+const cardIconMap = {
+  totalRevenue: <FiDollarSign />,
+  todayRevenue: <FiDollarSign />,
+  totalOrders: <FiShoppingCart />,
+  todayOrders: <FiShoppingCart />,
+  activeReservations: <FiCalendar />,
+  availableTables: <FiLayers />,
+  lowStockItems: <FiTag />,
+  totalMenuItems: <FiCoffee />,
+};
+
+const AdminDashboard = () => {
+  const [stats, setStats] = useState(null);
+  const [sales, setSales] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [range, setRange] = useState("7d");
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingSales, setLoadingSales] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+
+  const socket = useSocket();
+
+  const loadStats = async () => {
+    setLoadingStats(true);
+    try {
+      const { data } = await getAdminStats();
+      setStats(data.data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to load dashboard stats");
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const loadSales = async (selectedRange) => {
+    setLoadingSales(true);
+    try {
+      const { data } = await getAdminSales(selectedRange);
+      setSales(data.data || []);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to load sales overview");
+    } finally {
+      setLoadingSales(false);
+    }
+  };
+
+  const loadOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const { data } = await getAdminRecentOrders();
+      setOrders(data.data || []);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to load recent orders");
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+    loadSales(range);
+    loadOrders();
+  }, []);
+
+  useEffect(() => {
+    loadSales(range);
+  }, [range]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshOrders = () => loadOrders();
+    socket.on("order:new", refreshOrders);
+    socket.on("order:status", refreshOrders);
+
+    return () => {
+      socket.off("order:new", refreshOrders);
+      socket.off("order:status", refreshOrders);
+    };
+  }, [socket]);
+
+  const cards = useMemo(() => {
+    if (!stats) return [];
+    return Object.entries(stats).map(([key, value]) => ({
+      key,
+      icon: cardIconMap[key],
+      ...value,
+    }));
+  }, [stats]);
+
+  const onStatusChange = async (orderId, status) => {
+    try {
+      await updateAdminOrderStatus(orderId, status);
+      toast.success("Order status updated");
+      loadOrders();
+      loadStats();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to update order status");
+    }
+  };
+
+  const onDeleteOrder = async (order) => {
+    const confirmed = window.confirm(`Archive order ${order.orderNumber}?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteAdminOrder(order._id || order.orderNumber);
+      setOrders((currentOrders) => currentOrders.filter((item) => item._id !== order._id));
+      toast.success("Order archived");
+      await Promise.all([loadOrders(), loadStats()]);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to delete order");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-2xl font-bold text-slate-900">Welcome, Admin</h2>
+        <p className="mt-1 text-sm text-slate-500">Monitor restaurant performance and manage operations from one place.</p>
+      </div>
+
+      {loadingStats ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map((card) => (
+            <StatCard key={card.key} icon={card.icon} label={card.label} value={card.value} trend={card.trend} />
+          ))}
+        </div>
+      )}
+
+      <SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} />
+
+      <RecentOrders orders={orders} loading={loadingOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} />
+    </div>
+  );
+};
+
+export default AdminDashboard;
