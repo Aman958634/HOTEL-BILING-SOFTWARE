@@ -28,13 +28,35 @@ export const maskMongoUri = (uri) => {
   }
 };
 
+const shouldSeedSuperAdmin = () => {
+  if (process.env.SUPER_ADMIN_SEED === "false") return false;
+
+  if (process.env.NODE_ENV === "production") {
+    return Boolean(process.env.SUPER_ADMIN_EMAIL && process.env.SUPER_ADMIN_PASSWORD);
+  }
+
+  return true;
+};
+
 const seedSuperAdmin = async () => {
   const existing = await User.findOne({ role: "super_admin" });
   if (existing) return;
 
-  const email = process.env.SUPER_ADMIN_EMAIL || "superadmin@restosphere.com";
-  const password = process.env.SUPER_ADMIN_PASSWORD || "SuperAdmin@12345";
+  const isProduction = process.env.NODE_ENV === "production";
+  const email = (process.env.SUPER_ADMIN_EMAIL || (isProduction ? "" : "superadmin@restosphere.com"))
+    .trim()
+    .toLowerCase();
+  const password = process.env.SUPER_ADMIN_PASSWORD || (isProduction ? "" : "SuperAdmin@12345");
   const fullName = process.env.SUPER_ADMIN_NAME || "Super Admin";
+
+  if (!email || !password) {
+    if (isProduction) {
+      logger.warn(
+        "Super admin seed skipped: set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD in Render environment variables, then redeploy."
+      );
+    }
+    return;
+  }
 
   await User.create({ fullName, email, password, role: "super_admin" });
   logger.info(`Created super admin account: ${email}`);
@@ -62,7 +84,7 @@ const connectDB = async () => {
     logger.error(`Subscription bootstrap failed: ${error.message}`);
   }
 
-  if (process.env.NODE_ENV !== "production" && process.env.SUPER_ADMIN_SEED !== "false") {
+  if (shouldSeedSuperAdmin()) {
     await seedSuperAdmin();
   }
 };

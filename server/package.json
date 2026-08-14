@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "kill-port 5002 && nodemon server.js",
     "start": "node server.js",
+    "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "lint": "echo \"Add ESLint config\""
   },

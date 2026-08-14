@@ -21,7 +21,8 @@ export const register = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = req.body.password;
   const user = await User.findOne({ email }).select("+password");
   if (!user) throw new ApiError(401, "Invalid credentials");
   if (!user.isActive) throw new ApiError(403, "Account is inactive");

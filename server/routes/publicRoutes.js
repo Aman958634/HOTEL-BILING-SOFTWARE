@@ -69,9 +69,6 @@ router.get(
   })
 );
 
-export default router;
-
-// Dev helper: check if a super_admin account exists
 router.get(
   "/seed-status",
   asyncHandler(async (_req, res) => {
@@ -83,7 +80,6 @@ router.get(
   })
 );
 
-// Dev-only: create a super_admin user (only allowed in non-production)
 router.post(
   "/create-super-admin",
   asyncHandler(async (req, res) => {
@@ -105,3 +101,5 @@ router.post(
     return res.status(201).json(new ApiResponse(true, "Super admin created", { email: user.email, id: user._id }));
   })
 );
+
+export default router;

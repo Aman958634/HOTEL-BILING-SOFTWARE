@@ -12,6 +12,7 @@ import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requireDb } from "./middleware/dbReady.js";
 import { isDbConnected } from "./config/db.js";
+import { isOriginAllowed } from "./utils/allowedOrigins.js";
 import authRoutes from "./routes/authRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -36,16 +37,9 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      const configuredOrigins = String(process.env.CLIENT_URL || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const allowed = [...configuredOrigins, "http://localhost:5173", "http://localhost:5174"];
-
-      if (!origin || allowed.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
-
       return callback(new Error("CORS not allowed"));
     },
     credentials: true,

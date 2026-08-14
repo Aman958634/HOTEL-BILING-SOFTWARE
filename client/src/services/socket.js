@@ -3,4 +3,6 @@ import { SOCKET_URL } from "../utils/constants";
 
 export const socket = io(SOCKET_URL, {
   autoConnect: false,
+  transports: ["websocket", "polling"],
+  withCredentials: true,
 });

@@ -66,7 +66,12 @@ const LoginPage = ({ superAdminOnly = false }) => {
 
   const onSubmit = async (values) => {
     try {
-      const result = await dispatch(loginThunk(values)).unwrap();
+      const result = await dispatch(
+        loginThunk({
+          email: String(values.email || "").trim(),
+          password: String(values.password || ""),
+        })
+      ).unwrap();
       const role = result?.user?.role;
 
       if (superAdminOnly && role !== "super_admin") {

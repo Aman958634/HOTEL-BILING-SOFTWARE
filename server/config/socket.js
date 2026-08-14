@@ -1,11 +1,18 @@
 import { Server } from "socket.io";
+import { getAllowedOrigins, isOriginAllowed } from "../utils/allowedOrigins.js";
 
 let io;
 
 export const initSocketServer = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Socket.IO CORS not allowed"));
+      },
       credentials: true,
     },
   });
@@ -29,3 +36,5 @@ export const getIO = () => {
   }
   return io;
 };
+
+export { getAllowedOrigins };
