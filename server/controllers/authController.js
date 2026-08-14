@@ -7,6 +7,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { sendEmail } from "../services/emailService.js";
 import Staff from "../models/Staff.js";
+import logger from "../utils/logger.js";
 
 const resetTokenStore = new Map();
 
@@ -23,11 +24,22 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = req.body.password;
+
+  logger.info(`Login attempt email: ${email}`);
+
   const user = await User.findOne({ email }).select("+password");
-  if (!user) throw new ApiError(401, "Invalid credentials");
+  if (!user) {
+    logger.warn(`Login failed: user not found (${email})`);
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  logger.info(`Login user found: true, role: ${user.role}, active: ${user.isActive}`);
+
   if (!user.isActive) throw new ApiError(403, "Account is inactive");
 
   const isMatch = await user.comparePassword(password);
+  logger.info(`Login password match: ${isMatch}`);
+
   if (!isMatch) throw new ApiError(401, "Invalid credentials");
 
   const payload = {
@@ -46,6 +58,7 @@ export const login = asyncHandler(async (req, res) => {
   await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
 
   const safeUser = await User.findById(user._id).select("-password -refreshToken");
+  logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
   res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken }));
 });
 

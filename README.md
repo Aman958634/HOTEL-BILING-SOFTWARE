@@ -66,15 +66,9 @@ Production-ready full-stack restaurant management platform with role-based acces
 - Build command: `npm install`
 - Start command: `npm start`
 - Add all variables from `server/.env.example`
-- **Required for Super Admin login in production:**
-  - `NODE_ENV=production`
-  - `CLIENT_URL=https://hotel-biling-software.vercel.app` (comma-separate localhost for local testing)
-  - `SUPER_ADMIN_EMAIL` — your super admin email
-  - `SUPER_ADMIN_PASSWORD` — strong password (hashed on create, never stored in frontend)
-  - `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
-- On deploy, the server seeds the super admin if none exists and both `SUPER_ADMIN_EMAIL` + `SUPER_ADMIN_PASSWORD` are set.
-- Or run once on Render shell: `npm run seed:super-admin` (uses the same env vars).
-- Verify: `GET /api/v1/public/seed-status` should return `{ exists: true }` after deploy.
+- **Super Admin login:** On startup the server idempotently seeds `superadmin@restosphere.com` (password from `SUPER_ADMIN_PASSWORD`, default in `.env.example`) if no `super_admin` exists. Set `SUPER_ADMIN_SEED=false` to disable.
+- Or run once: `npm run seed:super-admin`
+- Verify: `GET /api/v1/public/seed-status` → `{ exists: true }`
 
 ### Database
 - Create MongoDB Atlas cluster

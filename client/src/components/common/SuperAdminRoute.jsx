@@ -24,7 +24,7 @@ const SuperAdminRoute = ({ children }) => {
   }, [accessToken, dispatch, user]);
 
   if (!accessToken || accessToken === "undefined" || accessToken === "null") {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/super-admin-login" replace />;
   }
 
   if (profileLoading || !user) {

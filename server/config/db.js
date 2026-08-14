@@ -3,6 +3,7 @@ import logger from "../utils/logger.js";
 import User from "../models/User.js";
 import { ensureDefaultPlans } from "../services/planService.js";
 import { ensureRestaurantSubscriptions } from "../services/subscriptionBootstrapService.js";
+import { ensureSuperAdmin, shouldSeedSuperAdmin } from "../services/superAdminSeedService.js";
 
 /** Fail fast on queries when disconnected — avoids 10s buffering timeouts. */
 mongoose.set("bufferCommands", false);
@@ -28,40 +29,6 @@ export const maskMongoUri = (uri) => {
   }
 };
 
-const shouldSeedSuperAdmin = () => {
-  if (process.env.SUPER_ADMIN_SEED === "false") return false;
-
-  if (process.env.NODE_ENV === "production") {
-    return Boolean(process.env.SUPER_ADMIN_EMAIL && process.env.SUPER_ADMIN_PASSWORD);
-  }
-
-  return true;
-};
-
-const seedSuperAdmin = async () => {
-  const existing = await User.findOne({ role: "super_admin" });
-  if (existing) return;
-
-  const isProduction = process.env.NODE_ENV === "production";
-  const email = (process.env.SUPER_ADMIN_EMAIL || (isProduction ? "" : "superadmin@restosphere.com"))
-    .trim()
-    .toLowerCase();
-  const password = process.env.SUPER_ADMIN_PASSWORD || (isProduction ? "" : "SuperAdmin@12345");
-  const fullName = process.env.SUPER_ADMIN_NAME || "Super Admin";
-
-  if (!email || !password) {
-    if (isProduction) {
-      logger.warn(
-        "Super admin seed skipped: set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD in Render environment variables, then redeploy."
-      );
-    }
-    return;
-  }
-
-  await User.create({ fullName, email, password, role: "super_admin" });
-  logger.info(`Created super admin account: ${email}`);
-};
-
 const connectDB = async () => {
   const mongoUri = getMongoUri();
   if (!mongoUri) {
@@ -85,7 +52,11 @@ const connectDB = async () => {
   }
 
   if (shouldSeedSuperAdmin()) {
-    await seedSuperAdmin();
+    try {
+      await ensureSuperAdmin(logger);
+    } catch (error) {
+      logger.error(`Super admin seed failed: ${error.message}`);
+    }
   }
 };
 
