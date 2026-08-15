@@ -6,6 +6,8 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { normalizePaymentMethod, normalizePaymentStatus } from "../utils/paymentUtils.js";
+import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { calculateGrowth } from "../utils/growthUtils.js";
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
 const SUCCESS_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
@@ -108,12 +110,7 @@ const parseDateRange = (query) => {
   };
 };
 
-const growthPercent = (current, previous) => {
-  const c = Number(current || 0);
-  const p = Number(previous || 0);
-  if (!p) return c > 0 ? 100 : 0;
-  return Number((((c - p) / p) * 100).toFixed(2));
-};
+const growthPercent = (current, previous) => calculateGrowth(current, previous);
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -139,19 +136,26 @@ const formatDate = (value) =>
       }).format(new Date(value))
     : "-";
 
-const toOrderMatch = (rangeContext) => ({
+const toOrderMatch = (rangeContext, restaurantFilter = {}) => ({
+  ...restaurantFilter,
   isArchived: { $ne: true },
   createdAt: { $gte: rangeContext.start, $lt: rangeContext.end },
 });
 
-const toPaymentMatch = (rangeContext) => ({
+const toPaymentMatch = (rangeContext, restaurantFilter = {}) => ({
+  ...restaurantFilter,
   createdAt: { $gte: rangeContext.start, $lt: rangeContext.end },
 });
 
-const buildSummaryForRange = async (rangeContext) => {
-  const orderMatch = toOrderMatch(rangeContext);
+const getRestaurantFilter = async (user) => {
+  if (!user) return {};
+  return buildRestaurantQuery({}, user);
+};
+
+const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
+  const orderMatch = toOrderMatch(rangeContext, restaurantFilter);
   const paymentMatch = {
-    ...toPaymentMatch(rangeContext),
+    ...toPaymentMatch(rangeContext, restaurantFilter),
     paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
   };
 
@@ -206,9 +210,11 @@ export const getReportSummary = asyncHandler(async (req, res) => {
     end: current.previousEnd,
   };
 
+  const restaurantFilter = await getRestaurantFilter(req.user);
+
   const [currentSummary, previousSummary] = await Promise.all([
-    buildSummaryForRange(current),
-    buildSummaryForRange(previous),
+    buildSummaryForRange(current, restaurantFilter),
+    buildSummaryForRange(previous, restaurantFilter),
   ]);
 
   const data = {
@@ -229,6 +235,7 @@ export const getReportSummary = asyncHandler(async (req, res) => {
 
 export const getRevenueReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
   const format =
     rangeContext.granularity === "hour"
       ? "%Y-%m-%d %H:00"
@@ -239,7 +246,7 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
   const rows = await Payment.aggregate([
     {
       $match: {
-        ...toPaymentMatch(rangeContext),
+        ...toPaymentMatch(rangeContext, restaurantFilter),
         paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
       },
     },
@@ -266,8 +273,9 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
 
 export const getOrdersReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
   const rows = await Order.aggregate([
-    { $match: toOrderMatch(rangeContext) },
+    { $match: toOrderMatch(rangeContext, restaurantFilter) },
     { $group: { _id: "$status", count: { $sum: 1 } } },
   ]);
 
@@ -302,12 +310,13 @@ export const getOrdersReport = asyncHandler(async (req, res) => {
 
 export const getTopItemsReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 20);
 
   const rows = await Order.aggregate([
     {
       $match: {
-        ...toOrderMatch(rangeContext),
+        ...toOrderMatch(rangeContext, restaurantFilter),
         paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
       },
     },
@@ -367,11 +376,12 @@ export const getTopItemsReport = asyncHandler(async (req, res) => {
 
 export const getCategoryReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
 
   const rows = await Order.aggregate([
     {
       $match: {
-        ...toOrderMatch(rangeContext),
+        ...toOrderMatch(rangeContext, restaurantFilter),
         paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
       },
     },
@@ -425,7 +435,8 @@ export const getCategoryReport = asyncHandler(async (req, res) => {
 
 export const getPaymentReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
-  const match = toPaymentMatch(rangeContext);
+  const restaurantFilter = await getRestaurantFilter(req.user);
+  const match = toPaymentMatch(rangeContext, restaurantFilter);
 
   const [statusRows, methodRows, totalCount] = await Promise.all([
     Payment.aggregate([
@@ -464,12 +475,13 @@ export const getPaymentReport = asyncHandler(async (req, res) => {
 
 export const getCustomerReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
 
   const [customersInPeriod, firstOrderRows] = await Promise.all([
     Order.aggregate([
       {
         $match: {
-          ...toOrderMatch(rangeContext),
+          ...toOrderMatch(rangeContext, restaurantFilter),
           customer: { $ne: null },
         },
       },
@@ -488,6 +500,7 @@ export const getCustomerReport = asyncHandler(async (req, res) => {
     Order.aggregate([
       {
         $match: {
+          ...restaurantFilter,
           isArchived: { $ne: true },
           customer: { $ne: null },
         },
@@ -535,6 +548,7 @@ export const getCustomerReport = asyncHandler(async (req, res) => {
 
 export const getSalesReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
+  const restaurantFilter = await getRestaurantFilter(req.user);
   const page = Math.max(Number(req.query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
   const skip = (page - 1) * limit;
@@ -544,7 +558,7 @@ export const getSalesReport = asyncHandler(async (req, res) => {
   const sortBy = String(req.query.sortBy || "date").toLowerCase();
   const sortOrder = String(req.query.sortOrder || "desc").toLowerCase() === "asc" ? 1 : -1;
 
-  const baseMatch = toOrderMatch(rangeContext);
+  const baseMatch = toOrderMatch(rangeContext, restaurantFilter);
   if (orderStatus) baseMatch.status = orderStatus;
   if (paymentStatus) baseMatch.paymentStatus = paymentStatus;
 
@@ -630,12 +644,16 @@ export const getSalesReport = asyncHandler(async (req, res) => {
   );
 });
 
-const buildExportPayload = async (query) => {
+const buildExportPayload = async (query, user) => {
   const rangeContext = parseDateRange(query);
+  const restaurantFilter = await getRestaurantFilter(user);
   const [summaryRes, revenueRes, topItemsRes, paymentRes, salesRes] = await Promise.all([
     (async () => {
-      const current = await buildSummaryForRange(rangeContext);
-      const previous = await buildSummaryForRange({ ...rangeContext, start: rangeContext.previousStart, end: rangeContext.previousEnd });
+      const current = await buildSummaryForRange(rangeContext, restaurantFilter);
+      const previous = await buildSummaryForRange(
+        { ...rangeContext, start: rangeContext.previousStart, end: rangeContext.previousEnd },
+        restaurantFilter
+      );
       return {
         ...current,
         growth: {
@@ -656,7 +674,7 @@ const buildExportPayload = async (query) => {
       return Payment.aggregate([
         {
           $match: {
-            ...toPaymentMatch(rangeContext),
+            ...toPaymentMatch(rangeContext, restaurantFilter),
             paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
           },
         },
@@ -673,7 +691,7 @@ const buildExportPayload = async (query) => {
       return Order.aggregate([
         {
           $match: {
-            ...toOrderMatch(rangeContext),
+            ...toOrderMatch(rangeContext, restaurantFilter),
             paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
           },
         },
@@ -710,11 +728,11 @@ const buildExportPayload = async (query) => {
     (async () => {
       const [statusRows, methodRows] = await Promise.all([
         Payment.aggregate([
-          { $match: toPaymentMatch(rangeContext) },
+          { $match: toPaymentMatch(rangeContext, restaurantFilter) },
           { $group: { _id: "$paymentStatus", count: { $sum: 1 } } },
         ]),
         Payment.aggregate([
-          { $match: toPaymentMatch(rangeContext) },
+          { $match: toPaymentMatch(rangeContext, restaurantFilter) },
           { $group: { _id: "$paymentMethod", count: { $sum: 1 }, totalAmount: { $sum: "$totalAmount" } } },
           { $sort: { totalAmount: -1 } },
         ]),
@@ -723,7 +741,7 @@ const buildExportPayload = async (query) => {
     })(),
     (async () => {
       return Order.aggregate([
-        { $match: toOrderMatch(rangeContext) },
+        { $match: toOrderMatch(rangeContext, restaurantFilter) },
         {
           $lookup: {
             from: "users",
@@ -902,7 +920,7 @@ export const exportReports = asyncHandler(async (req, res) => {
     throw new ApiError(422, "format must be csv or pdf");
   }
 
-  const payload = await buildExportPayload(req.query);
+  const payload = await buildExportPayload(req.query, req.user);
 
   if (format === "pdf") {
     const buffer = await buildReportPdfBuffer(payload);

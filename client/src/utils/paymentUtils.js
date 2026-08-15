@@ -51,6 +51,17 @@ const statusLabels = {
 
 export const paymentMethodLabel = (value) => methodLabels[String(value || "OTHER").toUpperCase()] || "Other";
 
+export const gatewayLabel = (payment = {}) => {
+  const method = String(payment.paymentMethod || "").toUpperCase();
+  const gateway = String(payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "").trim();
+  if (method === "CASH" || gateway.toLowerCase() === "cash") return "—";
+  if (!gateway) return "—";
+  const lower = gateway.toLowerCase();
+  if (lower === "razorpay") return "Razorpay";
+  if (lower === "stripe") return "Stripe";
+  return gateway;
+};
+
 export const paymentStatusLabel = (value) => statusLabels[String(value || "PENDING").toUpperCase()] || "Pending";
 
 export const formatCurrency = (value) =>

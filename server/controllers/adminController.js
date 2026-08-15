@@ -1,16 +1,28 @@
 import Order from "../models/Order.js";
+import Payment from "../models/Payment.js";
 import Food from "../models/Food.js";
 import Reservation from "../models/Reservation.js";
 import Table from "../models/Table.js";
 import Inventory from "../models/Inventory.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { calculateGrowth } from "../utils/growthUtils.js";
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-const growthPercent = (current, previous) => {
-  if (!previous) return current > 0 ? 100 : 0;
-  return Number((((current - previous) / previous) * 100).toFixed(1));
+const PAID_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
+
+const netRevenueExpr = {
+  $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] },
+};
+
+const sumNetRevenue = async (match) => {
+  const [result] = await Payment.aggregate([
+    { $match: match },
+    { $group: { _id: null, total: netRevenueExpr } },
+  ]);
+  return Number(result?.total || 0);
 };
 
 const normalizeStatus = (status) => {
@@ -34,15 +46,21 @@ const normalizeStatus = (status) => {
   return map[status] || status;
 };
 
-export const dashboardStats = asyncHandler(async (_req, res) => {
+export const dashboardStats = asyncHandler(async (req, res) => {
   const todayStart = startOfDay();
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
+  const baseOrderMatch = await buildRestaurantQuery({ isArchived: { $ne: true } }, req.user);
+  const paidPaymentMatch = await buildRestaurantQuery(
+    { paymentStatus: { $in: PAID_PAYMENT_STATUSES } },
+    req.user
+  );
+
   const [
-    totalRevenueAgg,
-    todayRevenueAgg,
-    yesterdayRevenueAgg,
+    totalRevenue,
+    todayRevenue,
+    yesterdayRevenue,
     totalOrders,
     todayOrders,
     yesterdayOrders,
@@ -51,68 +69,58 @@ export const dashboardStats = asyncHandler(async (_req, res) => {
     lowStockItems,
     totalMenuItems,
   ] = await Promise.all([
-    Order.aggregate([{ $match: { paymentStatus: { $in: ["PAID", "paid"] }, isArchived: { $ne: true } } }, { $group: { _id: null, total: { $sum: "$total" } } }]),
-    Order.aggregate([
-      { $match: { paymentStatus: { $in: ["PAID", "paid"] }, createdAt: { $gte: todayStart }, isArchived: { $ne: true } } },
-      { $group: { _id: null, total: { $sum: "$total" } } },
-    ]),
-    Order.aggregate([
-      { $match: { paymentStatus: { $in: ["PAID", "paid"] }, createdAt: { $gte: yesterdayStart, $lt: todayStart }, isArchived: { $ne: true } } },
-      { $group: { _id: null, total: { $sum: "$total" } } },
-    ]),
-    Order.countDocuments({ isArchived: { $ne: true } }),
-    Order.countDocuments({ createdAt: { $gte: todayStart }, isArchived: { $ne: true } }),
-    Order.countDocuments({ createdAt: { $gte: yesterdayStart, $lt: todayStart }, isArchived: { $ne: true } }),
+    sumNetRevenue(paidPaymentMatch),
+    sumNetRevenue({ ...paidPaymentMatch, createdAt: { $gte: todayStart } }),
+    sumNetRevenue({ ...paidPaymentMatch, createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    Order.countDocuments(baseOrderMatch),
+    Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: todayStart } }),
+    Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
     Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] } }),
     Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] } }),
     Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] } }),
     Food.countDocuments(),
   ]);
 
-  const totalRevenue = totalRevenueAgg[0]?.total || 0;
-  const todayRevenue = todayRevenueAgg[0]?.total || 0;
-  const yesterdayRevenue = yesterdayRevenueAgg[0]?.total || 0;
-
   const cards = {
     totalRevenue: {
       label: "Total Revenue",
       value: totalRevenue,
-      trend: growthPercent(todayRevenue, yesterdayRevenue),
+      trend: calculateGrowth(todayRevenue, yesterdayRevenue),
     },
     todayRevenue: {
       label: "Today's Revenue",
       value: todayRevenue,
-      trend: growthPercent(todayRevenue, yesterdayRevenue),
+      trend: calculateGrowth(todayRevenue, yesterdayRevenue),
     },
     totalOrders: {
       label: "Total Orders",
       value: totalOrders,
-      trend: growthPercent(todayOrders, yesterdayOrders),
+      trend: calculateGrowth(todayOrders, yesterdayOrders),
     },
     todayOrders: {
       label: "Today's Orders",
       value: todayOrders,
-      trend: growthPercent(todayOrders, yesterdayOrders),
+      trend: calculateGrowth(todayOrders, yesterdayOrders),
     },
     activeReservations: {
       label: "Active Reservations",
       value: activeReservations,
-      trend: 0,
+      trend: { value: null, label: "—", type: "neutral" },
     },
     availableTables: {
       label: "Available Tables",
       value: availableTables,
-      trend: 0,
+      trend: { value: null, label: "—", type: "neutral" },
     },
     lowStockItems: {
       label: "Low Stock Items",
       value: lowStockItems,
-      trend: 0,
+      trend: { value: null, label: "—", type: "neutral" },
     },
     totalMenuItems: {
       label: "Total Menu Items",
       value: totalMenuItems,
-      trend: 0,
+      trend: { value: null, label: "—", type: "neutral" },
     },
   };
 
@@ -137,12 +145,20 @@ export const salesOverview = asyncHandler(async (req, res) => {
     groupFormat = "%Y-%m";
   }
 
-  const data = await Order.aggregate([
-    { $match: { createdAt: { $gte: startDate }, paymentStatus: { $in: ["PAID", "PENDING", "paid", "pending"] }, isArchived: { $ne: true } } },
+  const paymentMatch = await buildRestaurantQuery(
+    {
+      createdAt: { $gte: startDate },
+      paymentStatus: { $in: PAID_PAYMENT_STATUSES },
+    },
+    req.user
+  );
+
+  const data = await Payment.aggregate([
+    { $match: paymentMatch },
     {
       $group: {
         _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
-        revenue: { $sum: "$total" },
+        revenue: netRevenueExpr,
         orders: { $sum: 1 },
       },
     },
@@ -152,11 +168,12 @@ export const salesOverview = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(true, "Sales overview fetched", data));
 });
 
-export const recentOrders = asyncHandler(async (_req, res) => {
-  const orders = await Order.find()
+export const recentOrders = asyncHandler(async (req, res) => {
+  const orderMatch = await buildRestaurantQuery({ isArchived: { $ne: true } }, req.user);
+
+  const orders = await Order.find(orderMatch)
     .populate("customer", "fullName email")
     .populate("items.menuItem", "name")
-    .where({ isArchived: { $ne: true } })
     .sort({ createdAt: -1 })
     .limit(12);
 

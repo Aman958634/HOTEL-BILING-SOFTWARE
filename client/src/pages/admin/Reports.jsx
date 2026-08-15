@@ -191,33 +191,39 @@ const Reports = () => {
     return [
       {
         label: "Total Revenue",
-        value: currency(summary.totalRevenue || 0),
+        value: summary.totalRevenue || 0,
         trend: summary.growth?.totalRevenue || 0,
+        formatValue: true,
       },
       {
         label: "Total Orders",
         value: summary.totalOrders || 0,
         trend: summary.growth?.totalOrders || 0,
+        formatValue: false,
       },
       {
         label: "Avg Order Value",
-        value: currency(summary.averageOrderValue || 0),
+        value: summary.averageOrderValue || 0,
         trend: summary.growth?.averageOrderValue || 0,
+        formatValue: true,
       },
       {
         label: "Customers",
         value: summary.totalCustomers || 0,
         trend: summary.growth?.totalCustomers || 0,
+        formatValue: false,
       },
       {
         label: "Completed Orders",
         value: summary.completedOrders || 0,
         trend: summary.growth?.completedOrders || 0,
+        formatValue: false,
       },
       {
         label: "Cancelled Orders",
         value: summary.cancelledOrders || 0,
         trend: summary.growth?.cancelledOrders || 0,
+        formatValue: false,
       },
     ];
   }, [summary]);
@@ -387,7 +393,16 @@ const Reports = () => {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {loading
           ? Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100" />)
-          : summaryCards.map((card) => <StatCard key={card.label} icon={<FiUsers />} label={card.label} value={card.value} trend={card.trend} />)}
+          : summaryCards.map((card) => (
+              <StatCard
+                key={card.label}
+                icon={<FiUsers />}
+                label={card.label}
+                value={card.value}
+                trend={card.trend}
+                formatValue={card.formatValue}
+              />
+            ))}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">

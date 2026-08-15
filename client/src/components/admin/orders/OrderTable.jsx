@@ -1,16 +1,19 @@
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
+import { paymentMethodLabel } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
 import OrderStatusBadge from "./OrderStatusBadge";
 
 const paymentText = (value) => String(value || "PENDING").replaceAll("_", " ");
-const paymentMethodText = (value) => String(value || "CASH").replaceAll("_", " ");
+const orderTypeText = (value) => String(value || "").replaceAll("_", " ");
 
 const editBtnClass =
-  "inline-flex items-center gap-1 rounded-md border border-teal-200 bg-white px-2 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30";
+  "inline-flex shrink-0 items-center gap-1 rounded-md border border-teal-200 bg-white px-2 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30";
 
 const deleteBtnClass =
-  "inline-flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30";
+  "inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30";
+
+const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 
 const OrderTable = ({ orders, loading, onEdit, onDelete }) => {
   if (loading) {
@@ -28,37 +31,37 @@ const OrderTable = ({ orders, loading, onEdit, onDelete }) => {
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
-        <table className="min-w-full text-sm">
+        <table className="min-w-[1100px] w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
-              <th className="px-4 py-3">Order ID</th>
-              <th className="px-4 py-3">Customer</th>
-              <th className="px-4 py-3">Table</th>
-              <th className="px-4 py-3">Items</th>
-              <th className="px-4 py-3">Order Type</th>
-              <th className="px-4 py-3">Payment Method</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Payment</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Created</th>
-              <th className="px-4 py-3">Actions</th>
+              <th className={`${cellClass} min-w-[100px]`}>Order ID</th>
+              <th className={`${cellClass} min-w-[120px]`}>Customer</th>
+              <th className={`${cellClass} min-w-[80px]`}>Table</th>
+              <th className={`${cellClass} min-w-[70px]`}>Items</th>
+              <th className={`${cellClass} min-w-[100px]`}>Order Type</th>
+              <th className={`${cellClass} min-w-[110px]`}>Payment Method</th>
+              <th className={`${cellClass} min-w-[90px]`}>Amount</th>
+              <th className={`${cellClass} min-w-[90px]`}>Payment</th>
+              <th className={`${cellClass} min-w-[110px]`}>Status</th>
+              <th className={`${cellClass} min-w-[140px]`}>Created</th>
+              <th className={`${cellClass} min-w-[150px]`}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {orders.map((order) => (
               <tr key={order._id} className="border-b border-slate-100 text-slate-700">
-                <td className="px-4 py-3 font-medium">#{order.orderNumber}</td>
-                <td className="px-4 py-3">{order.customer?.fullName || "Guest"}</td>
-                <td className="px-4 py-3">{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
-                <td className="px-4 py-3">{order.items?.length || 0} Items</td>
-                <td className="px-4 py-3">{String(order.orderType || "").replaceAll("_", " ")}</td>
-                <td className="px-4 py-3">{paymentMethodText(order.paymentMethod)}</td>
-                <td className="px-4 py-3">{currency(order.total)}</td>
-                <td className="px-4 py-3">{paymentText(order.paymentStatus)}</td>
-                <td className="px-4 py-3"><OrderStatusBadge status={order.status} /></td>
-                <td className="px-4 py-3">{dateTime(order.createdAt)}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
+                <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
+                <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
+                <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
+                <td className={cellClass}>{order.items?.length || 0} Items</td>
+                <td className={cellClass}>{orderTypeText(order.orderType)}</td>
+                <td className={cellClass}>{paymentMethodLabel(order.paymentMethod)}</td>
+                <td className={cellClass}>{currency(order.total)}</td>
+                <td className={cellClass}>{paymentText(order.paymentStatus)}</td>
+                <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
+                <td className={cellClass}>{dateTime(order.createdAt)}</td>
+                <td className={cellClass}>
+                  <div className="flex flex-nowrap gap-2">
                     <button type="button" onClick={() => onEdit(order)} className={editBtnClass} aria-label={`Edit order ${order.orderNumber}`}>
                       <FiEdit2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       Edit

@@ -158,7 +158,10 @@ export const syncPaymentFromOrder = async (
 
   const nextPaymentStatus = normalizePaymentStatus(status || orderDoc.paymentStatus || "PENDING");
   const nextPaymentMethod = normalizePaymentMethod(metadata.paymentMethod || orderDoc.paymentMethod || "OTHER");
-  const gateway = normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
+  const gateway =
+    nextPaymentMethod === "CASH"
+      ? ""
+      : normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
 
   let paymentQuery = Payment.findOne({ orderId: orderDoc._id });
   if (session) paymentQuery = paymentQuery.session(session);

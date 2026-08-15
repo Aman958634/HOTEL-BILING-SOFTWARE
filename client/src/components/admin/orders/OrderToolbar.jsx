@@ -1,4 +1,4 @@
-import { FiPlus, FiSearch } from "react-icons/fi";
+import { FiCalendar, FiPlus, FiSearch, FiX } from "react-icons/fi";
 
 const OrderToolbar = ({ filters, onChange, onCreate }) => {
   const setField = (key, value) => onChange({ ...filters, [key]: value, page: 1 });
@@ -42,7 +42,25 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
           <option value="REFUNDED">Refunded</option>
         </select>
 
-        <input type="date" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" value={filters.date} onChange={(e) => setField("date", e.target.value)} />
+        <div className="relative">
+          <FiCalendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="date"
+            className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-9 text-sm"
+            value={filters.date}
+            onChange={(e) => setField("date", e.target.value)}
+          />
+          {filters.date ? (
+            <button
+              type="button"
+              onClick={() => setField("date", "")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-600"
+              aria-label="Clear date filter"
+            >
+              <FiX />
+            </button>
+          ) : null}
+        </div>
 
         <button onClick={onCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white">
           <FiPlus />

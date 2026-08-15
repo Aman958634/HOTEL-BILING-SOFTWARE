@@ -105,7 +105,7 @@ export const formatDaysRemainingLabel = (subscription, now = new Date()) => {
   return `${days} days remaining`;
 };
 
-export const toSubscriptionView = (subscription, now = new Date()) => {
+export const toSubscriptionView = (subscription, paymentContext = {}, now = new Date()) => {
   if (!subscription) return null;
   const plain = typeof subscription.toObject === "function" ? subscription.toObject() : { ...subscription };
   const daysRemaining = getDaysRemaining(plain, now);
@@ -113,6 +113,36 @@ export const toSubscriptionView = (subscription, now = new Date()) => {
   const trialStartDate = getTrialStartDate(plain);
   const isTrial = plain.status === "trial";
   const isActivePaid = plain.status === "active";
+
+  const pendingPayment = paymentContext.pendingPayment || null;
+  const latestPayment = paymentContext.latestPayment || null;
+
+  let paymentStatus = "—";
+  let displayStatus = String(plain.status || "").toUpperCase();
+
+  if (isActivePaid) {
+    paymentStatus = "PAID";
+    displayStatus = "ACTIVE";
+  } else if (isTrial) {
+    paymentStatus = pendingPayment ? "PENDING" : "TRIAL";
+    displayStatus = pendingPayment ? "PAYMENT_PENDING" : "TRIAL";
+  } else if (plain.status === "expired") {
+    paymentStatus = latestPayment?.status === "failed" ? "FAILED" : "—";
+    displayStatus = "EXPIRED";
+  } else if (plain.status === "cancelled") {
+    paymentStatus = "CANCELLED";
+    displayStatus = "CANCELLED";
+  } else if (plain.status === "suspended") {
+    paymentStatus = "SUSPENDED";
+    displayStatus = "SUSPENDED";
+  }
+
+  const selectedPaidPlan = plain.metadata?.selectedPaidPlan || null;
+  const currentPlanLabel = isTrial
+    ? "Free Trial"
+    : isActivePaid
+      ? plain.planName
+      : plain.planName;
 
   return {
     ...plain,
@@ -129,6 +159,12 @@ export const toSubscriptionView = (subscription, now = new Date()) => {
     trialLabel: isTrial ? "15-Day Free Trial" : null,
     renewalDate: isTrial ? null : plain.renewalDate || null,
     serverTime: new Date(now).toISOString(),
+    paymentStatus,
+    displayStatus,
+    currentPlanLabel,
+    selectedPaidPlan,
+    selectedPlanLabel: selectedPaidPlan && isTrial ? selectedPaidPlan : null,
+    pendingPaymentId: pendingPayment?._id || null,
   };
 };
 

@@ -103,6 +103,17 @@ export const normalizePaymentStatus = (value) => {
 
 export const paymentMethodLabel = (value) => PAYMENT_METHOD_LABELS[normalizePaymentMethod(value)] || "Other";
 
+export const gatewayLabel = (payment = {}) => {
+  const method = normalizePaymentMethod(payment.paymentMethod);
+  const gateway = String(payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "").trim();
+  if (method === "CASH" || gateway.toLowerCase() === "cash") return "—";
+  if (!gateway) return "—";
+  const lower = gateway.toLowerCase();
+  if (lower === "razorpay") return "Razorpay";
+  if (lower === "stripe") return "Stripe";
+  return gateway;
+};
+
 export const paymentStatusLabel = (value) => PAYMENT_STATUS_LABELS[normalizePaymentStatus(value)] || "Pending";
 
 export const paymentStatusTone = (value) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getRestaurantSettings, updateRestaurantSettings } from "../../services/restaurantService";
+import ToggleSwitch from "../../components/common/ToggleSwitch";
 
 const defaultSettings = {
   name: "",
@@ -241,33 +242,21 @@ const Settings = () => {
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Operational Controls</h2>
             <div className="space-y-4">
-              <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <span className="text-sm font-medium text-slate-800">Restaurant Active</span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(settings.isActive)}
-                  onChange={(event) => handleChange("isActive", event.target.checked)}
-                  className="h-5 w-5 rounded text-brand-700"
-                />
-              </label>
-              <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <span className="text-sm font-medium text-slate-800">Online Orders</span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(settings.onlineOrdersEnabled)}
-                  onChange={(event) => handleChange("onlineOrdersEnabled", event.target.checked)}
-                  className="h-5 w-5 rounded text-brand-700"
-                />
-              </label>
-              <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <span className="text-sm font-medium text-slate-800">Reservations Enabled</span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(settings.reservationsEnabled)}
-                  onChange={(event) => handleChange("reservationsEnabled", event.target.checked)}
-                  className="h-5 w-5 rounded text-brand-700"
-                />
-              </label>
+              <ToggleSwitch
+                label="Restaurant Active"
+                checked={Boolean(settings.isActive)}
+                onChange={(value) => handleChange("isActive", value)}
+              />
+              <ToggleSwitch
+                label="Online Orders"
+                checked={Boolean(settings.onlineOrdersEnabled)}
+                onChange={(value) => handleChange("onlineOrdersEnabled", value)}
+              />
+              <ToggleSwitch
+                label="Reservations Enabled"
+                checked={Boolean(settings.reservationsEnabled)}
+                onChange={(value) => handleChange("reservationsEnabled", value)}
+              />
             </div>
           </div>
 
@@ -287,7 +276,7 @@ const Settings = () => {
             disabled={saving || loading}
             className="w-full rounded-2xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Saving settings..." : "Save Settings"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </form>

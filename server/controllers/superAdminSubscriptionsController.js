@@ -232,7 +232,7 @@ const verifyAndActivatePayment = async ({
       metadata: { planName: payment.planName, amount: payment.amount, paymentReference: payment.gatewayPaymentId || payment.gatewayOrderId },
     });
     const sub = await Subscription.findById(payment.subscription);
-    if (sub && sub.status !== "active") {
+    if (sub && sub.status !== "active" && sub.status !== "trial") {
       sub.status = "expired";
       await sub.save();
     }
@@ -667,7 +667,14 @@ export const getMySubscription = asyncHandler(async (req, res) => {
     });
   }
 
-  res.status(200).json(new ApiResponse(true, "Subscription fetched", toSubscriptionView(sub)));
+  const [pendingPayment, latestPayment] = await Promise.all([
+    SaasPayment.findOne({ subscription: sub._id, status: "pending" }).sort({ createdAt: -1 }),
+    SaasPayment.findOne({ subscription: sub._id }).sort({ createdAt: -1 }),
+  ]);
+
+  res.status(200).json(
+    new ApiResponse(true, "Subscription fetched", toSubscriptionView(sub, { pendingPayment, latestPayment }))
+  );
 });
 
 export const createBillingCheckout = asyncHandler(async (req, res) => {
@@ -711,7 +718,7 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   if (sub.status === "trial") await syncAndExpire(sub);
   if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
 
-  // Remember selected plan + audit (idempotent if same plan already selected)
+  // Remember selected plan in metadata only during trial — do not overwrite trial plan name.
   const alreadySelected = sub.metadata?.selectedPaidPlan === plan.key;
   sub.metadata = {
     ...(sub.metadata || {}),
@@ -720,8 +727,10 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
     selectedPaidPlanAt: new Date().toISOString(),
     paymentRecorded: false,
   };
-  sub.planId = plan._id;
-  sub.planName = plan.key;
+  if (sub.status !== "trial") {
+    sub.planId = plan._id;
+    sub.planName = plan.key;
+  }
   await sub.save();
 
   if (!alreadySelected) {

@@ -14,6 +14,7 @@ import {
   normalizePaymentStatus,
   paymentMethodLabel,
   paymentStatusLabel,
+  gatewayLabel,
 } from "../utils/paymentUtils.js";
 import {
   applyRefundToPayment,
@@ -193,7 +194,7 @@ const mapPaymentRow = (payment) => ({
   refundAmountLabel: formatCurrency(payment.refundAmount || 0),
   paymentMethodLabel: paymentMethodLabel(payment.paymentMethod),
   paymentStatusLabel: paymentStatusLabel(payment.paymentStatus),
-  gatewayLabel: payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "",
+  gatewayLabel: gatewayLabel(payment),
   dateTimeLabel: payment.createdAt,
   orderIdValue: payment.orderNumber || payment.orderId?.orderNumber || payment.orderId,
   customerName: payment.customerName || payment.customerId?.fullName || "Guest",
