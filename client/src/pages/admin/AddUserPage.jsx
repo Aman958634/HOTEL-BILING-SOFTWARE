@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { createUser } from "../../services/superAdminService";
+import PasswordInput from "../../components/common/PasswordInput";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 

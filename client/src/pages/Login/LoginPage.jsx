@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { loginThunk, logout } from "../../redux/slices/authSlice";
 import { getSelectedPlan, saveSelectedPlan } from "../../utils/planSelection";
+import PasswordInput from "../../components/common/PasswordInput";
 
 const roleRedirectMap = {
   super_admin: "/super-admin/dashboard",
@@ -93,7 +94,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
       <h2 className="text-2xl font-bold">{superAdminOnly ? "Super Admin Login" : "Login"}</h2>
       <p className="text-sm text-slate-500">{superAdminOnly ? "Use your super admin credentials to access the super-admin dashboard." : "Login with your account to continue."}</p>
       <input className="mt-4 w-full rounded-xl border p-3" placeholder="Email" {...register("email")} />
-      <input className="mt-3 w-full rounded-xl border p-3" type="password" placeholder="Password" {...register("password")} />
+      <PasswordInput className="mt-3 w-full rounded-xl border p-3" placeholder="Password" {...register("password")} />
       <button disabled={isSubmitting} className="mt-4 w-full rounded-xl bg-brand-700 py-2 text-white disabled:cursor-not-allowed disabled:opacity-70">
         {isSubmitting ? "Signing In..." : superAdminOnly ? "Sign In as Super Admin" : "Sign In"}
       </button>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getUser, updateUser, updateUserStatus } from "../../services/superAdminService";
+import PasswordInput from "../../components/common/PasswordInput";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 

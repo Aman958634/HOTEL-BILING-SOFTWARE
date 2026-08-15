@@ -3,6 +3,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { registerThunk } from "../../redux/slices/authSlice";
+import PasswordInput from "../../components/common/PasswordInput";
 
 const RegisterPage = () => {
   const {
