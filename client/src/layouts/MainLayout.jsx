@@ -1,6 +1,9 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
+import useAuth from "../hooks/useAuth";
 
 const MainLayout = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-30 bg-white/95 shadow-sm backdrop-blur-md">
@@ -25,12 +28,21 @@ const MainLayout = () => {
               </NavLink>
             </div>
 
-            <Link
-              to="/login"
-              className="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-300/30 transition duration-200 hover:bg-brand-800"
-            >
-              Login
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-300/30 transition duration-200 hover:bg-brand-800"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-300/30 transition duration-200 hover:bg-brand-800"
+              >
+                Login
+              </Link>
+            )}
           </div>
         </nav>
       </header>
