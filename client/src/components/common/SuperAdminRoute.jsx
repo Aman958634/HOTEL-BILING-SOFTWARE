@@ -3,16 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
 import { profileThunk } from "../../redux/slices/authSlice";
 
-const roleRedirectMap = {
-  admin: "/dashboard/admin",
-  chef: "/dashboard/chef",
-  waiter: "/dashboard/waiter",
-  delivery: "/dashboard/delivery",
-  customer: "/dashboard/customer",
-  manager: "/dashboard/customer",
-  cashier: "/dashboard/customer",
-};
-
 const SuperAdminRoute = ({ children }) => {
   const dispatch = useDispatch();
   const { accessToken, user, profileLoading } = useSelector((state) => state.auth);
@@ -32,7 +22,10 @@ const SuperAdminRoute = ({ children }) => {
   }
 
   if (!user.role || user.role !== "super_admin") {
-    return <Navigate to={roleRedirectMap[user.role] || "/login"} replace />;
+    if (user.role === "admin") {
+      return <Navigate to="/dashboard/admin" replace />;
+    }
+    return <Navigate to="/" replace />;
   }
 
   return children;

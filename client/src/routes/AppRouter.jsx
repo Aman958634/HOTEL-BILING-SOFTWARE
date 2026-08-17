@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
-import DashboardLayout from "../layouts/DashboardLayout";
 import ProtectedRoute from "../components/common/ProtectedRoute";
 import AdminRoute from "../components/common/AdminRoute";
 import SuperAdminRoute from "../components/common/SuperAdminRoute";
@@ -14,10 +13,6 @@ import LoginPage from "../pages/Login/LoginPage";
 import RegisterPage from "../pages/Register/RegisterPage";
 import ProfilePage from "../pages/Profile/ProfilePage";
 import NotFoundPage from "../pages/NotFound/NotFoundPage";
-import ChefDashboard from "../dashboard/Chef/ChefDashboard";
-import WaiterDashboard from "../dashboard/Waiter/WaiterDashboard";
-import DeliveryDashboard from "../dashboard/Delivery/DeliveryDashboard";
-import CustomerDashboard from "../dashboard/Customer/CustomerDashboard";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import SuperAdminDashboard from "../pages/admin/SuperAdminDashboard";
 import MenuManagement from "../pages/admin/MenuManagement";
@@ -118,14 +113,6 @@ const AppRouter = () => (
       <Route path="reports" element={<AdminPlaceholderPage title="Reports" />} />
       <Route path="settings" element={<AdminPlaceholderPage title="Settings" />} />
       <Route path="*" element={<Navigate to="dashboard" replace />} />
-    </Route>
-
-    <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-      <Route index element={<Navigate to="customer" replace />} />
-      <Route path="chef" element={<ChefDashboard />} />
-      <Route path="waiter" element={<WaiterDashboard />} />
-      <Route path="delivery" element={<DeliveryDashboard />} />
-      <Route path="customer" element={<CustomerDashboard />} />
     </Route>
 
     <Route path="*" element={<NotFoundPage />} />

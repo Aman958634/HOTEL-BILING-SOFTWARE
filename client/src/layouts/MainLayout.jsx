@@ -2,9 +2,8 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 const MainLayout = () => {
-  const { isAuthenticated, profileLoading, accessToken } = useAuth();
-
-  const isInitializing = profileLoading && accessToken;
+  const { isAuthenticated, user, profileLoading } = useAuth();
+  const isAdmin = isAuthenticated && user?.role === "admin";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -30,9 +29,9 @@ const MainLayout = () => {
               </NavLink>
             </div>
 
-            {isInitializing ? null : isAuthenticated ? (
+            {profileLoading ? null : isAdmin ? (
               <Link
-                to="/dashboard"
+                to="/dashboard/admin"
                 className="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-300/30 transition duration-200 hover:bg-brand-800"
               >
                 Dashboard
