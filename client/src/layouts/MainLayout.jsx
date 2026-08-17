@@ -2,7 +2,9 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 const MainLayout = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, profileLoading, accessToken } = useAuth();
+
+  const isInitializing = profileLoading && accessToken;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -28,7 +30,7 @@ const MainLayout = () => {
               </NavLink>
             </div>
 
-            {isAuthenticated ? (
+            {isInitializing ? null : isAuthenticated ? (
               <Link
                 to="/dashboard"
                 className="rounded-full bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-300/30 transition duration-200 hover:bg-brand-800"
