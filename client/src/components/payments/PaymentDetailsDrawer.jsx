@@ -1,5 +1,5 @@
 import { FiClock, FiDollarSign, FiFileText, FiPhone, FiTable, FiUser } from "react-icons/fi";
-import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, getPaymentAmount } from "../../utils/paymentUtils";
 
 const Section = ({ title, children }) => (
   <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -64,7 +64,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <p><strong>Payment Status:</strong> {paymentStatusLabel(payment.paymentStatus)}</p>
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
                 <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</p>
-                <p><strong>Amount:</strong> {formatCurrency(payment.totalAmount)}</p>
+                <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
               </Section>
 
               <Section title="Customer Information">
@@ -81,7 +81,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <p><strong>Discount:</strong> {formatCurrency(order?.discount ?? payment.discount)}</p>
                 <p><strong>Tax / GST:</strong> {formatCurrency(order?.tax ?? payment.tax)}</p>
                 <p><strong>Service Charge:</strong> {formatCurrency(order?.serviceCharge ?? payment.serviceCharge)}</p>
-                <p><strong>Grand Total:</strong> {formatCurrency(order?.total ?? payment.totalAmount)}</p>
+                <p><strong>Grand Total:</strong> {formatCurrency(getPaymentAmount(payment) || order?.total)}</p>
                 <p><strong>Refunded:</strong> {formatCurrency(payment.refundAmount || 0)}</p>
               </div>
 

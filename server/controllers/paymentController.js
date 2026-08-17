@@ -187,20 +187,27 @@ const buildListPipeline = async (query, user) => {
   return { pipeline, page, limit };
 };
 
-const mapPaymentRow = (payment) => ({
-  ...payment,
-  amountLabel: formatCurrency(payment.amount ?? payment.totalAmount),
-  totalAmountLabel: formatCurrency(payment.totalAmount),
-  refundAmountLabel: formatCurrency(payment.refundAmount || 0),
-  paymentMethodLabel: paymentMethodLabel(payment.paymentMethod),
-  paymentStatusLabel: paymentStatusLabel(payment.paymentStatus),
-  gatewayLabel: gatewayLabel(payment),
-  dateTimeLabel: payment.createdAt,
-  orderIdValue: payment.orderNumber || payment.orderId?.orderNumber || payment.orderId,
-  customerName: payment.customerName || payment.customerId?.fullName || "Guest",
-  customerPhone: payment.customerPhone || payment.customerId?.phone || "",
-  tableNumber: payment.tableNumber || payment.tableId?.tableNumber || "",
-});
+const mapPaymentRow = (payment) => {
+  const paymentObject = payment?.toObject ? payment.toObject() : payment;
+  const safeTotalAmount = Number(paymentObject?.totalAmount ?? paymentObject?.amount ?? 0);
+  const safeAmount = Number(paymentObject?.amount ?? paymentObject?.totalAmount ?? 0);
+  return {
+    ...paymentObject,
+    amount: safeAmount,
+    totalAmount: safeTotalAmount,
+    amountLabel: formatCurrency(safeAmount),
+    totalAmountLabel: formatCurrency(safeTotalAmount),
+    refundAmountLabel: formatCurrency(paymentObject?.refundAmount || 0),
+    paymentMethodLabel: paymentMethodLabel(paymentObject?.paymentMethod),
+    paymentStatusLabel: paymentStatusLabel(paymentObject?.paymentStatus),
+    gatewayLabel: gatewayLabel(paymentObject || {}),
+    dateTimeLabel: paymentObject?.createdAt,
+    orderIdValue: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId,
+    customerName: paymentObject?.customerName || paymentObject?.customerId?.fullName || "Guest",
+    customerPhone: paymentObject?.customerPhone || paymentObject?.customerId?.phone || "",
+    tableNumber: paymentObject?.tableNumber || paymentObject?.tableId?.tableNumber || "",
+  };
+};
 
 const mapPaymentDetail = (payment) => {
   const paymentObject = payment.toObject ? payment.toObject() : payment;
@@ -477,11 +484,11 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
   ] = await Promise.all([
     Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: revenueStatuses } }, req.user) },
-      { $group: { _id: null, total: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } } } },
+      { $group: { _id: null, total: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
     ]),
     Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: revenueStatuses }, createdAt: { $gte: todayStart, $lt: tomorrowStart } }, req.user) },
-      { $group: { _id: null, total: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } } } },
+      { $group: { _id: null, total: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
     ]),
     Payment.countDocuments(await buildRestaurantQuery({ paymentStatus: { $in: successfulStatuses } }, req.user)),
     Payment.countDocuments(await buildRestaurantQuery({ paymentStatus: { $in: ["PENDING", "PROCESSING"] } }, req.user)),
@@ -489,14 +496,14 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
     Payment.aggregate([{ $match: await buildRestaurantQuery({}, req.user) }, { $group: { _id: null, total: { $sum: { $ifNull: ["$refundAmount", 0] } } } }]),
     Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: successfulStatuses } }, req.user) },
-      { $group: { _id: null, avg: { $avg: "$totalAmount" } } },
+      { $group: { _id: null, avg: { $avg: { $ifNull: ["$totalAmount", 0] } } } },
     ]),
     Payment.aggregate([
       { $match: await buildRestaurantQuery({ createdAt: { $gte: thisMonthStart } }, req.user) },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          revenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } },
+          revenue: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } },
           payments: { $sum: 1 },
         },
       },
@@ -504,12 +511,12 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
     ]),
     Payment.aggregate([
       { $match: await buildRestaurantQuery({}, req.user) },
-      { $group: { _id: "$paymentMethod", revenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } }, count: { $sum: 1 } } },
+      { $group: { _id: "$paymentMethod", revenue: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } }, count: { $sum: 1 } } },
       { $sort: { revenue: -1 } },
     ]),
     Payment.aggregate([
       { $match: await buildRestaurantQuery({}, req.user) },
-      { $group: { _id: "$paymentStatus", count: { $sum: 1 }, revenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } } } },
+      { $group: { _id: "$paymentStatus", count: { $sum: 1 }, revenue: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
       { $sort: { count: -1 } },
     ]),
   ]);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiCheckCircle, FiX } from "react-icons/fi";
 import { formatCurrency } from "../../utils/paymentUtils";
+import { getPaymentAmount } from "../../utils/paymentUtils";
 
 const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
   const [refundType, setRefundType] = useState("full");
@@ -17,7 +18,7 @@ const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
 
   if (!open || !payment) return null;
 
-  const refundable = Math.max(Number(payment.totalAmount || 0) - Number(payment.refundAmount || 0), 0);
+  const refundable = Math.max(getPaymentAmount(payment) - Number(payment.refundAmount || 0), 0);
 
   const submit = (event) => {
     event.preventDefault();

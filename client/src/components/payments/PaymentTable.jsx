@@ -1,5 +1,5 @@
 import { FiFileText, FiEye, FiRotateCcw, FiTrash2 } from "react-icons/fi";
-import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment } from "../../utils/paymentUtils";
+import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment, getPaymentAmount } from "../../utils/paymentUtils";
 
 const ActionButton = ({ children, onClick, tone = "default" }) => {
   const className = tone === "danger"
@@ -64,7 +64,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
       <p><strong>Order:</strong> {payment.orderIdValue}</p>
       <p><strong>Customer:</strong> {payment.customerName || "Guest"}</p>
       <p><strong>Table:</strong> {payment.tableNumber || "-"}</p>
-      <p><strong>Amount:</strong> {formatCurrency(payment.totalAmount)}</p>
+      <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
       <p><strong>Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
       <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || "-"}</p>
       <p><strong>Refund:</strong> {formatCurrency(payment.refundAmount || 0)}</p>
@@ -120,7 +120,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
                 <td className="px-4 py-3">{payment.orderIdValue}</td>
                 <td className="px-4 py-3">{payment.customerName || "Guest"}</td>
                 <td className="px-4 py-3">{payment.tableNumber ? `Table ${payment.tableNumber}` : "-"}</td>
-                <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(payment.totalAmount)}</td>
+                <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(getPaymentAmount(payment))}</td>
                 <td className="px-4 py-3">{paymentMethodLabel(payment.paymentMethod)}</td>
                 <td className="px-4 py-3">{payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</td>
                 <td className="px-4 py-3">

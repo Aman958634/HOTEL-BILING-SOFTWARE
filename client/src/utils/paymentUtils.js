@@ -64,6 +64,13 @@ export const gatewayLabel = (payment = {}) => {
 
 export const paymentStatusLabel = (value) => statusLabels[String(value || "PENDING").toUpperCase()] || "Pending";
 
+export const getPaymentAmount = (payment) => {
+  if (!payment || typeof payment !== "object") return 0;
+  const raw = payment.totalAmount ?? payment.amount ?? 0;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : 0;
+};
+
 export const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
 
@@ -99,5 +106,5 @@ export const paymentBadgeClasses = (value) => {
 export const canRefundPayment = (payment) => {
   if (!payment) return false;
   const status = String(payment.paymentStatus || "").toUpperCase();
-  return ["PAID", "PARTIALLY_REFUNDED"].includes(status) && Number(payment.remainingRefundableAmount ?? payment.totalAmount ?? 0) > 0;
+  return ["PAID", "PARTIALLY_REFUNDED"].includes(status) && Number(getPaymentAmount(payment) - Number(payment.refundAmount || 0)) > 0;
 };

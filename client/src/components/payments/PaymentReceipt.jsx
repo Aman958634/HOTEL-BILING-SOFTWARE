@@ -1,5 +1,5 @@
 import { FiDownload, FiPrinter, FiX } from "react-icons/fi";
-import { formatCurrency, formatPaymentDate, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { formatCurrency, formatPaymentDate, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
 
 const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   if (!open) return null;
@@ -63,7 +63,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
               <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(order.discount ?? payment.discount)}</span></div>
               <div className="flex justify-between"><span>Tax / GST</span><span>{formatCurrency(order.tax ?? payment.tax)}</span></div>
               <div className="flex justify-between"><span>Service Charge</span><span>{formatCurrency(order.serviceCharge ?? payment.serviceCharge)}</span></div>
-              <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><span>Grand Total</span><span>{formatCurrency(order.total ?? payment.totalAmount)}</span></div>
+              <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><span>Grand Total</span><span>{formatCurrency(getPaymentAmount(payment) || order.total)}</span></div>
               <div className="mt-2 flex justify-between"><span>Payment Method</span><span>{paymentMethodLabel(payment.paymentMethod)}</span></div>
               <div className="flex justify-between"><span>Refund Amount</span><span>{formatCurrency(payment.refundAmount || 0)}</span></div>
             </div>

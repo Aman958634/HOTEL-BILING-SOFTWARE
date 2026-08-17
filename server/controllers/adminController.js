@@ -14,7 +14,7 @@ const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getM
 const PAID_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
 
 const netRevenueExpr = {
-  $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] },
+  $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] },
 };
 
 const sumNetRevenue = async (match) => {
