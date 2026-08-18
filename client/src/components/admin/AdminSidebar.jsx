@@ -29,39 +29,43 @@ const AdminSidebar = ({ open, setOpen }) => {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-30 w-72 transform border-r border-slate-200 bg-slate-950 px-4 py-5 text-slate-100 transition-transform md:fixed md:top-0 md:left-0 md:h-screen md:overflow-y-auto md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-30 w-72 transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform md:fixed md:top-0 md:left-0 md:h-screen md:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-teal-300">RestoSphere</h2>
-        <button onClick={() => setOpen(false)} className="rounded-lg border border-slate-700 px-2 py-1 text-xs md:hidden">
-          Close
-        </button>
-      </div>
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between px-4 py-5">
+          <h2 className="text-2xl font-bold text-teal-300">RestoSphere</h2>
+          <button onClick={() => setOpen(false)} className="rounded-lg border border-slate-700 p-2 text-xs md:hidden" aria-label="Close menu">
+            ✕
+          </button>
+        </div>
 
-      <nav className="space-y-1">
-        {links.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${isActive ? "bg-teal-700 text-white" : "text-slate-300 hover:bg-slate-800"}`
-            }
-            onClick={() => setOpen(false)}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-4">
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-3 text-sm min-h-[44px] ${isActive ? "bg-teal-700 text-white" : "text-slate-300 hover:bg-slate-800"}`
+              }
+              onClick={() => setOpen(false)}
+            >
+              <span className="text-lg">{link.icon}</span>
+              <span>{link.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-800 px-4 py-4">
+          <button
+            onClick={onLogout}
+            className="flex w-full items-center gap-2 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-200 hover:bg-slate-800 min-h-[44px]"
           >
-            <span>{link.icon}</span>
-            <span>{link.label}</span>
-          </NavLink>
-        ))}
-      </nav>
-
-      <button
-        onClick={onLogout}
-        className="mt-6 flex w-full items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-      >
-        <FiLogOut /> Logout
-      </button>
+            <FiLogOut /> Logout
+          </button>
+        </div>
+      </div>
     </aside>
   );
 };

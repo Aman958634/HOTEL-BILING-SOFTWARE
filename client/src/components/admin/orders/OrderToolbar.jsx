@@ -5,7 +5,7 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="grid gap-3 xl:grid-cols-[1.5fr_repeat(4,minmax(0,1fr))_auto]">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.5fr_repeat(4,minmax(0,1fr))_auto]">
         <div className="relative">
           <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -68,7 +68,7 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
         <label className="text-xs text-slate-500">Sort by:</label>
         <select className="rounded-lg border border-slate-300 px-2 py-1 text-xs" value={filters.sortBy} onChange={(e) => setField("sortBy", e.target.value)}>
           <option value="newest">Newest</option>

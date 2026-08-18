@@ -20,13 +20,13 @@ const SalesChart = ({ data, range, onRangeChange, loading }) => (
     </div>
 
     {loading ? (
-      <div className="h-72 animate-pulse rounded-xl bg-slate-100" />
+      <div className="h-64 md:h-72 animate-pulse rounded-xl bg-slate-100" />
     ) : data.length === 0 ? (
-      <div className="h-72 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+      <div className="h-64 md:h-72 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
         No sales data found for selected range.
       </div>
     ) : (
-      <div className="h-72">
+      <div className="h-64 md:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>

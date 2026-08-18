@@ -254,7 +254,7 @@ const Payments = () => {
   const tableContent = useMemo(() => payments, [payments]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

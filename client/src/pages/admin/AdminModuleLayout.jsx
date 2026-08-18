@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { FiMenu } from "react-icons/fi";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
+import MobileAppHeader from "../../components/common/MobileAppHeader";
+import MobileBottomNav from "../../components/common/MobileBottomNav";
 import { fetchMySubscription } from "../../services/billingService";
 import {
   SubscriptionExpiredGate,
@@ -60,23 +61,30 @@ const AdminModuleLayout = () => {
         <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
         <div className="min-w-0 flex-1 flex flex-col h-full md:ml-72">
-          <div className="px-4 pt-4 md:hidden">
-            <button
-              className="rounded-lg border border-slate-300 bg-white p-2"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <FiMenu />
-            </button>
-          </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="hidden md:block">
             <AdminHeader />
+          </div>
+          <div className="md:hidden">
+            <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} />
+          </div>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16 md:pb-0">
             <div className="p-4 md:p-6">
               {!isBilling && <TrialBanner subscription={subscription} />}
               <Outlet />
             </div>
           </main>
+          <div className="md:hidden">
+            <MobileBottomNav />
+          </div>
         </div>
       </div>
+
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       <SubscriptionExpiredGate
         open={Boolean(blocked) && !isBilling}

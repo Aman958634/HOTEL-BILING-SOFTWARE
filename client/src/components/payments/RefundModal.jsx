@@ -89,7 +89,7 @@ const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
           />
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:justify-end">
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
             Cancel
           </button>

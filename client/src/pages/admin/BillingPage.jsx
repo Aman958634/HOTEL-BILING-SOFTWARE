@@ -110,7 +110,7 @@ const BillingPage = () => {
   if (loading) return <p>Loading billing...</p>;
 
   return (
-    <div>
+    <div className="pb-20 max-w-7xl mx-auto">
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

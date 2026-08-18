@@ -110,7 +110,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 max-w-7xl mx-auto">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">Restaurant Settings</h1>
         <p className="mt-2 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>

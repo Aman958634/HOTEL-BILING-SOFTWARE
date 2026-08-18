@@ -123,9 +123,9 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="space-y-4">
+     <div className="space-y-4 pb-20">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Welcome, Admin</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Welcome, Admin</h2>
         <p className="mt-1 text-sm text-slate-500">Monitor restaurant performance and manage operations from one place.</p>
       </div>
 

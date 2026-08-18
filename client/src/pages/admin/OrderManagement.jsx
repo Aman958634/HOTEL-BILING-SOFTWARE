@@ -424,7 +424,7 @@ const OrderManagement = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-2xl font-bold text-slate-900">Order Management</h2>
         <p className="mt-1 text-sm text-slate-500">Manage restaurant orders, payments, tables and order status in real time.</p>
@@ -453,16 +453,16 @@ const OrderManagement = () => {
           Showing {(meta.page - 1) * meta.limit + (orders.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + orders.length} of {meta.total} orders
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-60">Previous</button>
+          <button onClick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1} className="rounded border border-slate-300 px-3 py-2 min-h-[44px] disabled:opacity-60">Previous</button>
           {Array.from({ length: Math.min(meta.totalPages || 1, 5) }).map((_, idx) => {
             const page = idx + 1;
             return (
-              <button key={page} onClick={() => goToPage(page)} className={`rounded border px-2 py-1 ${meta.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300"}`}>
+              <button key={page} onClick={() => goToPage(page)} className={`rounded border px-3 py-2 min-h-[44px] ${meta.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300"}`}>
                 {page}
               </button>
             );
           })}
-          <button onClick={() => goToPage(meta.page + 1)} disabled={meta.page >= (meta.totalPages || 1)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-60">Next</button>
+          <button onClick={() => goToPage(meta.page + 1)} disabled={meta.page >= (meta.totalPages || 1)} className="rounded border border-slate-300 px-3 py-2 min-h-[44px] disabled:opacity-60">Next</button>
         </div>
       </div>
 
@@ -527,7 +527,7 @@ const OrderManagement = () => {
 
       {statusTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="w-full max-w-md mx-4 rounded-2xl bg-white p-5 shadow-2xl">
             <h3 className="text-lg font-semibold text-slate-900">Update Order Status</h3>
             <p className="mt-1 text-sm text-slate-500">{statusTarget.orderNumber}</p>
 

@@ -243,7 +243,7 @@ const Notifications = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -280,7 +280,7 @@ const Notifications = () => {
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative">
               <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -311,7 +311,7 @@ const Notifications = () => {
             </select>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <FiFilter /> Sorted by
               <strong>{filters.sortBy === "createdAt" ? "Newest" : filters.sortBy}</strong>
@@ -363,7 +363,7 @@ const Notifications = () => {
             type="button"
             onClick={() => updateFilters({ page: Math.max(meta.page - 1, 1) })}
             disabled={meta.page <= 1}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+            className="min-h-[44px] rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
           >
             Previous
           </button>
@@ -374,7 +374,7 @@ const Notifications = () => {
                 key={page}
                 type="button"
                 onClick={() => updateFilters({ page })}
-                className={`rounded-2xl border px-3 py-2 text-sm ${page === meta.page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+                className={`min-h-[44px] rounded-2xl border px-4 py-2 text-sm ${page === meta.page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
               >
                 {page}
               </button>
@@ -384,7 +384,7 @@ const Notifications = () => {
             type="button"
             onClick={() => updateFilters({ page: Math.min(meta.page + 1, meta.totalPages) })}
             disabled={meta.page >= meta.totalPages}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+            className="min-h-[44px] rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
           >
             Next
           </button>
