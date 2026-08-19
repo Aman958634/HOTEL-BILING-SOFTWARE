@@ -54,6 +54,15 @@ const AdminModuleLayout = () => {
     return () => window.removeEventListener("restosphere:subscription-blocked", onBlocked);
   }, [isBilling]);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   return (
     <div className="h-screen overflow-hidden bg-slate-100">
       <div className="flex h-full">

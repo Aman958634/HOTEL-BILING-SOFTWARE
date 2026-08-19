@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import SuperAdminSidebar from "../../components/superAdmin/SuperAdminSidebar";
 import MobileAppHeader from "../../components/common/MobileAppHeader";
 
 const SuperAdminModuleLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   return (
     <div className="h-screen overflow-hidden bg-slate-100">

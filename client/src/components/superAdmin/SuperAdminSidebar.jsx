@@ -26,22 +26,26 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-30 w-72 transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform md:fixed md:top-0 md:left-0 md:h-screen md:overflow-y-auto md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-30 w-[min(300px,88vw)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 md:fixed md:top-0 md:left-0 md:h-screen md:w-72 md:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between px-4 py-5">
+      <div className="flex h-dvh h-screen flex-col">
+        <div className="flex shrink-0 items-center justify-between px-4 py-4 md:py-5">
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-teal-300">Super Admin</p>
-            <h2 className="text-2xl font-bold text-white">RestoSphere SaaS</h2>
+            <p className="text-xs uppercase tracking-[0.3em] text-teal-300 md:text-sm">Super Admin</p>
+            <h2 className="text-xl font-bold text-white md:text-2xl">RestoSphere SaaS</h2>
           </div>
-          <button onClick={() => setOpen(false)} className="rounded-lg border border-slate-700 p-2 text-xs md:hidden" aria-label="Close menu">
+          <button
+            onClick={() => setOpen(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800 md:hidden"
+            aria-label="Close menu"
+          >
             ✕
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4">
+        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-4">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -59,7 +63,7 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
           ))}
         </nav>
 
-        <div className="border-t border-slate-800 px-4 py-4">
+        <div className="shrink-0 border-t border-slate-800 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={onLogout}
             className="flex w-full items-center gap-2 rounded-lg border border-slate-700 px-3 py-3 text-sm text-slate-200 hover:bg-slate-800 min-h-[44px]"
