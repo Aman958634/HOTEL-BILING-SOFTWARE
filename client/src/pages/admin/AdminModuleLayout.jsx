@@ -3,7 +3,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
 import MobileAppHeader from "../../components/common/MobileAppHeader";
-import MobileBottomNav from "../../components/common/MobileBottomNav";
 import { fetchMySubscription } from "../../services/billingService";
 import {
   SubscriptionExpiredGate,
@@ -67,15 +66,12 @@ const AdminModuleLayout = () => {
           <div className="md:hidden">
             <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} />
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16 md:pb-0">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-0">
             <div className="p-4 md:p-6">
               {!isBilling && <TrialBanner subscription={subscription} />}
               <Outlet />
             </div>
           </main>
-          <div className="md:hidden">
-            <MobileBottomNav />
-          </div>
         </div>
       </div>
 

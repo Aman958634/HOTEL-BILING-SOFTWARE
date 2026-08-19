@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import SuperAdminSidebar from "../../components/superAdmin/SuperAdminSidebar";
 import MobileAppHeader from "../../components/common/MobileAppHeader";
-import MobileBottomNav from "../../components/common/MobileBottomNav";
 
 const SuperAdminModuleLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -19,14 +18,11 @@ const SuperAdminModuleLayout = () => {
           <div className="md:hidden">
             <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} notificationCount={0} />
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-16 md:pb-0">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-0">
             <div className="p-4 md:p-6">
               <Outlet />
             </div>
           </main>
-          <div className="md:hidden">
-            <MobileBottomNav />
-          </div>
         </div>
       </div>
 
