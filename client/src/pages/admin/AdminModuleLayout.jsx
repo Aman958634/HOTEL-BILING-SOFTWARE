@@ -63,6 +63,14 @@ const AdminModuleLayout = () => {
     return () => document.removeEventListener("keydown", onKey);
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [sidebarOpen]);
+
   return (
     <div className="h-screen overflow-hidden bg-slate-100">
       <div className="flex h-full">
