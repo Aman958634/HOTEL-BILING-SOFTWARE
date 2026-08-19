@@ -50,6 +50,7 @@ const AdminSidebar = ({ open, setOpen }) => {
             <NavLink
               key={link.to}
               to={link.to}
+              end
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-3 text-sm min-h-[44px] ${
                   isActive ? "bg-teal-700 text-white" : "text-slate-300 hover:bg-slate-800"
