@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import CashPaymentConfirmationModal from "../../components/admin/orders/CashPaymentConfirmationModal";
@@ -50,6 +51,8 @@ const loadRazorpayScript = () =>
 
 const OrderManagement = () => {
   const socket = useSocket();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -74,6 +77,7 @@ const OrderManagement = () => {
   const [tables, setTables] = useState([]);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createInitialTable, setCreateInitialTable] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editOrder, setEditOrder] = useState(null);
 
@@ -91,6 +95,23 @@ const OrderManagement = () => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [cashConfirmOpen, setCashConfirmOpen] = useState(false);
   const [cashConfirmLoading, setCashConfirmLoading] = useState(false);
+
+  useEffect(() => {
+    const state = location.state;
+    if (!state) return;
+
+    if (state.tableId) {
+      setCreateInitialTable(state.tableId);
+      setCreateOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (state.orderId) {
+      setEditOpen(true);
+      getOrderById(state.orderId)
+        .then((res) => setEditOrder(res.data.data))
+        .catch(() => toast.error("Unable to load order"));
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   const selectedStatusOptions = useMemo(() => {
     if (!statusTarget?.status) return [];
@@ -473,7 +494,11 @@ const OrderManagement = () => {
         categories={categories}
         tables={tables}
         dependenciesLoading={dependenciesLoading}
-        onClose={() => setCreateOpen(false)}
+        initialData={createInitialTable ? { table: createInitialTable } : null}
+        onClose={() => {
+          setCreateOpen(false);
+          setCreateInitialTable(null);
+        }}
         onSubmit={submitCreate}
       />
 

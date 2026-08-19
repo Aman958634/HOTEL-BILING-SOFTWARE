@@ -75,10 +75,10 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     Order.countDocuments(baseOrderMatch),
     Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: todayStart } }),
     Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
-    Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] } }),
-    Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] } }),
-    Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] } }),
-    Food.countDocuments(),
+    Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
+    Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
+    Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
+    Food.countDocuments({ ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
   ]);
 
   const cards = {

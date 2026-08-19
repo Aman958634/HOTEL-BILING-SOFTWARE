@@ -9,6 +9,7 @@ const TableGrid = ({
   onStatusChange,
   onAddFirst,
   statusUpdatingId,
+  onTableClick,
 }) => {
   if (loading) {
     return (
@@ -46,6 +47,7 @@ const TableGrid = ({
           onDelete={onDelete}
           onStatusChange={onStatusChange}
           statusUpdating={statusUpdatingId === table._id}
+          onTableClick={onTableClick}
         />
       ))}
     </div>

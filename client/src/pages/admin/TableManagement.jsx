@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useSocket } from "../../context/SocketContext";
 import DeleteTableDialog from "../../components/admin/tables/DeleteTableDialog";
@@ -42,6 +43,7 @@ const getErrorMessage = (error, fallback) => {
 };
 
 const TableManagement = () => {
+  const navigate = useNavigate();
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -252,6 +254,17 @@ const TableManagement = () => {
     }
   };
 
+  const handleTableClick = (table) => {
+    const status = String(table.status || "").toUpperCase();
+    if (status === "AVAILABLE") {
+      navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
+    } else if (status === "OCCUPIED" && table.currentOrder) {
+      navigate("/dashboard/admin/orders", { state: { orderId: table.currentOrder._id || table.currentOrder, fromTable: true } });
+    } else {
+      openDetails(table);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -278,6 +291,7 @@ const TableManagement = () => {
         onStatusChange={changeTableStatus}
         onAddFirst={openCreate}
         statusUpdatingId={statusUpdatingId}
+        onTableClick={handleTableClick}
       />
 
       <TableForm

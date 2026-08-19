@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import TableStatusBadge from "./TableStatusBadge";
 
 const fmtDate = (value) => {
@@ -8,6 +9,21 @@ const fmtDate = (value) => {
 
 const TableDetails = ({ open, loading, table, onClose }) => {
   if (!open) return null;
+
+  const navigate = useNavigate();
+  const status = String(table?.status || "").toUpperCase();
+  const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
+
+  const handleCreateOrder = () => {
+    navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
+  };
+
+  const handleViewOrder = () => {
+    const orderId = table?.currentOrder?._id || table?.currentOrder;
+    if (orderId) {
+      navigate("/dashboard/admin/orders", { state: { orderId, fromTable: true } });
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
@@ -83,14 +99,32 @@ const TableDetails = ({ open, loading, table, onClose }) => {
               )}
             </div>
 
-            <div className="rounded-xl border border-slate-200 p-4 md:col-span-2">
-              {String(table.status).toUpperCase() === "AVAILABLE" ? (
-                <p className="text-sm text-emerald-700">Table is currently available.</p>
-              ) : (
-                <p className="text-sm text-slate-600">Track occupancy and reservation details above for operational visibility.</p>
+            <div className="rounded-xl border border-slate-200 p-4 md:col-span-2 flex flex-wrap gap-3">
+              {status === "AVAILABLE" && (
+                <button
+                  type="button"
+                  onClick={handleCreateOrder}
+                  className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
+                >
+                  Create New Order
+                </button>
               )}
-              <p className="mt-2 text-xs text-slate-500">Created: {fmtDate(table.createdAt)}</p>
-              <p className="text-xs text-slate-500">Updated: {fmtDate(table.updatedAt)}</p>
+              {hasActiveOrder && (
+                <button
+                  type="button"
+                  onClick={handleViewOrder}
+                  className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
+                >
+                  View Active Order
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onClose?.()}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
             </div>
           </div>
         ) : (
