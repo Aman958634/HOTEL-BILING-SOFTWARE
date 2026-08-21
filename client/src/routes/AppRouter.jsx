@@ -46,6 +46,9 @@ import MySubscriptionPage from "../pages/admin/MySubscriptionPage";
 
 const AppRouter = () => (
   <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/super-admin-login" element={<LoginPage superAdminOnly />} />
+
     <Route element={<MainLayout />}>
       <Route path="/" element={<HomePage />} />
       <Route path="/menu" element={<MenuPage />} />
@@ -54,8 +57,6 @@ const AppRouter = () => (
       <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
       <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/super-admin-login" element={<LoginPage superAdminOnly />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/subscribe/register" element={<SubscribeRegisterPage />} />
