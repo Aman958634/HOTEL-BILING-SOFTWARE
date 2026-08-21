@@ -49,7 +49,7 @@ const MobileAppHeader = ({ onMenuClick, notificationCount }) => {
             )}
           </div>
           <Link
-            to="/dashboard/admin/profile"
+            to="/profile"
             className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
             aria-label="Profile"
           >

@@ -1,18 +1,9 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { profileThunk } from "../../redux/slices/authSlice";
+import { useSelector } from "react-redux";
 
 const ProtectedRoute = ({ children }) => {
   const location = useLocation();
-  const dispatch = useDispatch();
   const { accessToken, user, profileLoading } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    if (accessToken && !user) {
-      dispatch(profileThunk());
-    }
-  }, [accessToken, user, dispatch]);
 
   if (!accessToken || accessToken === "undefined" || accessToken === "null") {
     return <Navigate to="/login" state={{ from: location }} replace />;
