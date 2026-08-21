@@ -78,13 +78,13 @@ const UsersPage = () => {
   };
 
   return (
-    <div>
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Users</h2>
-          <p className="text-sm text-slate-500">Manage platform users, roles, and access for the SaaS system.</p>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Users</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage platform users, roles, and access for the SaaS system.</p>
         </div>
-        <button onClick={() => navigate("new")} className="btn bg-teal-700 text-white px-4 py-2 rounded">
+        <button onClick={() => navigate("new")} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700">
           + Add User
         </button>
       </div>

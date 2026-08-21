@@ -240,34 +240,32 @@ const Reports = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Reports & Analytics</h2>
-            <p className="mt-1 text-sm text-slate-500">Real-time revenue, orders, customer and payment insights.</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => loadAll(reportQuery, salesQuery)}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
-            >
-              <FiRefreshCw /> Refresh
-            </button>
-            <button
-              onClick={() => onExport("csv")}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white shadow-sm"
-            >
-              <FiDownload /> CSV
-            </button>
-            <button
-              onClick={() => onExport("pdf")}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
-            >
-              <FiFileText /> PDF
-            </button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Reports & Analytics</h2>
+          <p className="mt-1 text-sm text-slate-500">Real-time revenue, orders, customer and payment insights.</p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => loadAll(reportQuery, salesQuery)}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+          >
+            <FiRefreshCw /> Refresh
+          </button>
+          <button
+            onClick={() => onExport("csv")}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+          >
+            <FiDownload /> CSV
+          </button>
+          <button
+            onClick={() => onExport("pdf")}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+          >
+            <FiFileText /> PDF
+          </button>
+        </div>
+      </div>
 
         <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -375,7 +373,6 @@ const Reports = () => {
             </select>
           </div>
         </div>
-      </section>
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">

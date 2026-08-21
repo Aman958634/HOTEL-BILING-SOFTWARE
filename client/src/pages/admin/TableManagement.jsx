@@ -267,9 +267,11 @@ const TableManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Table Management</h2>
-        <p className="mt-1 text-sm text-slate-500">Manage restaurant tables, availability, reservations and occupancy.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Table Management</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage restaurant tables, availability, reservations and occupancy.</p>
+        </div>
       </div>
 
       <TableStats stats={stats} loading={loadingStats} />

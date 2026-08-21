@@ -7,7 +7,7 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue }) => {
     growth.type === "positive"
       ? "text-emerald-600"
       : growth.type === "negative"
-        ? "text-red-600"
+        ? "text-rose-600"
         : "text-slate-500";
 
   const shouldFormat =
@@ -18,13 +18,21 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue }) => {
   const displayValue = shouldFormat ? currency(value) : value;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between">
-        <span className="rounded-xl bg-slate-100 p-2 text-brand-700">{icon}</span>
-        <span className={`text-xs font-semibold ${toneClass}`}>{growth.label}</span>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          {icon}
+        </div>
+        <span className={`flex items-center gap-1 text-xs font-semibold ${toneClass}`}>
+          {growth.type === "positive" && <span>↑</span>}
+          {growth.type === "negative" && <span>↓</span>}
+          {growth.label}
+        </span>
       </div>
-      <p className="mt-3 text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{displayValue}</p>
+      <div className="mt-4">
+        <p className="text-sm text-slate-500">{label}</p>
+        <p className="mt-1 text-2xl font-bold text-slate-900">{displayValue}</p>
+      </div>
     </div>
   );
 };

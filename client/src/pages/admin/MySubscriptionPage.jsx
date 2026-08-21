@@ -97,16 +97,16 @@ const MySubscriptionPage = () => {
   };
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">My Subscription</h2>
-          <p className="text-sm text-slate-500">Your current plan, renewal, and payment history.</p>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">My Subscription</h2>
+          <p className="mt-1 text-sm text-slate-500">Your current plan, renewal, and payment history.</p>
         </div>
         <button
           type="button"
           onClick={load}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          className="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
         >
           Refresh
         </button>

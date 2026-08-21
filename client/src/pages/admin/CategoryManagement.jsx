@@ -109,9 +109,10 @@ const CategoryManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">Category Management</h2>
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Category Management</h2>
         <p className="mt-1 text-sm text-slate-500">Create, edit, disable, and delete menu categories.</p>
+      </div>
 
         <div className="mt-4">
           <input
@@ -158,9 +159,8 @@ const CategoryManagement = () => {
             )}
           </div>
         </form>
-      </div>
 
-      <CategoryTable
+        <CategoryTable
         items={categories}
         loading={loading}
         onEdit={editCategory}

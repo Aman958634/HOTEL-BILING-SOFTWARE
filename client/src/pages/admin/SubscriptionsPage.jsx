@@ -83,14 +83,12 @@ const SubscriptionsPage = () => {
   };
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold">Subscriptions</h2>
-          <p className="text-sm text-slate-500">
-            Every new hotel receives a <strong>15-Day Free Trial</strong>. Select a paid plan, then complete payment separately.
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Subscriptions</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Every new hotel receives a <strong>15-Day Free Trial</strong>. Select a paid plan, then complete payment separately.
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">

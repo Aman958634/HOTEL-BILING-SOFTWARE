@@ -110,10 +110,10 @@ const Settings = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20 max-w-7xl mx-auto">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">Restaurant Settings</h1>
-        <p className="mt-2 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>
+    <div className="space-y-4 pb-20">
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Restaurant Settings</h2>
+        <p className="mt-1 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">

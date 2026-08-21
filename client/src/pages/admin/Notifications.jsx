@@ -243,22 +243,21 @@ const Notifications = () => {
   );
 
   return (
-    <div className="space-y-6 pb-20">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage restaurant alerts, order updates, and payment messages in one place.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={refreshPage}
-              disabled={loading || loadingSummary}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <FiRefreshCw /> Refresh
-            </button>
+    <div className="space-y-4 pb-20">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Notifications</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage restaurant alerts, order updates, and payment messages in one place.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={refreshPage}
+            disabled={loading || loadingSummary}
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            <FiRefreshCw /> Refresh
+          </button>
             <button
               type="button"
               onClick={handleMarkAllRead}
@@ -269,7 +268,6 @@ const Notifications = () => {
             </button>
           </div>
         </div>
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Unread" value={summary.unread} />

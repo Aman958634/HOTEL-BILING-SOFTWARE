@@ -131,16 +131,15 @@ const MenuManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Menu Management</h2>
-            <p className="text-sm text-slate-500">Total items: {summary.total} | Available: {summary.available}</p>
-          </div>
-          <button className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white" onClick={openCreate}>
-            Add Food
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Menu Management</h2>
+          <p className="mt-1 text-sm text-slate-500">Total items: {summary.total} | Available: {summary.available}</p>
         </div>
+        <button className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700" onClick={openCreate}>
+          Add Food
+        </button>
+      </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <input
@@ -165,7 +164,6 @@ const MenuManagement = () => {
             <option value="desc">Price: High to Low</option>
           </select>
         </div>
-      </div>
 
       <MenuTable
         items={items}

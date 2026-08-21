@@ -255,31 +255,21 @@ const Payments = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Payments</h2>
-            <p className="mt-1 text-sm text-slate-500">Track transactions, payment status, refunds and revenue.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 lg:hidden">
-            <button onClick={() => setMobileFiltersOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700">
-              <FiFilter /> Filters
-            </button>
-            <button onClick={exportFilteredPayments} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white shadow-sm">
-              <FiDownload /> Export
-            </button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Payments</h2>
+          <p className="mt-1 text-sm text-slate-500">Track transactions, payment status, refunds and revenue.</p>
         </div>
+      </div>
 
-        <div className="mt-4 hidden lg:block">
-          <PaymentFilters
-            filters={filters}
-            onChange={updateFilters}
-            onExport={exportFilteredPayments}
-            onReset={() => setFilters(defaultFilters)}
-          />
-        </div>
-      </section>
+      <div className="hidden lg:block">
+        <PaymentFilters
+          filters={filters}
+          onChange={updateFilters}
+          onExport={exportFilteredPayments}
+          onReset={() => setFilters(defaultFilters)}
+        />
+      </div>
 
       <PaymentStats stats={stats} loading={loadingStats} />
 

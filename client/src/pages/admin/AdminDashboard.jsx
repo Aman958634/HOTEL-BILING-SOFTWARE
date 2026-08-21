@@ -1,22 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiCoffee, FiDollarSign, FiLayers, FiShoppingCart, FiTag } from "react-icons/fi";
+import { FiCalendar } from "react-icons/fi";
 import toast from "react-hot-toast";
 import StatCard from "../../components/admin/StatCard";
 import SalesChart from "../../components/admin/SalesChart";
 import RecentOrders from "../../components/admin/RecentOrders";
 import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, updateAdminOrderStatus } from "../../services/adminService";
 import { useSocket } from "../../context/SocketContext";
-
-const cardIconMap = {
-  totalRevenue: <FiDollarSign />,
-  todayRevenue: <FiDollarSign />,
-  totalOrders: <FiShoppingCart />,
-  todayOrders: <FiShoppingCart />,
-  activeReservations: <FiCalendar />,
-  availableTables: <FiLayers />,
-  lowStockItems: <FiTag />,
-  totalMenuItems: <FiCoffee />,
-};
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -92,7 +81,6 @@ const AdminDashboard = () => {
     if (!stats) return [];
     return Object.entries(stats).map(([key, value]) => ({
       key,
-      icon: cardIconMap[key],
       ...value,
     }));
   }, [stats]);
@@ -123,29 +111,41 @@ const AdminDashboard = () => {
   };
 
   return (
-     <div className="space-y-4 pb-20">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Welcome, Admin</h2>
-        <p className="mt-1 text-sm text-slate-500">Monitor restaurant performance and manage operations from one place.</p>
+    <div className="space-y-4 pb-20">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Welcome back, Admin! 👋</h2>
+          <p className="mt-1 text-sm text-slate-500">Here's what's happening with your restaurant today.</p>
+        </div>
+        <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+          <FiCalendar className="h-4 w-4" />
+          <span className="hidden sm:inline">Today</span>
+          <span className="sm:hidden">May 23, 2025</span>
+        </button>
       </div>
 
       {loadingStats ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
-            <StatCard key={card.key} icon={card.icon} label={card.label} value={card.value} trend={card.trend} />
+            <StatCard key={card.key} {...card} />
           ))}
         </div>
       )}
 
-      <SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} />
-
-      <RecentOrders orders={orders} loading={loadingOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} />
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} />
+        </div>
+        <div>
+          <RecentOrders orders={orders} loading={loadingOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} />
+        </div>
+      </div>
     </div>
   );
 };

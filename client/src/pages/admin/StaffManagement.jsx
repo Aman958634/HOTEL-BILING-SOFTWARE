@@ -221,9 +221,11 @@ const StaffManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Staff Management</h2>
-        <p className="mt-1 text-sm text-slate-500">Manage restaurant staff, roles, shifts, permissions and employee status.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Staff Management</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage restaurant staff, roles, shifts, permissions and employee status.</p>
+        </div>
       </div>
 
       <StaffStats stats={stats} loading={loadingStats} />

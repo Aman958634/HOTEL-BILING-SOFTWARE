@@ -446,9 +446,11 @@ const OrderManagement = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Order Management</h2>
-        <p className="mt-1 text-sm text-slate-500">Manage restaurant orders, payments, tables and order status in real time.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Order Management</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage restaurant orders, payments, tables and order status in real time.</p>
+        </div>
       </div>
 
       <OrderStats stats={stats} loading={loadingStats} />
