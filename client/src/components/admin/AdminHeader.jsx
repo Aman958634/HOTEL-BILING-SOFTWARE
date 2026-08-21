@@ -1,4 +1,4 @@
-import { FiCalendar, FiChevronDown } from "react-icons/fi";
+import { FiCalendar, FiChevronDown, FiSearch } from "react-icons/fi";
 import NotificationBell from "./NotificationBell";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }) => {
