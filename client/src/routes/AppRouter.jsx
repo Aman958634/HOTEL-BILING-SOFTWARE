@@ -48,6 +48,7 @@ const AppRouter = () => (
   <Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/super-admin-login" element={<LoginPage superAdminOnly />} />
+    <Route path="/register" element={<RegisterPage />} />
 
     <Route element={<MainLayout />}>
       <Route path="/" element={<HomePage />} />
@@ -57,7 +58,6 @@ const AppRouter = () => (
       <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
       <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="/register" element={<RegisterPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/subscribe/register" element={<SubscribeRegisterPage />} />
       <Route path="/subscribe/checkout" element={<SubscribeCheckoutPage />} />
