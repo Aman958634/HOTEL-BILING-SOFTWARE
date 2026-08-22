@@ -1,15 +1,9 @@
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
 const HomePage = () => (
   <div className="space-y-16">
     <section className="mx-auto flex max-w-4xl flex-col items-center gap-10 text-center">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="space-y-8"
-      >
+      <div className="space-y-8 animate-fade-in-up">
         <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-teal-800 shadow-sm shadow-teal-100/80">
           ⭐ ALL-IN-ONE RESTAURANT MANAGEMENT
         </div>
@@ -52,7 +46,7 @@ const HomePage = () => (
             <p className="mt-2 text-sm text-slate-500">99.9% Uptime</p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </section>
 
     <section className="space-y-8">

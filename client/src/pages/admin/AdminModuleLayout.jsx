@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
@@ -17,6 +17,8 @@ const AdminModuleLayout = () => {
   const isBilling =
     location.pathname.includes("/billing") ||
     location.pathname.includes("/my-subscription");
+  const billingRef = useRef(isBilling);
+  billingRef.current = isBilling;
 
   const loadSubscription = async () => {
     try {
@@ -24,7 +26,7 @@ const AdminModuleLayout = () => {
       const sub = data?.data || null;
       setSubscription(sub);
       if (sub?.status === "expired" || sub?.status === "cancelled" || sub?.status === "suspended") {
-        if (!isBilling) {
+        if (!billingRef.current) {
           setBlocked({
             code: `SUBSCRIPTION_${String(sub.status).toUpperCase()}`,
             message:
@@ -43,7 +45,7 @@ const AdminModuleLayout = () => {
 
   useEffect(() => {
     loadSubscription();
-  }, [location.pathname]);
+  }, []);
 
   useEffect(() => {
     const onBlocked = (event) => {

@@ -1,78 +1,158 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
-import ProtectedRoute from "../components/common/ProtectedRoute";
-import AdminRoute from "../components/common/AdminRoute";
-import SuperAdminRoute from "../components/common/SuperAdminRoute";
 import HomePage from "../pages/Home/HomePage";
-import MenuPage from "../pages/Menu/MenuPage";
-import ReservationPage from "../pages/Reservation/ReservationPage";
-import CartPage from "../pages/Cart/CartPage";
-import CheckoutPage from "../pages/Checkout/CheckoutPage";
-import OrdersPage from "../pages/Orders/OrdersPage";
-import LoginPage from "../pages/Login/LoginPage";
-import RegisterPage from "../pages/Register/RegisterPage";
-import ProfilePage from "../pages/Profile/ProfilePage";
 import NotFoundPage from "../pages/NotFound/NotFoundPage";
-import AdminDashboard from "../pages/admin/AdminDashboard";
-import SuperAdminDashboard from "../pages/admin/SuperAdminDashboard";
-import MenuManagement from "../pages/admin/MenuManagement";
-import CategoryManagement from "../pages/admin/CategoryManagement";
-import TableManagement from "../pages/admin/TableManagement";
-import OrderManagement from "../pages/admin/OrderManagement";
-import StaffManagement from "../pages/admin/StaffManagement";
-import Payments from "../pages/admin/Payments";
-import Reports from "../pages/admin/Reports";
-import Notifications from "../pages/admin/Notifications";
-import Settings from "../pages/admin/Settings";
-import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
-import SuperAdminModuleLayout from "../pages/admin/SuperAdminModuleLayout";
-import AdminPlaceholderPage from "../pages/admin/AdminPlaceholderPage";
-import RestaurantsPage from "../pages/admin/RestaurantsPage";
-import AddRestaurantPage from "../pages/admin/AddRestaurantPage";
-import RestaurantDetailsPage from "../pages/admin/RestaurantDetailsPage";
-import UsersPage from "../pages/admin/UsersPage";
-import AddUserPage from "../pages/admin/AddUserPage";
-import UserDetailsPage from "../pages/admin/UserDetailsPage";
-import SubscriptionsPage from "../pages/admin/SubscriptionsPage";
-import ActivityLogsPage from "../pages/admin/ActivityLogsPage";
-import BillingPage from "../pages/admin/BillingPage";
-import SuperAdminPaymentsPage from "../pages/admin/SuperAdminPaymentsPage";
-import PricingPage from "../pages/Pricing/PricingPage";
-import SubscribeRegisterPage from "../pages/Subscribe/SubscribeRegisterPage";
-import SubscribeCheckoutPage from "../pages/Subscribe/SubscribeCheckoutPage";
-import SubscribeSuccessPage from "../pages/Subscribe/SubscribeSuccessPage";
-import SubscribeFailedPage from "../pages/Subscribe/SubscribeFailedPage";
-import MySubscriptionPage from "../pages/admin/MySubscriptionPage";
+
+const LoginPage = lazy(() => import("../pages/Login/LoginPage"));
+const RegisterPage = lazy(() => import("../pages/Register/RegisterPage"));
+const ProtectedRoute = lazy(() => import("../components/common/ProtectedRoute"));
+const AdminRoute = lazy(() => import("../components/common/AdminRoute"));
+const SuperAdminRoute = lazy(() => import("../components/common/SuperAdminRoute"));
+
+const MenuPage = lazy(() => import("../pages/Menu/MenuPage"));
+const ReservationPage = lazy(() => import("../pages/Reservation/ReservationPage"));
+const CartPage = lazy(() => import("../pages/Cart/CartPage"));
+const CheckoutPage = lazy(() => import("../pages/Checkout/CheckoutPage"));
+const OrdersPage = lazy(() => import("../pages/Orders/OrdersPage"));
+const ProfilePage = lazy(() => import("../pages/Profile/ProfilePage"));
+const PricingPage = lazy(() => import("../pages/Pricing/PricingPage"));
+const SubscribeRegisterPage = lazy(() => import("../pages/Subscribe/SubscribeRegisterPage"));
+const SubscribeCheckoutPage = lazy(() => import("../pages/Subscribe/SubscribeCheckoutPage"));
+const SubscribeSuccessPage = lazy(() => import("../pages/Subscribe/SubscribeSuccessPage"));
+const SubscribeFailedPage = lazy(() => import("../pages/Subscribe/SubscribeFailedPage"));
+
+const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
+const SuperAdminDashboard = lazy(() => import("../pages/admin/SuperAdminDashboard"));
+const MenuManagement = lazy(() => import("../pages/admin/MenuManagement"));
+const CategoryManagement = lazy(() => import("../pages/admin/CategoryManagement"));
+const TableManagement = lazy(() => import("../pages/admin/TableManagement"));
+const OrderManagement = lazy(() => import("../pages/admin/OrderManagement"));
+const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
+const Payments = lazy(() => import("../pages/admin/Payments"));
+const Reports = lazy(() => import("../pages/admin/Reports"));
+const Notifications = lazy(() => import("../pages/admin/Notifications"));
+const Settings = lazy(() => import("../pages/admin/Settings"));
+const AdminModuleLayout = lazy(() => import("../pages/admin/AdminModuleLayout"));
+const SuperAdminModuleLayout = lazy(() => import("../pages/admin/SuperAdminModuleLayout"));
+const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage"));
+const RestaurantsPage = lazy(() => import("../pages/admin/RestaurantsPage"));
+const AddRestaurantPage = lazy(() => import("../pages/admin/AddRestaurantPage"));
+const RestaurantDetailsPage = lazy(() => import("../pages/admin/RestaurantDetailsPage"));
+const UsersPage = lazy(() => import("../pages/admin/UsersPage"));
+const AddUserPage = lazy(() => import("../pages/admin/AddUserPage"));
+const UserDetailsPage = lazy(() => import("../pages/admin/UserDetailsPage"));
+const SubscriptionsPage = lazy(() => import("../pages/admin/SubscriptionsPage"));
+const ActivityLogsPage = lazy(() => import("../pages/admin/ActivityLogsPage"));
+const BillingPage = lazy(() => import("../pages/admin/BillingPage"));
+const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPaymentsPage"));
+const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
+
+const PageSkeleton = () => (
+  <div className="flex min-h-[50vh] items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
+  </div>
+);
 
 const AppRouter = () => (
   <Routes>
-    <Route path="/login" element={<LoginPage />} />
-    <Route path="/super-admin-login" element={<LoginPage superAdminOnly />} />
-    <Route path="/register" element={<RegisterPage />} />
+    <Route path="/login" element={
+      <Suspense fallback={<PageSkeleton />}>
+        <LoginPage />
+      </Suspense>
+    } />
+    <Route path="/super-admin-login" element={
+      <Suspense fallback={<PageSkeleton />}>
+        <LoginPage superAdminOnly />
+      </Suspense>
+    } />
+    <Route path="/register" element={
+      <Suspense fallback={<PageSkeleton />}>
+        <RegisterPage />
+      </Suspense>
+    } />
 
     <Route element={<MainLayout />}>
       <Route path="/" element={<HomePage />} />
-      <Route path="/menu" element={<MenuPage />} />
-      <Route path="/reservation" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
-      <Route path="/cart" element={<CartPage />} />
-      <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-      <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/subscribe/register" element={<SubscribeRegisterPage />} />
-      <Route path="/subscribe/checkout" element={<SubscribeCheckoutPage />} />
-      <Route path="/subscribe/success" element={<SubscribeSuccessPage />} />
-      <Route path="/subscribe/failed" element={<SubscribeFailedPage />} />
+      <Route path="/menu" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <MenuPage />
+        </Suspense>
+      } />
+      <Route path="/reservation" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <ReservationPage />
+          </ProtectedRoute>
+        </Suspense>
+      } />
+      <Route path="/cart" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <CartPage />
+        </Suspense>
+      } />
+      <Route path="/checkout" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <CheckoutPage />
+          </ProtectedRoute>
+        </Suspense>
+      } />
+      <Route path="/orders" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <OrdersPage />
+          </ProtectedRoute>
+        </Suspense>
+      } />
+      <Route path="/profile" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        </Suspense>
+      } />
+      <Route path="/pricing" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <PricingPage />
+        </Suspense>
+      } />
+      <Route path="/subscribe/register" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <SubscribeRegisterPage />
+        </Suspense>
+      } />
+      <Route path="/subscribe/checkout" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <SubscribeCheckoutPage />
+        </Suspense>
+      } />
+      <Route path="/subscribe/success" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <SubscribeSuccessPage />
+        </Suspense>
+      } />
+      <Route path="/subscribe/failed" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <SubscribeFailedPage />
+        </Suspense>
+      } />
     </Route>
 
     <Route
       path="/dashboard/admin"
       element={
-        <ProtectedRoute>
-          <AdminRoute>
-            <AdminModuleLayout />
-          </AdminRoute>
-        </ProtectedRoute>
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <Suspense fallback={<PageSkeleton />}>
+              <AdminRoute>
+                <Suspense fallback={<PageSkeleton />}>
+                  <AdminModuleLayout />
+                </Suspense>
+              </AdminRoute>
+            </Suspense>
+          </ProtectedRoute>
+        </Suspense>
       }
     >
       <Route index element={<AdminDashboard />} />
@@ -92,11 +172,17 @@ const AppRouter = () => (
     <Route
       path="/super-admin/*"
       element={
-        <ProtectedRoute>
-          <SuperAdminRoute>
-            <SuperAdminModuleLayout />
-          </SuperAdminRoute>
-        </ProtectedRoute>
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <Suspense fallback={<PageSkeleton />}>
+              <SuperAdminRoute>
+                <Suspense fallback={<PageSkeleton />}>
+                  <SuperAdminModuleLayout />
+                </Suspense>
+              </SuperAdminRoute>
+            </Suspense>
+          </ProtectedRoute>
+        </Suspense>
       }
     >
       <Route index element={<Navigate to="dashboard" replace />} />

@@ -23,12 +23,7 @@ const NotificationBell = () => {
     setLoading(true);
     try {
       const { data } = await getNotifications({ page: 1, limit: 3, isRead: false, sortBy: "createdAt", sortOrder: "desc" });
-      if (!data.data.length) {
-        const fallback = await getNotifications({ page: 1, limit: 3, sortBy: "createdAt", sortOrder: "desc" });
-        setNotifications(fallback.data.data || []);
-      } else {
-        setNotifications(data.data || []);
-      }
+      setNotifications(data.data || []);
     } catch {
       setNotifications([]);
     } finally {

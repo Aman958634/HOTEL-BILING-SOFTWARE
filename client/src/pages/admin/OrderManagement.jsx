@@ -205,7 +205,7 @@ const OrderManagement = () => {
       socket.off("order:cancelled", refresh);
       socket.off("table:statusChanged", refresh);
     };
-  }, [socket, filters]);
+  }, [socket]);
 
   const openDetails = async (order) => {
     setDetailsOpen(true);
