@@ -1,27 +1,8 @@
 import { FiMenu, FiUser } from "react-icons/fi";
-import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import NotificationBell from "../admin/NotificationBell";
-import { getNotificationSummary } from "../../services/notificationService";
 
-const MobileAppHeader = ({ onMenuClick, notificationCount }) => {
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    const fetchNotificationSummary = async () => {
-      try {
-        const { data } = await getNotificationSummary();
-        setUnreadCount(data.data?.unread || 0);
-      } catch {
-        setUnreadCount(0);
-      }
-    };
-
-    fetchNotificationSummary();
-  }, []);
-
-  const displayCount = notificationCount !== undefined ? notificationCount : unreadCount;
-
+const MobileAppHeader = ({ onMenuClick }) => {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-md">
       <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
@@ -40,14 +21,7 @@ const MobileAppHeader = ({ onMenuClick, notificationCount }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <NotificationBell />
-            {displayCount > 0 && (
-              <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-                {displayCount > 99 ? "99+" : displayCount}
-              </span>
-            )}
-          </div>
+          <NotificationBell />
           <Link
             to="/profile"
             className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"

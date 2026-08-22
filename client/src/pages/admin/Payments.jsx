@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiDownload, FiFilter, FiRefreshCw, FiFileText } from "react-icons/fi";
 import PaymentStats from "../../components/payments/PaymentStats";
 import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
-import PaymentDetailsDrawer from "../../components/payments/PaymentDetailsDrawer";
-import PaymentReceipt from "../../components/payments/PaymentReceipt";
-import RefundModal from "../../components/payments/RefundModal";
-import PaymentAnalytics from "../../components/payments/PaymentAnalytics";
-import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { useSocket } from "../../context/SocketContext";
 import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, refundPayment } from "../../services/paymentService";
+
+const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
+const PaymentDetailsDrawer = lazy(() => import("../../components/payments/PaymentDetailsDrawer"));
+const PaymentReceipt = lazy(() => import("../../components/payments/PaymentReceipt"));
+const RefundModal = lazy(() => import("../../components/payments/RefundModal"));
+const ConfirmDialog = lazy(() => import("../../components/admin/ConfirmDialog"));
 
 const defaultFilters = {
   search: "",
@@ -97,17 +97,27 @@ const Payments = () => {
     }
   };
 
+  const prevRange = useRef(filters.range);
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
+    const rangeChanged = prevRange.current !== filters.range;
+    prevRange.current = filters.range;
+
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      loadPayments(filtersRef.current);
+      loadStats(filtersRef.current.range);
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       loadPayments(filters);
+      if (rangeChanged) loadStats(filters.range);
     }, 250);
 
     return () => clearTimeout(timeoutId);
   }, [filters]);
-
-  useEffect(() => {
-    loadStats(filters.range);
-  }, [filters.range]);
 
   useEffect(() => {
     if (!socket) return;
@@ -251,7 +261,30 @@ const Payments = () => {
 
   const retry = () => loadPayments(filtersRef.current);
 
-  const tableContent = useMemo(() => payments, [payments]);
+  const tableContent = payments;
+
+  const analyticsRef = useRef(null);
+  const [analyticsVisible, setAnalyticsVisible] = useState(false);
+
+  useEffect(() => {
+    const node = analyticsRef.current;
+    if (!node) return undefined;
+    if (typeof IntersectionObserver === "undefined") {
+      setAnalyticsVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setAnalyticsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="space-y-4 pb-20">
@@ -282,53 +315,71 @@ const Payments = () => {
           </button>
         </div>
       ) : (
-        <PaymentTable
-          payments={tableContent}
-          loading={loadingPayments}
-          meta={meta}
-          onView={openDetails}
-          onReceipt={openReceipt}
-          onRefund={openRefund}
-          onDelete={setDeleteTarget}
-          onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
-        />
+        <div className="min-h-[20rem]">
+          <PaymentTable
+            payments={tableContent}
+            loading={loadingPayments}
+            meta={meta}
+            onView={openDetails}
+            onReceipt={openReceipt}
+            onRefund={openRefund}
+            onDelete={setDeleteTarget}
+            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+          />
+        </div>
       )}
 
-      <PaymentAnalytics stats={stats} loading={loadingStats} />
+      <div ref={analyticsRef} className="min-h-[24rem]">
+        {analyticsVisible ? (
+          <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-slate-100" />}>
+            <PaymentAnalytics stats={stats} loading={loadingStats} />
+          </Suspense>
+        ) : (
+          <div className="h-96 animate-pulse rounded-2xl bg-slate-100" />
+        )}
+      </div>
 
-      <PaymentDetailsDrawer
-        open={detailOpen}
-        payment={selectedPayment}
-        loading={detailLoading}
-        onClose={() => setDetailOpen(false)}
-        onReceipt={openReceipt}
-        onRefund={openRefund}
-      />
+      <Suspense fallback={null}>
+        <PaymentDetailsDrawer
+          open={detailOpen}
+          payment={selectedPayment}
+          loading={detailLoading}
+          onClose={() => setDetailOpen(false)}
+          onReceipt={openReceipt}
+          onRefund={openRefund}
+        />
+      </Suspense>
 
-      <PaymentReceipt
-        open={receiptOpen}
-        payment={selectedPayment}
-        onClose={() => setReceiptOpen(false)}
-        onDownload={downloadReceipt}
-        onPrint={printReceipt}
-      />
+      <Suspense fallback={null}>
+        <PaymentReceipt
+          open={receiptOpen}
+          payment={selectedPayment}
+          onClose={() => setReceiptOpen(false)}
+          onDownload={downloadReceipt}
+          onPrint={printReceipt}
+        />
+      </Suspense>
 
-      <RefundModal
-        open={refundOpen}
-        payment={refundTarget}
-        loading={processingRefund}
-        onClose={() => setRefundOpen(false)}
-        onSubmit={submitRefund}
-      />
+      <Suspense fallback={null}>
+        <RefundModal
+          open={refundOpen}
+          payment={refundTarget}
+          loading={processingRefund}
+          onClose={() => setRefundOpen(false)}
+          onSubmit={submitRefund}
+        />
+      </Suspense>
 
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete payment"
-        message="This will permanently remove the payment record. Continue?"
-        loading={deletingPayment}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={confirmDeletePayment}
-      />
+      <Suspense fallback={null}>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete payment"
+          message="This will permanently remove the payment record. Continue?"
+          loading={deletingPayment}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={confirmDeletePayment}
+        />
+      </Suspense>
 
       <PaymentFilters
         variant="mobile"
