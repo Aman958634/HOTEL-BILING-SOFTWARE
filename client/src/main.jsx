@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import App from "./App";
 import { store } from "./redux/store";
 import { setupAuthInterceptor } from "./services/api";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 import "./index.css";
 
 setupAuthInterceptor(store);
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Suspense fallback={null}>
           <SocketProvider>
             <Toaster position="top-right" />
-            <App />
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
           </SocketProvider>
         </Suspense>
       </BrowserRouter>
