@@ -1,9 +1,12 @@
+import { FiLayers } from "react-icons/fi";
+
 const CategoryTable = ({ items, loading, onEdit, onDelete, onToggle }) => {
   if (loading) return <div className="h-52 animate-pulse rounded-2xl bg-slate-100" />;
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+        <FiLayers className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
         No categories found.
       </div>
     );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiCalendar } from "react-icons/fi";
+import { FiAlertCircle, FiBookOpen, FiCalendar, FiClipboard, FiDollarSign, FiGrid, FiShoppingBag, FiTrendingUp } from "react-icons/fi";
 import toast from "react-hot-toast";
 import StatCard from "../../components/admin/StatCard";
 import SalesChart from "../../components/admin/SalesChart";
@@ -85,6 +85,17 @@ const AdminDashboard = () => {
     }));
   }, [stats]);
 
+  const iconMap = {
+    totalRevenue: <FiDollarSign />,
+    todayRevenue: <FiTrendingUp />,
+    totalOrders: <FiShoppingBag />,
+    todayOrders: <FiClipboard />,
+    activeReservations: <FiCalendar />,
+    availableTables: <FiGrid />,
+    lowStockItems: <FiAlertCircle />,
+    totalMenuItems: <FiBookOpen />,
+  };
+
   const onStatusChange = async (orderId, status) => {
     try {
       await updateAdminOrderStatus(orderId, status);
@@ -133,7 +144,7 @@ const AdminDashboard = () => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
-            <StatCard key={card.key} {...card} />
+            <StatCard key={card.key} {...card} icon={iconMap[card.key]} />
           ))}
         </div>
       )}

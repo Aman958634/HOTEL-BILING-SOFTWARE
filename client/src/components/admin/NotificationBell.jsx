@@ -120,8 +120,9 @@ const NotificationBell = () => {
                 </div>
               ))
             ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                No recent notifications
+              <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                <FiBell className="h-6 w-6 text-slate-300" aria-hidden="true" />
+                <span>No recent notifications</span>
               </div>
             )}
           </div>

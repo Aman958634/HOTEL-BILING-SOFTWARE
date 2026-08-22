@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { useSocket } from "../../context/SocketContext";
+import { FiUsers } from "react-icons/fi";
 import StatCard from "../../components/admin/StatCard";
 import StaffStats from "../../components/admin/staff/StaffStats";
 import StaffToolbar from "../../components/admin/staff/StaffToolbar";
@@ -262,6 +263,7 @@ const StaffManagement = () => {
         <div className="h-72 animate-pulse rounded-2xl bg-slate-100" />
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+          <FiUsers className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
           <h3 className="text-lg font-semibold text-slate-900">{emptyMessage}</h3>
           <p className="mt-2 text-sm text-slate-500">Use the add button to create the first staff member or clear the search filters.</p>
           <button onClick={openCreate} className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Your First Staff Member</button>

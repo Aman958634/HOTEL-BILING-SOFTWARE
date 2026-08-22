@@ -1,4 +1,4 @@
-import { FiBarChart2, FiBell, FiBookOpen, FiClipboard, FiCreditCard, FiGrid, FiHome, FiLayers, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiUsers, FiAward } from "react-icons/fi";
+import { FiBarChart2, FiBell, FiBookOpen, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiUsers, FiX, FiAward } from "react-icons/fi";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
@@ -6,14 +6,14 @@ import { logoutThunk } from "../../redux/slices/authSlice";
 const links = [
   { to: "/dashboard/admin", label: "Dashboard", icon: <FiHome /> },
   { to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen /> },
-  { to: "/dashboard/admin/categories", label: "Categories", icon: <FiLayers /> },
+  { to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag /> },
   { to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid /> },
   { to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag /> },
   { to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
-  { to: "/dashboard/admin/payments", label: "Payments", icon: <FiBarChart2 /> },
-  { to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiCreditCard /> },
-  { to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiTag /> },
-  { to: "/dashboard/admin/reports", label: "Reports", icon: <FiClipboard /> },
+  { to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },
+  { to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText /> },
+  { to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign /> },
+  { to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 /> },
   { to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell /> },
   { to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
 ];
@@ -46,7 +46,7 @@ const AdminSidebar = ({ open, setOpen }) => {
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 md:hidden"
             aria-label="Close menu"
           >
-            ✕
+            <FiX className="h-4 w-4" />
           </button>
         </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { FiSearch } from "react-icons/fi";
 import CategoryTable from "../../components/admin/CategoryTable";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import {
@@ -115,12 +116,15 @@ const CategoryManagement = () => {
       </div>
 
         <div className="mt-4">
-          <input
-            className="w-full rounded-xl border border-slate-300 p-2 text-sm md:w-80"
-            placeholder="Search category"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="relative">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm md:w-80"
+              placeholder="Search category"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         <form onSubmit={submit} className="mt-4 grid gap-3 md:grid-cols-2">

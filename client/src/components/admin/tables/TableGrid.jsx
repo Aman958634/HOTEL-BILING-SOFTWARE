@@ -1,4 +1,5 @@
 import TableCard from "./TableCard";
+import { FiGrid } from "react-icons/fi";
 
 const TableGrid = ({
   tables,
@@ -27,6 +28,7 @@ const TableGrid = ({
   if (!tables.length) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <FiGrid className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
         <h3 className="text-lg font-semibold text-slate-900">No restaurant tables found.</h3>
         <p className="mt-2 text-sm text-slate-500">Create your table plan to start managing occupancy and reservations.</p>
         <button onClick={onAddFirst} className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">

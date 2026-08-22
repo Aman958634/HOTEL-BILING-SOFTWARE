@@ -1,9 +1,13 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { FiBarChart2 } from "react-icons/fi";
 
 const SalesChart = ({ data, range, onRangeChange, loading }) => (
   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h3 className="text-lg font-semibold text-slate-900">Sales Overview</h3>
+      <div className="flex items-center gap-2">
+        <FiBarChart2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+        <h3 className="text-lg font-semibold text-slate-900">Sales Overview</h3>
+      </div>
       <div className="flex items-center gap-2">
         {["today", "7d", "30d", "year"].map((item) => (
           <button
@@ -24,8 +28,9 @@ const SalesChart = ({ data, range, onRangeChange, loading }) => (
     {loading ? (
       <div className="h-64 md:h-80 animate-pulse rounded-xl bg-slate-100" />
     ) : data.length === 0 ? (
-      <div className="h-64 md:h-80 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-        No sales data found for selected range.
+      <div className="flex h-64 md:h-80 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+        <FiBarChart2 className="h-8 w-8 text-slate-300" aria-hidden="true" />
+        <span>No sales data found for selected range.</span>
       </div>
     ) : (
       <div className="h-64 md:h-80">

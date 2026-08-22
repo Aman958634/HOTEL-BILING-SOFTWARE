@@ -9,6 +9,10 @@ import {
   FiTrash2,
   FiCheckCircle,
   FiBookOpen,
+  FiMail,
+  FiDollarSign,
+  FiShoppingBag,
+  FiCreditCard,
 } from "react-icons/fi";
 import StatCard from "../../components/admin/StatCard";
 import {
@@ -270,10 +274,10 @@ const Notifications = () => {
         </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Unread" value={summary.unread} />
-        <StatCard label="Total" value={summary.total} />
-        <StatCard label="Orders" value={summary.order} />
-        <StatCard label="Payments" value={summary.payment} />
+        <StatCard label="Unread" value={summary.unread} icon={<FiBell />} />
+        <StatCard label="Total" value={summary.total} icon={<FiMail />} />
+        <StatCard label="Orders" value={summary.order} icon={<FiShoppingBag />} />
+        <StatCard label="Payments" value={summary.payment} icon={<FiCreditCard />} />
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

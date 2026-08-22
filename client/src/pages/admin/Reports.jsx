@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiDownload, FiFileText, FiFilter, FiRefreshCw, FiUsers } from "react-icons/fi";
+import { FiDownload, FiFileText, FiFilter, FiRefreshCw, FiUsers, FiDollarSign, FiShoppingBag, FiCheckCircle, FiXCircle, FiTrendingUp } from "react-icons/fi";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import StatCard from "../../components/admin/StatCard";
 import { currency, dateTime } from "../../utils/format";
@@ -194,36 +194,42 @@ const Reports = () => {
         value: summary.totalRevenue || 0,
         trend: summary.growth?.totalRevenue || 0,
         formatValue: true,
+        icon: <FiDollarSign />,
       },
       {
         label: "Total Orders",
         value: summary.totalOrders || 0,
         trend: summary.growth?.totalOrders || 0,
         formatValue: false,
+        icon: <FiShoppingBag />,
       },
       {
         label: "Avg Order Value",
         value: summary.averageOrderValue || 0,
         trend: summary.growth?.averageOrderValue || 0,
         formatValue: true,
+        icon: <FiTrendingUp />,
       },
       {
         label: "Customers",
         value: summary.totalCustomers || 0,
         trend: summary.growth?.totalCustomers || 0,
         formatValue: false,
+        icon: <FiUsers />,
       },
       {
         label: "Completed Orders",
         value: summary.completedOrders || 0,
         trend: summary.growth?.completedOrders || 0,
         formatValue: false,
+        icon: <FiCheckCircle />,
       },
       {
         label: "Cancelled Orders",
         value: summary.cancelledOrders || 0,
         trend: summary.growth?.cancelledOrders || 0,
         formatValue: false,
+        icon: <FiXCircle />,
       },
     ];
   }, [summary]);
@@ -393,7 +399,7 @@ const Reports = () => {
           : summaryCards.map((card) => (
               <StatCard
                 key={card.label}
-                icon={<FiUsers />}
+                icon={card.icon}
                 label={card.label}
                 value={card.value}
                 trend={card.trend}

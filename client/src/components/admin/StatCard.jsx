@@ -20,7 +20,7 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue }) => {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600" aria-hidden="true">
           {icon}
         </div>
         <span className={`flex items-center gap-1 text-xs font-semibold ${toneClass}`}>

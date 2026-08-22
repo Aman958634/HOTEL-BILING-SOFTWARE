@@ -89,6 +89,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
   if (!payments.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+        <FiFileText className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
         <p className="text-lg font-semibold text-slate-900">No payments found</p>
         <p className="mt-2 text-sm text-slate-500">Payment transactions will appear here when customers complete orders.</p>
       </div>

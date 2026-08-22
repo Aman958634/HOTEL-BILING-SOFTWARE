@@ -1,4 +1,4 @@
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { paymentMethodLabel } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
@@ -23,6 +23,7 @@ const OrderTable = ({ orders, loading, onEdit, onDelete }) => {
   if (!orders.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
+        <FiShoppingBag className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
         <p className="text-sm text-slate-500">No orders found.</p>
       </div>
     );

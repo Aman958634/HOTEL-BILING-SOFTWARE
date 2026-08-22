@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { FiPlus, FiSearch } from "react-icons/fi";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import MenuForm from "../../components/admin/MenuForm";
 import MenuTable from "../../components/admin/MenuTable";
@@ -136,18 +137,22 @@ const MenuManagement = () => {
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Menu Management</h2>
           <p className="mt-1 text-sm text-slate-500">Total items: {summary.total} | Available: {summary.available}</p>
         </div>
-        <button className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700" onClick={openCreate}>
+        <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700" onClick={openCreate}>
+          <FiPlus className="h-4 w-4" aria-hidden="true" />
           Add Food
         </button>
       </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <input
-            className="rounded-xl border border-slate-300 p-2 text-sm"
-            placeholder="Search food"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="relative">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm"
+              placeholder="Search food"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <select className="rounded-xl border border-slate-300 p-2 text-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">All categories</option>
             {categories.map((cat) => (
