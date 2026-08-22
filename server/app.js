@@ -27,6 +27,8 @@ import superAdminRoutes from "./routes/superAdminRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import staffRoutes from "./routes/staffRoutes.js";
 
+import searchRoutes from "./routes/searchRoutes.js";
+
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,6 +87,7 @@ app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
+app.use("/api/v1/search", searchRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,6 +1,7 @@
 import { FiMenu, FiUser } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import NotificationBell from "../admin/NotificationBell";
+import GlobalSearch from "./GlobalSearch";
 
 const MobileAppHeader = ({ onMenuClick }) => {
   return (
@@ -21,6 +22,9 @@ const MobileAppHeader = ({ onMenuClick }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="sm:hidden">
+            <GlobalSearch className="block sm:hidden" />
+          </div>
           <NotificationBell />
           <Link
             to="/profile"

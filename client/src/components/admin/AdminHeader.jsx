@@ -1,5 +1,6 @@
-import { FiCalendar, FiChevronDown, FiSearch } from "react-icons/fi";
+import { FiCalendar, FiChevronDown } from "react-icons/fi";
 import NotificationBell from "./NotificationBell";
+import GlobalSearch from "../common/GlobalSearch";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }) => {
   return (
@@ -11,13 +12,7 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" })
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
-          <label className="relative hidden sm:block">
-            <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              className="h-10 w-64 rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
-              placeholder="Search anything..."
-            />
-          </label>
+          <GlobalSearch className="hidden sm:block" />
 
           <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
             <FiCalendar className="h-4 w-4 text-slate-500" />
