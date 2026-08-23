@@ -175,9 +175,13 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   await createOrderAuditLog({ user: req.user, action: "Order Created", order: populated });
   await createOrderNotifications({
-    title: "New Order",
-    message: `${populated.orderNumber} created with ${populated.items.length} items`,
+    title: "New Order Received",
+    message: `New order #${populated.orderNumber} has been received. Amount: ₹${populated.total}.`,
     actorUserId: req.user._id,
+    type: "NEW_ORDER",
+    restaurantId: populated.restaurant,
+    entityType: "Order",
+    entityId: populated._id,
   });
 
   await syncPaymentFromOrder(populated, {
@@ -374,8 +378,12 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
     title: "Order Cancelled",
-    message: `${order.orderNumber} was cancelled`,
+    message: `Order #${order.orderNumber} has been cancelled.`,
     actorUserId: req.user._id,
+    type: "ORDER_CANCELLED",
+    restaurantId: order.restaurant,
+    entityType: "Order",
+    entityId: order._id,
   });
 
   emitOrderCancelled(order);
@@ -413,6 +421,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       title: "Order Cancelled",
       message: `${order.orderNumber} has been cancelled`,
       actorUserId: req.user._id,
+      type: "ORDER_CANCELLED",
+      restaurantId: order.restaurant,
+      entityType: "Order",
+      entityId: order._id,
     });
     emitOrderCancelled(order);
   } else {
@@ -420,6 +432,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       title: `Order ${nextStatus}`,
       message: `${order.orderNumber} moved to ${nextStatus}`,
       actorUserId: req.user._id,
+      type: "order",
+      restaurantId: order.restaurant,
+      entityType: "Order",
+      entityId: order._id,
     });
     emitOrderStatusChanged(order);
   }
@@ -468,9 +484,13 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
   await createOrderAuditLog({ user: req.user, action: "Order Payment Updated", order, context: { paymentMethod, paymentStatus } });
 
   await createOrderNotifications({
-    title: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment Successful" : "Payment Updated",
+    title: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment Received" : "Payment Updated",
     message: `${order.orderNumber} payment is now ${paymentStatus}`,
     actorUserId: req.user._id,
+    type: paymentStatus === PAYMENT_STATUSES.PAID ? "PAYMENT_RECEIVED" : "payment",
+    restaurantId: order.restaurant,
+    entityType: "Order",
+    entityId: order._id,
   });
 
   emitOrderPaymentUpdated(orderUpdate);
@@ -509,9 +529,13 @@ export const payOrder = asyncHandler(async (req, res) => {
 
   await createOrderAuditLog({ user: req.user, action: "Order Paid", order: result.order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } });
   await createOrderNotifications({
-    title: "Payment Successful",
+    title: "Payment Received",
     message: `${result.order.orderNumber} payment completed`,
     actorUserId: req.user._id,
+    type: "PAYMENT_RECEIVED",
+    restaurantId: result.order.restaurant,
+    entityType: "Order",
+    entityId: result.order._id,
   });
 
   emitOrderPaymentUpdated(result.order);
@@ -545,9 +569,13 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
 
   if (paymentStatus === PAYMENT_STATUSES.PAID) {
     await createOrderNotifications({
-      title: "Payment Successful",
+      title: "Payment Received",
       message: `${result.order.orderNumber} payment is now PAID`,
       actorUserId: req.user._id,
+      type: "PAYMENT_RECEIVED",
+      restaurantId: result.order.restaurant,
+      entityType: "Order",
+      entityId: result.order._id,
     });
   }
 

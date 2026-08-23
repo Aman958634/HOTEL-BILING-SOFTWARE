@@ -26,6 +26,7 @@ import {
   syncPaymentFromOrder,
   updateOrderPaymentState,
 } from "../services/paymentService.js";
+import { notifyPaymentReceived } from "../services/notificationService.js";
 
 const providerToMethod = {
   stripe: "OTHER",
@@ -391,6 +392,18 @@ export const verifyPayment = asyncHandler(async (req, res) => {
       razorpayPaymentId: razorpay_payment_id || meta.razorpayPaymentId || "",
       note: "Payment verification failed",
     });
+  }
+
+  if (nextStatus === "PAID") {
+    await notifyPaymentReceived({
+      restaurantId: order.restaurant,
+      paymentId: payment._id,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      amount: payment.totalAmount || payment.amount || order.total,
+      paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod || "Unknown",
+      actorUserId: req.user?._id,
+    }).catch(() => {});
   }
 
   res.status(200).json(new ApiResponse(true, "Payment verified", serializePayment(payment)));

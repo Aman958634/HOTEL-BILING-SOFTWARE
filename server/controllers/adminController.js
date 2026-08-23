@@ -4,10 +4,13 @@ import Food from "../models/Food.js";
 import Reservation from "../models/Reservation.js";
 import Table from "../models/Table.js";
 import Inventory from "../models/Inventory.js";
+import Subscription from "../models/Subscription.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
+import { notifySubscriptionExpiring } from "../services/notificationService.js";
+import { getDaysRemaining } from "../utils/subscriptionUtils.js";
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -80,6 +83,27 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
     Food.countDocuments({ ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
   ]);
+
+  if (req.user?.restaurant) {
+    const sub = await Subscription.findOne({ restaurant: req.user.restaurant }).sort({ createdAt: -1 });
+    if (sub) {
+      const daysRemaining = getDaysRemaining(sub, new Date());
+      if (daysRemaining <= 0) {
+        await notifySubscriptionExpiring({
+          restaurantId: req.user.restaurant,
+          subscriptionId: sub._id,
+          daysRemaining: 0,
+          isExpired: true,
+        }).catch(() => {});
+      } else if (daysRemaining <= 7) {
+        await notifySubscriptionExpiring({
+          restaurantId: req.user.restaurant,
+          subscriptionId: sub._id,
+          daysRemaining,
+        }).catch(() => {});
+      }
+    }
+  }
 
   const cards = {
     totalRevenue: {

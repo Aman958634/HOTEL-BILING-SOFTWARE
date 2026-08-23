@@ -22,6 +22,7 @@ import {
   Analytics,
   Log,
 } from "../models/index.js";
+import { notifyLowStock } from "../services/notificationService.js";
 
 const registry = {
   restaurants: Restaurant,
@@ -81,6 +82,21 @@ export const createOne = asyncHandler(async (req, res) => {
   }
 
   const doc = await Model.create(req.body);
+
+  if (Model === Inventory) {
+    const quantity = Number(doc.quantity || 0);
+    const reorderLevel = Number(doc.reorderLevel || 0);
+    if (quantity <= reorderLevel) {
+      await notifyLowStock({
+        restaurantId: doc.restaurant,
+        inventoryId: doc._id,
+        itemName: doc.itemName,
+        quantity,
+        reorderLevel,
+      }).catch(() => {});
+    }
+  }
+
   res.status(201).json(new ApiResponse(true, "Created", doc));
 });
 
@@ -119,6 +135,21 @@ export const updateOne = asyncHandler(async (req, res) => {
     runValidators: true,
   });
   if (!doc) throw new ApiError(404, "Record not found");
+
+  if (Model === Inventory) {
+    const quantity = Number(doc.quantity || 0);
+    const reorderLevel = Number(doc.reorderLevel || 0);
+    if (quantity <= reorderLevel) {
+      await notifyLowStock({
+        restaurantId: doc.restaurant,
+        inventoryId: doc._id,
+        itemName: doc.itemName,
+        quantity,
+        reorderLevel,
+      }).catch(() => {});
+    }
+  }
+
   res.status(200).json(new ApiResponse(true, "Updated", doc));
 });
 

@@ -16,10 +16,12 @@ import {
   calculateRenewalDate,
   calculateTrialEndDate,
   expireTrialIfNeeded,
+  getDaysRemaining,
   getFreeTrialDays,
   normalizeTrialDates,
   toSubscriptionView,
 } from "../utils/subscriptionUtils.js";
+import { notifySubscriptionExpiring } from "../services/notificationService.js";
 
 const FORBIDDEN_TENANT_FIELDS = new Set([
   "trialEndDate",
@@ -665,6 +667,22 @@ export const getMySubscription = asyncHandler(async (req, res) => {
       targetId: sub._id,
       targetType: "subscription",
     });
+
+    await notifySubscriptionExpiring({
+      restaurantId,
+      subscriptionId: sub._id,
+      daysRemaining: 0,
+      isExpired: true,
+    }).catch(() => {});
+  }
+
+  const daysRemaining = getDaysRemaining(sub, new Date());
+  if (daysRemaining <= 7 && daysRemaining > 0 && sub.status !== "expired") {
+    await notifySubscriptionExpiring({
+      restaurantId,
+      subscriptionId: sub._id,
+      daysRemaining,
+    }).catch(() => {});
   }
 
   const [pendingPayment, latestPayment] = await Promise.all([

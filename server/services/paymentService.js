@@ -15,6 +15,7 @@ import {
   paymentStatusLabel,
 } from "../utils/paymentUtils.js";
 import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
+import { notifyPaymentReceived } from "./notificationService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -121,11 +122,29 @@ export const serializePayment = (payment) => {
   };
 };
 
-const notifyPaymentAudience = async ({ title, message }) => {
+const notifyPaymentAudience = async ({ title, message, payment, order }) => {
   try {
+    const restaurantId = payment?.restaurant || order?.restaurant || null;
+    const paymentId = payment?._id || null;
+    const orderId = order?._id || payment?.orderId || null;
+    const orderNumber = order?.orderNumber || payment?.orderId?.orderNumber || "";
+
+    if (title === "Payment received" || title === "Refund processed") {
+      await notifyPaymentReceived({
+        restaurantId,
+        paymentId,
+        orderId,
+        orderNumber,
+        amount: Number(payment?.totalAmount || payment?.amount || 0),
+        paymentMethod: paymentMethodLabel(payment?.paymentMethod || order?.paymentMethod || "OTHER"),
+      });
+      return;
+    }
+
     const recipients = await User.find({
       role: { $in: ["admin", "manager", "cashier", "waiter"] },
       isActive: true,
+      ...(restaurantId && mongoose.isValidObjectId(restaurantId) ? { restaurant: restaurantId } : {}),
     }).select("_id");
 
     if (!recipients.length) return;
@@ -133,9 +152,12 @@ const notifyPaymentAudience = async ({ title, message }) => {
     await Notification.insertMany(
       recipients.map((recipient) => ({
         user: recipient._id,
+        restaurantId: restaurantId || null,
         title,
         message,
         type: "payment",
+        entityType: "Payment",
+        entityId: paymentId,
       }))
     );
   } catch (_error) {
@@ -230,6 +252,8 @@ export const syncPaymentFromOrder = async (
   await notifyPaymentAudience({
     title: payment.paymentStatus === "FAILED" ? "Payment failed" : payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
     message: `${paymentMethodLabel(payment.paymentMethod)} ${payment.paymentStatus === "PAID" ? "payment received" : `payment is ${paymentStatusLabel(payment.paymentStatus).toLowerCase()}`} for Order #${orderDoc.orderNumber}`,
+    payment,
+    order: orderDoc,
   });
 
   return payment;
@@ -361,6 +385,8 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
   await notifyPaymentAudience({
     title: "Refund processed",
     message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc?.orderNumber || paymentDoc.orderId}`,
+    payment: paymentDoc,
+    order: orderDoc,
   });
 
   return paymentDoc;

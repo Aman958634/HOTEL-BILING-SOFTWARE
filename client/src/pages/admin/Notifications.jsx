@@ -53,18 +53,39 @@ const statusOptions = [
 
 const typeOptions = [
   { value: "", label: "All" },
-  { value: "order", label: "Order" },
-  { value: "payment", label: "Payment" },
-  { value: "reservation", label: "Reservation" },
+  { value: "NEW_ORDER", label: "Orders" },
+  { value: "PAYMENT_RECEIVED", label: "Payments" },
+  { value: "ORDER_CANCELLED", label: "Order Cancellations" },
+  { value: "SUBSCRIPTION_EXPIRING", label: "Subscription" },
+  { value: "LOW_STOCK", label: "Inventory" },
+  { value: "NEW_STAFF", label: "Staff" },
+  { value: "NEW_RESERVATION", label: "Reservations" },
+  { value: "order", label: "Order Status" },
+  { value: "payment", label: "Payment Updates" },
+  { value: "reservation", label: "Reservation Updates" },
   { value: "system", label: "System" },
 ];
 
 const typeLabel = (type) => {
   switch (type) {
+    case "NEW_ORDER":
+      return "New Order";
+    case "PAYMENT_RECEIVED":
+      return "Payment Received";
+    case "ORDER_CANCELLED":
+      return "Order Cancelled";
+    case "SUBSCRIPTION_EXPIRING":
+      return "Subscription Expiring";
+    case "LOW_STOCK":
+      return "Low Stock";
+    case "NEW_STAFF":
+      return "New Staff";
+    case "NEW_RESERVATION":
+      return "New Reservation";
     case "order":
-      return "Order";
+      return "Order Status";
     case "payment":
-      return "Payment";
+      return "Payment Update";
     case "reservation":
       return "Reservation";
     case "system":
@@ -76,10 +97,21 @@ const typeLabel = (type) => {
 
 const typeBadgeClasses = (type) => {
   switch (type) {
+    case "NEW_ORDER":
     case "order":
       return "bg-amber-100 text-amber-700 border-amber-200";
+    case "PAYMENT_RECEIVED":
     case "payment":
       return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    case "ORDER_CANCELLED":
+      return "bg-rose-100 text-rose-700 border-rose-200";
+    case "SUBSCRIPTION_EXPIRING":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "LOW_STOCK":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "NEW_STAFF":
+      return "bg-violet-100 text-violet-700 border-violet-200";
+    case "NEW_RESERVATION":
     case "reservation":
       return "bg-sky-100 text-sky-700 border-sky-200";
     case "system":

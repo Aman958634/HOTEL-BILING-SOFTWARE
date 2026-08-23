@@ -6,6 +6,11 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Log from "../models/Log.js";
 import ApiError from "../utils/ApiError.js";
+import {
+  notifyNewOrder,
+  notifyOrderCancelled,
+  notifyPaymentReceived,
+} from "./notificationService.js";
 import { calculateOrderAmounts } from "./orderCalculationService.js";
 
 export const ORDER_STATUSES = {
@@ -370,24 +375,81 @@ export const createOrderAuditLog = async ({ user, action, order, context = {} })
   }
 };
 
-export const createOrderNotifications = async ({ title, message, actorUserId = null }) => {
+export const createOrderNotifications = async ({ title, message, actorUserId = null, type = "order", restaurantId, entityType, entityId }) => {
   try {
+    const safeRestaurantId = restaurantId && mongoose.isValidObjectId(restaurantId) ? restaurantId : null;
+    const safeEntityId = entityId && mongoose.isValidObjectId(entityId) ? entityId : null;
+
+    if (type === "NEW_ORDER") {
+      await notifyNewOrder({
+        restaurantId: safeRestaurantId,
+        orderId: safeEntityId,
+        orderNumber: title.replace("New Order Received - ", "").replace("New order #", "").replace(" has been received", ""),
+        customerName: message.includes("from") ? message.split("from ")[1]?.split(".")[0] : null,
+        total: 0,
+        actorUserId,
+      });
+      return;
+    }
+
+    if (type === "ORDER_CANCELLED") {
+      await notifyOrderCancelled({
+        restaurantId: safeRestaurantId,
+        orderId: safeEntityId,
+        orderNumber: title.replace("Order Cancelled - ", "").replace("Order #", "").replace(" has been cancelled", "").replace(" was cancelled", ""),
+        customer: null,
+        total: 0,
+        reason: message.includes("Reason:") ? message.split("Reason:")[1]?.trim() : null,
+        actorUserId,
+      });
+      return;
+    }
+
+    if (type === "PAYMENT_RECEIVED") {
+      await notifyPaymentReceived({
+        restaurantId: safeRestaurantId,
+        paymentId: safeEntityId,
+        orderId: safeEntityId,
+        orderNumber: title.replace("Payment Received - ", "").replace("Payment of ", "").split(" ")[1] || "",
+        amount: 0,
+        paymentMethod: "Unknown",
+        actorUserId,
+      });
+      return;
+    }
+
     const recipients = await User.find({
       role: { $in: ["admin", "manager", "waiter", "chef", "cashier"] },
       isActive: true,
+      ...(safeRestaurantId ? { restaurant: safeRestaurantId } : {}),
       ...(actorUserId ? { _id: { $ne: actorUserId } } : {}),
     }).select("_id");
 
     if (!recipients.length) return;
 
-    await Notification.insertMany(
-      recipients.map((recipient) => ({
+    const notifications = [];
+    for (const recipient of recipients) {
+      const existing = await Notification.findOne({
         user: recipient._id,
+        type,
+        entityType: entityType || null,
+        entityId: safeEntityId,
+      }).select("_id");
+
+      if (existing) continue;
+
+      const notification = await Notification.create({
+        user: recipient._id,
+        restaurantId: safeRestaurantId,
         title,
         message,
-        type: "order",
-      }))
-    );
+        type,
+        entityType: entityType || null,
+        entityId: safeEntityId,
+        isRead: false,
+      });
+      notifications.push(notification);
+    }
   } catch (_error) {
     // Ignore notification write failures to prevent flow blocking.
   }

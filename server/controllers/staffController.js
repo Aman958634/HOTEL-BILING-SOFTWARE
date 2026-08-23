@@ -25,6 +25,7 @@ import {
 } from "../services/staffService.js";
 import { emitStaffCreated, emitStaffStatusChanged, emitStaffUpdated } from "../socket/staffSocket.js";
 import { sendEmail } from "../services/emailService.js";
+import { notifyNewStaff } from "../services/notificationService.js";
 
 const getPagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -220,6 +221,15 @@ export const createStaff = asyncHandler(async (req, res) => {
   const saved = await Staff.findById(staff._id)
     .populate("user", "fullName email phone role isActive lastLogin")
     .populate("shift", "name startTime endTime isActive");
+
+  const staffName = `${saved.firstName} ${saved.lastName}`;
+  await notifyNewStaff({
+    restaurantId: req.user?.restaurant || null,
+    staffId: saved._id,
+    staffName,
+    role: saved.role,
+    actorUserId: req.user._id,
+  });
 
   emitStaffCreated(await serialize(saved));
   res.status(201).json(new ApiResponse(true, "Staff created successfully", await serialize(saved)));

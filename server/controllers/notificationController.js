@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -10,14 +11,29 @@ const parseBoolean = (value) => {
   return ["true", "1", "yes"].includes(String(value).toLowerCase());
 };
 
+const buildBaseFilters = (req) => {
+  const filters = { user: req.user._id };
+
+  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
+    filters.$or = [
+      { restaurantId: req.user.restaurant },
+      { restaurantId: null },
+    ];
+  }
+
+  return filters;
+};
+
 export const getNotifications = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const sortBy = req.query.sortBy || "createdAt";
   const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
-  const filters = { user: req.user._id };
+  const filters = buildBaseFilters(req);
+
   if (req.query.search) {
     filters.$or = [
+      ...(filters.$or || [{ user: req.user._id }]),
       { title: { $regex: req.query.search, $options: "i" } },
       { message: { $regex: req.query.search, $options: "i" } },
     ];
@@ -50,12 +66,12 @@ export const getNotifications = asyncHandler(async (req, res) => {
 });
 
 export const getNotificationSummary = asyncHandler(async (req, res) => {
-  const userFilter = { user: req.user._id };
+  const baseFilters = buildBaseFilters(req);
   const [total, unread, typeCounts] = await Promise.all([
-    Notification.countDocuments(userFilter),
-    Notification.countDocuments({ ...userFilter, isRead: false }),
+    Notification.countDocuments(baseFilters),
+    Notification.countDocuments({ ...baseFilters, isRead: false }),
     Notification.aggregate([
-      { $match: userFilter },
+      { $match: baseFilters },
       { $group: { _id: "$type", count: { $sum: 1 } } },
     ]),
   ]);
@@ -69,10 +85,17 @@ export const getNotificationSummary = asyncHandler(async (req, res) => {
     new ApiResponse(true, "Notification summary fetched", {
       total,
       unread,
-      order: counts.order || 0,
-      payment: counts.payment || 0,
-      reservation: counts.reservation || 0,
-      system: counts.system || 0,
+      newOrder: counts["NEW_ORDER"] || 0,
+      paymentReceived: counts["PAYMENT_RECEIVED"] || 0,
+      orderCancelled: counts["ORDER_CANCELLED"] || 0,
+      subscriptionExpiring: counts["SUBSCRIPTION_EXPIRING"] || 0,
+      lowStock: counts["LOW_STOCK"] || 0,
+      newStaff: counts["NEW_STAFF"] || 0,
+      newReservation: counts["NEW_RESERVATION"] || 0,
+      order: counts["order"] || 0,
+      payment: counts["payment"] || 0,
+      reservation: counts["reservation"] || 0,
+      system: counts["system"] || 0,
     })
   );
 });
@@ -83,8 +106,16 @@ export const updateNotificationStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, "isRead must be a boolean");
   }
 
+  const filters = { _id: req.params.id, user: req.user._id };
+  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
+    filters.$or = [
+      { restaurantId: req.user.restaurant },
+      { restaurantId: null },
+    ];
+  }
+
   const notification = await Notification.findOneAndUpdate(
-    { _id: req.params.id, user: req.user._id },
+    filters,
     { isRead },
     { new: true, runValidators: true }
   );
@@ -97,12 +128,28 @@ export const updateNotificationStatus = asyncHandler(async (req, res) => {
 });
 
 export const markAllNotificationsRead = asyncHandler(async (req, res) => {
-  const result = await Notification.updateMany({ user: req.user._id, isRead: false }, { isRead: true });
+  const filters = { user: req.user._id, isRead: false };
+  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
+    filters.$or = [
+      { restaurantId: req.user.restaurant },
+      { restaurantId: null },
+    ];
+  }
+
+  const result = await Notification.updateMany(filters, { isRead: true });
   res.status(200).json(new ApiResponse(true, "All notifications marked as read", { modifiedCount: result.modifiedCount }));
 });
 
 export const deleteNotification = asyncHandler(async (req, res) => {
-  const notification = await Notification.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+  const filters = { _id: req.params.id, user: req.user._id };
+  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
+    filters.$or = [
+      { restaurantId: req.user.restaurant },
+      { restaurantId: null },
+    ];
+  }
+
+  const notification = await Notification.findOneAndDelete(filters);
   if (!notification) {
     throw new ApiError(404, "Notification not found");
   }

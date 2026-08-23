@@ -11,6 +11,7 @@ import {
   assignReservationToTable,
   releaseReservationFromTable,
 } from "../services/tableStateService.js";
+import { notifyNewReservation } from "../services/notificationService.js";
 
 const reservationStatusMap = {
   pending: "pending",
@@ -81,6 +82,21 @@ export const createReservation = asyncHandler(async (req, res) => {
   });
 
   await assignReservationToTable(tableDoc._id, reservation._id);
+
+  const populated = await Reservation.findById(reservation._id)
+    .populate("table", "tableNumber")
+    .populate("restaurant", "name");
+
+  await notifyNewReservation({
+    restaurantId: populated.restaurant?._id || populated.restaurant,
+    reservationId: populated._id,
+    customerName: req.user?.fullName || "Guest",
+    guests: populated.guests,
+    date: populated.date,
+    time: new Date(populated.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    tableNumber: populated.table?.tableNumber || "",
+    actorUserId: req.user._id,
+  });
 
   res.status(201).json(new ApiResponse(true, "Reservation created", reservation));
 });

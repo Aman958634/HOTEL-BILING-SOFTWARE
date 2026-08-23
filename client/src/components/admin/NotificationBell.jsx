@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiBell, FiChevronRight, FiX } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
+import { useSocket } from "../../context/SocketContext";
 
 const NotificationBell = () => {
   const [open, setOpen] = useState(false);
@@ -9,6 +10,7 @@ const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef(null);
+  const socket = useSocket();
 
   const loadSummary = async () => {
     try {
@@ -34,6 +36,18 @@ const NotificationBell = () => {
   useEffect(() => {
     loadSummary();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const onNewNotification = () => {
+      loadSummary();
+      loadNotifications();
+    };
+
+    socket.on("notification:new", onNewNotification);
+    return () => socket.off("notification:new", onNewNotification);
+  }, [socket]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
