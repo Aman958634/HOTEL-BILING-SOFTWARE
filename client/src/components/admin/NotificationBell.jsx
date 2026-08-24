@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDollarSign, FiAlertCircle, FiExternalLink } from "react-icons/fi";
+import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDollarSign, FiAlertCircle, FiExternalLink, FiXCircle } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
 
