@@ -14,6 +14,10 @@ import {
   FiDollarSign,
   FiShoppingBag,
   FiCreditCard,
+  FiAlertCircle,
+  FiUsers,
+  FiXCircle,
+  FiExternalLink,
 } from "react-icons/fi";
 import StatCard from "../../components/admin/StatCard";
 import {
@@ -31,7 +35,7 @@ const defaultFilters = {
   sortBy: "createdAt",
   sortOrder: "desc",
   page: 1,
-  limit: 10,
+  limit: 20,
 };
 
 const formatDateTime = (value) => {
@@ -134,14 +138,50 @@ const getNotificationLink = (notification) => {
   }
 };
 
+const typeIconMap = {
+  NEW_ORDER: FiShoppingBag,
+  PAYMENT_RECEIVED: FiCreditCard,
+  ORDER_CANCELLED: FiXCircle,
+  SUBSCRIPTION_EXPIRING: FiDollarSign,
+  LOW_STOCK: FiAlertCircle,
+  NEW_STAFF: FiUsers,
+  order: FiShoppingBag,
+  payment: FiCreditCard,
+  system: FiBell,
+};
+
+const typeIconColorMap = {
+  NEW_ORDER: "text-amber-600 bg-amber-50",
+  PAYMENT_RECEIVED: "text-emerald-600 bg-emerald-50",
+  ORDER_CANCELLED: "text-rose-600 bg-rose-50",
+  SUBSCRIPTION_EXPIRING: "text-orange-600 bg-orange-50",
+  LOW_STOCK: "text-red-600 bg-red-50",
+  NEW_STAFF: "text-violet-600 bg-violet-50",
+  order: "text-amber-600 bg-amber-50",
+  payment: "text-emerald-600 bg-emerald-50",
+  system: "text-slate-600 bg-slate-50",
+};
+
+const actionLabelMap = {
+  NEW_ORDER: "View Order",
+  PAYMENT_RECEIVED: "View Payment",
+  ORDER_CANCELLED: "View Order",
+  NEW_STAFF: "View Staff",
+  SUBSCRIPTION_EXPIRING: "View Plans",
+  LOW_STOCK: "View Inventory",
+  order: "View Order",
+  payment: "View Payment",
+};
+
 const Notifications = () => {
   const [filters, setFilters] = useState(defaultFilters);
   const [notifications, setNotifications] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
-  const [summary, setSummary] = useState({ total: 0, unread: 0, order: 0, payment: 0, reservation: 0, system: 0 });
+  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
+  const [summary, setSummary] = useState({ total: 0, unread: 0, newOrder: 0, paymentReceived: 0, orderCancelled: 0, subscriptionExpiring: 0, lowStock: 0, newStaff: 0, order: 0, payment: 0, system: 0 });
   const [loading, setLoading] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState(false);
   const filtersRef = useRef(filters);
 
   useEffect(() => {
@@ -150,10 +190,12 @@ const Notifications = () => {
 
   const loadSummary = async () => {
     setLoadingSummary(true);
+    setApiError(false);
     try {
       const { data } = await getNotificationSummary();
       setSummary(data.data || {});
     } catch (err) {
+      setApiError(true);
       toast.error(err?.response?.data?.message || "Unable to load notification summary");
     } finally {
       setLoadingSummary(false);
@@ -162,6 +204,7 @@ const Notifications = () => {
 
   const loadNotifications = async (currentFilters = filtersRef.current) => {
     setLoading(true);
+    setApiError(false);
     try {
       const params = {
         search: currentFilters.search || undefined,
@@ -175,8 +218,9 @@ const Notifications = () => {
 
       const { data } = await getNotifications(params);
       setNotifications(data.data || []);
-      setMeta(data.meta || { total: 0, page: 1, limit: 10, totalPages: 1 });
+      setMeta(data.meta || { total: 0, page: 1, limit: 20, totalPages: 1 });
     } catch (err) {
+      setApiError(true);
       toast.error(err?.response?.data?.message || "Unable to load notifications");
       setNotifications([]);
     } finally {
@@ -250,30 +294,42 @@ const Notifications = () => {
     () =>
       notifications.map((item) => {
         const link = getNotificationLink(item);
+        const Icon = typeIconMap[item.type] || FiBell;
+        const iconColor = typeIconColorMap[item.type] || "text-slate-600 bg-slate-50";
+        const actionLabel = actionLabelMap[item.type];
+
         const content = (
-          <article key={item._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <article key={item._id} className={`rounded-2xl border p-4 transition-shadow hover:shadow-md ${item.isRead ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"}`}>
+            <div className="flex gap-4">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconColor}`}>
+                <Icon className="h-5 w-5" />
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${typeBadgeClasses(item.type)}`}>
                     {typeLabel(item.type)}
                   </span>
-                  <span>{item.user?.fullName || item.user?.email || "System"}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                    {item.isRead ? "Read" : "Unread"}
-                  </span>
+                  {!item.isRead && (
+                    <span className="inline-flex h-2 w-2 rounded-full bg-brand-500" title="Unread" />
+                  )}
                 </div>
-                <h3 className="mt-3 text-lg font-semibold text-slate-900 truncate">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p>
-              </div>
-              <div className="flex flex-col gap-2 text-sm text-slate-500 md:items-end">
-                <span>{formatDateTime(item.createdAt)}</span>
-                <div className="flex flex-wrap gap-2">
+                <h3 className={`mt-2 truncate ${item.isRead ? "text-base font-medium text-slate-800" : "text-lg font-semibold text-slate-900"}`}>{item.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{item.message}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {link && actionLabel && (
+                    <Link
+                      to={link}
+                      className="inline-flex items-center gap-1 rounded-xl border border-brand-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+                    >
+                      {actionLabel}
+                      <FiExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
                     disabled={saving}
-                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                   >
                     {item.isRead ? "Mark unread" : "Mark read"}
                   </button>
@@ -281,19 +337,22 @@ const Notifications = () => {
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
                     disabled={saving}
-                    className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
                   >
                     Delete
                   </button>
                 </div>
               </div>
+              <div className="flex flex-col items-end gap-2 text-xs text-slate-500">
+                <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
+              </div>
             </div>
           </article>
         );
 
-        if (link) {
+        if (link && actionLabel) {
           return (
-            <Link key={item._id} to={link} className="block transition hover:shadow-md">
+            <Link key={item._id} to={link} className="block">
               {content}
             </Link>
           );
@@ -315,141 +374,156 @@ const Notifications = () => {
           <button
             type="button"
             onClick={refreshPage}
-            disabled={loading || loadingSummary}
+            disabled={loading || loadingSummary || saving}
             className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
           >
             <FiRefreshCw /> Refresh
           </button>
-            <button
-              type="button"
-              onClick={handleMarkAllRead}
-              disabled={summary.unread === 0 || saving}
-              className="inline-flex items-center gap-2 rounded-2xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800 disabled:opacity-60"
-            >
-              <FiCheckCircle /> Mark all read
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleMarkAllRead}
+            disabled={summary.unread === 0 || saving}
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800 disabled:opacity-60"
+          >
+            <FiCheckCircle /> Mark all read
+          </button>
         </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Unread" value={summary.unread} icon={<FiBell />} />
         <StatCard label="Total" value={summary.total} icon={<FiMail />} />
-        <StatCard label="Orders" value={summary.order} icon={<FiShoppingBag />} />
-        <StatCard label="Payments" value={summary.payment} icon={<FiCreditCard />} />
+        <StatCard label="Orders" value={summary.newOrder || summary.order} icon={<FiShoppingBag />} />
+        <StatCard label="Payments" value={summary.paymentReceived || summary.payment} icon={<FiCreditCard />} />
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative">
+            <div className="relative w-full sm:w-64">
               <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(event) => updateFilters({ search: event.target.value, page: 1 })}
-                placeholder="Search notifications"
-                className="w-full rounded-2xl border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-72"
+                placeholder="Search notifications..."
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />
             </div>
-            <select
-              value={filters.type}
-              onChange={(event) => updateFilters({ type: event.target.value, page: 1 })}
-              className="rounded-2xl border border-slate-300 bg-white py-2 px-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              {typeOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <select
-              value={filters.status}
-              onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
-              className="rounded-2xl border border-slate-300 bg-white py-2 px-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filters.type}
+                onChange={(event) => updateFilters({ type: event.target.value, page: 1 })}
+                className="rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                {typeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <select
+                value={filters.status}
+                onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
+                className="rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-slate-600">
-              <FiFilter /> Sorted by
+              <FiFilter className="hidden sm:inline" />
+              <span className="hidden sm:inline">Sorted by</span>
               <strong>{filters.sortBy === "createdAt" ? "Newest" : filters.sortBy}</strong>
             </div>
             <button
               type="button"
               onClick={() => updateFilters({ sortOrder: filters.sortOrder === "desc" ? "asc" : "desc" })}
-              className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
             >
               {filters.sortOrder === "desc" ? "Descending" : "Ascending"}
             </button>
-            <select
-              value={filters.limit}
-              onChange={(event) => updateFilters({ limit: Number(event.target.value), page: 1 })}
-              className="rounded-2xl border border-slate-300 bg-white py-2 px-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              {[10, 20, 30].map((limit) => (
-                <option key={limit} value={limit}>{limit} per page</option>
-              ))}
-            </select>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {loading ? (
-          <div className="grid gap-4">
-            {Array.from({ length: filters.limit }).map((_, index) => (
-              <div key={index} className="h-32 animate-pulse rounded-3xl bg-slate-100" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100" />
             ))}
           </div>
-        ) : notificationRows.length ? (
+        ) : apiError ? (
+          <div className="rounded-2xl border border-dashed border-rose-300 bg-rose-50 p-10 text-center">
+            <FiXCircle className="mx-auto h-8 w-8 text-rose-400" />
+            <h3 className="mt-3 text-lg font-semibold text-slate-900">Unable to load notifications</h3>
+            <p className="mt-2 text-sm text-slate-600">Something went wrong while loading your notifications.</p>
+            <button
+              type="button"
+              onClick={refreshPage}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800"
+            >
+              <FiRefreshCw /> Retry
+            </button>
+          </div>
+        ) : notifications.length ? (
           notificationRows
         ) : (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-600 shadow-sm">
-            <FiBookOpen className="mx-auto h-8 w-8 text-slate-400" />
-            <h2 className="mt-4 text-lg font-semibold text-slate-900">No notifications found</h2>
-            <p className="mt-2 text-sm">Try a different search term or filter scope to find alerts and updates.</p>
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center sm:p-12">
+            <FiBell className="mx-auto h-8 w-8 text-slate-400" />
+            <h3 className="mt-4 text-lg font-semibold text-slate-900">
+              {(filters.search || filters.type || filters.status !== "all") ? "No matching notifications" : "No notifications yet"}
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              {(filters.search || filters.type || filters.status !== "all")
+                ? "Try changing your search or filters to find alerts and updates."
+                : "You'll see important restaurant activity here."}
+            </p>
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-        <p className="text-slate-600">
-          Showing {(meta.page - 1) * meta.limit + (notifications.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + notifications.length} of {meta.total} notifications
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => updateFilters({ page: Math.max(meta.page - 1, 1) })}
-            disabled={meta.page <= 1}
-            className="min-h-[44px] rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
-          >
-            Previous
-          </button>
-          {Array.from({ length: pageCount }).map((_, index) => {
-            const page = index + 1;
-            return (
-              <button
-                key={page}
-                type="button"
-                onClick={() => updateFilters({ page })}
-                className={`min-h-[44px] rounded-2xl border px-4 py-2 text-sm ${page === meta.page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
-              >
-                {page}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => updateFilters({ page: Math.min(meta.page + 1, meta.totalPages) })}
-            disabled={meta.page >= meta.totalPages}
-            className="min-h-[44px] rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
-          >
-            Next
-          </button>
+      {!apiError && notifications.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+          <p className="text-slate-600">
+            Showing {(meta.page - 1) * meta.limit + (notifications.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + notifications.length} of {meta.total} notifications
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => updateFilters({ page: Math.max(meta.page - 1, 1) })}
+              disabled={meta.page <= 1}
+              className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+            >
+              Previous
+            </button>
+            {Array.from({ length: pageCount }).map((_, index) => {
+              const page = index + 1;
+              return (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => updateFilters({ page })}
+                  className={`min-h-[44px] rounded-xl border px-4 py-2 text-sm ${page === meta.page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => updateFilters({ page: Math.min(meta.page + 1, meta.totalPages) })}
+              disabled={meta.page >= meta.totalPages}
+              className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

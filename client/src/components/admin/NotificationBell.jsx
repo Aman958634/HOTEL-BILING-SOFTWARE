@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FiBell, FiChevronRight, FiX } from "react-icons/fi";
+import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDollarSign, FiAlertCircle, FiExternalLink } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
 
@@ -22,6 +22,41 @@ const getNotificationLink = (type) => {
     default:
       return null;
   }
+};
+
+const typeIconMap = {
+  NEW_ORDER: FiShoppingBag,
+  PAYMENT_RECEIVED: FiCreditCard,
+  ORDER_CANCELLED: FiXCircle,
+  SUBSCRIPTION_EXPIRING: FiDollarSign,
+  LOW_STOCK: FiAlertCircle,
+  NEW_STAFF: FiUsers,
+  order: FiShoppingBag,
+  payment: FiCreditCard,
+  system: FiBell,
+};
+
+const typeIconColorMap = {
+  NEW_ORDER: "text-amber-600 bg-amber-50",
+  PAYMENT_RECEIVED: "text-emerald-600 bg-emerald-50",
+  ORDER_CANCELLED: "text-rose-600 bg-rose-50",
+  SUBSCRIPTION_EXPIRING: "text-orange-600 bg-orange-50",
+  LOW_STOCK: "text-red-600 bg-red-50",
+  NEW_STAFF: "text-violet-600 bg-violet-50",
+  order: "text-amber-600 bg-amber-50",
+  payment: "text-emerald-600 bg-emerald-50",
+  system: "text-slate-600 bg-slate-50",
+};
+
+const actionLabelMap = {
+  NEW_ORDER: "View Order",
+  PAYMENT_RECEIVED: "View Payment",
+  ORDER_CANCELLED: "View Order",
+  NEW_STAFF: "View Staff",
+  SUBSCRIPTION_EXPIRING: "View Plans",
+  LOW_STOCK: "View Inventory",
+  order: "View Order",
+  payment: "View Payment",
 };
 
 const NotificationBell = () => {
@@ -134,29 +169,50 @@ const NotificationBell = () => {
             ) : notifications.length ? (
               notifications.map((item) => {
                 const link = getNotificationLink(item.type);
+                const Icon = typeIconMap[item.type] || FiBell;
+                const iconColor = typeIconColorMap[item.type] || "text-slate-600 bg-slate-50";
+                const actionLabel = actionLabelMap[item.type];
+
                 const content = (
-                  <div key={item._id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
-                        <p className="mt-1 text-xs text-slate-600 truncate">{item.message}</p>
+                  <div key={item._id} className={`rounded-2xl border p-3 ${item.isRead ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+                        <Icon className="h-4 w-4" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
-                        className="rounded-full border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold uppercase text-slate-700"
-                      >
-                        {item.isRead ? "Unread" : "Read"}
-                      </button>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                      <span>{new Date(item.createdAt).toLocaleString()}</span>
-                      <span className="rounded-full border border-slate-200 px-2 py-0.5 text-slate-700">{item.type || "General"}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
+                          {!item.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" title="Unread" />}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-600 truncate">{item.message}</p>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</span>
+                          <div className="flex items-center gap-1.5">
+                            {link && actionLabel && (
+                              <Link
+                                to={link}
+                                onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:text-brand-800"
+                              >
+                                {actionLabel}
+                                <FiExternalLink className="h-3 w-3" />
+                              </Link>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
+                              className="text-[11px] font-medium text-slate-600 hover:text-slate-800"
+                            >
+                              {item.isRead ? "Unread" : "Read"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
 
-                if (link) {
+                if (link && actionLabel) {
                   return (
                     <Link key={item._id} to={link} className="block transition hover:shadow-md" onClick={() => setOpen(false)}>
                       {content}
