@@ -269,19 +269,3 @@ export const notifyNewStaff = async ({ restaurantId, staffId, staffName, role, a
     excludeUserId: actorUserId,
   });
 };
-
-export const notifyNewReservation = async ({ restaurantId, reservationId, customerName, guests, date, time, tableNumber, actorUserId }) => {
-  const title = "New Reservation";
-  const tableInfo = tableNumber ? ` at Table ${tableNumber}` : "";
-  const message = `New reservation received for ${guests} guest${guests > 1 ? "s" : ""} at ${time}${tableInfo}.`;
-
-  return createNotificationForAllRoles({
-    restaurantId,
-    type: "NEW_RESERVATION",
-    title,
-    message,
-    entityType: "Reservation",
-    entityId: reservationId,
-    excludeUserId: actorUserId,
-  });
-};

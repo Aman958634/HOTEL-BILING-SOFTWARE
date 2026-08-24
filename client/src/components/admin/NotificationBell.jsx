@@ -15,9 +15,6 @@ const getNotificationLink = (type) => {
       return "/dashboard/admin/payments";
     case "NEW_STAFF":
       return "/dashboard/admin/staff";
-    case "NEW_RESERVATION":
-    case "reservation":
-      return "/dashboard/admin/tables";
     case "SUBSCRIPTION_EXPIRING":
       return "/dashboard/admin/billing";
     case "LOW_STOCK":

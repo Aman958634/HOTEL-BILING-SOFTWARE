@@ -19,7 +19,6 @@ const notificationSchema = new mongoose.Schema(
         "SUBSCRIPTION_EXPIRING",
         "LOW_STOCK",
         "NEW_STAFF",
-        "NEW_RESERVATION",
       ],
       default: "system",
       index: true,

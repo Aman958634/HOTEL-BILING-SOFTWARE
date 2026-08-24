@@ -60,10 +60,8 @@ const typeOptions = [
   { value: "SUBSCRIPTION_EXPIRING", label: "Subscription" },
   { value: "LOW_STOCK", label: "Inventory" },
   { value: "NEW_STAFF", label: "Staff" },
-  { value: "NEW_RESERVATION", label: "Reservations" },
   { value: "order", label: "Order Status" },
   { value: "payment", label: "Payment Updates" },
-  { value: "reservation", label: "Reservation Updates" },
   { value: "system", label: "System" },
 ];
 
@@ -81,14 +79,10 @@ const typeLabel = (type) => {
       return "Low Stock";
     case "NEW_STAFF":
       return "New Staff";
-    case "NEW_RESERVATION":
-      return "New Reservation";
     case "order":
       return "Order Status";
     case "payment":
       return "Payment Update";
-    case "reservation":
-      return "Reservation";
     case "system":
       return "System";
     default:
@@ -112,9 +106,6 @@ const typeBadgeClasses = (type) => {
       return "bg-red-100 text-red-700 border-red-200";
     case "NEW_STAFF":
       return "bg-violet-100 text-violet-700 border-violet-200";
-    case "NEW_RESERVATION":
-    case "reservation":
-      return "bg-sky-100 text-sky-700 border-sky-200";
     case "system":
       return "bg-slate-100 text-slate-700 border-slate-200";
     default:
@@ -134,9 +125,6 @@ const getNotificationLink = (notification) => {
       return "/dashboard/admin/payments";
     case "NEW_STAFF":
       return "/dashboard/admin/staff";
-    case "NEW_RESERVATION":
-    case "reservation":
-      return "/dashboard/admin/tables";
     case "SUBSCRIPTION_EXPIRING":
       return "/dashboard/admin/billing";
     case "LOW_STOCK":

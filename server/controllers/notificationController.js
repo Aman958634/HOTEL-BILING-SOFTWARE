@@ -91,7 +91,6 @@ export const getNotificationSummary = asyncHandler(async (req, res) => {
       subscriptionExpiring: counts["SUBSCRIPTION_EXPIRING"] || 0,
       lowStock: counts["LOW_STOCK"] || 0,
       newStaff: counts["NEW_STAFF"] || 0,
-      newReservation: counts["NEW_RESERVATION"] || 0,
       order: counts["order"] || 0,
       payment: counts["payment"] || 0,
       reservation: counts["reservation"] || 0,
