@@ -253,7 +253,7 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Plan Selected",
     description: `Paid plan ${plan.name} selected for ${sub.restaurant?.name || "restaurant"}. Payment still required.`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId,
     targetId: sub._id,
     targetType: "subscription",

@@ -108,7 +108,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Restaurant Created",
     description: `Restaurant ${name} created by super admin`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: restaurant._id,
     targetId: user._id,
     targetType: "user",
@@ -118,7 +118,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     await createActivity({
       action: "Trial Started",
       description: `15-day free trial started for ${name}`,
-      performedBy: req.user?.id,
+      performedBy: req.user._id,
       restaurantId: restaurant._id,
       targetId: subscription._id,
       targetType: "subscription",
@@ -132,7 +132,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     await createActivity({
       action: "Paid Subscription Activated",
       description: `Paid plan ${planDoc.name} activated for ${name} at restaurant creation`,
-      performedBy: req.user?.id,
+      performedBy: req.user._id,
       restaurantId: restaurant._id,
       targetId: subscription._id,
       targetType: "subscription",
@@ -191,7 +191,7 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
   const restaurant = await Restaurant.findByIdAndUpdate(id, update, { new: true }).lean();
   if (!restaurant) throw new ApiResponse(false, "Restaurant not found");
 
-  await createActivity({ action: "Restaurant Updated", description: `Restaurant ${restaurant.name} updated`, performedBy: req.user?.id, restaurantId: restaurant._id });
+  await createActivity({ action: "Restaurant Updated", description: `Restaurant ${restaurant.name} updated`, performedBy: req.user._id, restaurantId: restaurant._id });
 
   res.status(200).json(new ApiResponse(true, "Restaurant updated", { restaurant }));
 });
@@ -207,7 +207,7 @@ export const updateStatus = asyncHandler(async (req, res) => {
   restaurant.isActive = status === "active";
   await restaurant.save();
 
-  await createActivity({ action: `Restaurant ${status === "active" ? "Activated" : "Suspended"}`, description: `Restaurant ${restaurant.name} ${status}`, performedBy: req.user?.id, restaurantId: restaurant._id });
+  await createActivity({ action: `Restaurant ${status === "active" ? "Activated" : "Suspended"}`, description: `Restaurant ${restaurant.name} ${status}`, performedBy: req.user._id, restaurantId: restaurant._id });
 
   res.status(200).json(new ApiResponse(true, "Status updated", { restaurant }));
 });

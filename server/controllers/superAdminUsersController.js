@@ -87,7 +87,7 @@ export const createUser = asyncHandler(async (req, res) => {
   await createActivity({
     action: "User Created",
     description: `User ${user.email} created by super admin`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     targetId: user._id,
     targetType: "user",
   });
@@ -140,7 +140,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   await createActivity({
     action: "User Updated",
     description: `User ${user.email} updated by super admin`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     targetId: user._id,
     targetType: "user",
   });
@@ -164,7 +164,7 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
   await createActivity({
     action: `User ${status === "active" ? "Activated" : "Deactivated"}`,
     description: `User ${user.email} ${status}`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     targetId: user._id,
     targetType: "user",
   });
@@ -182,7 +182,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
   await createActivity({
     action: "User Deleted",
     description: `User ${user.email} deleted by super admin`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     targetId: user._id,
     targetType: "user",
   });

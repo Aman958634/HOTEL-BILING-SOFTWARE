@@ -415,7 +415,7 @@ export const createSubscription = asyncHandler(async (req, res) => {
   await createActivity({
     action: effectiveStatus === "trial" ? "Trial Started" : "Subscription Created",
     description: `Subscription for ${restaurant.name} created (${effectiveStatus})`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: restaurant._id,
     targetId: sub._id,
     targetType: "subscription",
@@ -460,7 +460,7 @@ export const updateSubscription = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Subscription Updated",
     description: `Subscription ${sub._id} updated`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: sub.restaurant,
     targetId: sub._id,
     targetType: "subscription",
@@ -505,7 +505,7 @@ export const extendTrial = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Trial Extended",
     description: "Trial period extended",
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: sub.restaurant?._id || sub.restaurant,
     targetId: sub._id,
     targetType: "subscription",
@@ -513,7 +513,7 @@ export const extendTrial = asyncHandler(async (req, res) => {
       restaurant: sub.restaurant?.name,
       oldTrialEnd: oldTrialEnd.toISOString(),
       newTrialEnd: newTrialEnd.toISOString(),
-      performedBy: req.user?.id,
+      performedBy: req.user._id,
       days: extraDays,
     },
   });
@@ -554,11 +554,11 @@ export const convertToPaid = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Plan Selected",
     description: `Paid plan ${plan.name} selected for ${sub.restaurant?.name}. Payment still required.`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: sub.restaurant?._id || sub.restaurant,
     targetId: sub._id,
     targetType: "subscription",
-    metadata: { planName: plan.key, planId: plan._id, paymentRecorded: false, userId: req.user?.id },
+    metadata: { planName: plan.key, planId: plan._id, paymentRecorded: false, userId: req.user._id },
   });
 
   const paymentSummary = buildPaymentSummary(plan, sub.restaurant?.name);
@@ -587,7 +587,7 @@ export const suspendSubscription = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Subscription Suspended",
     description: `Subscription suspended for ${sub.restaurant?.name || sub.restaurant}`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: sub.restaurant?._id || sub.restaurant,
     targetId: sub._id,
     targetType: "subscription",
@@ -612,7 +612,7 @@ export const cancelSubscription = asyncHandler(async (req, res) => {
   await createActivity({
     action: "Subscription Cancelled",
     description: `Subscription cancelled for ${sub.restaurant?.name || sub.restaurant}`,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantId: sub.restaurant?._id || sub.restaurant,
     targetId: sub._id,
     targetType: "subscription",
@@ -636,7 +636,7 @@ export const activateSubscription = asyncHandler(async (req, res) => {
   await activatePaidSubscription({
     subscription: sub,
     plan,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     restaurantName: sub.restaurant?.name,
     source: "super_admin_activate",
     adminOverride: true,
@@ -662,7 +662,7 @@ export const getMySubscription = asyncHandler(async (req, res) => {
     await createActivity({
       action: "Trial Expired",
       description: "Your 15-day free trial has ended.",
-      performedBy: req.user?.id,
+      performedBy: req.user._id,
       restaurantId,
       targetId: sub._id,
       targetType: "subscription",
@@ -756,7 +756,7 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
     await createActivity({
       action: "Plan Selected",
       description: `Paid plan ${plan.name} selected for ${restaurantForLog?.name || "restaurant"}. Payment still required.`,
-      performedBy: req.user?.id,
+      performedBy: req.user._id,
       restaurantId,
       targetId: sub._id,
       targetType: "subscription",
@@ -765,7 +765,7 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   }
 
   const restaurant = await Restaurant.findById(restaurantId).select("name").lean();
-  const checkout = await createCheckoutPayment(sub, plan, restaurant?.name, req.user?.id);
+  const checkout = await createCheckoutPayment(sub, plan, restaurant?.name, req.user._id);
   res.status(200).json(new ApiResponse(true, "Checkout created", checkout));
 });
 
@@ -780,7 +780,7 @@ export const createSubscriptionPaymentCheckout = asyncHandler(async (req, res) =
   if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
 
   const plan = await getSelectedPlanForSubscription(sub);
-  const checkout = await createCheckoutPayment(sub, plan, sub.restaurant?.name, req.user?.id);
+  const checkout = await createCheckoutPayment(sub, plan, sub.restaurant?.name, req.user._id);
   res.status(200).json(new ApiResponse(true, "Checkout created", checkout));
 });
 
@@ -804,7 +804,7 @@ export const verifyBillingPayment = asyncHandler(async (req, res) => {
   const sub = await verifyAndActivatePayment({
     payment,
     restaurantId,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     source: "restaurant_billing_payment",
     razorpay_order_id,
     razorpay_payment_id,
@@ -832,7 +832,7 @@ export const verifySubscriptionPayment = asyncHandler(async (req, res) => {
   const updated = await verifyAndActivatePayment({
     payment,
     restaurantId,
-    performedBy: req.user?.id,
+    performedBy: req.user._id,
     source: "super_admin_billing_payment",
     razorpay_order_id,
     razorpay_payment_id,
