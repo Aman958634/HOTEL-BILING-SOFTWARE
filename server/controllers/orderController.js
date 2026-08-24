@@ -182,6 +182,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     restaurantId: populated.restaurant,
     entityType: "Order",
     entityId: populated._id,
+    orderNumber: populated.orderNumber,
+    customerName: populated.customer?.fullName || null,
+    total: populated.total,
   });
 
   await syncPaymentFromOrder(populated, {
@@ -384,6 +387,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     restaurantId: order.restaurant,
     entityType: "Order",
     entityId: order._id,
+    orderNumber: order.orderNumber,
   });
 
   emitOrderCancelled(order);
@@ -425,6 +429,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       restaurantId: order.restaurant,
       entityType: "Order",
       entityId: order._id,
+      orderNumber: order.orderNumber,
     });
     emitOrderCancelled(order);
   } else {
@@ -491,6 +496,9 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
     restaurantId: order.restaurant,
     entityType: "Order",
     entityId: order._id,
+    orderNumber: order.orderNumber,
+    total: order.total,
+    paymentMethod: paymentMethod,
   });
 
   emitOrderPaymentUpdated(orderUpdate);
@@ -536,6 +544,9 @@ export const payOrder = asyncHandler(async (req, res) => {
     restaurantId: result.order.restaurant,
     entityType: "Order",
     entityId: result.order._id,
+    orderNumber: result.order.orderNumber,
+    total: result.order.total,
+    paymentMethod: paymentMethod,
   });
 
   emitOrderPaymentUpdated(result.order);
@@ -576,6 +587,9 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
       restaurantId: result.order.restaurant,
       entityType: "Order",
       entityId: result.order._id,
+      orderNumber: result.order.orderNumber,
+      total: result.order.total,
+      paymentMethod: paymentMethod,
     });
   }
 

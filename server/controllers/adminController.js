@@ -95,7 +95,7 @@ export const dashboardStats = asyncHandler(async (req, res) => {
           daysRemaining: 0,
           isExpired: true,
         }).catch(() => {});
-      } else if (daysRemaining <= 7) {
+      } else if ([7, 3, 1].includes(daysRemaining)) {
         await notifySubscriptionExpiring({
           restaurantId: req.user.restaurant,
           subscriptionId: sub._id,

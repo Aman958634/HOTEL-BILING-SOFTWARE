@@ -677,7 +677,7 @@ export const getMySubscription = asyncHandler(async (req, res) => {
   }
 
   const daysRemaining = getDaysRemaining(sub, new Date());
-  if (daysRemaining <= 7 && daysRemaining > 0 && sub.status !== "expired") {
+  if ([7, 3, 1].includes(daysRemaining) && sub.status !== "expired") {
     await notifySubscriptionExpiring({
       restaurantId,
       subscriptionId: sub._id,

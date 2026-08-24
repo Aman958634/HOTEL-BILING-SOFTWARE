@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 import {
   FiBell,
   FiChevronDown,
@@ -121,6 +122,30 @@ const typeBadgeClasses = (type) => {
   }
 };
 
+const getNotificationLink = (notification) => {
+  const { type } = notification;
+  switch (type) {
+    case "NEW_ORDER":
+    case "ORDER_CANCELLED":
+    case "order":
+      return "/dashboard/admin/orders";
+    case "PAYMENT_RECEIVED":
+    case "payment":
+      return "/dashboard/admin/payments";
+    case "NEW_STAFF":
+      return "/dashboard/admin/staff";
+    case "NEW_RESERVATION":
+    case "reservation":
+      return "/dashboard/admin/tables";
+    case "SUBSCRIPTION_EXPIRING":
+      return "/dashboard/admin/billing";
+    case "LOW_STOCK":
+      return "/dashboard/admin/menu";
+    default:
+      return null;
+  }
+};
+
 const Notifications = () => {
   const [filters, setFilters] = useState(defaultFilters);
   const [notifications, setNotifications] = useState([]);
@@ -235,46 +260,59 @@ const Notifications = () => {
 
   const notificationRows = useMemo(
     () =>
-      notifications.map((item) => (
-        <article key={item._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${typeBadgeClasses(item.type)}`}>
-                  {typeLabel(item.type)}
-                </span>
-                <span>{item.user?.fullName || item.user?.email || "System"}</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                  {item.isRead ? "Read" : "Unread"}
-                </span>
+      notifications.map((item) => {
+        const link = getNotificationLink(item);
+        const content = (
+          <article key={item._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${typeBadgeClasses(item.type)}`}>
+                    {typeLabel(item.type)}
+                  </span>
+                  <span>{item.user?.fullName || item.user?.email || "System"}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                    {item.isRead ? "Read" : "Unread"}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-lg font-semibold text-slate-900 truncate">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p>
               </div>
-              <h3 className="mt-3 text-lg font-semibold text-slate-900 truncate">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{item.message}</p>
-            </div>
-            <div className="flex flex-col gap-2 text-sm text-slate-500 md:items-end">
-              <span>{formatDateTime(item.createdAt)}</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleReadStatus(item)}
-                  disabled={saving}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  {item.isRead ? "Mark unread" : "Mark read"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(item)}
-                  disabled={saving}
-                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
-                >
-                  Delete
-                </button>
+              <div className="flex flex-col gap-2 text-sm text-slate-500 md:items-end">
+                <span>{formatDateTime(item.createdAt)}</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
+                    disabled={saving}
+                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    {item.isRead ? "Mark unread" : "Mark read"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+                    disabled={saving}
+                    className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </article>
-      )),
+          </article>
+        );
+
+        if (link) {
+          return (
+            <Link key={item._id} to={link} className="block transition hover:shadow-md">
+              {content}
+            </Link>
+          );
+        }
+
+        return content;
+      }),
     [notifications, saving]
   );
 

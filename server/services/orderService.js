@@ -375,7 +375,7 @@ export const createOrderAuditLog = async ({ user, action, order, context = {} })
   }
 };
 
-export const createOrderNotifications = async ({ title, message, actorUserId = null, type = "order", restaurantId, entityType, entityId }) => {
+export const createOrderNotifications = async ({ title, message, actorUserId = null, type = "order", restaurantId, entityType, entityId, orderNumber, customerName, total, paymentMethod, reason }) => {
   try {
     const safeRestaurantId = restaurantId && mongoose.isValidObjectId(restaurantId) ? restaurantId : null;
     const safeEntityId = entityId && mongoose.isValidObjectId(entityId) ? entityId : null;
@@ -384,9 +384,9 @@ export const createOrderNotifications = async ({ title, message, actorUserId = n
       await notifyNewOrder({
         restaurantId: safeRestaurantId,
         orderId: safeEntityId,
-        orderNumber: title.replace("New Order Received - ", "").replace("New order #", "").replace(" has been received", ""),
-        customerName: message.includes("from") ? message.split("from ")[1]?.split(".")[0] : null,
-        total: 0,
+        orderNumber: orderNumber || "",
+        customerName: customerName || null,
+        total: total || 0,
         actorUserId,
       });
       return;
@@ -396,10 +396,10 @@ export const createOrderNotifications = async ({ title, message, actorUserId = n
       await notifyOrderCancelled({
         restaurantId: safeRestaurantId,
         orderId: safeEntityId,
-        orderNumber: title.replace("Order Cancelled - ", "").replace("Order #", "").replace(" has been cancelled", "").replace(" was cancelled", ""),
-        customer: null,
-        total: 0,
-        reason: message.includes("Reason:") ? message.split("Reason:")[1]?.trim() : null,
+        orderNumber: orderNumber || "",
+        customer: customerName || null,
+        total: total || 0,
+        reason: reason || null,
         actorUserId,
       });
       return;
@@ -410,9 +410,9 @@ export const createOrderNotifications = async ({ title, message, actorUserId = n
         restaurantId: safeRestaurantId,
         paymentId: safeEntityId,
         orderId: safeEntityId,
-        orderNumber: title.replace("Payment Received - ", "").replace("Payment of ", "").split(" ")[1] || "",
-        amount: 0,
-        paymentMethod: "Unknown",
+        orderNumber: orderNumber || "",
+        amount: total || 0,
+        paymentMethod: paymentMethod || "Unknown",
         actorUserId,
       });
       return;

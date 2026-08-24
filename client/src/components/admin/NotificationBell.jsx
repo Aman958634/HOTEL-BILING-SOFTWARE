@@ -4,6 +4,29 @@ import { FiBell, FiChevronRight, FiX } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
 
+const getNotificationLink = (type) => {
+  switch (type) {
+    case "NEW_ORDER":
+    case "ORDER_CANCELLED":
+    case "order":
+      return "/dashboard/admin/orders";
+    case "PAYMENT_RECEIVED":
+    case "payment":
+      return "/dashboard/admin/payments";
+    case "NEW_STAFF":
+      return "/dashboard/admin/staff";
+    case "NEW_RESERVATION":
+    case "reservation":
+      return "/dashboard/admin/tables";
+    case "SUBSCRIPTION_EXPIRING":
+      return "/dashboard/admin/billing";
+    case "LOW_STOCK":
+      return "/dashboard/admin/menu";
+    default:
+      return null;
+  }
+};
+
 const NotificationBell = () => {
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState({ total: 0, unread: 0 });
@@ -112,27 +135,40 @@ const NotificationBell = () => {
                 ))}
               </div>
             ) : notifications.length ? (
-              notifications.map((item) => (
-                <div key={item._id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
-                      <p className="mt-1 text-xs text-slate-600 truncate">{item.message}</p>
+              notifications.map((item) => {
+                const link = getNotificationLink(item.type);
+                const content = (
+                  <div key={item._id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
+                        <p className="mt-1 text-xs text-slate-600 truncate">{item.message}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
+                        className="rounded-full border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold uppercase text-slate-700"
+                      >
+                        {item.isRead ? "Unread" : "Read"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleReadStatus(item)}
-                      className="rounded-full border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold uppercase text-slate-700"
-                    >
-                      {item.isRead ? "Unread" : "Read"}
-                    </button>
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                      <span>{new Date(item.createdAt).toLocaleString()}</span>
+                      <span className="rounded-full border border-slate-200 px-2 py-0.5 text-slate-700">{item.type || "General"}</span>
+                    </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>{new Date(item.createdAt).toLocaleString()}</span>
-                    <span className="rounded-full border border-slate-200 px-2 py-0.5 text-slate-700">{item.type || "General"}</span>
-                  </div>
-                </div>
-              ))
+                );
+
+                if (link) {
+                  return (
+                    <Link key={item._id} to={link} className="block transition hover:shadow-md" onClick={() => setOpen(false)}>
+                      {content}
+                    </Link>
+                  );
+                }
+
+                return content;
+              })
             ) : (
               <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
                 <FiBell className="h-6 w-6 text-slate-300" aria-hidden="true" />
