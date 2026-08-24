@@ -58,6 +58,7 @@ const TableManagement = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -265,6 +266,12 @@ const TableManagement = () => {
     }
   };
 
+  const handleSelectTable = (table) => {
+    if (!table?._id) return;
+    setSelectedId(table._id);
+    openDetails(table);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -294,6 +301,8 @@ const TableManagement = () => {
         onAddFirst={openCreate}
         statusUpdatingId={statusUpdatingId}
         onTableClick={handleTableClick}
+        onSelect={handleSelectTable}
+        selectedId={selectedId}
       />
 
       <TableForm

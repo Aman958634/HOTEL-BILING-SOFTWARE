@@ -11,6 +11,8 @@ const TableGrid = ({
   onAddFirst,
   statusUpdatingId,
   onTableClick,
+  onSelect,
+  selectedId,
 }) => {
   if (loading) {
     return (
@@ -50,6 +52,8 @@ const TableGrid = ({
           onStatusChange={onStatusChange}
           statusUpdating={statusUpdatingId === table._id}
           onTableClick={onTableClick}
+          onSelect={onSelect}
+          selected={selectedId === table._id}
         />
       ))}
     </div>
