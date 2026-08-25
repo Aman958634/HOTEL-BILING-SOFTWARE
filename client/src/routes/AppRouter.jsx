@@ -27,6 +27,7 @@ const SuperAdminDashboard = lazy(() => import("../pages/admin/SuperAdminDashboar
 const MenuManagement = lazy(() => import("../pages/admin/MenuManagement"));
 const CategoryManagement = lazy(() => import("../pages/admin/CategoryManagement"));
 const TableManagement = lazy(() => import("../pages/admin/TableManagement"));
+const ServiceCockpit = lazy(() => import("../pages/admin/ServiceCockpit"));
 const OrderManagement = lazy(() => import("../pages/admin/OrderManagement"));
 const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
 const Payments = lazy(() => import("../pages/admin/Payments"));
@@ -159,6 +160,7 @@ const AppRouter = () => (
       <Route path="menu" element={<MenuManagement />} />
       <Route path="categories" element={<CategoryManagement />} />
       <Route path="tables" element={<TableManagement />} />
+      <Route path="cockpit" element={<ServiceCockpit />} />
       <Route path="orders" element={<OrderManagement />} />
       <Route path="staff" element={<StaffManagement />} />
       <Route path="payments" element={<Payments />} />

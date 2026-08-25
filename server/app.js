@@ -26,6 +26,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import superAdminRoutes from "./routes/superAdminRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import staffRoutes from "./routes/staffRoutes.js";
+import serviceCockpitRoutes from "./routes/serviceCockpitRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -79,6 +80,7 @@ app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/tables", tableRoutes);
+app.use("/api/v1/cockpit", serviceCockpitRoutes);
 app.use("/api/v1/staff", staffRoutes);
 app.use("/api/v1/resources", resourceRoutes);
 app.use("/api/v1/orders", orderRoutes);
