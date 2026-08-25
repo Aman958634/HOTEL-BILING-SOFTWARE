@@ -77,9 +77,11 @@ const OrderDetailsSection = ({
               {tables.map((table) => {
                 const selectable = isTableSelectable(table);
                 const status = String(table.status || "AVAILABLE").toUpperCase();
+                const activeCount = Number(table.activeOrderCount || 0);
+                const countSuffix = activeCount > 0 ? ` · ${activeCount} active` : "";
                 return (
                   <option key={table._id} value={table._id} disabled={!selectable}>
-                    Table {table.tableNumber} · {table.capacity} seats · {TABLE_STATUS_STYLES[status]?.label || status}
+                    Table {table.tableNumber} · {table.capacity} seats · {TABLE_STATUS_STYLES[status]?.label || status}{countSuffix}
                   </option>
                 );
               })}

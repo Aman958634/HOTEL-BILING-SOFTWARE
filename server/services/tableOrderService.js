@@ -10,12 +10,6 @@ import {
 
 const tableLabel = (table) => (table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table");
 
-const occupiedMessage = (table, { short = false } = {}) => {
-  const label = tableLabel(table);
-  if (short) return `${label} is currently occupied.`;
-  return `${label} is currently occupied. Please complete the current order before creating a new order.`;
-};
-
 const resolveId = (value) => {
   if (!value) return null;
   if (typeof value === "object") return value._id || value.id || null;
@@ -29,22 +23,42 @@ const assertTableTenant = (table, restaurantId) => {
   }
 };
 
-export const findActiveOrderForTable = async (tableId, { excludeOrderId = null } = {}) => {
+const buildActiveOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
   const query = {
     table: tableId,
     isArchived: { $ne: true },
     status: { $in: activeOrderStatuses },
   };
   if (excludeOrderId) query._id = { $ne: excludeOrderId };
-
-  return Order.findOne(query).select("_id orderNumber status paymentStatus").sort({ createdAt: -1 }).lean();
+  return query;
 };
 
+export const findActiveOrdersForTable = async (tableId, { excludeOrderId = null } = {}) =>
+  Order.find(buildActiveOrderFilter(tableId, { excludeOrderId }))
+    .select("_id orderNumber status paymentStatus total")
+    .sort({ createdAt: -1 })
+    .lean();
+
+export const findActiveOrderForTable = async (tableId, { excludeOrderId = null } = {}) => {
+  const orders = await findActiveOrdersForTable(tableId, { excludeOrderId });
+  return orders[0] || null;
+};
+
+export const countActiveOrdersForTable = async (tableId, { excludeOrderId = null } = {}) =>
+  Order.countDocuments(buildActiveOrderFilter(tableId, { excludeOrderId }));
+
 /**
- * Heal stale OCCUPIED tables when no active dine-in order remains.
- * Never deletes orders — only clears occupancy pointers.
+ * Derive the table's status purely from real database state:
+ *   - MAINTENANCE is a manual override and is preserved.
+ *   - OCCUPIED  = at least one ACTIVE order exists.
+ *   - RESERVED  = no active order but an active reservation exists.
+ *   - AVAILABLE = no active order and no active reservation.
+ *
+ * `currentOrder` is denormalised to the most recent active order (or null).
+ * This supports MULTIPLE active DINE_IN orders per table: completing or
+ * cancelling one order only frees the table when no other active order remains.
  */
-export const reconcileTableAvailability = async (tableId) => {
+export const recalculateTableStatus = async (tableId) => {
   const id = resolveId(tableId);
   if (!id) return null;
 
@@ -55,35 +69,18 @@ export const reconcileTableAvailability = async (tableId) => {
     return table;
   }
 
-  const activeOrder = await findActiveOrderForTable(table._id);
+  const activeOrders = await findActiveOrdersForTable(table._id);
+  const activeCount = activeOrders.length;
+  const latestActive = activeOrders[0];
 
-  if (activeOrder) {
-    const needsUpdate =
-      String(table.status).toUpperCase() !== TABLE_STATUS.OCCUPIED ||
-      String(table.currentOrder || "") !== String(activeOrder._id);
-
-    if (needsUpdate) {
-      table.status = TABLE_STATUS.OCCUPIED;
-      table.currentOrder = activeOrder._id;
-      await table.save();
-      emitTableStatusChange(table);
-    }
-    return table;
-  }
-
-  // No active order — clear stale occupancy (keep RESERVED if reservation exists)
-  const wasOccupied =
-    String(table.status).toUpperCase() === TABLE_STATUS.OCCUPIED || Boolean(table.currentOrder);
-
-  if (!wasOccupied && !table.currentOrder) {
-    return table;
-  }
-
-  table.currentOrder = null;
-  if (table.currentReservation) {
-    table.status = TABLE_STATUS.RESERVED;
+  if (activeCount > 0) {
+    table.status = TABLE_STATUS.OCCUPIED;
+    table.currentOrder = latestActive?._id || null;
   } else {
-    table.status = TABLE_STATUS.AVAILABLE;
+    table.currentOrder = null;
+    table.status = table.currentReservation
+      ? TABLE_STATUS.RESERVED
+      : TABLE_STATUS.AVAILABLE;
   }
 
   await table.save();
@@ -91,19 +88,22 @@ export const reconcileTableAvailability = async (tableId) => {
   return table;
 };
 
+export const reconcileTableAvailability = recalculateTableStatus;
+
 export const reconcileTablesAvailability = async (tables = []) => {
   const results = [];
   for (const table of tables) {
-    const healed = await reconcileTableAvailability(table._id || table);
+    const healed = await recalculateTableStatus(table._id || table);
     results.push(healed || table);
   }
   return results;
 };
 
 /**
- * Atomically occupy a table for a dine-in order.
- * Same order re-assignment is allowed (edit flow).
- * Blocks only when another ACTIVE order exists.
+ * Mark a table as OCCUPIED for a DINE_IN order.
+ *
+ * A table may host MULTIPLE active DINE_IN orders, so an existing active order
+ * no longer blocks a new one. Only MAINTENANCE tables cannot be seated.
  */
 export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId } = {}) => {
   if (!tableId) {
@@ -118,53 +118,19 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
 
   assertTableTenant(table, restaurantId);
 
-  // Heal stale OCCUPIED / currentOrder pointing at completed/paid orders
-  await reconcileTableAvailability(table._id);
-  const fresh = await Table.findById(table._id);
-  if (!fresh) throw new ApiError(404, "Table not found");
-
-  if (fresh.currentOrder && String(fresh.currentOrder) === String(orderId)) {
-    if (String(fresh.status).toUpperCase() !== TABLE_STATUS.OCCUPIED) {
-      fresh.status = TABLE_STATUS.OCCUPIED;
-      await fresh.save();
-      emitTableStatusChange(fresh);
-    }
-    return fresh;
+  if (String(table.status).toUpperCase() === TABLE_STATUS.MAINTENANCE) {
+    throw new ApiError(409, `${tableLabel(table)} is under maintenance.`);
   }
 
-  const activeOrder = await findActiveOrderForTable(fresh._id, { excludeOrderId: orderId });
-  if (activeOrder) {
-    throw new ApiError(409, occupiedMessage(fresh));
-  }
+  // The new order is active, so the table is occupied. Recalculation keeps it
+  // OCCUPIED whether or not other active orders already exist.
+  table.status = TABLE_STATUS.OCCUPIED;
+  table.currentOrder = orderId;
 
-  if (String(fresh.status).toUpperCase() === TABLE_STATUS.MAINTENANCE) {
-    throw new ApiError(409, `${tableLabel(fresh)} is under maintenance.`);
-  }
+  await table.save();
+  emitTableStatusChange(table);
 
-  // Atomic claim — only if still free after reconcile
-  const claimed = await Table.findOneAndUpdate(
-    {
-      _id: fresh._id,
-      status: { $in: [TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED] },
-      $or: [{ currentOrder: null }, { currentOrder: { $exists: false } }],
-    },
-    {
-      $set: {
-        status: TABLE_STATUS.OCCUPIED,
-        currentOrder: orderId,
-      },
-    },
-    { new: true }
-  );
-
-  if (!claimed) {
-    // Race: another cashier occupied it first
-    const latest = await Table.findById(fresh._id);
-    throw new ApiError(409, occupiedMessage(latest || fresh, { short: true }));
-  }
-
-  emitTableStatusChange(claimed);
-  return claimed;
+  return table;
 };
 
 export const releaseOrderTableIfNeeded = async (order) => {
@@ -176,28 +142,20 @@ export const releaseOrderTableIfNeeded = async (order) => {
 };
 
 /**
- * Release only when cancelled, or when COMPLETED + PAID.
- * Never deletes orders — only clears table occupancy.
+ * Recompute the table status after an order is settled.
+ *
+ * An order is removed from the "active" set once it is CANCELLED or COMPLETED,
+ * so releasing simply recalculates from the remaining active orders:
+ *   - other active orders remain  -> OCCUPIED
+ *   - no active orders remain      -> AVAILABLE (or RESERVED if reserved)
  */
 export const maybeReleaseTableAfterSettlement = async (order) => {
   const tableId = resolveId(order?.table);
   if (!tableId) return null;
 
-  const orderId = resolveId(order?._id || order?.id);
   const status = String(order.status || "").toUpperCase();
-  const paymentStatus = String(order.paymentStatus || "").toUpperCase();
-
-  if (status === "CANCELLED") {
-    const released = await releaseOrderTableIfNeeded(order);
-    // Also heal in case currentOrder pointed elsewhere but no active order remains
-    await reconcileTableAvailability(tableId);
-    return released;
-  }
-
-  if (status === "COMPLETED" && paymentStatus === "PAID") {
-    await releaseOrderFromTable(tableId, orderId);
-    // Force AVAILABLE if no other active order remains (heals stale pointers)
-    return reconcileTableAvailability(tableId);
+  if (status === "CANCELLED" || status === "COMPLETED") {
+    return recalculateTableStatus(tableId);
   }
 
   return null;

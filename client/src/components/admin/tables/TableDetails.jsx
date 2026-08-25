@@ -13,6 +13,8 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   const navigate = useNavigate();
   const status = String(table?.status || "").toUpperCase();
   const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
+  const activeOrderCount = Number(table?.activeOrderCount || 0);
+  const activeOrders = table?.activeOrders || [];
 
   const handleCreateOrder = () => {
     navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
@@ -82,6 +84,22 @@ const TableDetails = ({ open, loading, table, onClose }) => {
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-slate-500">No active order.</p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 md:col-span-2">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Active Orders ({activeOrderCount})</p>
+              {activeOrderCount > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm text-slate-800">
+                  {activeOrders.map((order) => (
+                    <li key={order._id}>
+                      <strong>{order.orderNumber || "-"}</strong> · {order.status || "-"}
+                      {typeof order.total === "number" ? ` · Rs ${order.total}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">No active orders.</p>
               )}
             </div>
 

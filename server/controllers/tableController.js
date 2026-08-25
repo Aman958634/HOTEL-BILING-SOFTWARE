@@ -14,7 +14,11 @@ import {
   normalizeTableStatus,
   updateTableLifecycleState,
 } from "../services/tableStateService.js";
-import { reconcileTablesAvailability } from "../services/tableOrderService.js";
+import {
+  reconcileTablesAvailability,
+  findActiveOrdersForTable,
+  countActiveOrdersForTable,
+} from "../services/tableOrderService.js";
 
 const parseIntOrUndefined = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -120,6 +124,10 @@ const toPresentation = async (tableDoc) => {
     table.currentReservation = await findCurrentReservationForTable(table._id);
   }
 
+  const activeOrders = await findActiveOrdersForTable(table._id);
+  table.activeOrders = activeOrders;
+  table.activeOrderCount = activeOrders.length;
+
   table.currentCustomer =
     table.currentReservation?.customer || table.currentOrder?.customer || null;
 
@@ -169,8 +177,29 @@ export const getTables = asyncHandler(async (req, res) => {
   // Heal stale OCCUPIED status when no active order remains (keeps Create Order dropdown accurate)
   const healedTables = await reconcileTablesAvailability(tables);
 
+  const tableIds = healedTables.map((table) => table._id);
+  const countRows = tableIds.length
+    ? await Order.aggregate([
+        {
+          $match: {
+            table: { $in: tableIds },
+            isArchived: { $ne: true },
+            status: { $in: activeOrderStatuses },
+          },
+        },
+        { $group: { _id: "$table", count: { $sum: 1 } } },
+      ])
+    : [];
+  const countMap = new Map(countRows.map((row) => [String(row._id), row.count]));
+
+  const tablesWithCounts = healedTables.map((table) => {
+    const obj = table.toObject();
+    obj.activeOrderCount = countMap.get(String(table._id)) || 0;
+    return obj;
+  });
+
   res.status(200).json(
-    new ApiResponse(true, "Tables fetched", healedTables, {
+    new ApiResponse(true, "Tables fetched", tablesWithCounts, {
       page,
       limit,
       total,

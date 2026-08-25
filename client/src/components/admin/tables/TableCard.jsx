@@ -5,6 +5,7 @@ const statusChoices = ["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE"];
 
 const TableCard = ({ table, onEdit, onView, onDelete, onStatusChange, statusUpdating, onTableClick, onSelect, selected }) => {
   const hasActiveOrder = table?.currentOrder && String(table.status || "").toUpperCase() === "OCCUPIED";
+  const activeOrderCount = Number(table?.activeOrderCount || 0);
   const orderNumber = table?.currentOrder?.orderNumber;
   const orderTotal = table?.currentOrder?.total;
   const itemCount = table?.currentOrder?.items?.length || 0;
@@ -66,11 +67,17 @@ const TableCard = ({ table, onEdit, onView, onDelete, onStatusChange, statusUpda
         </p>
         <p>Section: {table.section}</p>
         <p>Shape: {String(table.shape || "SQUARE").toLowerCase()}</p>
-        {hasActiveOrder && (
+        {(activeOrderCount > 0 || hasActiveOrder) && (
           <>
             <p className="inline-flex items-center gap-2 text-brand-700">
               <FiShoppingBag className="text-brand-700" aria-hidden="true" />
-              <span className="font-medium">{orderNumber ? `Order ${orderNumber}` : "Active Order"}</span>
+              <span className="font-medium">
+                {activeOrderCount > 1
+                  ? `${activeOrderCount} Active Orders`
+                  : orderNumber
+                  ? `Order ${orderNumber}`
+                  : "Active Order"}
+              </span>
             </p>
             {itemCount > 0 && <p>Items: {itemCount}</p>}
             {typeof orderTotal === "number" && <p>Total: ₹{orderTotal}</p>}
@@ -108,7 +115,7 @@ const TableCard = ({ table, onEdit, onView, onDelete, onStatusChange, statusUpda
           onClick={stop(onTableClick)}
           className="mt-2 w-full rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100"
         >
-          {hasActiveOrder ? "View Active Order" : "Create New Order"}
+          {activeOrderCount > 0 ? "Add Another Order" : "Create New Order"}
         </button>
       )}
     </article>

@@ -256,14 +256,9 @@ const TableManagement = () => {
   };
 
   const handleTableClick = (table) => {
-    const status = String(table.status || "").toUpperCase();
-    if (status === "AVAILABLE") {
-      navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
-    } else if (status === "OCCUPIED" && table.currentOrder) {
-      navigate("/dashboard/admin/orders", { state: { orderId: table.currentOrder._id || table.currentOrder, fromTable: true } });
-    } else {
-      openDetails(table);
-    }
+    // A table can always host another DINE_IN order, whether AVAILABLE or
+    // OCCUPIED. Selecting it opens the Create Order flow pre-targeted at it.
+    navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
   };
 
   const handleSelectTable = (table) => {

@@ -190,15 +190,15 @@ const CreateOrderModal = ({
   };
 
   const isTableSelectable = (table) => {
+    // Only MAINTENANCE tables are invalid for seating. AVAILABLE, OCCUPIED and
+    // RESERVED tables can all host (additional) DINE_IN orders.
     const status = String(table.status || "").toUpperCase();
-    if (status === "AVAILABLE") return true;
-    if (isEdit && String(form.table) === String(table._id)) return true;
-    return false;
+    return status !== "MAINTENANCE";
   };
 
   const getOccupiedTableMessage = (table) => {
     const label = table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table";
-    return `${label} is currently occupied. Please complete the current order before creating a new order.`;
+    return `${label} is under maintenance and cannot be selected.`;
   };
 
   const addMenuItem = (item) => {
