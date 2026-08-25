@@ -38,6 +38,7 @@ import {
   emitOrderCreated,
   emitOrderPaymentUpdated,
   emitOrderStatusChanged,
+  emitKitchenTicketCreated,
 } from "../socket/orderSocket.js";
 
 const getPagination = (query) => {
@@ -194,6 +195,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   emitOrderCreated(normalizeOrderOutput(populated));
+  emitKitchenTicketCreated(populated);
 
   res.status(201).json(new ApiResponse(true, "Order created", normalizeOrderOutput(populated)));
 });
@@ -290,9 +292,18 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
   const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
 
+  const existingStatusMap = new Map(
+    (order.items || []).map((item) => [String(item.menuItem), item.kitchenStatus || "NEW"])
+  );
+
+  const itemsWithKitchenStatus = nextItems.map((item) => ({
+    ...item,
+    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+  }));
+
   const calculated = buildCalculatedOrderPayload({
     orderType: nextOrderType,
-    items: nextItems,
+    items: itemsWithKitchenStatus,
     discount: req.body.discount !== undefined ? req.body.discount : order.discount,
     tax: req.body.tax !== undefined ? req.body.tax : order.tax,
     taxPercent: req.body.taxPercent,
@@ -304,7 +315,10 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const previousTable = order.table ? String(order.table) : null;
 
   order.orderType = nextOrderType;
-  order.items = calculated.items;
+  order.items = calculated.items.map((item) => ({
+    ...item,
+    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+  }));
   order.subtotal = calculated.subtotal;
   order.discount = calculated.discount;
   order.tax = calculated.tax;
@@ -340,6 +354,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
     .populate("statusHistory.changedBy", "fullName role");
 
   await createOrderAuditLog({ user: req.user, action: "Order Updated", order: populated });
+
+  emitOrderStatusChanged(populated);
 
   res.status(200).json(new ApiResponse(true, "Order updated", normalizeOrderOutput(populated)));
 });

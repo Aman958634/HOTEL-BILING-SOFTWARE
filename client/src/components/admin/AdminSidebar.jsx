@@ -1,4 +1,4 @@
-import { FiBarChart2, FiBell, FiBookOpen, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiUsers, FiX, FiAward } from "react-icons/fi";
+import { FiBarChart2, FiBell, FiBookOpen, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiUsers, FiX, FiAward } from "react-icons/fi";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
@@ -9,6 +9,7 @@ const links = [
   { to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag /> },
   { to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid /> },
   { to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout /> },
+  { to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee /> },
   { to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag /> },
   { to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
   { to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },

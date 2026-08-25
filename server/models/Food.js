@@ -31,6 +31,7 @@ const foodSchema = new mongoose.Schema(
     available: { type: Boolean, default: true, index: true },
     featured: { type: Boolean, default: false, index: true },
     tags: [{ type: String }],
+    kitchenStation: { type: mongoose.Schema.Types.ObjectId, ref: "KitchenStation", default: null, index: true },
   },
   { timestamps: true }
 );

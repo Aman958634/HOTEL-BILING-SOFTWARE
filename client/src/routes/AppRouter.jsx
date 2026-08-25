@@ -9,6 +9,7 @@ const RegisterPage = lazy(() => import("../pages/Register/RegisterPage"));
 const ProtectedRoute = lazy(() => import("../components/common/ProtectedRoute"));
 const AdminRoute = lazy(() => import("../components/common/AdminRoute"));
 const SuperAdminRoute = lazy(() => import("../components/common/SuperAdminRoute"));
+const RoleRoute = lazy(() => import("../components/common/RoleRoute"));
 
 const MenuPage = lazy(() => import("../pages/Menu/MenuPage"));
 const ReservationPage = lazy(() => import("../pages/Reservation/ReservationPage"));
@@ -48,7 +49,7 @@ const ActivityLogsPage = lazy(() => import("../pages/admin/ActivityLogsPage"));
 const BillingPage = lazy(() => import("../pages/admin/BillingPage"));
 const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPaymentsPage"));
 const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
-
+const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const PageSkeleton = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
@@ -169,6 +170,25 @@ const AppRouter = () => (
       <Route path="reports" element={<Reports />} />
       <Route path="notifications" element={<Notifications />} />
       <Route path="settings" element={<Settings />} />
+    </Route>
+
+    <Route
+      path="/dashboard/admin/kitchen"
+      element={
+        <Suspense fallback={<PageSkeleton />}>
+          <ProtectedRoute>
+            <Suspense fallback={<PageSkeleton />}>
+              <RoleRoute roles={["admin", "manager", "chef", "waiter", "cashier"]}>
+                <Suspense fallback={<PageSkeleton />}>
+                  <AdminModuleLayout />
+                </Suspense>
+              </RoleRoute>
+            </Suspense>
+          </ProtectedRoute>
+        </Suspense>
+      }
+    >
+      <Route index element={<KitchenDisplay />} />
     </Route>
 
     <Route

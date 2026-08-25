@@ -1,3 +1,4 @@
+import KitchenStation from "./KitchenStation.js";
 import User from "./User.js";
 import Restaurant from "./Restaurant.js";
 import Sequence from "./Sequence.js";
@@ -24,6 +25,7 @@ import Subscription from "./Subscription.js";
 import SaasPayment from "./SaasPayment.js";
 
 export {
+  KitchenStation,
   User,
   Restaurant,
   Sequence,

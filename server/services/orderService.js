@@ -245,6 +245,7 @@ export const buildCalculatedOrderPayload = ({
       quantity: item.quantity,
       subtotal: item.subtotal,
       specialInstructions: item.specialInstructions || "",
+      kitchenStatus: item.kitchenStatus || "NEW",
     })),
     subtotal: calculation.subtotal,
     discount: calculation.discount,

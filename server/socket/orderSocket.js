@@ -55,3 +55,32 @@ export const emitOrderPaymentUpdated = (order) => {
     updatedAt: order.updatedAt,
   });
 };
+
+export const emitKitchenItemStatusChanged = (order, itemIndex, kitchenStatus) => {
+  safeEmit("kitchen:itemStatusChanged", {
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    itemIndex,
+    kitchenStatus,
+    orderStatus: order.status,
+    updatedAt: order.updatedAt,
+  });
+};
+
+export const emitKitchenOrderStatusChanged = (order) => {
+  safeEmit("kitchen:orderStatusChanged", {
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    updatedAt: order.updatedAt,
+  });
+};
+
+export const emitKitchenTicketCreated = (order) => {
+  safeEmit("kitchen:ticketCreated", {
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    createdAt: order.createdAt,
+  });
+};

@@ -62,6 +62,11 @@ const orderItemSchema = new mongoose.Schema(
     quantity: { type: Number, required: true, min: 1 },
     subtotal: { type: Number, required: true, min: 0 },
     specialInstructions: { type: String, default: "" },
+    kitchenStatus: {
+      type: String,
+      enum: ["NEW", "PREPARING", "READY", "CANCELLED"],
+      default: "NEW",
+    },
   },
   { _id: false, timestamps: false }
 );
@@ -154,6 +159,7 @@ orderSchema.pre("validate", function normalizeLegacyOrder(next) {
         quantity,
         subtotal,
         specialInstructions: item.specialInstructions || "",
+        kitchenStatus: item.kitchenStatus || "NEW",
       };
     });
   }
