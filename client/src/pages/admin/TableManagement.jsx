@@ -129,7 +129,16 @@ const TableManagement = () => {
       setTables((prev) =>
         prev.map((table) =>
           table._id === payload.tableId
-            ? { ...table, status: payload.status }
+            ? {
+                ...table,
+                status: payload.status,
+                ...(payload.activeOrderCount != null
+                  ? { activeOrderCount: payload.activeOrderCount }
+                  : {}),
+                ...(payload.currentOrder !== undefined
+                  ? { currentOrder: payload.currentOrder }
+                  : {}),
+              }
             : table
         )
       );

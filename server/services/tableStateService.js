@@ -62,6 +62,7 @@ export const emitTableStatusChange = (table) => {
       tableNumber: table.tableNumber,
       status: table.status,
       currentOrder: table.currentOrder || null,
+      ...(table.activeOrderCount != null ? { activeOrderCount: table.activeOrderCount } : {}),
     });
   } catch (_error) {
     // Socket server may be unavailable in non-server runtime contexts.
@@ -104,6 +105,7 @@ const recomputeTableState = async (table) => {
       : TABLE_STATUS.AVAILABLE;
   }
 
+  table.activeOrderCount = activeOrders.length;
   await table.save();
   emitTableStatusChange(table);
   return table;
