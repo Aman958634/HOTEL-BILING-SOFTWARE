@@ -2,7 +2,10 @@ import { Router } from "express";
 import Food from "../models/Food.js";
 import Category from "../models/Category.js";
 import User from "../models/User.js";
+import Restaurant from "../models/Restaurant.js";
+import Table from "../models/Table.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
 import {
@@ -99,6 +102,26 @@ router.post(
 
     const user = await User.create({ fullName: fullName || "Super Admin", email, password, role: "super_admin" });
     return res.status(201).json(new ApiResponse(true, "Super admin created", { email: user.email, id: user._id }));
+  })
+);
+
+router.get(
+  "/tables/:tableNumber",
+  asyncHandler(async (req, res) => {
+    const tableNumber = String(req.params.tableNumber || "").trim();
+    if (!tableNumber) {
+      return res.status(400).json(new ApiResponse(false, "Table number is required"));
+    }
+
+    const table = await Table.findOne({ tableNumber, restaurant: { $ne: null } })
+      .populate("restaurant", "name branchCode address city")
+      .lean();
+
+    if (!table) {
+      return res.status(404).json(new ApiResponse(false, "Table not found"));
+    }
+
+    res.status(200).json(new ApiResponse(true, "Public table fetched", table));
   })
 );
 

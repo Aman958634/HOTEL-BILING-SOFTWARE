@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
+import QRCode from "qrcode";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import Table from "../models/Table.js";
 import {
   createTable,
   deleteTable,
@@ -106,6 +111,34 @@ router.patch(
   ],
   validate,
   updateTableStatus
+);
+
+router.get(
+  "/:id/qr",
+  [param("id").isMongoId().withMessage("Invalid table id")],
+  validate,
+  asyncHandler(async (req, res) => {
+    const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+    if (!table) throw new ApiError(404, "Table not found");
+
+    const frontendUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
+    const qrData = `${frontendUrl}/menu?table=${encodeURIComponent(table.tableNumber)}`;
+
+    try {
+      const pngBuffer = await QRCode.toBuffer(qrData, {
+        type: "png",
+        width: 600,
+        margin: 2,
+        errorCorrectionLevel: "M",
+      });
+
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "no-store");
+      res.send(pngBuffer);
+    } catch (qrError) {
+      throw new ApiError(500, "Failed to generate QR code");
+    }
+  })
 );
 
 export default router;

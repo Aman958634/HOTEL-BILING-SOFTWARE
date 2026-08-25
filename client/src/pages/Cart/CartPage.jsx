@@ -1,16 +1,25 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { removeFromCart } from "../../redux/slices/cartSlice";
 import { currency } from "../../utils/format";
 
 const CartPage = () => {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.cart.items);
+  const tableNumber = useSelector((state) => state.cart.tableNumber);
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const [searchParams] = useSearchParams();
+
+  const checkoutPath = tableNumber ? `/guest-checkout?table=${encodeURIComponent(tableNumber)}` : "/checkout";
 
   return (
     <div>
       <h2 className="text-2xl font-bold">Cart</h2>
+      {tableNumber && (
+        <div className="mt-2 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm font-medium text-brand-800">
+          Ordering for Table <span className="font-bold">{tableNumber}</span> (Dine-In)
+        </div>
+      )}
       <div className="mt-4 space-y-3">
         {items.map((item) => (
           <div key={item._id} className="glass flex items-center justify-between rounded-xl p-3">
@@ -27,7 +36,7 @@ const CartPage = () => {
       </div>
       <div className="mt-6 flex items-center justify-between">
         <p className="text-xl font-bold">Total: {currency(total)}</p>
-        <Link to="/checkout" className="rounded-xl bg-brand-700 px-5 py-2 text-white">Checkout</Link>
+        <Link to={checkoutPath} className="rounded-xl bg-brand-700 px-5 py-2 text-white">Checkout</Link>
       </div>
     </div>
   );

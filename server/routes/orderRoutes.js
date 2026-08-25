@@ -21,8 +21,30 @@ import {
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
 
 const router = Router();
+
+router.post(
+  "/guest",
+  [
+    body("orderType").notEmpty().withMessage("Order type is required"),
+    body("items").isArray({ min: 1 }).withMessage("At least one order item is required"),
+    body("items.*.menuItem").optional().isMongoId().withMessage("Invalid menu item id"),
+    body("items.*.food").optional().isMongoId().withMessage("Invalid menu item id"),
+    body("items.*.quantity").isInt({ min: 1 }).withMessage("Item quantity must be at least 1"),
+    body("table")
+      .notEmpty().withMessage("Table is required for guest orders")
+      .isMongoId()
+      .withMessage("Table id is invalid"),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { createGuestOrder } = await import("../controllers/orderController.js");
+    return createGuestOrder(req, res);
+  })
+);
 
 router.use(authMiddleware, requireActiveSubscription);
 

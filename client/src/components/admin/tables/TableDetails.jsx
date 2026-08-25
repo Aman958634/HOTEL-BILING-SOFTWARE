@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import TableStatusBadge from "./TableStatusBadge";
+import { getTableQr } from "../../../services/tableService";
 
 const fmtDate = (value) => {
   if (!value) return "-";
@@ -15,6 +17,9 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
   const activeOrderCount = Number(table?.activeOrderCount || 0);
   const activeOrders = table?.activeOrders || [];
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState("");
 
   const handleCreateOrder = () => {
     navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
@@ -24,6 +29,19 @@ const TableDetails = ({ open, loading, table, onClose }) => {
     const orderId = table?.currentOrder?._id || table?.currentOrder;
     if (orderId) {
       navigate("/dashboard/admin/orders", { state: { orderId, fromTable: true } });
+    }
+  };
+
+  const openQr = async () => {
+    setQrOpen(true);
+    setQrLoading(true);
+    setQrError("");
+    try {
+      await getTableQr(table._id);
+    } catch {
+      setQrError("Unable to load QR code");
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -138,12 +156,42 @@ const TableDetails = ({ open, loading, table, onClose }) => {
               )}
               <button
                 type="button"
+                onClick={openQr}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Show QR Code
+              </button>
+              <button
+                type="button"
                 onClick={() => onClose?.()}
                 className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Close
               </button>
             </div>
+
+            {qrOpen && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+                <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-slate-900">Table QR Code</h3>
+                    <button onClick={() => setQrOpen(false)} className="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700">Close</button>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">Scan this QR to order for Table {table.tableNumber}</p>
+                  <div className="mt-4 flex items-center justify-center">
+                    {qrLoading && <p className="text-sm text-slate-500">Loading QR...</p>}
+                    {qrError && <p className="text-sm text-rose-600">{qrError}</p>}
+                    {!qrLoading && !qrError && (
+                      <img
+                        src={`${import.meta.env.VITE_API_URL || "http://localhost:5002/api/v1"}/tables/${table._id}/qr`}
+                        alt={`QR for table ${table.tableNumber}`}
+                        className="h-64 w-64 rounded-xl border border-slate-200"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="mt-6 text-sm text-rose-600">Unable to load table details.</p>

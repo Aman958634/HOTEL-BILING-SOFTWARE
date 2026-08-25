@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { addToCart } from "../../redux/slices/cartSlice";
+import { addToCart, setCartTableNumber } from "../../redux/slices/cartSlice";
 import { getCategories, getFoods } from "../../services/menuService";
 import { currency } from "../../utils/format";
 
 const MenuPage = () => {
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
   const [foods, setFoods] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const tableFromUrl = searchParams.get("table");
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -44,6 +48,12 @@ const MenuPage = () => {
   }, [fetchCategories]);
 
   useEffect(() => {
+    if (tableFromUrl) {
+      dispatch(setCartTableNumber(tableFromUrl));
+    }
+  }, [tableFromUrl, dispatch]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       fetchFoods();
     }, 300);
@@ -60,6 +70,11 @@ const MenuPage = () => {
 
   return (
     <div className="space-y-6">
+      {tableFromUrl && (
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm font-medium text-brand-800">
+          You are ordering for <span className="font-bold">Table {tableFromUrl}</span> (Dine-In)
+        </div>
+      )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Menu</h2>

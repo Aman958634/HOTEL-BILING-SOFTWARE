@@ -1,6 +1,7 @@
 import api from "./api";
 
 export const createOrder = (payload) => api.post("/orders", payload);
+export const createGuestOrder = (payload) => api.post("/orders/guest", payload);
 export const getOrders = (params = {}) => api.get("/orders", { params });
 export const getOrderById = (id) => api.get(`/orders/${id}`);
 export const updateOrder = (id, payload) => api.put(`/orders/${id}`, payload);

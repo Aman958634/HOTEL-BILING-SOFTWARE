@@ -15,6 +15,7 @@ const MenuPage = lazy(() => import("../pages/Menu/MenuPage"));
 const ReservationPage = lazy(() => import("../pages/Reservation/ReservationPage"));
 const CartPage = lazy(() => import("../pages/Cart/CartPage"));
 const CheckoutPage = lazy(() => import("../pages/Checkout/CheckoutPage"));
+const GuestCheckoutPage = lazy(() => import("../pages/Checkout/GuestCheckoutPage"));
 const OrdersPage = lazy(() => import("../pages/Orders/OrdersPage"));
 const ProfilePage = lazy(() => import("../pages/Profile/ProfilePage"));
 const PricingPage = lazy(() => import("../pages/Pricing/PricingPage"));
@@ -98,6 +99,11 @@ const AppRouter = () => (
           <ProtectedRoute>
             <CheckoutPage />
           </ProtectedRoute>
+        </Suspense>
+      } />
+      <Route path="/guest-checkout" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <GuestCheckoutPage />
         </Suspense>
       } />
       <Route path="/orders" element={

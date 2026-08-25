@@ -200,6 +200,91 @@ export const createOrder = asyncHandler(async (req, res) => {
   res.status(201).json(new ApiResponse(true, "Order created", normalizeOrderOutput(populated)));
 });
 
+export const createGuestOrder = asyncHandler(async (req, res) => {
+  const orderType = normalizeOrderType(req.body.orderType);
+  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
+  const paymentStatus = PAYMENT_STATUSES.PENDING;
+
+  const processedItems = await prepareOrderItems(req.body.items || []);
+  const calculated = buildCalculatedOrderPayload({
+    orderType,
+    items: processedItems,
+    discount: req.body.discount,
+    tax: req.body.tax,
+    taxPercent: req.body.taxPercent,
+    serviceCharge: req.body.serviceCharge,
+    serviceChargePercent: req.body.serviceChargePercent,
+    deliveryCharge: req.body.deliveryCharge,
+  });
+
+  const orderNumber = await generateOrderNumber();
+
+  const tableId = req.body.table || null;
+  const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+
+  const order = await Order.create({
+    orderNumber,
+    customer: null,
+    table: orderType === ORDER_TYPES.DINE_IN ? tableId : null,
+    restaurant: restaurantId,
+    orderType,
+    items: calculated.items,
+    subtotal: calculated.subtotal,
+    discount: calculated.discount,
+    tax: calculated.tax,
+    serviceCharge: calculated.serviceCharge,
+    deliveryCharge: calculated.deliveryCharge,
+    total: calculated.total,
+    paymentMethod,
+    paymentStatus,
+    status: ORDER_STATUSES.PENDING,
+    specialInstructions: req.body.specialInstructions || "",
+    createdBy: null,
+    statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
+    deliveryAddress: req.body.deliveryAddress || "",
+    notes: req.body.notes || "",
+  });
+
+  if (orderType === ORDER_TYPES.DINE_IN) {
+    try {
+      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
+    } catch (error) {
+      await Order.deleteOne({ _id: order._id });
+      throw error;
+    }
+  }
+
+  const populated = await Order.findById(order._id)
+    .populate("customer", "fullName email phone")
+    .populate("table", "tableNumber floor section status")
+    .populate("items.menuItem", "name");
+
+  await createOrderAuditLog({ user: null, action: "Guest Order Created", order: populated });
+  await createOrderNotifications({
+    title: "New Guest Order Received",
+    message: `New guest order #${populated.orderNumber} has been received. Amount: ₹${populated.total}.`,
+    actorUserId: null,
+    type: "NEW_ORDER",
+    restaurantId: populated.restaurant,
+    entityType: "Order",
+    entityId: populated._id,
+    orderNumber: populated.orderNumber,
+    customerName: null,
+    total: populated.total,
+  });
+
+  await syncPaymentFromOrder(populated, {
+    status: paymentStatus,
+    metadata: { paymentMethod, paymentStatus, orderType },
+    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
+  });
+
+  emitOrderCreated(normalizeOrderOutput(populated));
+  emitKitchenTicketCreated(populated);
+
+  res.status(201).json(new ApiResponse(true, "Guest order created", normalizeOrderOutput(populated)));
+});
+
 export const listOrders = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
 
