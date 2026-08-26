@@ -16,6 +16,7 @@ import {
   paymentStatusLabel,
   gatewayLabel,
 } from "../utils/paymentUtils.js";
+import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import {
   applyRefundToPayment,
   buildPaymentReceipt,
@@ -194,6 +195,7 @@ const mapPaymentRow = (payment) => {
   const safeAmount = Number(paymentObject?.amount ?? paymentObject?.totalAmount ?? 0);
   return {
     ...paymentObject,
+    paymentIdDisplay: formatPaymentId(paymentObject?.paymentId),
     amount: safeAmount,
     totalAmount: safeTotalAmount,
     amountLabel: formatCurrency(safeAmount),
@@ -248,9 +250,10 @@ const mapPaymentDetail = (payment) => {
 };
 
 const getPaymentDoc = async (identifier, user) => {
+  const paymentIdPattern = paymentIdLookupPattern(identifier);
   const query = mongoose.isValidObjectId(identifier)
     ? await buildRestaurantQuery({ _id: identifier }, user)
-    : await buildRestaurantQuery({ paymentId: String(identifier).trim().toUpperCase() }, user);
+    : await buildRestaurantQuery({ paymentId: paymentIdPattern || String(identifier).trim().toUpperCase() }, user);
 
   return Payment.findOne(query)
     .populate("orderId")

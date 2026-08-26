@@ -5,6 +5,7 @@ import Category from "../models/Category.js";
 import Staff from "../models/Staff.js";
 import Table from "../models/Table.js";
 import Payment from "../models/Payment.js";
+import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import Reservation from "../models/Reservation.js";
 import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
@@ -122,7 +123,7 @@ const searchTables = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchPayments = async (regex, restaurantFilter) => {
+const searchPayments = async (regex, restaurantFilter, searchText) => {
   const orderMatches = await Order.find({ orderNumber: regex })
     .select("_id")
     .lean();
@@ -134,7 +135,7 @@ const searchPayments = async (regex, restaurantFilter) => {
   const paymentFilter = {
     ...restaurantFilter,
     $or: [
-      { paymentId: regex },
+      { paymentId: paymentIdLookupPattern(searchText) || regex },
       { transactionId: regex },
       ...(orderMatches.length ? [{ orderId: { $in: orderMatches.map((o) => o._id) } }] : []),
       ...(customerMatches.length ? [{ customerId: { $in: customerMatches.map((c) => c._id) } }] : []),
@@ -148,7 +149,7 @@ const searchPayments = async (regex, restaurantFilter) => {
 
   return payments.map((p) => ({
     id: p._id,
-    paymentId: p.paymentId,
+    paymentId: formatPaymentId(p.paymentId),
     amount: p.totalAmount ?? p.amount,
     paymentMethod: p.paymentMethod,
     paymentStatus: p.paymentStatus,
@@ -239,7 +240,7 @@ export const search = asyncHandler(async (req, res) => {
     searchCategories(regex),
     searchStaff(regex, restaurantFilter),
     searchTables(regex, restaurantFilter),
-    searchPayments(regex, restaurantFilter),
+    searchPayments(regex, restaurantFilter, query),
     searchReservations(regex, restaurantFilter),
     searchSubscriptions(regex, restaurantFilter),
   ]);

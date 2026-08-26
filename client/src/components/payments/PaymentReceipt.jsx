@@ -1,5 +1,6 @@
 import { FiDownload, FiPrinter, FiX } from "react-icons/fi";
 import { formatCurrency, formatPaymentDate, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { formatPaymentId } from "../../utils/paymentId";
 
 const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   if (!open) return null;
@@ -29,7 +30,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 text-sm text-slate-700">
               <div>
-                <p><strong>Payment ID:</strong> {payment.paymentId}</p>
+                <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
                 <p><strong>Order ID:</strong> {order.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
                 <p><strong>Date & Time:</strong> {formatPaymentDate(payment.createdAt)}</p>

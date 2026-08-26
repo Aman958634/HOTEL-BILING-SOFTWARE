@@ -2,6 +2,7 @@ import { currency, dateTime } from "../../../utils/format";
 import OrderStatusBadge from "./OrderStatusBadge";
 import OrderTimeline from "./OrderTimeline";
 import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel } from "../../../utils/paymentUtils";
+import { formatPaymentId } from "../../../utils/paymentId";
 
 const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPrintReceipt }) => {
   if (!open) return null;
@@ -38,7 +39,7 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
               <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(order.paymentMethod)}</p>
                 <p><strong>Payment Status:</strong> <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{paymentStatusLabel(order.paymentStatus)}</span></p>
-                <p><strong>Payment ID:</strong> {order.paymentId || "-"}</p>
+                <p><strong>Payment ID:</strong> {formatPaymentId(order.paymentId)}</p>
                 <p><strong>Transaction ID:</strong> {order.transactionId || "-"}</p>
                 <p><strong>Paid At:</strong> {dateTime(order.paidAt || order.updatedAt)}</p>
                 <p><strong>Created:</strong> {dateTime(order.createdAt)}</p>

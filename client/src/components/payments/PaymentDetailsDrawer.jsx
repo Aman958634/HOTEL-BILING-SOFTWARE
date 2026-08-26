@@ -1,5 +1,6 @@
 import { FiClock, FiDollarSign, FiFileText, FiPhone, FiTable, FiUser } from "react-icons/fi";
 import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, getPaymentAmount } from "../../utils/paymentUtils";
+import { formatPaymentId } from "../../utils/paymentId";
 
 const Section = ({ title, children }) => (
   <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -46,7 +47,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-slate-500">Payment ID</p>
-                  <p className="text-2xl font-bold text-slate-900">{payment.paymentId}</p>
+                  <p className="text-2xl font-bold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
                   <p className="mt-1 text-sm text-slate-500">Order #{order?.orderNumber || payment.orderIdValue}</p>
                 </div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${paymentBadgeClasses(payment.paymentStatus)}`}>
@@ -57,7 +58,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
 
             <div className="grid gap-4 lg:grid-cols-2">
               <Section title="Payment Information">
-                <p><strong>Payment ID:</strong> {payment.paymentId}</p>
+                <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
                 <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
                 <p><strong>Order ID:</strong> {order?.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Payment Date:</strong> {formatPaymentDate(payment.createdAt)}</p>

@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { formatPaymentId } from "./paymentId.js";
 
 export const PAYMENT_METHOD_LABELS = {
   CASH: "Cash",
@@ -159,7 +160,7 @@ export const buildReceiptBuffer = async ({ payment, order, restaurant }) =>
       doc.fontSize(11).fillColor("#0f172a").font("Helvetica-Bold").text(value || "-", x, y + 14);
     };
 
-    drawKeyValue("Payment ID", payment.paymentId, leftCol, 140);
+    drawKeyValue("Payment ID", formatPaymentId(payment.paymentId), leftCol, 140);
     drawKeyValue("Transaction ID", payment.transactionId || "-", rightCol, 140);
     drawKeyValue("Order ID", order?.orderNumber || order?._id?.toString?.() || "-", leftCol, 190);
     drawKeyValue("Payment Status", paymentStatusLabel(payment.paymentStatus), rightCol, 190);
@@ -219,7 +220,7 @@ const escapeCsvValue = (value) => {
 export const buildPaymentCsv = (payments = []) => {
   const headers = ["Payment ID", "Order ID", "Customer", "Amount", "Payment Method", "Status", "Transaction ID", "Date", "Refund Amount"];
   const rows = payments.map((payment) => [
-    payment.paymentId,
+    formatPaymentId(payment.paymentId),
     payment.orderIdValue || payment.orderNumber || payment.orderId?.orderNumber || payment.orderId || "",
     payment.customerName || payment.customerId?.fullName || "Guest",
     Number(payment.totalAmount ?? payment.amount ?? 0),

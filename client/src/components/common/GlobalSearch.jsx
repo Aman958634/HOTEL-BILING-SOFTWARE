@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { globalSearch } from "../../services/searchService";
+import { formatPaymentId } from "../../utils/paymentId";
 import {
   FiBookOpen,
   FiCalendar,
@@ -276,7 +277,7 @@ const getResultLabel = (category, item) => {
     case "tables":
       return `Table ${item.tableNumber}`;
     case "payments":
-      return item.paymentId;
+      return formatPaymentId(item.paymentIdDisplay || item.paymentId);
     case "reservations":
       return item.customerName || "Reservation";
     case "subscriptions":

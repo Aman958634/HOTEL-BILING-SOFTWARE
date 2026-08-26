@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiCheckCircle, FiX } from "react-icons/fi";
 import { formatCurrency } from "../../utils/paymentUtils";
+import { formatPaymentId } from "../../utils/paymentId";
 import { getPaymentAmount } from "../../utils/paymentUtils";
 
 const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
@@ -43,7 +44,7 @@ const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
         </div>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          <p><strong>Payment ID:</strong> {payment.paymentId}</p>
+          <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
           <p><strong>Order ID:</strong> {payment.orderIdValue}</p>
           <p><strong>Refundable Amount:</strong> {formatCurrency(refundable)}</p>
         </div>

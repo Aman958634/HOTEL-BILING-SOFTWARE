@@ -16,6 +16,7 @@ import {
 } from "../utils/paymentUtils.js";
 import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
+import { formatPaymentId } from "../utils/paymentId.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -59,7 +60,7 @@ const nextPaymentSequence = async (session = null) => {
     { $inc: { value: 1 } },
     { new: true, upsert: true, setDefaultsOnInsert: true, session: session || undefined }
   );
-  return `PAY-${updated.value}`;
+  return formatPaymentId(updated.value);
 };
 
 const addTimelineEntry = (timeline = [], status, timestamp = new Date(), note = "") => {
@@ -117,6 +118,7 @@ export const serializePayment = (payment) => {
   const data = payment.toObject ? payment.toObject() : payment;
   return {
     ...data,
+    paymentIdDisplay: formatPaymentId(data.paymentId),
     paymentStatusLabel: paymentStatusLabel(data.paymentStatus),
     paymentMethodLabel: paymentMethodLabel(data.paymentMethod),
   };
