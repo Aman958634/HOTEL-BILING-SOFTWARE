@@ -4,12 +4,12 @@ import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import Order from "../models/Order.js";
 import Table from "../models/Table.js";
 import Payment from "../models/Payment.js";
-
-// Existing order statuses used by the application.
-const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED"];
-
-// Orders shown on the operational board (not cancelled/archived).
-const BOARD_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED"];
+import {
+  buildLiveBoardOrderFilter,
+  normalizeOrderForBoard,
+  ORDER_STATUSES,
+  safeNormalizeOrderStatus,
+} from "../services/orderService.js";
 
 // Kitchen / KOT stages are derived from real order statuses (no separate KOT
 // collection exists in this project) so the cockpit never invents data.
@@ -27,11 +27,11 @@ const startOfToday = () => {
 
 const countByStatus = (orders) => {
   const counts = {};
-  ORDER_STATUSES.forEach((s) => {
+  Object.values(ORDER_STATUSES).forEach((s) => {
     counts[s] = 0;
   });
   orders.forEach((o) => {
-    const key = String(o.status || "").toUpperCase();
+    const key = safeNormalizeOrderStatus(o.status);
     if (key in counts) counts[key] += 1;
   });
   return counts;
@@ -53,14 +53,16 @@ export const getOverview = asyncHandler(async (req, res) => {
   });
 
   // ---- Orders for the board ----
-  const orderFilter = { ...base, isArchived: false, status: { $in: BOARD_STATUSES } };
-  const orders = await Order.find(orderFilter)
+  const orderFilter = await buildRestaurantQuery(buildLiveBoardOrderFilter(), req.user);
+  const orderDocs = await Order.find(orderFilter)
     .sort({ createdAt: -1 })
     .limit(160)
     .populate("table", "tableNumber floor section")
     .populate("customer", "fullName phone")
     .populate("items.menuItem", "name")
     .lean();
+
+  const orders = orderDocs.map(normalizeOrderForBoard);
 
   const orderSummary = {
     total: orders.length,

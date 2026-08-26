@@ -112,6 +112,46 @@ export const normalizeOrderStatus = (value) => {
   return alias;
 };
 
+/** Non-throwing status normalizer for read/query paths (legacy DB values). */
+export const safeNormalizeOrderStatus = (value) => {
+  if (!value) return ORDER_STATUSES.PENDING;
+  try {
+    return normalizeOrderStatus(value);
+  } catch {
+    const upper = String(value).trim().toUpperCase();
+    if (Object.values(ORDER_STATUSES).includes(upper)) return upper;
+    return ORDER_STATUSES.PENDING;
+  }
+};
+
+const CANCELLED_STATUS_VARIANTS = [
+  ORDER_STATUSES.CANCELLED,
+  "cancelled",
+  "Cancelled",
+];
+
+/** Shared Mongo filter for live operational boards (cockpit, KDS). */
+export const buildLiveBoardOrderFilter = (base = {}) => ({
+  ...base,
+  isArchived: { $ne: true },
+  status: { $nin: CANCELLED_STATUS_VARIANTS },
+});
+
+export const normalizeOrderForBoard = (order) => {
+  const obj = order?.toObject ? order.toObject() : { ...order };
+  let paymentStatus = obj.paymentStatus;
+  try {
+    paymentStatus = normalizePaymentStatus(obj.paymentStatus);
+  } catch {
+    paymentStatus = PAYMENT_STATUSES.PENDING;
+  }
+  return {
+    ...obj,
+    status: safeNormalizeOrderStatus(obj.status),
+    paymentStatus,
+  };
+};
+
 export const normalizeOrderType = (value) => {
   if (!value) return ORDER_TYPES.DINE_IN;
   const upper = String(value).trim().toUpperCase();

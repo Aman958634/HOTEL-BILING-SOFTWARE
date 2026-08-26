@@ -8,6 +8,8 @@ import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import {
   ORDER_STATUSES,
   addStatusHistoryEntry,
+  buildLiveBoardOrderFilter,
+  normalizeOrderForBoard,
 } from "../services/orderService.js";
 import {
   KITCHEN_ITEM_STATUSES,
@@ -76,7 +78,7 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
 
 export const getKitchenTickets = asyncHandler(async (req, res) => {
   const base = await buildRestaurantQuery({}, req.user);
-  const filters = { ...base, isArchived: false, status: { $in: BOARD_ORDER_STATUSES } };
+  const filters = buildLiveBoardOrderFilter(base);
 
   if (req.query.status) {
     const status = String(req.query.status).trim().toUpperCase();
@@ -98,9 +100,8 @@ export const getKitchenTickets = asyncHandler(async (req, res) => {
   }
 
   const stationFilter = await buildKitchenStationMenuFilter(req.query.station, req.user);
-  if (Object.keys(stationFilter).length > 1) {
-    filters.$and = [filters.$and || {}, stationFilter].filter(Boolean);
-    if (filters.$and.length === 0) delete filters.$and;
+  if (Object.keys(stationFilter).length > 0) {
+    filters.$and = [...(filters.$and || []), stationFilter];
   }
 
   const limit = Math.min(Number(req.query.limit) || 80, 200);
@@ -112,7 +113,7 @@ export const getKitchenTickets = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name kitchenStation")
     .lean();
 
-  const tickets = orders.map(buildKitchenTicket);
+  const tickets = orders.map((order) => buildKitchenTicket(normalizeOrderForBoard(order)));
 
   res.status(200).json(new ApiResponse(true, "Kitchen tickets fetched", tickets));
 });
