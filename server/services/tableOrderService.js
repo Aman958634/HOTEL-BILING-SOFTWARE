@@ -27,7 +27,14 @@ const buildActiveOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
   const query = {
     table: tableId,
     isArchived: { $ne: true },
-    status: { $in: activeOrderStatuses },
+    status: { $nin: ["CANCELLED", "cancelled", "Cancelled"] },
+    $or: [
+      { status: { $in: activeOrderStatuses } },
+      {
+        status: { $in: ["COMPLETED", "completed"] },
+        paymentStatus: { $nin: ["PAID", "paid"] },
+      },
+    ],
   };
   if (excludeOrderId) query._id = { $ne: excludeOrderId };
   return query;
@@ -109,7 +116,14 @@ export const reconcileTablesAvailability = async (tables = []) => {
       $match: {
         table: { $in: ids },
         isArchived: { $ne: true },
-        status: { $in: activeOrderStatuses },
+        status: { $nin: ["CANCELLED", "cancelled", "Cancelled"] },
+        $or: [
+          { status: { $in: activeOrderStatuses } },
+          {
+            status: { $in: ["COMPLETED", "completed"] },
+            paymentStatus: { $nin: ["PAID", "paid"] },
+          },
+        ],
       },
     },
     { $sort: { createdAt: -1 } },
@@ -240,7 +254,18 @@ export const maybeReleaseTableAfterSettlement = async (order) => {
   if (!tableId) return null;
 
   const status = String(order.status || "").toUpperCase();
-  if (status === "CANCELLED" || status === "COMPLETED") {
+  const paymentStatus = String(order.paymentStatus || "").toUpperCase();
+
+  if (status === "CANCELLED") {
+    return recalculateTableStatus(tableId);
+  }
+
+  // Keep table occupied until order is completed AND paid.
+  if (status === "COMPLETED" && paymentStatus === "PAID") {
+    return recalculateTableStatus(tableId);
+  }
+
+  if (paymentStatus === "PAID") {
     return recalculateTableStatus(tableId);
   }
 

@@ -21,8 +21,7 @@ import {
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const router = Router();
 

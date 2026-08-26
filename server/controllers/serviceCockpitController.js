@@ -71,16 +71,24 @@ export const getOverview = asyncHandler(async (req, res) => {
   };
 
   // ---- Kitchen / KOT (derived from orders) ----
-  const kitchenOrders = orders.filter((o) => KITCHEN_STATUSES.includes(o.status));
+  const kitchenOrders = orders.filter((o) =>
+    [ORDER_STATUSES.PENDING, ORDER_STATUSES.CONFIRMED, ORDER_STATUSES.PREPARING, ORDER_STATUSES.READY].includes(
+      safeNormalizeOrderStatus(o.status)
+    )
+  );
   const now = Date.now();
   const waitMinutes = (o) => Math.max(0, Math.round((now - new Date(o.createdAt).getTime()) / 60000));
   const delayedOrders = kitchenOrders.filter((o) => waitMinutes(o) >= DELAY_THRESHOLDS.delayed);
 
   const kitchen = {
-    newKot: kitchenOrders.filter((o) => o.status === "PENDING" || o.status === "CONFIRMED").length,
-    preparingKot: kitchenOrders.filter((o) => o.status === "PREPARING").length,
-    readyKot: kitchenOrders.filter((o) => o.status === "READY").length,
-    completedKot: orders.filter((o) => o.status === "SERVED" || o.status === "COMPLETED").length,
+    newKot: kitchenOrders.filter((o) =>
+      [ORDER_STATUSES.PENDING, ORDER_STATUSES.CONFIRMED].includes(safeNormalizeOrderStatus(o.status))
+    ).length,
+    preparingKot: kitchenOrders.filter((o) => safeNormalizeOrderStatus(o.status) === ORDER_STATUSES.PREPARING).length,
+    readyKot: kitchenOrders.filter((o) => safeNormalizeOrderStatus(o.status) === ORDER_STATUSES.READY).length,
+    completedKot: orders.filter((o) =>
+      [ORDER_STATUSES.SERVED, ORDER_STATUSES.COMPLETED].includes(safeNormalizeOrderStatus(o.status))
+    ).length,
     delayedKot: delayedOrders.length,
     items: kitchenOrders
       .map((o) => ({

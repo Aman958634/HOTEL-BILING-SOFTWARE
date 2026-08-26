@@ -5,8 +5,8 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiError from "../utils/ApiError.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import Table from "../models/Table.js";
 import {
