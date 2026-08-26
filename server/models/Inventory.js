@@ -7,8 +7,15 @@ const inventorySchema = new mongoose.Schema(
     sku: { type: String, required: true, index: true },
     quantity: { type: Number, required: true, min: 0 },
     unit: { type: String, default: "kg" },
+    baseUnit: { type: String, default: "" },
+    minStock: { type: Number, default: 0, min: 0 },
     reorderLevel: { type: Number, default: 10 },
+    maxStock: { type: Number, default: null, min: 0 },
     costPerUnit: { type: Number, default: 0 },
+    supplier: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null, index: true },
+    category: { type: String, default: "Other", trim: true },
+    storageLocation: { type: String, default: "", trim: true },
+    isActive: { type: Boolean, default: true, index: true },
   },
   { timestamps: true }
 );

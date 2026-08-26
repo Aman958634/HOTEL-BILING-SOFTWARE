@@ -12,6 +12,8 @@ import Payment from "./Payment.js";
 import Staff from "./Staff.js";
 import Inventory from "./Inventory.js";
 import Ingredient from "./Ingredient.js";
+import Recipe from "./Recipe.js";
+import StockMovement from "./StockMovement.js";
 import Supplier from "./Supplier.js";
 import Notification from "./Notification.js";
 import Feedback from "./Feedback.js";
@@ -39,6 +41,8 @@ export {
   Staff,
   Inventory,
   Ingredient,
+  Recipe,
+  StockMovement,
   Supplier,
   Notification,
   Feedback,

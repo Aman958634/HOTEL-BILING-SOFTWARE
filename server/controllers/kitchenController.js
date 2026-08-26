@@ -25,6 +25,7 @@ import {
   emitKitchenItemStatusChanged,
   emitKitchenOrderStatusChanged,
 } from "../socket/orderSocket.js";
+import { consumeOrderInventory } from "../services/inventoryService.js";
 
 const BOARD_ORDER_STATUSES = [
   ORDER_STATUSES.PENDING,
@@ -52,11 +53,16 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
   recalculateOrderStatusFromKitchen(order);
   const nextStatus = String(order.status || "").toUpperCase();
 
+  if (nextItemStatus === KITCHEN_ITEM_STATUSES.PREPARING) {
+    await consumeOrderInventory({ order, user: req.user._id, itemIndexes: itemIndex == null ? order.items.map((_, index) => index) : [itemIndex] });
+  }
+
   if (previousStatus !== nextStatus) {
     addStatusHistoryEntry(order, nextStatus, req.user._id);
   }
 
   await order.save();
+
 
   const populated = await Order.findById(order._id)
     .populate("table", "tableNumber floor section")

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { FiAlertTriangle, FiCheckCircle, FiClock, FiCoffee, FiCreditCard, FiGrid, FiLoader, FiRefreshCw, FiSearch, FiShoppingBag, FiSignal, FiTable, FiXCircle, FiWifi, FiWifiOff } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiClock, FiCoffee, FiCreditCard, FiGrid, FiLoader, FiRefreshCw, FiSearch, FiShoppingBag, FiTable, FiXCircle, FiWifi, FiWifiOff } from "react-icons/fi";
 import { useSocket } from "../../context/SocketContext";
 import { getCockpitOverview } from "../../services/cockpitService";
 import { getTables } from "../../services/tableService";
@@ -234,7 +234,7 @@ const ServiceCockpit = () => {
     let list = overview?.orders?.items || [];
     if (filter === "kot") list = list.filter((o) => KITCHEN_STATUSES.includes(o.status));
     else if (filter === "ready") list = list.filter((o) => o.status === "READY");
-    else if (filter === "delayed") list = list.filter((o) => waitMinutes(o) >= thresholds.delayed);
+    else if (filter === "delayed") list = list.filter((o) => KITCHEN_STATUSES.includes(o.status) && waitMinutes(o) >= thresholds.delayed);
     else if (filter === "payment") list = list.filter((o) => String(o.paymentStatus || "").toUpperCase() === "PENDING");
     return list.filter(matchesSearchOrder);
   }, [overview, filter, search, thresholds, now]);

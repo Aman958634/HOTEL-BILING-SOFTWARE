@@ -51,6 +51,7 @@ const BillingPage = lazy(() => import("../pages/admin/BillingPage"));
 const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPaymentsPage"));
 const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
 const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
+const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
 const PageSkeleton = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
@@ -170,6 +171,7 @@ const AppRouter = () => (
       <Route path="cockpit" element={<ServiceCockpit />} />
       <Route path="orders" element={<OrderManagement />} />
       <Route path="staff" element={<StaffManagement />} />
+      <Route path="inventory" element={<InventoryPage />} />
       <Route path="payments" element={<Payments />} />
       <Route path="billing" element={<BillingPage />} />
       <Route path="my-subscription" element={<MySubscriptionPage />} />

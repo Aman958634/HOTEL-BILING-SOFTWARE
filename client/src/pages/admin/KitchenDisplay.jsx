@@ -221,7 +221,7 @@ const KitchenDisplay = () => {
       else if (["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.preparing++;
       else if (t.kitchenPhase === "READY") c.ready++;
       else if (["SERVED", "COMPLETED"].includes(t.status)) c.completed++;
-      if (mins >= thresholds.delayed) c.delayed++;
+      if (["NEW", "PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
     });
     return c;
   }, [tickets, thresholds, now]);
