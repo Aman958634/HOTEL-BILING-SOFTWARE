@@ -1,8 +1,11 @@
 import { currency } from "../../utils/format";
 import { formatGrowthTrend } from "../../utils/growthUtils";
+import { getComparisonPeriodLabel } from "../../utils/comparisonPeriod";
 
-const StatCard = ({ icon, label, value, trend = 0, formatValue }) => {
+const StatCard = ({ icon, label, value, trend = 0, formatValue, range = "today", comparisonType = "dashboard" }) => {
   const growth = formatGrowthTrend(trend);
+  const comparisonPeriod = getComparisonPeriodLabel(range, comparisonType);
+  
   const toneClass =
     growth.type === "positive"
       ? "text-emerald-600"
@@ -23,11 +26,16 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue }) => {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600" aria-hidden="true">
           {icon}
         </div>
-        <span className={`flex items-center gap-1 text-xs font-semibold ${toneClass}`}>
-          {growth.type === "positive" && <span>↑</span>}
-          {growth.type === "negative" && <span>↓</span>}
-          {growth.label}
-        </span>
+        <div className={`flex flex-col items-end gap-1 text-xs font-semibold ${toneClass}`}>
+          <div className="flex items-center gap-1">
+            {growth.type === "positive" && <span>↑</span>}
+            {growth.type === "negative" && <span>↓</span>}
+            {growth.label}
+          </div>
+          {growth.label !== "—" && growth.label !== "New" && (
+            <div className="text-slate-400 text-xs font-normal">{comparisonPeriod}</div>
+          )}
+        </div>
       </div>
       <div className="mt-4">
         <p className="text-sm text-slate-500">{label}</p>

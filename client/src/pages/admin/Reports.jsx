@@ -404,6 +404,8 @@ const Reports = () => {
                 value={card.value}
                 trend={card.trend}
                 formatValue={card.formatValue}
+                range={filters.range}
+                comparisonType="report"
               />
             ))}
       </div>

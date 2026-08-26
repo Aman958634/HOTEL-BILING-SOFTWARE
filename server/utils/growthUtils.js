@@ -16,7 +16,7 @@ export const calculateGrowth = (current, previous) => {
   const pct = Number((((c - p) / p) * 100).toFixed(1));
   return {
     value: pct,
-    label: `${pct > 0 ? "+" : ""}${pct}%`,
+    label: `${Math.abs(pct)}%`,
     type: pct > 0 ? "positive" : "negative",
   };
 };

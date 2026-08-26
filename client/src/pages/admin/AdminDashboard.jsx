@@ -144,7 +144,13 @@ const AdminDashboard = () => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
-            <StatCard key={card.key} {...card} icon={iconMap[card.key]} />
+            <StatCard 
+              key={card.key} 
+              {...card} 
+              icon={iconMap[card.key]}
+              range="today"
+              comparisonType="dashboard"
+            />
           ))}
         </div>
       )}

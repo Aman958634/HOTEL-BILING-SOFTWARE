@@ -10,10 +10,12 @@ export const formatGrowthTrend = (trend) => {
   if (typeof trend === "string") {
     if (trend === "New") return { label: "New", type: "positive" };
     if (trend === "—" || trend === "-") return { label: "—", type: "neutral" };
-    const numeric = Number(String(trend).replace("%", ""));
+    const numeric = Number(String(trend).replace(/[%+]/g, ""));
     if (!Number.isNaN(numeric)) {
+      // Remove the sign from percentage display (arrow will show direction)
+      const absValue = Math.abs(numeric);
       return {
-        label: String(trend).includes("%") ? trend : `${numeric > 0 ? "+" : ""}${numeric}%`,
+        label: String(trend).includes("%") ? `${absValue}%` : `${absValue}%`,
         type: numeric > 0 ? "positive" : numeric < 0 ? "negative" : "neutral",
       };
     }
@@ -22,8 +24,10 @@ export const formatGrowthTrend = (trend) => {
 
   const value = Number(trend || 0);
   if (value === 0) return { label: "0%", type: "neutral" };
+  // Remove the sign from percentage display (arrow will show direction)
+  const absValue = Math.abs(value);
   return {
-    label: `${value > 0 ? "+" : ""}${value}%`,
+    label: `${absValue}%`,
     type: value > 0 ? "positive" : "negative",
   };
 };
