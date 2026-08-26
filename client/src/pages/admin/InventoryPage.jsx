@@ -45,6 +45,18 @@ const InventoryPage = () => {
     event.preventDefault();
     setSaving(true);
     try {
+      // Validate unit and baseUnit don't contain numbers
+      if (/\d/.test(itemForm.unit)) {
+        toast.error("Unit cannot contain numbers (e.g., use 'kg' not '10kg')");
+        setSaving(false);
+        return;
+      }
+      if (/\d/.test(itemForm.baseUnit)) {
+        toast.error("Base unit cannot contain numbers (e.g., use 'kg' not '10kg')");
+        setSaving(false);
+        return;
+      }
+      
       await createInventoryItem({ ...itemForm, quantity: Number(itemForm.quantity || 0), reorderLevel: Number(itemForm.reorderLevel || 0), costPerUnit: Number(itemForm.costPerUnit || 0) });
       setItemForm(initialItem);
       toast.success("Inventory item created");

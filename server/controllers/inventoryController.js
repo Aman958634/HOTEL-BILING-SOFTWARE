@@ -24,14 +24,51 @@ export const listInventory = asyncHandler(async (req, res) => {
 export const createInventoryItem = asyncHandler(async (req, res) => {
   const restaurant = resolveRestaurantId(req.user);
   const openingStock = Number(req.body.quantity || 0);
-  const item = await Inventory.create({ ...req.body, restaurant, itemName: String(req.body.itemName || "").trim(), sku: String(req.body.sku || "").trim(), baseUnit: req.body.baseUnit || req.body.unit || "kg", quantity: 0 });
+  const unit = String(req.body.unit || "kg").trim().toLowerCase();
+  const baseUnit = String(req.body.baseUnit || unit).trim().toLowerCase();
+  
+  // Validate that unit and baseUnit don't contain numbers
+  if (/\d/.test(unit)) {
+    throw new ApiError(422, "Unit cannot contain numbers. Store quantity separately from unit (e.g., quantity: 10, unit: 'kg')");
+  }
+  if (/\d/.test(baseUnit)) {
+    throw new ApiError(422, "Base unit cannot contain numbers. Store quantity separately from unit (e.g., quantity: 10, unit: 'kg')");
+  }
+  
+  const item = await Inventory.create({ 
+    ...req.body, 
+    restaurant, 
+    itemName: String(req.body.itemName || "").trim(), 
+    sku: String(req.body.sku || "").trim(), 
+    unit,
+    baseUnit,
+    quantity: 0 
+  });
   if (openingStock > 0) await recordStockMovement({ restaurant, inventoryItem: item._id, movementType: "OPENING_STOCK", quantity: openingStock, unit: item.unit, referenceType: "INVENTORY_ITEM", referenceId: item._id, reason: "Opening stock", user: req.user._id });
   res.status(201).json(new ApiResponse(true, "Inventory item created", item));
 });
 
 export const updateInventoryItem = asyncHandler(async (req, res) => {
   const filter = await buildRestaurantQuery({ _id: req.params.id }, req.user);
-  const item = await Inventory.findOneAndUpdate(filter, { $set: { ...req.body, quantity: undefined } }, { new: true, runValidators: true });
+  
+  // Validate and normalize unit fields if provided
+  const updateData = { ...req.body, quantity: undefined };
+  if (updateData.unit) {
+    const unit = String(updateData.unit).trim().toLowerCase();
+    if (/\d/.test(unit)) {
+      throw new ApiError(422, "Unit cannot contain numbers. Store quantity separately from unit");
+    }
+    updateData.unit = unit;
+  }
+  if (updateData.baseUnit) {
+    const baseUnit = String(updateData.baseUnit).trim().toLowerCase();
+    if (/\d/.test(baseUnit)) {
+      throw new ApiError(422, "Base unit cannot contain numbers. Store quantity separately from unit");
+    }
+    updateData.baseUnit = baseUnit;
+  }
+  
+  const item = await Inventory.findOneAndUpdate(filter, { $set: updateData }, { new: true, runValidators: true });
   if (!item) throw new ApiError(404, "Inventory item not found");
   res.json(new ApiResponse(true, "Inventory item updated", item));
 });
@@ -96,7 +133,7 @@ export const updateRecipeStatus = asyncHandler(async (req, res) => {
 
 export const listRecipes = asyncHandler(async (req, res) => {
   const filter = await buildRestaurantQuery({}, req.user);
-  const recipes = await Recipe.find(filter).populate("food", "name price").populate("ingredients.inventoryItem", "itemName unit costPerUnit").sort({ updatedAt: -1 }).lean();
+  const recipes = await Recipe.find(filter).populate("food", "name price").populate("ingredients.inventoryItem", "itemName unit baseUnit costPerUnit").sort({ updatedAt: -1 }).lean();
   res.json(new ApiResponse(true, "Recipes fetched", recipes));
 });
 

@@ -31,8 +31,16 @@ export const calculateRecipeCost = async (recipe) => {
   const lines = (recipe.ingredients || []).map((line) => {
     const item = byId.get(String(line.inventoryItem));
     if (!item) throw new ApiError(404, "Recipe ingredient inventory item not found");
-    const quantity = convertQuantity(line.quantity, line.unit, item.baseUnit || item.unit);
-    if (quantity === null) throw new ApiError(422, `Cannot convert ${line.unit} to ${item.baseUnit || item.unit}`);
+    
+    // Ensure baseUnit is set
+    const targetUnit = item.baseUnit || item.unit || "kg";
+    const quantity = convertQuantity(line.quantity, line.unit, targetUnit);
+    
+    if (quantity === null) {
+      const errorMsg = `Cannot convert recipe ingredient from "${line.unit}" to inventory item unit "${targetUnit}" for ${item.itemName} (SKU: ${item.sku}). ` +
+        `Ensure recipe unit is compatible with inventory unit and no numbers are stored in the unit field.`;
+      throw new ApiError(422, errorMsg);
+    }
     return { ...line, inventoryItem: item, baseQuantity: quantity, unitCost: Number(item.costPerUnit || 0), lineCost: money(quantity * Number(item.costPerUnit || 0)) };
   });
   const ingredientCost = money(lines.reduce((sum, line) => sum + line.lineCost, 0));
