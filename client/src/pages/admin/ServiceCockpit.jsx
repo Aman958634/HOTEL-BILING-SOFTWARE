@@ -99,34 +99,71 @@ const ServiceCockpit = () => {
     [overview]
   );
 
-  const loadOverview = useCallback(async () => {
-    const { data } = await getCockpitOverview();
-    setOverview(data.data);
+  const hasAuthToken = () => Boolean(localStorage.getItem("accessToken"));
+
+  // Guards to prevent overlapping polling requests and honour 429 backoff.
+  const inFlightRef = useRef(false);
+  const abortRef = useRef(null);
+  const backoffUntilRef = useRef(0);
+  const POLL_INTERVAL = 20000;
+
+  const loadOverview = useCallback(async (signal) => {
+    const { data } = await getCockpitOverview({}, signal ? { signal } : {});
+    return data.data;
   }, []);
 
-  const loadTables = useCallback(async () => {
-    const { data } = await getTables({ limit: 200 });
-    setTables(data.data || []);
+  const loadTables = useCallback(async (signal) => {
+    const { data } = await getTables({ limit: 200 }, signal ? { signal } : {});
+    return data.data || [];
   }, []);
 
+  // Single, guarded polling request. Never overlaps with an in-flight request,
+  // never runs without a token, and backs off after a 429.
   const refreshAll = useCallback(async () => {
+    if (inFlightRef.current) return;
+    if (Date.now() < backoffUntilRef.current) return;
+    if (!hasAuthToken()) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    inFlightRef.current = true;
     try {
       setError(null);
-      await Promise.all([loadOverview(), loadTables()]);
+      const [overviewData, tableData] = await Promise.all([
+        loadOverview(controller.signal),
+        loadTables(controller.signal),
+      ]);
+      setOverview(overviewData);
+      setTables(tableData);
       setLastUpdated(new Date());
     } catch (err) {
-      setError(err?.response?.data?.message || "Unable to load live service data");
+      if (controller.signal.aborted) return;
+      const status = err?.response?.status;
+      if (status === 429) {
+        const retryAfter = Number(err?.response?.headers?.["retry-after"]);
+        const backoff =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 30000;
+        backoffUntilRef.current = Date.now() + backoff;
+        setError("Too many requests. Pausing updates and retrying shortly…");
+      } else {
+        setError(err?.response?.data?.message || "Unable to load live service data");
+      }
     } finally {
+      inFlightRef.current = false;
+      abortRef.current = null;
       setLoading(false);
     }
   }, [loadOverview, loadTables]);
 
-  // Initial + polling fallback
+  // One interval for the whole screen lifetime. Cleaned up on unmount.
   useEffect(() => {
     refreshAll();
-    const id = setInterval(refreshAll, 20000);
-    return () => clearInterval(id);
-  }, [refreshAll]);
+    const id = setInterval(refreshAll, POLL_INTERVAL);
+    return () => {
+      clearInterval(id);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [refreshAll, POLL_INTERVAL]);
 
   // Real-time updates via existing Socket.IO events (throttled)
   const lastFetchRef = useRef(0);

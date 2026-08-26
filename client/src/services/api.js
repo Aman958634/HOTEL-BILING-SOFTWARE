@@ -19,15 +19,17 @@ const shouldSkipRefresh = (url = "") =>
   AUTH_SKIP_REFRESH_PATHS.some((path) => url.includes(path));
 
 const processQueue = (error, token = null) => {
-  failedQueue.forEach(({ resolve, reject, config }) => {
+  const queue = failedQueue;
+  failedQueue = [];
+  queue.forEach(({ resolve, reject, config }) => {
     if (error) {
       reject(error);
     } else {
+      delete config._retry;
       config.headers.Authorization = `Bearer ${token}`;
       resolve(api(config));
     }
   });
-  failedQueue = [];
 };
 
 const clearAuthAndRedirectToLogin = () => {
@@ -77,6 +79,7 @@ api.interceptors.response.use(
 
     if (
       !originalRequest ||
+      error?.response?.status === 429 ||
       error?.response?.status !== 401 ||
       originalRequest._retry ||
       shouldSkipRefresh(originalRequest.url || "")

@@ -89,7 +89,9 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
             key={item.index}
             item={item}
             canUpdate={canUpdate}
-            onStatusChange={onItemStatusChange}
+            onStatusChange={(itemIndex, kitchenStatus) =>
+              onItemStatusChange?.(ticket.orderId, itemIndex, kitchenStatus)
+            }
           />
         ))}
       </div>

@@ -47,6 +47,12 @@ const KitchenDisplay = () => {
   const audioRef = useRef(null);
   const lastFetchRef = useRef(0);
 
+  // Guards to prevent overlapping polling requests and honour 429 backoff.
+  const inFlightRef = useRef(false);
+  const abortRef = useRef(null);
+  const backoffUntilRef = useRef(0);
+  const POLL_INTERVAL = 15000;
+
   const canUpdate = ["admin", "manager", "chef"].includes(role);
   const canComplete = ["admin", "manager"].includes(role);
 
@@ -63,40 +69,79 @@ const KitchenDisplay = () => {
     }
   }, [soundMuted]);
 
-  const loadTickets = useCallback(async () => {
-    try {
-      setError(null);
-      const { data } = await getKitchenTickets({
-        limit: 200,
-        ...(stationFilter ? { station: stationFilter } : {}),
-      });
-      setTickets(data.data || []);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setError(err?.response?.data?.message || "Unable to load kitchen tickets");
-    } finally {
-      setLoading(false);
-    }
-  }, [stationFilter]);
+  const hasAuthToken = () => Boolean(localStorage.getItem("accessToken"));
 
-  const loadStations = useCallback(async () => {
+  const loadTickets = useCallback(
+    async (signal) => {
+      const { data } = await getKitchenTickets(
+        {
+          limit: 200,
+          ...(stationFilter ? { station: stationFilter } : {}),
+        },
+        signal ? { signal } : {}
+      );
+      return data.data || [];
+    },
+    [stationFilter]
+  );
+
+  const loadStations = useCallback(async (signal) => {
     try {
-      const { data } = await getKitchenStations();
-      setStations(data.data || []);
+      const { data } = await getKitchenStations({}, signal ? { signal } : {});
+      return data.data || [];
     } catch (_) {
-      // stations optional
+      // stations are optional, keep whatever we already have
+      return null;
     }
   }, []);
 
+  // Single, guarded polling request. Never overlaps with an in-flight request,
+  // never runs without a token, and backs off after a 429.
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadTickets(), loadStations()]);
+    if (inFlightRef.current) return;
+    if (Date.now() < backoffUntilRef.current) return;
+    if (!hasAuthToken()) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    inFlightRef.current = true;
+    try {
+      setError(null);
+      const [ticketData, stationData] = await Promise.all([
+        loadTickets(controller.signal),
+        loadStations(controller.signal),
+      ]);
+      setTickets(ticketData);
+      if (stationData) setStations(stationData);
+      setLastUpdated(new Date());
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      const status = err?.response?.status;
+      if (status === 429) {
+        const retryAfter = Number(err?.response?.headers?.["retry-after"]);
+        const backoff =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 30000;
+        backoffUntilRef.current = Date.now() + backoff;
+        setError("Too many requests. Pausing updates and retrying shortly…");
+      } else {
+        setError(err?.response?.data?.message || "Unable to load kitchen tickets");
+      }
+    } finally {
+      inFlightRef.current = false;
+      abortRef.current = null;
+      setLoading(false);
+    }
   }, [loadTickets, loadStations]);
 
+  // One interval for the whole screen lifetime. Cleaned up on unmount.
   useEffect(() => {
     refreshAll();
-    const id = setInterval(refreshAll, 15000);
-    return () => clearInterval(id);
-  }, [refreshAll]);
+    const id = setInterval(refreshAll, POLL_INTERVAL);
+    return () => {
+      clearInterval(id);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [refreshAll, POLL_INTERVAL]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -196,7 +241,9 @@ const KitchenDisplay = () => {
         if (idx >= 0) next[idx] = data.data;
         return next;
       });
-    } catch (_) {
+    } catch (err) {
+      const message = err?.response?.data?.message || "Unable to update kitchen item";
+      setError(message);
       refreshAll();
     }
   }, [refreshAll]);
@@ -210,21 +257,25 @@ const KitchenDisplay = () => {
         if (idx >= 0) next[idx] = data.data;
         return next;
       });
-    } catch (_) {
+    } catch (err) {
+      const message = err?.response?.data?.message || "Unable to start kitchen items";
+      setError(message);
       refreshAll();
     }
   }, [refreshAll]);
 
   const handleBulkReady = useCallback(async (orderId) => {
     try {
-      const data = await bulkReadyKitchenItems(orderId);
+      const { data } = await bulkReadyKitchenItems(orderId);
       setTickets((prev) => {
         const next = [...prev];
         const idx = next.findIndex((t) => String(t.orderId) === String(orderId));
         if (idx >= 0) next[idx] = data.data;
         return next;
       });
-    } catch (_) {
+    } catch (err) {
+      const message = err?.response?.data?.message || "Unable to mark items ready";
+      setError(message);
       refreshAll();
     }
   }, [refreshAll]);

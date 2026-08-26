@@ -186,26 +186,31 @@ const OrderManagement = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const refresh = () => {
-      loadOrders();
-      loadStats();
-      loadOrderDependencies();
+    let timeoutId = null;
+    const scheduleRefresh = () => {
+      if (timeoutId) return;
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        loadOrders();
+        loadStats();
+      }, 250);
     };
 
-    socket.on("order:new", refresh);
-    socket.on("order:status", refresh);
-    socket.on("order:payment", refresh);
-    socket.on("order:cancelled", refresh);
-    socket.on("table:statusChanged", refresh);
+    socket.on("order:new", scheduleRefresh);
+    socket.on("order:status", scheduleRefresh);
+    socket.on("order:paymentUpdated", scheduleRefresh);
+    socket.on("order:cancelled", scheduleRefresh);
+    socket.on("table:statusChanged", scheduleRefresh);
 
     return () => {
-      socket.off("order:new", refresh);
-      socket.off("order:status", refresh);
-      socket.off("order:payment", refresh);
-      socket.off("order:cancelled", refresh);
-      socket.off("table:statusChanged", refresh);
+      if (timeoutId) clearTimeout(timeoutId);
+      socket.off("order:new", scheduleRefresh);
+      socket.off("order:status", scheduleRefresh);
+      socket.off("order:paymentUpdated", scheduleRefresh);
+      socket.off("order:cancelled", scheduleRefresh);
+      socket.off("table:statusChanged", scheduleRefresh);
     };
-  }, [socket]);
+  }, [socket, loadOrders, loadStats]);
 
   const openDetails = async (order) => {
     setDetailsOpen(true);

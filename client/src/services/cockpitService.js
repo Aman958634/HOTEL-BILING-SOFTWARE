@@ -1,3 +1,4 @@
 import api from "./api";
 
-export const getCockpitOverview = (params = {}) => api.get("/cockpit", { params });
+export const getCockpitOverview = (params = {}, options = {}) =>
+  api.get("/cockpit", { params, ...options });
