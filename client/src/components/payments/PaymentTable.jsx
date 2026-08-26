@@ -1,5 +1,7 @@
 import { FiFileText, FiEye, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment, getPaymentAmount } from "../../utils/paymentUtils";
+import EmptyState from "../common/EmptyState";
+import { SkeletonTable } from "../common/Skeletons";
 
 const ActionButton = ({ children, onClick, tone = "default" }) => {
   const className = tone === "danger"
@@ -83,17 +85,11 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
 
 const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, onDelete, onPageChange }) => {
   if (loading) {
-    return <div className="h-72 animate-pulse rounded-2xl bg-slate-100" />;
+    return <SkeletonTable rows={6} columns={7} />;
   }
 
   if (!payments.length) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-        <FiFileText className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
-        <p className="text-lg font-semibold text-slate-900">No payments found</p>
-        <p className="mt-2 text-sm text-slate-500">Payment transactions will appear here when customers complete orders.</p>
-      </div>
-    );
+    return <EmptyState icon={<FiFileText className="h-10 w-10" />} title="No payments yet" description="Completed payment transactions will appear here." />;
   }
 
   return (

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchRestaurants, updateRestaurantStatus } from "../../services/superAdminService";
 import toast from "react-hot-toast";
+import EmptyState from "../../components/common/EmptyState";
+import { SkeletonTable } from "../../components/common/Skeletons";
 
 const RestaurantsPage = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -54,7 +56,7 @@ const RestaurantsPage = () => {
       </div>
 
       <div className="bg-white rounded shadow p-4">
-        {loading ? <p>Loading...</p> : (
+        {loading ? <SkeletonTable rows={6} columns={8} /> : (
           <table className="w-full text-left">
             <thead>
               <tr>
@@ -69,7 +71,7 @@ const RestaurantsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {restaurants.length === 0 && <tr><td colSpan={8}>No restaurants found.</td></tr>}
+              {restaurants.length === 0 && <tr><td colSpan={8} className="p-8"><EmptyState title="No restaurants yet" description="Add a restaurant to start managing its subscription and operations." action={<button onClick={() => navigate("new")} className="rounded bg-teal-700 px-4 py-2 text-sm text-white">+ Add Restaurant</button>} /></td></tr>}
               {restaurants.map((r) => (
                 <tr key={r._id} className="border-t">
                   <td>{r.name}</td>

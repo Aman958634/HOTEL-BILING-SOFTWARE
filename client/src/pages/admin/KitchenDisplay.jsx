@@ -6,6 +6,8 @@ import { getKitchenTickets, getKitchenStations, updateKitchenItemStatus, bulkSta
 import { updateOrderStatus } from "../../services/orderService";
 import KdsHeader from "../../components/kitchen/KdsHeader";
 import KdsBoard from "../../components/kitchen/KdsBoard";
+import EmptyState from "../../components/common/EmptyState";
+import { SkeletonList } from "../../components/common/Skeletons";
 
 const DEFAULT_THRESHOLDS = { warning: 15, delayed: 30, critical: 45 };
 
@@ -389,11 +391,9 @@ const KitchenDisplay = () => {
           </div>
         </div>
       ) : loading && tickets.length === 0 ? (
-        <div className="grid gap-4 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-96 animate-pulse rounded-xl bg-slate-100" />
-          ))}
-        </div>
+        <div className="grid gap-4 lg:grid-cols-5"><SkeletonList count={5} className="h-96" /></div>
+      ) : visibleTickets.length === 0 ? (
+        <EmptyState title="No kitchen orders yet" description="New kitchen orders will appear here." />
       ) : (
         <KdsBoard
           tickets={visibleTickets}

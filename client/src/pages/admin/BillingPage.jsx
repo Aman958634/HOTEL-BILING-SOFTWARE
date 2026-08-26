@@ -7,6 +7,7 @@ import {
   verifyBillingPayment,
 } from "../../services/billingService";
 import { SubscriptionStatusBadge } from "../../components/subscription/SubscriptionWidgets";
+import { SkeletonCard } from "../../components/common/Skeletons";
 
 const formatMoney = (amount, currency = "INR") => {
   try {
@@ -107,7 +108,7 @@ const BillingPage = () => {
     }
   };
 
-  if (loading) return <p>Loading billing...</p>;
+  if (loading) return <div className="space-y-4"><SkeletonCard className="h-32" /><div className="grid gap-4 md:grid-cols-3"><SkeletonCard className="h-64" /><SkeletonCard className="h-64" /><SkeletonCard className="h-64" /></div></div>;
 
   return (
     <div className="space-y-4 pb-20">

@@ -3,6 +3,8 @@ import { currency, dateTime } from "../../../utils/format";
 import { paymentMethodLabel } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
 import OrderStatusBadge from "./OrderStatusBadge";
+import EmptyState from "../../common/EmptyState";
+import { SkeletonTable } from "../../common/Skeletons";
 
 const paymentText = (value) => String(value || "PENDING").replaceAll("_", " ");
 const orderTypeText = (value) => String(value || "").replaceAll("_", " ");
@@ -15,18 +17,15 @@ const deleteBtnClass =
 
 const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 
-const OrderTable = ({ orders, loading, onEdit, onDelete }) => {
+const OrderTable = ({ orders, loading, error, onEdit, onDelete }) => {
   if (loading) {
-    return <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />;
+    return <SkeletonTable rows={6} columns={6} />;
   }
 
+  if (error) return null;
+
   if (!orders.length) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
-        <FiShoppingBag className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
-        <p className="text-sm text-slate-500">No orders found.</p>
-      </div>
-    );
+    return <EmptyState icon={<FiShoppingBag className="h-8 w-8" />} title="No orders yet" description="Orders will appear here when customers place them." />;
   }
 
   return (

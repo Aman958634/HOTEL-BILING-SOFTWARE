@@ -1,5 +1,7 @@
 import TableCard from "./TableCard";
 import { FiGrid } from "react-icons/fi";
+import EmptyState from "../../common/EmptyState";
+import { SkeletonList } from "../../common/Skeletons";
 
 const TableGrid = ({
   tables,
@@ -17,26 +19,19 @@ const TableGrid = ({
   if (loading) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="mb-4 text-sm text-slate-500">Loading tables...</p>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, idx) => (
-            <div key={idx} className="h-56 animate-pulse rounded-2xl bg-slate-100" />
-          ))}
-        </div>
+        <SkeletonList count={8} className="h-56" />
       </div>
     );
   }
 
   if (!tables.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <FiGrid className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
-        <h3 className="text-lg font-semibold text-slate-900">No restaurant tables found.</h3>
-        <p className="mt-2 text-sm text-slate-500">Create your table plan to start managing occupancy and reservations.</p>
-        <button onClick={onAddFirst} className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">
-          Add Your First Table
-        </button>
-      </div>
+      <EmptyState
+        icon={<FiGrid className="h-10 w-10" />}
+        title="No tables yet"
+        description="Add your restaurant tables to start managing seating."
+        action={<button onClick={onAddFirst} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Table</button>}
+      />
     );
   }
 

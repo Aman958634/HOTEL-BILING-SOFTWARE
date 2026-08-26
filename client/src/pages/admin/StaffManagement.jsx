@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { FiUsers } from "react-icons/fi";
+import EmptyState from "../../components/common/EmptyState";
+import { SkeletonList } from "../../components/common/Skeletons";
+import RequestState from "../../components/common/RequestState";
 import { useSelector } from "react-redux";
 import { useSocket } from "../../context/SocketContext";
-import { FiUsers } from "react-icons/fi";
 import StatCard from "../../components/admin/StatCard";
 import StaffStats from "../../components/admin/staff/StaffStats";
 import StaffToolbar from "../../components/admin/staff/StaffToolbar";
@@ -28,6 +31,7 @@ const StaffManagement = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingStaff, setLoadingStaff] = useState(true);
+  const [staffError, setStaffError] = useState("");
   const [saving, setSaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
@@ -60,6 +64,7 @@ const StaffManagement = () => {
 
   const loadStaff = async (nextFilters = filters) => {
     setLoadingStaff(true);
+    setStaffError("");
     try {
       const params = {
         search: nextFilters.search || undefined,
@@ -83,6 +88,7 @@ const StaffManagement = () => {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load staff");
       setStaff([]);
+      setStaffError(error?.response?.data?.message || "Unable to load staff");
     } finally {
       setLoadingStaff(false);
     }
@@ -218,7 +224,10 @@ const StaffManagement = () => {
   ], [stats]);
 
   const canDelete = currentUser?.role === "admin";
-  const emptyMessage = filters.search ? "No staff members match your search." : "No staff members found.";
+  const emptyTitle = filters.search ? "No staff members match your search" : "No staff members yet";
+  const emptyDescription = filters.search
+    ? "Try clearing the search filters to view your restaurant staff."
+    : "Add chefs, waiters, managers and delivery staff to manage your restaurant.";
 
   return (
     <div className="space-y-4">
@@ -260,14 +269,16 @@ const StaffManagement = () => {
           </div>
         </>
       ) : loadingStaff ? (
-        <div className="h-72 animate-pulse rounded-2xl bg-slate-100" />
+        <SkeletonList count={6} className="h-20" />
+      ) : staffError ? (
+        <RequestState message={staffError} onRetry={() => loadStaff(filtersRef.current)} />
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-          <FiUsers className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
-          <h3 className="text-lg font-semibold text-slate-900">{emptyMessage}</h3>
-          <p className="mt-2 text-sm text-slate-500">Use the add button to create the first staff member or clear the search filters.</p>
-          <button onClick={openCreate} className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Your First Staff Member</button>
-        </div>
+        <EmptyState
+          icon={<FiUsers className="h-10 w-10" />}
+          title={emptyTitle}
+          description={emptyDescription}
+          action={!filters.search ? <button onClick={openCreate} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Staff</button> : null}
+        />
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm shadow-sm">

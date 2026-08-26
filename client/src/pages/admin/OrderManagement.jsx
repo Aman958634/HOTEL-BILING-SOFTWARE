@@ -10,6 +10,7 @@ import OrderPaymentPromptModal from "../../components/admin/orders/OrderPaymentP
 import OrderStats from "../../components/admin/orders/OrderStats";
 import OrderTable from "../../components/admin/orders/OrderTable";
 import OrderToolbar from "../../components/admin/orders/OrderToolbar";
+import RequestState from "../../components/common/RequestState";
 import { useSocket } from "../../context/SocketContext";
 import { getAdminCategories } from "../../services/categoryService";
 import { getAdminMenu } from "../../services/menuService";
@@ -69,6 +70,7 @@ const OrderManagement = () => {
 
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
   const [dependenciesLoading, setDependenciesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -133,6 +135,7 @@ const OrderManagement = () => {
 
   const loadOrders = async () => {
     setLoadingOrders(true);
+    setOrdersError("");
     try {
       const params = {
         page: filters.page,
@@ -150,6 +153,7 @@ const OrderManagement = () => {
       setMeta(data.meta || { page: filters.page, limit: 20, total: 0, totalPages: 1 });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load orders");
+      setOrdersError(error?.response?.data?.message || "Failed to load orders");
     } finally {
       setLoadingOrders(false);
     }
@@ -472,9 +476,11 @@ const OrderManagement = () => {
       <OrderTable
         orders={orders}
         loading={loadingOrders}
+        error={ordersError}
         onEdit={openEdit}
         onDelete={(order) => setDeleteTarget(order)}
       />
+      {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm shadow-sm">
         <p>

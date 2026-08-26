@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../../components/common/EmptyState";
+import { SkeletonTable } from "../../components/common/Skeletons";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchUsers, deleteUser, updateUserStatus } from "../../services/superAdminService";
 import toast from "react-hot-toast";
@@ -125,7 +127,7 @@ const UsersPage = () => {
 
       <div className="bg-white rounded shadow p-4 overflow-x-auto">
         {loading ? (
-          <p>Loading users...</p>
+          <SkeletonTable rows={6} columns={7} />
         ) : (
           <table className="w-full text-left border-collapse">
             <thead>
@@ -143,7 +145,7 @@ const UsersPage = () => {
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-4 text-center text-slate-500">
-                    No users found.
+                    <EmptyState title="No users yet" description="User accounts will appear here as your platform grows." />
                   </td>
                 </tr>
               ) : (

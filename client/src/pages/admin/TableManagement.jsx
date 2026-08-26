@@ -8,6 +8,7 @@ import TableForm from "../../components/admin/tables/TableForm";
 import TableGrid from "../../components/admin/tables/TableGrid";
 import TableStats from "../../components/admin/tables/TableStats";
 import TableToolbar from "../../components/admin/tables/TableToolbar";
+import RequestState from "../../components/common/RequestState";
 import {
   createTable,
   deleteTable,
@@ -47,6 +48,7 @@ const TableManagement = () => {
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tablesError, setTablesError] = useState("");
   const [loadingStats, setLoadingStats] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState("");
@@ -89,6 +91,7 @@ const TableManagement = () => {
 
   const loadTables = async (appliedFilters = filters) => {
     setLoading(true);
+    setTablesError("");
     try {
       const params = {
         limit: 100,
@@ -105,6 +108,7 @@ const TableManagement = () => {
       setTables(data.data || []);
     } catch (error) {
       toast.error(getErrorMessage(error, "Unable to load tables"));
+      setTablesError(getErrorMessage(error, "Unable to load tables"));
     } finally {
       setLoading(false);
     }
@@ -295,7 +299,7 @@ const TableManagement = () => {
         sections={sectionOptions}
       />
 
-      <TableGrid
+      {tablesError ? <RequestState message={tablesError} onRetry={() => loadTables(filters)} /> : <TableGrid
         tables={tables}
         loading={loading}
         onEdit={openEdit}
@@ -307,7 +311,7 @@ const TableManagement = () => {
         onTableClick={handleTableClick}
         onSelect={handleSelectTable}
         selectedId={selectedId}
-      />
+      />}
 
       <TableForm
         open={formOpen}
