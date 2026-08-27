@@ -16,6 +16,8 @@ import {
 } from "../services/tableStateService.js";
 import { findActiveOrdersForTable } from "../services/tableOrderService.js";
 import { ACTIVE_ORDER_QUERY } from "../services/posValidationService.js";
+import tableRepository from "../repositories/tableRepository.js";
+import { contextFromRequest } from "../repositories/baseRepository.js";
 
 const parseIntOrUndefined = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -131,7 +133,7 @@ const toPresentation = async (tableDoc) => {
   return table;
 };
 
-const ensureUniqueTableNumber = async (tableNumber, restaurant = null, excludeId = null) => {
+const ensureUniqueTableNumber = async (tableNumber, restaurant = null, excludeId = null, context = null) => {
   const query = {
     tableNumber: {
       $regex: `^${String(tableNumber).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
@@ -149,7 +151,7 @@ const ensureUniqueTableNumber = async (tableNumber, restaurant = null, excludeId
     query._id = { $ne: excludeId };
   }
 
-  const exists = await Table.findOne(query).select("_id");
+  const exists = await tableRepository.findOne(context, query).select("_id");
   if (exists) {
     throw new ApiError(409, "Table number already exists.");
   }
@@ -163,12 +165,12 @@ export const getTables = asyncHandler(async (req, res) => {
   const filters = await buildRestaurantQuery(buildTableFilters(req.query), req.user);
 
   const [tables, total] = await Promise.all([
-    Table.find(filters)
+    tableRepository.find(contextFromRequest(req), filters)
       .sort({ [sortBy]: order })
       .collation({ locale: "en", numericOrdering: true })
       .skip(skip)
       .limit(limit),
-    Table.countDocuments(filters),
+    tableRepository.count(contextFromRequest(req), filters),
   ]);
 
   // Reading a table board must never mutate lifecycle state. Only commands such
@@ -208,7 +210,7 @@ export const getTableById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user)).populate(tableWithDetailsPopulate);
+  const table = await tableRepository.findOne(contextFromRequest(req), { _id: req.params.id }).populate(tableWithDetailsPopulate);
   if (!table) throw new ApiError(404, "Table not found");
 
   const data = await toPresentation(table);
@@ -237,9 +239,9 @@ export const createTable = asyncHandler(async (req, res) => {
   }
   payload.outlet = req.outletId || null;
 
-  await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant);
+  await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant, null, contextFromRequest(req));
 
-  const table = await Table.create(payload);
+  const table = await tableRepository.create(contextFromRequest(req), payload);
   res.status(201).json(new ApiResponse(true, "Table created", table));
 });
 
@@ -248,7 +250,7 @@ export const updateTable = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const table = await tableRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!table) throw new ApiError(404, "Table not found");
 
   if (req.body.status !== undefined) {
@@ -265,13 +267,13 @@ export const updateTable = asyncHandler(async (req, res) => {
   };
 
   if (updates.tableNumber) {
-    await ensureUniqueTableNumber(updates.tableNumber, table.restaurant, table._id);
+    await ensureUniqueTableNumber(updates.tableNumber, table.restaurant, table._id, contextFromRequest(req));
   }
 
   Object.assign(table, updates);
   await table.save();
 
-  const populated = await Table.findById(table._id).populate(tableWithDetailsPopulate);
+  const populated = await tableRepository.findById(contextFromRequest(req), table._id).populate(tableWithDetailsPopulate);
   const data = await toPresentation(populated);
   res.status(200).json(new ApiResponse(true, "Table updated", data));
 });
@@ -281,7 +283,7 @@ export const deleteTable = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const table = await tableRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!table) throw new ApiError(404, "Table not found");
 
   const [activeOrdersCount, activeReservationsCount] = await Promise.all([
@@ -293,7 +295,7 @@ export const deleteTable = asyncHandler(async (req, res) => {
     throw new ApiError(409, "This table cannot be deleted because it has an active order or reservation.");
   }
 
-  await table.deleteOne();
+  await tableRepository.deleteOne(contextFromRequest(req), { _id: table._id });
   res.status(200).json(new ApiResponse(true, "Table deleted"));
 });
 
@@ -304,7 +306,7 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
 
   const requestedStatus = normalizeTableStatus(req.body.status);
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const table = await tableRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!table) throw new ApiError(404, "Table not found");
 
   if (requestedStatus !== TABLE_STATUS.MAINTENANCE) {
@@ -323,14 +325,14 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
   }
 
   const updated = await updateTableLifecycleState(table._id, { status: requestedStatus });
-  const populated = await Table.findById(updated._id).populate(tableWithDetailsPopulate);
+  const populated = await tableRepository.findById(contextFromRequest(req), updated._id).populate(tableWithDetailsPopulate);
   const data = await toPresentation(populated);
 
   res.status(200).json(new ApiResponse(true, "Table status updated", data));
 });
 
 export const getTableStats = asyncHandler(async (req, res) => {
-  const rows = await Table.aggregate([
+  const rows = await tableRepository.aggregate(contextFromRequest(req), [
     { $match: await buildRestaurantQuery({}, req.user) },
     {
       $project: {
@@ -411,7 +413,7 @@ export const getAvailableTables = asyncHandler(async (req, res) => {
     filters._id = { $nin: reservedTableIds };
   }
 
-  const tables = await Table.find(await buildRestaurantQuery(filters, req.user))
+  const tables = await tableRepository.find(contextFromRequest(req), filters)
     .sort({ tableNumber: 1 })
     .collation({ locale: "en", numericOrdering: true });
 
