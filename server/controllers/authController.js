@@ -78,6 +78,9 @@ export const login = asyncHandler(async (req, res) => {
   const safeUser = await runWithTenantContext(
     { role: "system", restaurantId: null, outletId: null },
     async () => {
+      if (tenant.outletId && !user.outlet && user.role !== "super_admin") {
+        user.outlet = tenant.outletId;
+      }
       user.refreshToken = refreshToken;
       await user.save();
       await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
@@ -117,6 +120,10 @@ export const refresh = asyncHandler(async (req, res) => {
   if (!user || !user.isActive) throw new ApiError(401, "Invalid refresh token");
 
   const tenant = await resolveUserTenant(user);
+  if (tenant.outletId && !user.outlet && user.role !== "super_admin") {
+    user.outlet = tenant.outletId;
+    await user.save();
+  }
   const accessToken = generateAccessToken({
     id: user._id,
     userId: user._id,

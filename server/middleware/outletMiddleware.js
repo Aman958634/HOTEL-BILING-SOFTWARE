@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import logger from "../utils/logger.js";
 import ApiError from "../utils/ApiError.js";
 import { runWithTenantContext } from "../utils/tenantContext.js";
 import { resolveUserTenant } from "../utils/tenantResolver.js";
@@ -26,7 +27,9 @@ export const outletContext = async (req, _res, next) => {
       return next(new ApiError(403, "Outlet does not belong to this session"));
     }
     req.outletId = context.outletId || null;
+    req.tenant = context;
     req.tenantContext = context;
+    logger.info(`Tenant resolved restaurantId=${context.restaurantId || "global"} outletId=${context.outletId || "global"}`);
     return runWithTenantContext(context, () => next());
   } catch (error) {
     if (error.name === "TokenExpiredError") return next(new ApiError(401, "Session expired. Please login again."));
