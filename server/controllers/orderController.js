@@ -35,6 +35,7 @@ import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrd
 import { cancelKotTickets, createKotRevision, mergeItemsWithKitchenState } from "../services/kotService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
+import { assertOrderTableConsistency } from "../services/posValidationService.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -108,6 +109,23 @@ const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   return restaurant._id;
 };
 
+const getIdempotencyKey = (req) => {
+  const value = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
+  if (!value) return "";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(value)) {
+    throw new ApiError(422, "Idempotency-Key must be 8-128 URL-safe characters");
+  }
+  return value;
+};
+
+const findIdempotentOrder = async ({ restaurant, idempotencyKey }) => {
+  if (!idempotencyKey) return null;
+  return Order.findOne({ restaurant, idempotencyKey, isArchived: { $ne: true } })
+    .populate("customer", "fullName email phone")
+    .populate("table", "tableNumber floor section status")
+    .populate("items.menuItem", "name");
+};
+
 export const createOrder = asyncHandler(async (req, res) => {
   const role = req.user.role;
   if (!["admin", "manager", "cashier", "waiter", "customer"].includes(role)) {
@@ -138,6 +156,15 @@ export const createOrder = asyncHandler(async (req, res) => {
   const orderNumber = await generateOrderNumber();
 
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const idempotencyKey = getIdempotencyKey(req);
+  const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
+  if (existing) return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existing)));
+
+  const tableDoc = orderType === ORDER_TYPES.DINE_IN
+    ? await Table.findOne({ _id: req.body.table, restaurant: restaurantId }).select("restaurant")
+    : null;
+  assertOrderTableConsistency({ orderType, table: req.body.table, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
+  if (orderType === ORDER_TYPES.DINE_IN && !tableDoc) throw new ApiError(404, "Table not found");
 
   const order = await Order.create({
     orderNumber,
@@ -160,6 +187,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
+    idempotencyKey,
   });
 
   if (orderType === ORDER_TYPES.DINE_IN) {
@@ -232,6 +260,14 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, "QR token does not match the selected restaurant");
   }
 
+  if (orderType !== ORDER_TYPES.DINE_IN) throw new ApiError(422, "QR ordering supports DINE_IN orders only");
+  const idempotencyKey = getIdempotencyKey(req);
+  const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
+  if (existing) return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existing)));
+  const tableDoc = await Table.findOne({ _id: tableId, restaurant: restaurantId }).select("restaurant");
+  assertOrderTableConsistency({ orderType, table: tableId, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
+  if (!tableDoc) throw new ApiError(404, "Table not found");
+
   const order = await Order.create({
     orderNumber,
     customer: null,
@@ -253,6 +289,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
+    idempotencyKey,
   });
 
   if (orderType === ORDER_TYPES.DINE_IN) {
@@ -405,6 +442,19 @@ export const updateOrder = asyncHandler(async (req, res) => {
   });
 
   const previousTable = order.table ? String(order.table) : null;
+  const requestedTable = nextOrderType === ORDER_TYPES.DINE_IN
+    ? (req.body.table !== undefined ? req.body.table : order.table)
+    : null;
+  const targetTable = nextOrderType === ORDER_TYPES.DINE_IN
+    ? await Table.findOne({ _id: requestedTable, restaurant: order.restaurant }).select("restaurant")
+    : null;
+  assertOrderTableConsistency({
+    orderType: nextOrderType,
+    table: requestedTable,
+    restaurant: order.restaurant,
+    tableRestaurant: targetTable?.restaurant,
+  });
+  if (nextOrderType === ORDER_TYPES.DINE_IN && !targetTable) throw new ApiError(404, "Table not found");
 
   order.orderType = nextOrderType;
   order.items = mergeItemsWithKitchenState({
@@ -421,8 +471,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
 
   if (nextOrderType !== ORDER_TYPES.DINE_IN) {
     order.table = null;
-  } else if (req.body.table !== undefined) {
-    order.table = req.body.table;
+  } else {
+    order.table = requestedTable;
   }
 
   const itemsChanged = req.body.items !== undefined;

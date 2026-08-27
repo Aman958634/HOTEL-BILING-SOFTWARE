@@ -59,6 +59,7 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ createdAt: -1 });
 paymentSchema.index({ restaurant: 1, orderId: 1, paymentStatus: 1, createdAt: -1 });
+paymentSchema.index({ orderId: 1 }, { unique: true });
 paymentSchema.index({ restaurant: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 
 const Payment = mongoose.model("Payment", paymentSchema);

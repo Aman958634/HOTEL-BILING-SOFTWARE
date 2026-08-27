@@ -4,6 +4,8 @@ import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import { getIO } from "../config/socket.js";
 import { deriveTableLifecycle, TABLE_LIFECYCLE } from "./lifecycleService.js";
+import Reservation from "../models/Reservation.js";
+import { isActiveOrder } from "./posValidationService.js";
 
 export const TABLE_STATUS = {
   ...TABLE_LIFECYCLE,
@@ -97,7 +99,12 @@ const recomputeTableState = async (table) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  const activeOrders = orders.filter((order) => activeOrderStatuses.includes(String(order.status).toUpperCase()));
+  const activeReservation = await Reservation.findOne({
+    table: table._id,
+    status: { $in: activeReservationStatuses },
+  }).sort({ date: 1 }).select("_id").lean();
+  const activeOrders = orders.filter(isActiveOrder);
+  table.currentReservation = activeReservation?._id || null;
   table.status = deriveTableLifecycle({ table, orders });
   table.currentOrder = activeOrders[0]?._id || null;
 

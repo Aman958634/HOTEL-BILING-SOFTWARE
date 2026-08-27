@@ -15,6 +15,7 @@ import {
   updateTableLifecycleState,
 } from "../services/tableStateService.js";
 import { findActiveOrdersForTable } from "../services/tableOrderService.js";
+import { ACTIVE_ORDER_QUERY } from "../services/posValidationService.js";
 
 const parseIntOrUndefined = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -178,8 +179,7 @@ export const getTables = asyncHandler(async (req, res) => {
         {
           $match: {
             table: { $in: tableIds },
-            isArchived: { $ne: true },
-            status: { $in: activeOrderStatuses },
+            ...ACTIVE_ORDER_QUERY,
           },
         },
         { $group: { _id: "$table", count: { $sum: 1 } } },
@@ -306,8 +306,8 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
   const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!table) throw new ApiError(404, "Table not found");
 
-  if (![TABLE_STATUS.MAINTENANCE, TABLE_STATUS.AVAILABLE].includes(requestedStatus)) {
-    throw new ApiError(422, "Only MAINTENANCE can be set manually; table lifecycle is derived from server commands.");
+  if (requestedStatus !== TABLE_STATUS.MAINTENANCE) {
+    throw new ApiError(422, "Only MAINTENANCE can be set manually; AVAILABLE is reached only after cancellation or verified payment.");
   }
 
   if (requestedStatus === TABLE_STATUS.MAINTENANCE) {
@@ -321,16 +321,7 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
     }
   }
 
-  const payload = {
-    status: requestedStatus,
-  };
-
-  if (requestedStatus === TABLE_STATUS.AVAILABLE) {
-    payload.currentOrder = null;
-    payload.currentReservation = null;
-  }
-
-  const updated = await updateTableLifecycleState(table._id, payload);
+  const updated = await updateTableLifecycleState(table._id, { status: requestedStatus });
   const populated = await Table.findById(updated._id).populate(tableWithDetailsPopulate);
   const data = await toPresentation(populated);
 

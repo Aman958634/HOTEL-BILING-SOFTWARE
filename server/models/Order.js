@@ -117,6 +117,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentId: { type: String, default: "", trim: true, index: true },
     transactionId: { type: String, default: "", trim: true, index: true, sparse: true },
+    idempotencyKey: { type: String, default: "", trim: true, maxlength: 128 },
     paidAt: { type: Date, default: null, index: true },
     billingStatus: { type: String, enum: ["UNBILLED", "BILLED", "VOIDED"], default: "UNBILLED", index: true },
     kotRevision: { type: Number, min: 0, default: 0 },
@@ -142,6 +143,7 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderType: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, table: 1, status: 1, paymentStatus: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 
 orderSchema.pre("validate", function normalizeLegacyOrder(next) {
   if (!this.orderType) {

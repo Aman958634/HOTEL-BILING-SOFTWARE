@@ -8,6 +8,7 @@ import {
   releaseOrderFromTable,
 } from "./tableStateService.js";
 import { deriveTableLifecycle } from "./lifecycleService.js";
+import { ACTIVE_ORDER_QUERY, isActiveOrder } from "./posValidationService.js";
 
 const tableLabel = (table) => (table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table");
 
@@ -27,15 +28,7 @@ const assertTableTenant = (table, restaurantId) => {
 const buildActiveOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
   const query = {
     table: tableId,
-    isArchived: { $ne: true },
-    status: { $nin: ["CANCELLED", "cancelled", "Cancelled"] },
-    $or: [
-      { status: { $in: activeOrderStatuses } },
-      {
-        status: { $in: ["COMPLETED", "completed"] },
-        paymentStatus: { $nin: ["PAID", "paid"] },
-      },
-    ],
+    ...ACTIVE_ORDER_QUERY,
   };
   if (excludeOrderId) query._id = { $ne: excludeOrderId };
   return query;
@@ -113,18 +106,7 @@ export const reconcileTablesAvailability = async (tables = []) => {
 
   const counts = await Order.aggregate([
     {
-      $match: {
-        table: { $in: ids },
-        isArchived: { $ne: true },
-        status: { $nin: ["CANCELLED", "cancelled", "Cancelled"] },
-        $or: [
-          { status: { $in: activeOrderStatuses } },
-          {
-            status: { $in: ["COMPLETED", "completed"] },
-            paymentStatus: { $nin: ["PAID", "paid"] },
-          },
-        ],
-      },
+      $match: { table: { $in: ids }, ...ACTIVE_ORDER_QUERY },
     },
     { $sort: { createdAt: -1 } },
     {
