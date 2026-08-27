@@ -8,6 +8,8 @@ import Recipe from "../models/Recipe.js";
 import Food from "../models/Food.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateRecipeCost, inventoryStatus, recordStockMovement, resolveRestaurantId } from "../services/inventoryService.js";
+import inventoryRepository from "../repositories/inventoryRepository.js";
+import { contextFromRequest } from "../repositories/baseRepository.js";
 
 const toPositive = (value, field) => {
   const number = Number(value);
@@ -17,7 +19,7 @@ const toPositive = (value, field) => {
 
 export const listInventory = asyncHandler(async (req, res) => {
   const filter = await buildRestaurantQuery({ isActive: { $ne: false }, ...(req.query.search ? { itemName: { $regex: String(req.query.search).trim(), $options: "i" } } : {}) }, req.user);
-  const items = await Inventory.find(filter).populate("supplier", "name phone").sort({ itemName: 1 }).lean();
+  const items = await inventoryRepository.find(contextFromRequest(req), filter).populate("supplier", "name phone").sort({ itemName: 1 }).lean();
   res.json(new ApiResponse(true, "Inventory fetched", items.map((item) => ({ ...item, status: inventoryStatus(item), stockValue: Number(item.quantity || 0) * Number(item.costPerUnit || 0) }))));
 });
 
@@ -35,7 +37,7 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Base unit cannot contain numbers. Store quantity separately from unit (e.g., quantity: 10, unit: 'kg')");
   }
   
-  const item = await Inventory.create({ 
+  const item = await inventoryRepository.create(contextFromRequest(req), { 
     ...req.body, 
     restaurant, 
     outlet: req.outletId,
@@ -69,7 +71,7 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
     updateData.baseUnit = baseUnit;
   }
   
-  const item = await Inventory.findOneAndUpdate(filter, { $set: updateData }, { new: true, runValidators: true });
+  const item = await inventoryRepository.findOneAndUpdate(contextFromRequest(req), filter, { $set: updateData }, { new: true, runValidators: true });
   if (!item) throw new ApiError(404, "Inventory item not found");
   res.json(new ApiResponse(true, "Inventory item updated", item));
 });

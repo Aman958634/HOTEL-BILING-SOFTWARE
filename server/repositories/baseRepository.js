@@ -28,6 +28,7 @@ export const createRepository = (Model) => ({
   find: (context, filter = {}, options = {}) => Model.find(scopedFilter(context, filter), null, options),
   findOne: (context, filter = {}, options = {}) => Model.findOne(scopedFilter(context, filter), null, options),
   findById: (context, id, options = {}) => Model.findOne(scopedFilter(context, { _id: id }), null, options),
+  findOneAndUpdate: (context, filter, update, options = {}) => Model.findOneAndUpdate(scopedFilter(context, filter), update, options),
   count: (context, filter = {}) => Model.countDocuments(scopedFilter(context, filter)),
   exists: (context, filter = {}) => Model.exists(scopedFilter(context, filter)),
   create: (context, document, options = {}) =>
