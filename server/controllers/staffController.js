@@ -192,6 +192,8 @@ export const createStaff = asyncHandler(async (req, res) => {
       phone,
       password: req.body.password,
       role: userRole,
+      restaurant: req.user.restaurant,
+      outlet: req.user.outletId,
       avatar: req.body.profilePhoto || "",
     });
   }

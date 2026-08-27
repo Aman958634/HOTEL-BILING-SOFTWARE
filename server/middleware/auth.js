@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import ApiError from "../utils/ApiError.js";
 import { runWithTenantContext } from "../utils/tenantContext.js";
+import { resolveUserTenant } from "../utils/tenantResolver.js";
 
 export const protect = async (req, _, next) => {
   try {
@@ -21,21 +22,21 @@ export const protect = async (req, _, next) => {
       return next(new ApiError(401, "User not found or inactive"));
     }
 
+    const tenant = await resolveUserTenant({ ...user.toObject(), role: user.role });
+    req.outletId = req.outletId || tenant.outletId || null;
     req.user = {
       _id: user._id,
       role: user.role,
       hotelId: user.hotelId || null,
       restaurant: user.restaurant || null,
-      outletId: user.outlet || null,
+      restaurantId: user.restaurant || null,
+      outlet: req.outletId,
+      outletId: req.outletId,
       email: user.email,
       fullName: user.fullName,
       isActive: user.isActive,
     };
-    return runWithTenantContext({
-      role: user.role,
-      restaurantId: user.restaurant || null,
-      outletId: user.outlet || null,
-    }, () => next());
+    return runWithTenantContext(tenant, () => next());
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return next(new ApiError(401, "Session expired. Please login again."));

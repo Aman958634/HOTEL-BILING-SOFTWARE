@@ -1,5 +1,6 @@
 import Restaurant from "../models/Restaurant.js";
 import User from "../models/User.js";
+import Outlet from "../models/Outlet.js";
 import Subscription from "../models/Subscription.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -77,8 +78,15 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     isActive: status !== "suspended",
   });
 
+  const outlet = await Outlet.create({
+    restaurant: restaurant._id,
+    name: "Main Outlet",
+    code: "MAIN",
+    isActive: true,
+  });
+
   // create admin user and bind to restaurant server-side
-  const user = await User.create({ fullName: adminFullName, email: adminEmail, password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`, role: "admin", restaurant: restaurant._id });
+  const user = await User.create({ fullName: adminFullName, email: adminEmail, password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`, role: "admin", restaurant: restaurant._id, outlet: outlet._id });
 
   // Every new restaurant gets an automatic 15-day trial unless Super Admin explicitly sets status=active.
   const planDoc = await resolvePlan(plan || "basic");

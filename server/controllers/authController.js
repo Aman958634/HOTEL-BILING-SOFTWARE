@@ -9,6 +9,7 @@ import { sendEmail } from "../services/emailService.js";
 import Staff from "../models/Staff.js";
 import logger from "../utils/logger.js";
 import { runWithTenantContext } from "../utils/tenantContext.js";
+import { resolveUserTenant, tenantClaims } from "../utils/tenantResolver.js";
 
 const resetTokenStore = new Map();
 
@@ -62,13 +63,12 @@ export const login = asyncHandler(async (req, res) => {
   if (!isMatch) throw new ApiError(401, "Invalid credentials");
 
   loginStep = "token-generation";
+  const tenant = await resolveUserTenant(user);
   const payload = {
     id: user._id,
     role: user.role,
     email: user.email,
-    hotelId: user.hotelId || null,
-    restaurant: user.restaurant || null,
-    outletId: user.outlet || null,
+    ...tenantClaims(user, tenant),
   };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
@@ -84,7 +84,7 @@ export const login = asyncHandler(async (req, res) => {
     }
   );
   logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
-  res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken }));
+  res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken, context: tenantClaims(user, tenant) }));
   } catch (error) {
     logger.error(`Login failed step=${loginStep} email=${email} message=${error.message}`, { stack: error.stack });
     throw error;
@@ -108,15 +108,14 @@ export const refresh = asyncHandler(async (req, res) => {
   );
   if (!user || !user.isActive) throw new ApiError(401, "Invalid refresh token");
 
+  const tenant = await resolveUserTenant(user);
   const accessToken = generateAccessToken({
     id: user._id,
     role: user.role,
     email: user.email,
-    hotelId: user.hotelId || null,
-    restaurant: user.restaurant || null,
-    outletId: user.outlet || null,
+    ...tenantClaims(user, tenant),
   });
-  res.status(200).json(new ApiResponse(true, "Token refreshed", { accessToken }));
+  res.status(200).json(new ApiResponse(true, "Token refreshed", { accessToken, context: tenantClaims(user, tenant) }));
 });
 
 export const logout = asyncHandler(async (req, res) => {
