@@ -47,8 +47,16 @@ export const setupAuthInterceptor = (store) => {
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
+  const restaurantId = localStorage.getItem("restaurantId");
+  const outletId = localStorage.getItem("outletId");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (restaurantId) {
+    config.headers["x-restaurant-id"] = restaurantId;
+  }
+  if (outletId) {
+    config.headers["x-outlet-id"] = outletId;
   }
   return config;
 });

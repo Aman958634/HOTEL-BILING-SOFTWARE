@@ -88,6 +88,7 @@ export const login = asyncHandler(async (req, res) => {
     user: safeUser,
     accessToken,
     refreshToken,
+    restaurantId: tenant.restaurantId,
     outletId: tenant.outletId,
     context: tenantClaims(user, tenant),
   }));

@@ -4,14 +4,24 @@ import { getMyProfile, loginUser, logoutUser, registerUser } from "../../service
 const clearStoredTokens = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+  localStorage.removeItem("restaurantId");
+  localStorage.removeItem("outletId");
 };
 
-const persistTokens = (accessToken, refreshToken) => {
+const persistSession = ({ accessToken, refreshToken, user, context, restaurantId, outletId } = {}) => {
   if (accessToken) {
     localStorage.setItem("accessToken", accessToken);
   }
   if (refreshToken) {
     localStorage.setItem("refreshToken", refreshToken);
+  }
+  const resolvedRestaurantId = restaurantId || context?.restaurantId || user?.restaurantId || user?.restaurant;
+  const resolvedOutletId = outletId || context?.outletId || user?.outletId || user?.outlet;
+  if (resolvedRestaurantId) {
+    localStorage.setItem("restaurantId", resolvedRestaurantId);
+  }
+  if (resolvedOutletId) {
+    localStorage.setItem("outletId", resolvedOutletId);
   }
 };
 
@@ -80,7 +90,7 @@ const authSlice = createSlice({
       state.accessToken = action.payload?.accessToken || "";
       state.refreshToken = action.payload?.refreshToken || state.refreshToken;
       state.profileError = "";
-      persistTokens(action.payload?.accessToken, action.payload?.refreshToken);
+      persistSession(action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -94,7 +104,7 @@ const authSlice = createSlice({
         state.accessToken = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken || "";
         state.profileError = "";
-        persistTokens(action.payload.accessToken, action.payload.refreshToken);
+        persistSession(action.payload);
       })
       .addCase(loginThunk.rejected, (state) => {
         state.loading = false;
@@ -106,6 +116,7 @@ const authSlice = createSlice({
       .addCase(profileThunk.fulfilled, (state, action) => {
         state.profileLoading = false;
         state.user = action.payload;
+        persistSession({ user: action.payload });
       })
       .addCase(profileThunk.rejected, (state, action) => {
         state.profileLoading = false;
