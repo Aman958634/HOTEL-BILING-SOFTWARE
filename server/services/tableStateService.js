@@ -3,6 +3,7 @@ import Table from "../models/Table.js";
 import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import { getIO } from "../config/socket.js";
+import SocketEvent from "../models/SocketEvent.js";
 import { deriveTableLifecycle, TABLE_LIFECYCLE } from "./lifecycleService.js";
 import Reservation from "../models/Reservation.js";
 import { isActiveOrder } from "./posValidationService.js";
@@ -62,13 +63,17 @@ export const emitTableStatusChange = (table) => {
   try {
     const io = getIO();
     if (!table.restaurant) return;
-    io.to(`restaurant:${table.restaurant}`).emit("table:statusChanged", {
+    const eventId = new mongoose.Types.ObjectId().toString();
+    const payload = {
+      eventId,
       tableId: table._id,
       tableNumber: table.tableNumber,
       status: table.status,
       currentOrder: table.currentOrder || null,
       ...(table.activeOrderCount != null ? { activeOrderCount: table.activeOrderCount } : {}),
-    });
+    };
+    void SocketEvent.create({ eventId, event: "table:statusChanged", restaurant: table.restaurant, payload, occurredAt: new Date() }).catch(() => {});
+    io.to(`restaurant:${table.restaurant}`).emit("table:statusChanged", payload);
   } catch (_error) {
     // Socket server may be unavailable in non-server runtime contexts.
   }

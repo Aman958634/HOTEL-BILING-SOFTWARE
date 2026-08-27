@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const inventorySchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     itemName: { type: String, required: true, trim: true, index: true },
     sku: { type: String, required: true, index: true },
     quantity: { type: Number, required: true, min: 0 },
@@ -20,7 +21,7 @@ const inventorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-inventorySchema.index({ restaurant: 1, sku: 1 }, { unique: true });
+inventorySchema.index({ restaurant: 1, outlet: 1, sku: 1 }, { unique: true, sparse: true });
 
 // Validate that unit and baseUnit don't contain numbers (prevent "10kg" format)
 inventorySchema.pre("save", function (next) {

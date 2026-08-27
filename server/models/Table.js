@@ -31,6 +31,7 @@ const tableSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     capacity: { type: Number, required: true, min: 1 },
     floor: { type: String, required: true, trim: true },
     section: { type: String, required: true, trim: true },
@@ -82,7 +83,7 @@ tableSchema.pre("validate", function normalizeLegacyValues(next) {
   next();
 });
 
-tableSchema.index({ restaurant: 1, tableNumber: 1 }, { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" } } });
+tableSchema.index({ restaurant: 1, outlet: 1, tableNumber: 1 }, { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" } } });
 tableSchema.index({ status: 1 });
 tableSchema.index({ restaurant: 1, status: 1, updatedAt: -1 });
 tableSchema.index({ floor: 1 });

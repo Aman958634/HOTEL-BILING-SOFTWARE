@@ -1,7 +1,15 @@
 import { getIO } from "../config/socket.js";
+import mongoose from "mongoose";
+import SocketEvent from "../models/SocketEvent.js";
 
 const safeEmit = (event, payload, restaurantId = null) => {
   try {
+    if (restaurantId && mongoose.isValidObjectId(restaurantId)) {
+      const eventId = new mongoose.Types.ObjectId().toString();
+      const journalPayload = { ...payload, eventId };
+      void SocketEvent.create({ eventId, event, restaurant: restaurantId, payload: journalPayload, occurredAt: new Date() }).catch(() => {});
+      payload = journalPayload;
+    }
     const io = getIO();
     if (restaurantId) io.to(`restaurant:${restaurantId}`).emit(event, payload);
   } catch (_error) {

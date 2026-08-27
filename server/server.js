@@ -10,6 +10,7 @@ const bootstrap = async () => {
     import("./config/db.js"),
     import("./config/socket.js"),
   ]);
+  const { startSchedulers } = await import("./services/schedulerService.js");
 
   const port = process.env.PORT || 5002;
 
@@ -22,6 +23,7 @@ const bootstrap = async () => {
 
   const httpServer = http.createServer(app);
   initSocketServer(httpServer);
+  startSchedulers();
 
   httpServer.listen(port, () => {
     logger.info(`Server running on port ${port}`);
