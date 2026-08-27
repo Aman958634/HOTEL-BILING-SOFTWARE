@@ -48,6 +48,7 @@ export const login = asyncHandler(async (req, res) => {
     email: user.email,
     hotelId: user.hotelId || null,
     restaurant: user.restaurant || null,
+    outletId: user.outlet || null,
   };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
@@ -82,6 +83,7 @@ export const refresh = asyncHandler(async (req, res) => {
     email: user.email,
     hotelId: user.hotelId || null,
     restaurant: user.restaurant || null,
+    outletId: user.outlet || null,
   });
   res.status(200).json(new ApiResponse(true, "Token refreshed", { accessToken }));
 });

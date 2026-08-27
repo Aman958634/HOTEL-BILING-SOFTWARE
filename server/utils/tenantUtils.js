@@ -83,7 +83,9 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
   if (user.role === "super_admin") return filters;
 
   if (user.restaurant) {
-    return mergeTenantFilter(filters, { restaurant: user.restaurant });
+    const tenant = { restaurant: user.restaurant };
+    if (user.outletId) tenant.outlet = user.outletId;
+    return mergeTenantFilter(filters, tenant);
   }
 
   if (!user.hotelId) {
@@ -94,8 +96,8 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
   const restaurantIds = restaurants.map((r) => r._id);
 
   if (!restaurantIds.length) {
-    return mergeTenantFilter(filters, { restaurant: null });
+    return mergeTenantFilter(filters, { restaurant: null, ...(user.outletId ? { outlet: user.outletId } : {}) });
   }
 
-  return mergeTenantFilter(filters, { restaurant: { $in: restaurantIds } });
+  return mergeTenantFilter(filters, { restaurant: { $in: restaurantIds }, ...(user.outletId ? { outlet: user.outletId } : {}) });
 };

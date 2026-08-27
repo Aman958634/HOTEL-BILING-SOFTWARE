@@ -204,6 +204,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     customer: customerId,
     table: orderType === ORDER_TYPES.DINE_IN ? req.body.table || null : null,
     restaurant: restaurantId,
+    outlet: req.outletId,
     orderType,
     items: calculated.items,
     subtotal: calculated.subtotal,

@@ -6,6 +6,8 @@ import Table from "../models/Table.js";
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
 import Inventory from "../models/Inventory.js";
+import User from "../models/User.js";
+import KotTicket from "../models/KotTicket.js";
 import connectDB from "../config/db.js";
 
 dotenv.config();
@@ -22,6 +24,8 @@ for await (const restaurant of Restaurant.find({}).select("_id name branchCode")
     Order.updateMany(filter, { $set: { outlet: outlet._id } }),
     Payment.updateMany(filter, { $set: { outlet: outlet._id } }),
     Inventory.updateMany(filter, { $set: { outlet: outlet._id } }),
+    User.updateMany({ restaurant: restaurant._id, outlet: null }, { $set: { outlet: outlet._id } }),
+    KotTicket.updateMany({ restaurant: restaurant._id, outlet: null }, { $set: { outlet: outlet._id } }),
   ]);
   console.log(`Backfilled outlet ${outlet.code} for ${restaurant.name}`);
 }

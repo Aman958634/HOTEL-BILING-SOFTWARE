@@ -29,6 +29,7 @@ import staffRoutes from "./routes/staffRoutes.js";
 import serviceCockpitRoutes from "./routes/serviceCockpitRoutes.js";
 import kitchenRoutes from "./routes/kitchenRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import { outletContext } from "./middleware/outletMiddleware.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -74,6 +75,7 @@ app.use((req, res, next) => {
   if (req.path === "/api/v1/health") return next();
   return requireDb(req, res, next);
 });
+app.use("/api/v1", outletContext);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/public", publicRoutes);

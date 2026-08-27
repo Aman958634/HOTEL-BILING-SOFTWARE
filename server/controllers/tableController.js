@@ -235,6 +235,7 @@ export const createTable = asyncHandler(async (req, res) => {
   } else if (req.user?.hotelId) {
     payload.restaurant = null;
   }
+  payload.outlet = req.outletId || null;
 
   await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant);
 

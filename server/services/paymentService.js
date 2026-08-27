@@ -202,6 +202,7 @@ export const syncPaymentFromOrder = async (
       customerId: orderDoc.customer?._id || orderDoc.customer || null,
       tableId: orderDoc.table?._id || orderDoc.table || null,
       restaurant: orderDoc.restaurant || null,
+      outlet: orderDoc.outlet || null,
       amount: Number(orderDoc.total || 0),
       currency: metadata.currency || "INR",
       subtotal: Number(orderDoc.subtotal || 0),
@@ -232,6 +233,7 @@ export const syncPaymentFromOrder = async (
     payment.customerId = orderDoc.customer?._id || orderDoc.customer || payment.customerId;
     payment.tableId = orderDoc.table?._id || orderDoc.table || payment.tableId;
     payment.restaurant = orderDoc.restaurant || payment.restaurant;
+    payment.outlet = orderDoc.outlet || payment.outlet;
     if (transactionId) payment.transactionId = transactionId;
     if (metadata.razorpayOrderId) payment.razorpayOrderId = metadata.razorpayOrderId;
     if (metadata.razorpayPaymentId) payment.razorpayPaymentId = metadata.razorpayPaymentId;

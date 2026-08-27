@@ -14,6 +14,7 @@ export const createKotRevision = async ({ order, userId = null, session = null }
     {
       $setOnInsert: {
         restaurant: order.restaurant,
+        outlet: order.outlet,
         order: order._id,
         revision: Number(order.kotRevision || 0),
         items: mapItems(order),

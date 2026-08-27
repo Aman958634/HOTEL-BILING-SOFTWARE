@@ -22,6 +22,7 @@ export const protect = async (req, _, next) => {
       role: user.role,
       hotelId: user.hotelId || null,
       restaurant: user.restaurant || null,
+      outletId: user.outlet || null,
       email: user.email,
       fullName: user.fullName,
       isActive: user.isActive,

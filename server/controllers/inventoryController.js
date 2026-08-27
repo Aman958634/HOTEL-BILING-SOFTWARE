@@ -38,6 +38,7 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
   const item = await Inventory.create({ 
     ...req.body, 
     restaurant, 
+    outlet: req.outletId,
     itemName: String(req.body.itemName || "").trim(), 
     sku: String(req.body.sku || "").trim(), 
     unit,

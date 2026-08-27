@@ -20,6 +20,7 @@ const LIMIT_PER_CATEGORY = 5;
 
 const searchOrders = async (regex, restaurantFilter) => {
   const customerMatches = await User.find({
+    ...restaurantFilter,
     $or: [{ fullName: regex }, { phone: regex }],
   })
     .select("_id")
@@ -124,11 +125,11 @@ const searchTables = async (regex, restaurantFilter) => {
 };
 
 const searchPayments = async (regex, restaurantFilter, searchText) => {
-  const orderMatches = await Order.find({ orderNumber: regex })
+  const orderMatches = await Order.find({ ...restaurantFilter, orderNumber: regex })
     .select("_id")
     .lean();
 
-  const customerMatches = await User.find({ fullName: regex })
+  const customerMatches = await User.find({ ...restaurantFilter, fullName: regex })
     .select("_id")
     .lean();
 
@@ -160,8 +161,8 @@ const searchPayments = async (regex, restaurantFilter, searchText) => {
 
 const searchReservations = async (regex, restaurantFilter) => {
   const [customerMatches, tableMatches] = await Promise.all([
-    User.find({ fullName: regex }).select("_id").lean(),
-    Table.find({ tableNumber: regex }).select("_id").lean(),
+    User.find({ ...restaurantFilter, fullName: regex }).select("_id").lean(),
+    Table.find({ ...restaurantFilter, tableNumber: regex }).select("_id").lean(),
   ]);
 
   const reservationFilter = {
