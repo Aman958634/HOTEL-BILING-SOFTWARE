@@ -1,0 +1,20 @@
+import Order from "../models/Order.js";
+import Food from "../models/Food.js";
+import Category from "../models/Category.js";
+import Staff from "../models/Staff.js";
+import Table from "../models/Table.js";
+import Payment from "../models/Payment.js";
+import Reservation from "../models/Reservation.js";
+import Subscription from "../models/Subscription.js";
+import User from "../models/User.js";
+import { createRepository } from "./baseRepository.js";
+
+export const orderRepository = createRepository(Order);
+export const foodRepository = createRepository(Food);
+export const categoryRepository = createRepository(Category);
+export const staffRepository = createRepository(Staff);
+export const tableRepository = createRepository(Table);
+export const paymentRepository = createRepository(Payment);
+export const reservationRepository = createRepository(Reservation);
+export const subscriptionRepository = createRepository(Subscription);
+export const userRepository = createRepository(User);

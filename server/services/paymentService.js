@@ -18,6 +18,19 @@ import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
 import { runInTransaction } from "./transactionService.js";
+import orderRepository from "../repositories/orderRepository.js";
+import paymentRepository from "../repositories/paymentRepository.js";
+
+const contextFromDocument = (document) => ({
+  restaurantId: document?.restaurant || null,
+  outletId: document?.outlet || null,
+  role: "service",
+});
+
+const repositoryContext = (document) =>
+  document && typeof document === "object" && (document.restaurant || document.outlet)
+    ? contextFromDocument(document)
+    : null;
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -106,7 +119,7 @@ const buildPaymentTimeline = (order, payment, status, refundReason = "") => {
 const buildOrderLookup = async (orderId, session = null) => {
   if (!orderId) return null;
   if (orderId?.populate) return orderId;
-  const query = Order.findById(orderId)
+  const query = orderRepository.findById(repositoryContext(orderId), orderId)
     .populate("customer", "fullName email phone")
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name price");
@@ -190,7 +203,7 @@ export const syncPaymentFromOrder = async (
       ? ""
       : normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
 
-  let paymentQuery = Payment.findOne({ orderId: orderDoc._id });
+  let paymentQuery = paymentRepository.findOne(contextFromDocument(orderDoc), { orderId: orderDoc._id });
   if (session) paymentQuery = paymentQuery.session(session);
   let payment = await paymentQuery;
   const isNew = !payment;
@@ -368,9 +381,9 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
   if (!restaurantId) throw new ApiError(403, "Restaurant context is required");
 
   const result = await runInTransaction(async (session) => {
-    const paymentDoc = await Payment.findOne({ _id: payment?._id || payment, restaurant: restaurantId }).session(session);
+    const paymentDoc = await paymentRepository.findOne({ restaurantId, outletId: payment?.outlet || null, role: "service" }, { _id: payment?._id || payment }).session(session);
     if (!paymentDoc) throw new ApiError(404, "Payment not found");
-    const orderDoc = await Order.findOne({ _id: paymentDoc.orderId, restaurant: restaurantId }).session(session);
+    const orderDoc = await orderRepository.findOne({ restaurantId, outletId: paymentDoc.outlet || null, role: "service" }, { _id: paymentDoc.orderId }).session(session);
     if (!orderDoc) throw new ApiError(409, "Payment order does not belong to this restaurant");
 
     const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
@@ -412,7 +425,7 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
 };
 
 export const buildPaymentReceipt = async (payment) => {
-  const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);
+  const paymentDoc = payment?.populate ? payment : await paymentRepository.findById(repositoryContext(payment), payment?._id || payment);
   if (!paymentDoc) throw new ApiError(404, "Payment not found");
 
   const order = await buildOrderLookup(paymentDoc.orderId?._id || paymentDoc.orderId);

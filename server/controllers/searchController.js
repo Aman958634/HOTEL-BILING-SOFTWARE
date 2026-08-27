@@ -13,13 +13,18 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { contextFromRequest } from "../repositories/baseRepository.js";
+import {
+  categoryRepository, foodRepository, orderRepository, paymentRepository,
+  reservationRepository, staffRepository, subscriptionRepository, tableRepository, userRepository,
+} from "../repositories/searchRepositories.js";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const LIMIT_PER_CATEGORY = 5;
 
-const searchOrders = async (regex, restaurantFilter) => {
-  const customerMatches = await User.find({
+const searchOrders = async (regex, restaurantFilter, context) => {
+  const customerMatches = await userRepository.find(context, {
     ...restaurantFilter,
     $or: [{ fullName: regex }, { phone: regex }],
   })
@@ -34,7 +39,7 @@ const searchOrders = async (regex, restaurantFilter) => {
     ],
   };
 
-  const orders = await Order.find(orderFilter)
+  const orders = await orderRepository.find(context, orderFilter)
     .populate("customer", "fullName phone")
     .sort({ createdAt: -1 })
     .limit(LIMIT_PER_CATEGORY)
@@ -50,8 +55,8 @@ const searchOrders = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchMenuItems = async (regex, restaurantFilter) => {
-  const items = await Food.find({
+const searchMenuItems = async (regex, restaurantFilter, context) => {
+  const items = await foodRepository.find(context, {
     ...restaurantFilter,
     name: regex,
   })
@@ -68,8 +73,8 @@ const searchMenuItems = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchCategories = async (regex, restaurantFilter) => {
-  const categories = await Category.find({ ...restaurantFilter, name: regex })
+const searchCategories = async (regex, restaurantFilter, context) => {
+  const categories = await categoryRepository.find(context, { ...restaurantFilter, name: regex })
     .sort({ createdAt: -1 })
     .limit(LIMIT_PER_CATEGORY)
     .lean();
@@ -80,7 +85,7 @@ const searchCategories = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchStaff = async (regex, restaurantFilter) => {
+const searchStaff = async (regex, restaurantFilter, context) => {
   const staffFilter = {
     ...restaurantFilter,
     $or: [
@@ -92,7 +97,7 @@ const searchStaff = async (regex, restaurantFilter) => {
     ],
   };
 
-  const staff = await Staff.find(staffFilter)
+  const staff = await staffRepository.find(context, staffFilter)
     .populate("user", "fullName email phone")
     .sort({ createdAt: -1 })
     .limit(LIMIT_PER_CATEGORY)
@@ -108,8 +113,8 @@ const searchStaff = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchTables = async (regex, restaurantFilter) => {
-  const tables = await Table.find({
+const searchTables = async (regex, restaurantFilter, context) => {
+  const tables = await tableRepository.find(context, {
     ...restaurantFilter,
     tableNumber: regex,
   })
@@ -124,12 +129,12 @@ const searchTables = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchPayments = async (regex, restaurantFilter, searchText) => {
-  const orderMatches = await Order.find({ ...restaurantFilter, orderNumber: regex })
+const searchPayments = async (regex, restaurantFilter, searchText, context) => {
+  const orderMatches = await orderRepository.find(context, { ...restaurantFilter, orderNumber: regex })
     .select("_id")
     .lean();
 
-  const customerMatches = await User.find({ ...restaurantFilter, fullName: regex })
+  const customerMatches = await userRepository.find(context, { ...restaurantFilter, fullName: regex })
     .select("_id")
     .lean();
 
@@ -143,7 +148,7 @@ const searchPayments = async (regex, restaurantFilter, searchText) => {
     ],
   };
 
-  const payments = await Payment.find(paymentFilter)
+  const payments = await paymentRepository.find(context, paymentFilter)
     .sort({ createdAt: -1 })
     .limit(LIMIT_PER_CATEGORY)
     .lean();
@@ -159,10 +164,10 @@ const searchPayments = async (regex, restaurantFilter, searchText) => {
   }));
 };
 
-const searchReservations = async (regex, restaurantFilter) => {
+const searchReservations = async (regex, restaurantFilter, context) => {
   const [customerMatches, tableMatches] = await Promise.all([
-    User.find({ ...restaurantFilter, fullName: regex }).select("_id").lean(),
-    Table.find({ ...restaurantFilter, tableNumber: regex }).select("_id").lean(),
+    userRepository.find(context, { ...restaurantFilter, fullName: regex }).select("_id").lean(),
+    tableRepository.find(context, { ...restaurantFilter, tableNumber: regex }).select("_id").lean(),
   ]);
 
   const reservationFilter = {
@@ -173,7 +178,7 @@ const searchReservations = async (regex, restaurantFilter) => {
     ],
   };
 
-  const reservations = await Reservation.find(reservationFilter)
+  const reservations = await reservationRepository.find(context, reservationFilter)
     .populate("customer", "fullName phone")
     .populate("table", "tableNumber")
     .sort({ date: -1 })
@@ -190,10 +195,10 @@ const searchReservations = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchSubscriptions = async (regex, restaurantFilter) => {
+const searchSubscriptions = async (regex, restaurantFilter, context) => {
   const subFilter = { ...restaurantFilter, planName: regex };
 
-  const subs = await Subscription.find(subFilter)
+  const subs = await subscriptionRepository.find(context, subFilter)
     .sort({ createdAt: -1 })
     .limit(3)
     .lean();
@@ -225,6 +230,7 @@ export const search = asyncHandler(async (req, res) => {
 
   const regex = new RegExp(escapeRegex(query), "i");
   const restaurantFilter = await buildRestaurantQuery({}, req.user);
+  const context = contextFromRequest(req);
 
   const [
     orders,
@@ -236,14 +242,14 @@ export const search = asyncHandler(async (req, res) => {
     reservations,
     subscriptions,
   ] = await Promise.all([
-    searchOrders(regex, restaurantFilter),
-    searchMenuItems(regex, restaurantFilter),
-    searchCategories(regex, restaurantFilter),
-    searchStaff(regex, restaurantFilter),
-    searchTables(regex, restaurantFilter),
-    searchPayments(regex, restaurantFilter, query),
-    searchReservations(regex, restaurantFilter),
-    searchSubscriptions(regex, restaurantFilter),
+    searchOrders(regex, restaurantFilter, context),
+    searchMenuItems(regex, restaurantFilter, context),
+    searchCategories(regex, restaurantFilter, context),
+    searchStaff(regex, restaurantFilter, context),
+    searchTables(regex, restaurantFilter, context),
+    searchPayments(regex, restaurantFilter, query, context),
+    searchReservations(regex, restaurantFilter, context),
+    searchSubscriptions(regex, restaurantFilter, context),
   ]);
 
   res.status(200).json(

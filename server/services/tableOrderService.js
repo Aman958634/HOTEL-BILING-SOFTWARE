@@ -10,6 +10,9 @@ import {
 import { deriveTableLifecycle } from "./lifecycleService.js";
 import { ACTIVE_ORDER_QUERY, isActiveOrder } from "./posValidationService.js";
 import { transitionTable } from "./posIntegrityService.js";
+import orderRepository from "../repositories/orderRepository.js";
+
+const serviceContext = null;
 
 const tableLabel = (table) => (table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table");
 
@@ -36,7 +39,7 @@ const buildActiveOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
 };
 
 export const findActiveOrdersForTable = async (tableId, { excludeOrderId = null } = {}) =>
-  Order.find(buildActiveOrderFilter(tableId, { excludeOrderId }))
+  orderRepository.find(serviceContext, buildActiveOrderFilter(tableId, { excludeOrderId }))
     .select("_id orderNumber status paymentStatus total")
     .sort({ createdAt: -1 })
     .lean();
@@ -47,7 +50,7 @@ export const findActiveOrderForTable = async (tableId, { excludeOrderId = null }
 };
 
 export const countActiveOrdersForTable = async (tableId, { excludeOrderId = null } = {}) =>
-  Order.countDocuments(buildActiveOrderFilter(tableId, { excludeOrderId }));
+  orderRepository.count(serviceContext, buildActiveOrderFilter(tableId, { excludeOrderId }));
 
 /**
  * Derive the table's status purely from real database state:
@@ -72,7 +75,7 @@ export const recalculateTableStatus = async (tableId) => {
   }
 
   const [orders, activeOrders] = await Promise.all([
-    Order.find({ table: table._id, isArchived: { $ne: true } })
+    orderRepository.find(serviceContext, { table: table._id, isArchived: { $ne: true } })
       .select("_id status paymentStatus billingStatus createdAt")
       .sort({ createdAt: -1 })
       .lean(),
@@ -105,7 +108,7 @@ export const reconcileTablesAvailability = async (tables = []) => {
   const ids = list.map((t) => t._id).filter(Boolean);
   if (!ids.length) return list;
 
-  const orders = await Order.find({ table: { $in: ids }, isArchived: { $ne: true } })
+  const orders = await orderRepository.find(serviceContext, { table: { $in: ids }, isArchived: { $ne: true } })
     .select("_id table status paymentStatus billingStatus createdAt isArchived")
     .sort({ createdAt: -1 })
     .lean();
@@ -203,7 +206,7 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
     throw new ApiError(409, `${tableLabel(table)} is under maintenance.`);
   }
 
-  let activeOrderQuery = Order.findOne(buildActiveOrderFilter(table._id, { excludeOrderId: orderId })).select("_id orderNumber");
+  let activeOrderQuery = orderRepository.findOne(serviceContext, buildActiveOrderFilter(table._id, { excludeOrderId: orderId })).select("_id orderNumber");
   if (session) activeOrderQuery = activeOrderQuery.session(session);
   const existingOrder = await activeOrderQuery;
   if (existingOrder) {
