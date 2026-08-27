@@ -57,8 +57,8 @@ export const countActiveOrdersForTable = async (tableId, { excludeOrderId = null
  *   - AVAILABLE = no active order and no active reservation.
  *
  * `currentOrder` is denormalised to the most recent active order (or null).
- * This supports MULTIPLE active DINE_IN orders per table: completing or
- * cancelling one order only frees the table when no other active order remains.
+ * A table has one active POS ticket at a time. Completing or cancelling the
+ * ticket releases the table only after the persisted order state is terminal.
  */
 export const recalculateTableStatus = async (tableId) => {
   const id = resolveId(tableId);
@@ -105,21 +105,17 @@ export const reconcileTablesAvailability = async (tables = []) => {
   const ids = list.map((t) => t._id).filter(Boolean);
   if (!ids.length) return list;
 
-  const counts = await Order.aggregate([
-    {
-      $match: { table: { $in: ids }, ...ACTIVE_ORDER_QUERY },
-    },
-    { $sort: { createdAt: -1 } },
-    {
-      $group: {
-        _id: "$table",
-        count: { $sum: 1 },
-        latest: { $first: "$_id" },
-      },
-    },
-  ]);
-
-  const countMap = new Map(counts.map((row) => [String(row._id), row]));
+  const orders = await Order.find({ table: { $in: ids }, isArchived: { $ne: true } })
+    .select("_id table status paymentStatus billingStatus createdAt isArchived")
+    .sort({ createdAt: -1 })
+    .lean();
+  const ordersByTable = new Map();
+  orders.forEach((order) => {
+    const key = String(order.table);
+    const current = ordersByTable.get(key) || [];
+    current.push(order);
+    ordersByTable.set(key, current);
+  });
 
   const bulk = [];
   const emits = [];
@@ -130,14 +126,15 @@ export const reconcileTablesAvailability = async (tables = []) => {
       const previousCurrentOrder = table.currentOrder || null;
       if (currentStatus === TABLE_STATUS.MAINTENANCE) continue;
 
-      const info = countMap.get(String(table._id));
-      const activeCount = info?.count || 0;
-      const nextStatus = activeCount > 0
-        ? TABLE_STATUS.OCCUPIED
-        : table.currentReservation
-        ? TABLE_STATUS.RESERVED
-        : TABLE_STATUS.AVAILABLE;
-      const nextCurrentOrder = activeCount > 0 ? info?.latest || null : null;
+      const tableOrders = ordersByTable.get(String(table._id)) || [];
+      const activeOrders = tableOrders.filter(isActiveOrder);
+      const activeCount = activeOrders.length;
+      const latestActive = activeOrders[0];
+      const nextStatus = deriveTableLifecycle({
+        table,
+        orders: tableOrders,
+      });
+      const nextCurrentOrder = latestActive?._id || null;
 
       table.status = nextStatus;
       table.currentOrder = nextCurrentOrder;
@@ -182,8 +179,9 @@ export const reconcileTablesAvailability = async (tables = []) => {
 /**
  * Mark a table as OCCUPIED for a DINE_IN order.
  *
- * A table may host MULTIPLE active DINE_IN orders, so an existing active order
- * no longer blocks a new one. Only MAINTENANCE tables cannot be seated.
+ * Only one active DINE_IN order may own a table. The ownership check and table
+ * transition run in the caller's transaction so concurrent order creation
+ * cannot create duplicate tickets for the same table.
  */
 export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId, actor = null, session = null } = {}) => {
   if (!tableId) {
@@ -194,8 +192,7 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
   }
 
   // Load once for tenant validation, then perform an atomic status write that
-  // refuses to seat a table that is (or becomes) under MAINTENANCE. Multiple
-  // active DINE_IN orders are allowed, so no single-order 409 is raised.
+  // refuses to seat a table that is (or becomes) under MAINTENANCE.
   let tableQuery = Table.findById(tableId);
   if (session) tableQuery = tableQuery.session(session);
   const table = await tableQuery;
@@ -204,6 +201,13 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
   assertTableTenant(table, restaurantId);
   if (String(table.status).toUpperCase() === TABLE_STATUS.MAINTENANCE) {
     throw new ApiError(409, `${tableLabel(table)} is under maintenance.`);
+  }
+
+  let activeOrderQuery = Order.findOne(buildActiveOrderFilter(table._id, { excludeOrderId: orderId })).select("_id orderNumber");
+  if (session) activeOrderQuery = activeOrderQuery.session(session);
+  const existingOrder = await activeOrderQuery;
+  if (existingOrder) {
+    throw new ApiError(409, `${tableLabel(table)} already has active order #${existingOrder.orderNumber}.`);
   }
 
   // The command, not a table read, owns the state transition.  Persist each

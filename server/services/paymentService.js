@@ -362,59 +362,50 @@ export const completeOrderPayment = async (order, options = {}) =>
     paymentStatus: "PAID",
   });
 
-export const applyRefundToPayment = async ({ payment, refundAmount, refundReason, refundedBy }) => {
-  const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);
-  if (!paymentDoc) throw new ApiError(404, "Payment not found");
+export const applyRefundToPayment = async ({ payment, refundAmount, refundReason, refundedBy, restaurantId }) => {
+  if (!restaurantId) throw new ApiError(403, "Restaurant context is required");
 
-  const orderDoc = await buildOrderLookup(paymentDoc.orderId);
-  const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
-  const nextRefundAmount = Number(refundAmount || 0);
+  const result = await runInTransaction(async (session) => {
+    const paymentDoc = await Payment.findOne({ _id: payment?._id || payment, restaurant: restaurantId }).session(session);
+    if (!paymentDoc) throw new ApiError(404, "Payment not found");
+    const orderDoc = await Order.findOne({ _id: paymentDoc.orderId, restaurant: restaurantId }).session(session);
+    if (!orderDoc) throw new ApiError(409, "Payment order does not belong to this restaurant");
 
-  if (nextRefundAmount <= 0) {
-    throw new ApiError(422, "Refund amount must be greater than zero");
-  }
+    const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
+    const nextRefundAmount = Number(refundAmount || 0);
+    if (nextRefundAmount <= 0) throw new ApiError(422, "Refund amount must be greater than zero");
+    if (nextRefundAmount > remaining) throw new ApiError(422, "Refund amount cannot exceed the remaining paid amount");
 
-  if (nextRefundAmount > remaining) {
-    throw new ApiError(422, "Refund amount cannot exceed the remaining paid amount");
-  }
+    const totalRefunded = Number(paymentDoc.refundAmount || 0) + nextRefundAmount;
+    const fullyRefunded = totalRefunded >= Number(paymentDoc.totalAmount || paymentDoc.amount || 0);
+    const nextStatus = fullyRefunded ? "REFUNDED" : "PARTIALLY_REFUNDED";
+    paymentDoc.refundAmount = totalRefunded;
+    paymentDoc.refundReason = String(refundReason || "").trim();
+    paymentDoc.refundStatus = nextStatus;
+    paymentDoc.refundedAt = new Date();
+    paymentDoc.refundedBy = refundedBy || null;
+    paymentDoc.paymentStatus = nextStatus;
+    paymentDoc.gateway = normalizeGateway(paymentDoc.gateway || paymentDoc.metadata?.gateway || paymentDoc.paymentMethod);
+    paymentDoc.timeline = buildPaymentTimeline(orderDoc, paymentDoc, paymentDoc.paymentStatus, paymentDoc.refundReason);
+    paymentDoc.metadata = { ...paymentDoc.metadata, lastRefundAmount: nextRefundAmount, lastRefundReason: paymentDoc.refundReason };
+    orderDoc.paymentStatus = nextStatus;
+    await paymentDoc.save({ session });
+    await orderDoc.save({ session });
+    return { paymentDoc, orderDoc, nextRefundAmount };
+  });
 
-  const totalRefunded = Number(paymentDoc.refundAmount || 0) + nextRefundAmount;
-  const fullyRefunded = totalRefunded >= Number(paymentDoc.totalAmount || paymentDoc.amount || 0);
-  const nextStatus = fullyRefunded ? "REFUNDED" : "PARTIALLY_REFUNDED";
-
-  paymentDoc.refundAmount = totalRefunded;
-  paymentDoc.refundReason = String(refundReason || "").trim();
-  paymentDoc.refundStatus = nextStatus;
-  paymentDoc.refundedAt = new Date();
-  paymentDoc.refundedBy = refundedBy || null;
-  paymentDoc.paymentStatus = nextStatus;
-  paymentDoc.gateway = normalizeGateway(paymentDoc.gateway || paymentDoc.metadata?.gateway || paymentDoc.paymentMethod);
-  paymentDoc.timeline = buildPaymentTimeline(orderDoc, paymentDoc, paymentDoc.paymentStatus, paymentDoc.refundReason);
-  paymentDoc.metadata = {
-    ...paymentDoc.metadata,
-    lastRefundAmount: nextRefundAmount,
-    lastRefundReason: paymentDoc.refundReason,
-  };
-
-  await paymentDoc.save();
+  const { paymentDoc, orderDoc, nextRefundAmount } = result;
   await paymentDoc.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await paymentDoc.populate("customerId", "fullName email phone avatar");
   await paymentDoc.populate("tableId", "tableNumber floor section");
   await paymentDoc.populate("refundedBy", "fullName email role");
-
-  if (orderDoc) {
-    orderDoc.paymentStatus = nextStatus;
-    await orderDoc.save();
-  }
-
   emitPaymentRefunded(serializePayment(paymentDoc));
   await notifyPaymentAudience({
     title: "Refund processed",
-    message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc?.orderNumber || paymentDoc.orderId}`,
+    message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc.orderNumber}`,
     payment: paymentDoc,
     order: orderDoc,
   });
-
   return paymentDoc;
 };
 

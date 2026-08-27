@@ -483,7 +483,10 @@ export const getPaymentById = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
 
-  const order = await Order.findById(payment.orderId?._id || payment.orderId)
+  const order = await Order.findOne({
+    _id: payment.orderId?._id || payment.orderId,
+    restaurant: payment.restaurant,
+  })
     .populate("customer", "fullName email phone avatar")
     .populate("table", "tableNumber floor section")
     .populate("items.menuItem", "name price");
@@ -637,6 +640,7 @@ export const refundPayment = asyncHandler(async (req, res) => {
     refundAmount: amountToRefund,
     refundReason,
     refundedBy: req.user._id,
+    restaurantId: payment.restaurant,
   });
 
   res.status(200).json(new ApiResponse(true, "Refund processed", serializePayment(updated)));
