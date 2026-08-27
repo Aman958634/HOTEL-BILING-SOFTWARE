@@ -25,9 +25,11 @@ export const inventoryStatus = (item) => {
   return "NORMAL";
 };
 
-export const calculateRecipeCost = async (recipe) => {
+export const calculateRecipeCost = async (recipe, session = null) => {
   const ids = (recipe.ingredients || []).map((line) => line.inventoryItem);
-  const items = await Inventory.find({ _id: { $in: ids }, restaurant: recipe.restaurant }).lean();
+  let inventoryQuery = Inventory.find({ _id: { $in: ids }, restaurant: recipe.restaurant });
+  if (session) inventoryQuery = inventoryQuery.session(session);
+  const items = await inventoryQuery.lean();
   const byId = new Map(items.map((item) => [String(item._id), item]));
   const lines = (recipe.ingredients || []).map((line) => {
     const item = byId.get(String(line.inventoryItem));
@@ -100,7 +102,7 @@ export const consumeOrderInventory = async ({ order, user = null, itemIndexes = 
       if (selectedIndexes && !selectedIndexes.has(itemIndex)) continue;
       const recipe = await Recipe.findOne({ restaurant: order.restaurant, food: orderItem.menuItem, status: "ACTIVE" }).sort({ version: -1 }).session(session);
       if (!recipe) continue;
-      const costing = await calculateRecipeCost(recipe);
+      const costing = await calculateRecipeCost(recipe, session);
       const multiplier = Number(orderItem.quantity || 0) / Math.max(1, Number(recipe.yieldQuantity || 1));
       for (const line of costing.lines) {
         await recordStockMovement({ restaurant: order.restaurant, inventoryItem: line.inventoryItem._id, movementType: "CONSUMPTION", quantity: line.baseQuantity * multiplier, unit: line.inventoryItem.baseUnit || line.inventoryItem.unit, referenceType: "ORDER_ITEM", referenceId: `${order._id}:${itemIndex}`, idempotencyKey: `consumption:${order._id}:${itemIndex}:recipe-${recipe.version}:ingredient-${line.inventoryItem._id}`, reason: `Order ${order.orderNumber}`, user, metadata: { orderId: String(order._id), recipeId: String(recipe._id), recipeVersion: recipe.version }, session });

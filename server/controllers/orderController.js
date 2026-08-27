@@ -492,7 +492,12 @@ export const updateOrder = asyncHandler(async (req, res) => {
 
   const itemsChanged = req.body.items !== undefined;
   if (itemsChanged) order.kotRevision = Number(order.kotRevision || 0) + 1;
-  await order.save();
+  await runInTransaction(async (session) => {
+    await order.save({ session });
+    if (itemsChanged) {
+      await createKotRevision({ order, userId: req.user._id, session });
+    }
+  });
 
   if (order.orderType === ORDER_TYPES.DINE_IN) {
     await assignTableForDineInOrder(order.table, order._id, { restaurantId: order.restaurant });
@@ -511,8 +516,6 @@ export const updateOrder = asyncHandler(async (req, res) => {
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name")
     .populate("statusHistory.changedBy", "fullName role");
-
-  if (itemsChanged) await createKotRevision({ order: populated, userId: req.user._id });
 
   await createOrderAuditLog({ user: req.user, action: "Order Updated", order: populated });
 

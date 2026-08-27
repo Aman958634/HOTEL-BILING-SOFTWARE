@@ -1,13 +1,31 @@
 version: "3.9"
 services:
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\""]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
   api:
     build:
       context: .
       dockerfile: Dockerfile.server
     env_file:
       - server/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/restaurant?replicaSet=rs0
     ports:
       - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
 
   web:
     build:
@@ -17,3 +35,6 @@ services:
       - "8080:80"
     depends_on:
       - api
+
+volumes:
+  mongo-data:

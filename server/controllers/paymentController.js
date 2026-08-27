@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
+import PaymentPart from "../models/PaymentPart.js";
 import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -29,6 +30,8 @@ import {
 } from "../services/paymentService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
 import { assertVerifiedSettlement } from "../services/posIntegrityService.js";
+import { runInTransaction } from "../services/transactionService.js";
+import { maybeReleaseTableAfterSettlement } from "../services/tableOrderService.js";
 
 const providerToMethod = {
   stripe: "OTHER",
@@ -262,6 +265,51 @@ const getPaymentDoc = async (identifier, user) => {
     .populate("tableId", "tableNumber floor section")
     .populate("refundedBy", "fullName email role");
 };
+
+export const createSplitPayment = asyncHandler(async (req, res) => {
+  const { orderId, amount, paymentMethod, transactionId = "" } = req.body;
+  const idempotencyKey = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
+  if (!idempotencyKey || idempotencyKey.length < 8) throw new ApiError(422, "A valid Idempotency-Key is required");
+  const restaurantQuery = await buildRestaurantQuery({ _id: orderId }, req.user);
+  const order = await Order.findOne(restaurantQuery);
+  if (!order) throw new ApiError(404, "Order not found");
+  assertVerifiedSettlement({ order, provider: "cash", actor: req.user });
+  const requestedAmount = Number(amount);
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) throw new ApiError(422, "Amount must be greater than zero");
+  const method = normalizePaymentMethod(paymentMethod);
+  if (method !== "CASH") throw new ApiError(422, "Split verification currently supports CASH only");
+
+  const result = await runInTransaction(async (session) => {
+    const existing = await PaymentPart.findOne({ restaurant: order.restaurant, idempotencyKey }).session(session);
+    if (existing) return { part: existing, duplicate: true };
+    const paidRows = await PaymentPart.find({ orderId: order._id, restaurant: order.restaurant, status: "VERIFIED" }).session(session).lean();
+    const paid = paidRows.reduce((sum, part) => sum + Number(part.amount || 0), 0);
+    const remaining = Math.round((Number(order.total) - paid) * 100) / 100;
+    if (requestedAmount > remaining) throw new ApiError(422, "Split payment exceeds the remaining order total");
+    const [part] = await PaymentPart.create([{ orderId: order._id, restaurant: order.restaurant, amount: requestedAmount, paymentMethod: normalizePaymentMethod(paymentMethod), transactionId: String(transactionId).trim(), idempotencyKey, verifiedBy: req.user._id }], { session });
+    const nextPaid = Math.round((paid + requestedAmount) * 100) / 100;
+    order.paymentStatus = nextPaid === Number(order.total) ? "PAID" : "PARTIALLY_PAID";
+    if (order.paymentStatus === "PAID") {
+      order.status = "COMPLETED";
+      order.paidAt = new Date();
+    }
+    await order.save({ session });
+    await syncPaymentFromOrder(order, {
+      status: order.paymentStatus,
+      metadata: { paymentMethod: method, provider: "cash", gateway: "Cash" },
+      note: "Split payment verified",
+      session,
+      emit: false,
+      notify: false,
+    });
+    return { part, duplicate: false };
+  });
+  if (!result.duplicate) {
+    const updatedOrder = await Order.findById(order._id);
+    if (updatedOrder?.paymentStatus === "PAID") await maybeReleaseTableAfterSettlement(updatedOrder);
+  }
+  res.status(result.duplicate ? 200 : 201).json(new ApiResponse(true, result.duplicate ? "Split payment already recorded" : "Split payment verified", result.part));
+});
 
 export const createPaymentIntent = asyncHandler(async (req, res) => {
   const { orderId, provider, paymentMethod } = req.body;

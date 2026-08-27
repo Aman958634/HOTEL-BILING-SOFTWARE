@@ -214,11 +214,21 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
   // lifecycle edge to make the progression auditable.
   if ([TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED].includes(String(table.status).toUpperCase())) {
     table.currentOrder = orderId;
-    await transitionTable({ table, toStatus: TABLE_STATUS.ORDER_CREATED, order: orderId, actor, reason: "order-created", session });
-    await transitionTable({ table, toStatus: TABLE_STATUS.OCCUPIED, order: orderId, actor, reason: "order-confirmed", session });
+    const tableFilter = {
+      _id: table._id,
+      status: { $in: [TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED] },
+      $or: [{ currentOrder: null }, { currentOrder: { $exists: false } }],
+    };
+    const claimed = await Table.findOneAndUpdate(
+      tableFilter,
+      { $set: { currentOrder: orderId, status: TABLE_STATUS.ORDER_CREATED, activeOrderCount: 1 } },
+      { new: true, session: session || undefined }
+    );
+    if (!claimed) throw new ApiError(409, `${tableLabel(table)} is already assigned to an active order.`);
+    await transitionTable({ table: claimed, toStatus: TABLE_STATUS.OCCUPIED, order: orderId, actor, reason: "order-confirmed", session });
+    if (!session) table.status = claimed.status;
   } else {
-    table.currentOrder = orderId;
-    await table.save(session ? { session } : undefined);
+    throw new ApiError(409, `${tableLabel(table)} already has an active order.`);
   }
   if (!session) emitTableStatusChange(table);
   return table;

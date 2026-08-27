@@ -11,6 +11,7 @@ import {
 	listPayments,
 	refundPayment,
 	verifyPayment,
+	createSplitPayment,
 } from "../controllers/paymentController.js";
 import { protect } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -20,6 +21,19 @@ const router = Router();
 
 router.post("/intent", protect, createPaymentIntent);
 router.post("/create-order", protect, createPaymentIntent);
+router.post(
+	"/split",
+	protect,
+	requirePaymentSettlementAccess,
+	[
+		body("orderId").isMongoId().withMessage("A valid order id is required"),
+		body("amount").isFloat({ gt: 0 }).withMessage("Amount must be greater than 0"),
+		body("paymentMethod").isString().notEmpty().withMessage("Payment method is required"),
+		body("idempotencyKey").optional().isLength({ min: 8, max: 128 }),
+	],
+	validate,
+	createSplitPayment
+);
 router.post(
   "/verify",
   protect,
