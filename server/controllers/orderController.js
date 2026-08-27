@@ -38,6 +38,8 @@ import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantU
 import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
 import { assertOrderTableConsistency } from "../services/posValidationService.js";
 import { runInTransaction } from "../services/transactionService.js";
+import orderRepository from "../repositories/orderRepository.js";
+import { contextFromRequest } from "../repositories/baseRepository.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -413,7 +415,7 @@ export const listOrders = asyncHandler(async (req, res) => {
 export const getOrderById = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user))
+  const order = await orderRepository.find(contextFromRequest(req), { _id: req.params.id })
     .populate("customer", "fullName email phone")
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name")
@@ -428,7 +430,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
 export const updateOrder = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
@@ -528,8 +530,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
 export const deleteOrder = asyncHandler(async (req, res) => {
   const identifier = String(req.params.id || "").trim();
   const order = mongoose.isValidObjectId(identifier)
-    ? await Order.findOne(await buildRestaurantQuery({ _id: identifier }, req.user))
-    : await Order.findOne(await buildRestaurantQuery({ orderNumber: identifier }, req.user));
+    ? await orderRepository.findOne(contextFromRequest(req), { _id: identifier })
+    : await orderRepository.findOne(contextFromRequest(req), { orderNumber: identifier });
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   if (!["admin", "manager"].includes(req.user.role)) throw new ApiError(403, "Forbidden");
@@ -580,7 +582,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 export const updateOrderStatus = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = normalizeOrderStatus(order.status);
@@ -642,7 +644,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 export const updateOrderPayment = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   if (!["admin", "manager", "cashier"].includes(req.user.role)) {

@@ -1,8 +1,10 @@
 import ApiError from "../utils/ApiError.js";
+import { getTenantContext } from "../utils/tenantContext.js";
 
 const trusted = (context) => context?.role === "system" || context?.role === "super_admin";
 
 export const assertRepositoryContext = (context) => {
+  context = context || getTenantContext();
   if (trusted(context)) return context;
   if (!context?.restaurantId || !context?.outletId) {
     throw new ApiError(403, "Restaurant and outlet context are required");
@@ -25,12 +27,14 @@ export const contextFromRequest = (req) => ({
 export const createRepository = (Model) => ({
   find: (context, filter = {}, options = {}) => Model.find(scopedFilter(context, filter), null, options),
   findOne: (context, filter = {}, options = {}) => Model.findOne(scopedFilter(context, filter), null, options),
-  create: async (context, document, options = {}) => {
-    const [created] = await Model.create([{ ...document, ...scopedFilter(context) }], options);
-    return created;
-  },
+  findById: (context, id, options = {}) => Model.findOne(scopedFilter(context, { _id: id }), null, options),
+  count: (context, filter = {}) => Model.countDocuments(scopedFilter(context, filter)),
+  exists: (context, filter = {}) => Model.exists(scopedFilter(context, filter)),
+  create: (context, document, options = {}) =>
+    Model.create([{ ...document, ...scopedFilter(context) }], options).then(([created]) => created),
   update: (context, filter, update, options = {}) => Model.updateMany(scopedFilter(context, filter), update, options),
   updateOne: (context, filter, update, options = {}) => Model.updateOne(scopedFilter(context, filter), update, options),
+  deleteOne: (context, filter, options = {}) => Model.deleteOne(scopedFilter(context, filter), options),
   aggregate: (context, pipeline = []) => {
     const scope = assertRepositoryContext(context);
     const match = scope.role === "super_admin" && !scope.outletId
