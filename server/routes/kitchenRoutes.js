@@ -19,6 +19,9 @@ import {
 const router = Router();
 
 router.use(authMiddleware, requireActiveSubscription);
+// Kitchen tickets reveal live operational data and must never be exposed to a
+// customer, delivery user, or an unauthorised staff account.
+router.use(requireRole("admin", "manager", "chef"));
 
 router.get(
   "/tickets",

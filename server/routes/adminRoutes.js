@@ -2,7 +2,7 @@ import { Router } from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
-import { dashboardStats, recentOrders, salesOverview } from "../controllers/adminController.js";
+import { dashboardStats, integrityCheck, recentOrders, salesOverview } from "../controllers/adminController.js";
 import {
 	exportReports,
 	getCategoryReport,
@@ -41,6 +41,7 @@ router.use(requireActiveSubscription);
 router.get("/dashboard/stats", dashboardStats);
 router.get("/dashboard/sales", salesOverview);
 router.get("/dashboard/recent-orders", recentOrders);
+router.get("/integrity", integrityCheck);
 
 router.get("/reports/summary", getReportSummary);
 router.get("/reports/revenue", getRevenueReport);

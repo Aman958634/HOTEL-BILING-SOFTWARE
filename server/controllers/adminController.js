@@ -11,6 +11,7 @@ import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
+import { checkRestaurantConsistency } from "../services/posIntegrityService.js";
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -214,4 +215,12 @@ export const recentOrders = asyncHandler(async (req, res) => {
   }));
 
   res.status(200).json(new ApiResponse(true, "Recent orders fetched", data));
+});
+
+export const integrityCheck = asyncHandler(async (req, res) => {
+  if (!req.user?.restaurant) {
+    return res.status(422).json(new ApiResponse(false, "Select a restaurant before running an integrity check"));
+  }
+  const result = await checkRestaurantConsistency(req.user.restaurant);
+  res.status(result.valid ? 200 : 409).json(new ApiResponse(result.valid, result.valid ? "POS data is consistent" : "POS consistency issues detected", result));
 });

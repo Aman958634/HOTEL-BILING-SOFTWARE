@@ -4,6 +4,9 @@ import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import Table from "../models/Table.js";
 import KotTicket from "../models/KotTicket.js";
+import StockMovement from "../models/StockMovement.js";
+import TableLifecycleEvent from "../models/TableLifecycleEvent.js";
+import Sequence from "../models/Sequence.js";
 
 dotenv.config();
 
@@ -19,7 +22,18 @@ const run = async () => {
   // Legacy schema enforced exactly one payment per order. Keep all documents;
   // only the obsolete index is removed before new tenant indexes are created.
   await Payment.collection.dropIndex("orderId_1").catch(ignoreMissingIndex);
-  await Promise.all([Payment.syncIndexes(), Order.syncIndexes(), Table.syncIndexes(), KotTicket.syncIndexes()]);
+  await StockMovement.collection.dropIndex("idempotencyKey_1").catch(ignoreMissingIndex);
+  const latestOrder = await Order.findOne({ orderNumber: /^ORD-\d+$/i }).sort({ createdAt: -1 }).select("orderNumber").lean();
+  const legacySequence = Number(latestOrder?.orderNumber?.split("-")[1] || 10000);
+  await Sequence.findOneAndUpdate(
+    { key: "orderNumber" },
+    { $max: { value: Number.isFinite(legacySequence) ? legacySequence : 10000 } },
+    { upsert: true, setDefaultsOnInsert: true }
+  );
+  await Promise.all([
+    Payment.syncIndexes(), Order.syncIndexes(), Table.syncIndexes(), KotTicket.syncIndexes(),
+    StockMovement.syncIndexes(), TableLifecycleEvent.syncIndexes(),
+  ]);
   console.log("POS indexes migrated successfully");
 };
 

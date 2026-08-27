@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
+import Restaurant from "../models/Restaurant.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -36,6 +37,7 @@ import { cancelKotTickets, createKotRevision, mergeItemsWithKitchenState } from 
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
 import { assertOrderTableConsistency } from "../services/posValidationService.js";
+import { runInTransaction } from "../services/transactionService.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -109,6 +111,12 @@ const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   return restaurant._id;
 };
 
+const getRestaurantGstRate = async (restaurantId) => {
+  const restaurant = await Restaurant.findById(restaurantId).select("gstRate").lean();
+  if (!restaurant) throw new ApiError(404, "Restaurant not found");
+  return Number(restaurant.gstRate || 0);
+};
+
 const getIdempotencyKey = (req) => {
   const value = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
   if (!value) return "";
@@ -126,6 +134,29 @@ const findIdempotentOrder = async ({ restaurant, idempotencyKey }) => {
     .populate("items.menuItem", "name");
 };
 
+const createOrderAtomically = async ({ payload, restaurantId, tableDoc, actorId = null }) =>
+  runInTransaction(async (session) => {
+    if (payload.idempotencyKey) {
+      const existing = await Order.findOne({ restaurant: restaurantId, idempotencyKey: payload.idempotencyKey, isArchived: { $ne: true } }).session(session);
+      if (existing) return { order: existing, duplicate: true };
+    }
+    const orderNumber = await generateOrderNumber(session);
+    const [order] = await Order.create([{ ...payload, orderNumber }], { session });
+    if (order.orderType === ORDER_TYPES.DINE_IN) {
+      await assignTableForDineInOrder(order.table, order._id, { restaurantId, actor: actorId, session });
+    }
+    await syncPaymentFromOrder(order, {
+      status: PAYMENT_STATUSES.PENDING,
+      metadata: { paymentMethod: order.paymentMethod, paymentStatus: PAYMENT_STATUSES.PENDING, orderType: order.orderType },
+      note: "Payment initiated during order creation",
+      session,
+      emit: false,
+      notify: false,
+    });
+    await createKotRevision({ order, userId: actorId, session });
+    return { order, duplicate: false };
+  });
+
 export const createOrder = asyncHandler(async (req, res) => {
   const role = req.user.role;
   if (!["admin", "manager", "cashier", "waiter", "customer"].includes(role)) {
@@ -141,21 +172,20 @@ export const createOrder = asyncHandler(async (req, res) => {
     customerId = req.user._id;
   }
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
+  const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const gstRate = await getRestaurantGstRate(restaurantId);
+  const processedItems = await prepareOrderItems(req.body.items || [], { restaurant: restaurantId });
   const calculated = buildCalculatedOrderPayload({
     orderType,
     items: processedItems,
     discount: req.body.discount,
-    tax: req.body.tax,
-    taxPercent: req.body.taxPercent,
+    tax: null,
+    taxPercent: gstRate,
     serviceCharge: req.body.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge,
   });
 
-  const orderNumber = await generateOrderNumber();
-
-  const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
   const idempotencyKey = getIdempotencyKey(req);
   const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
   if (existing) return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existing)));
@@ -166,8 +196,11 @@ export const createOrder = asyncHandler(async (req, res) => {
   assertOrderTableConsistency({ orderType, table: req.body.table, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
   if (orderType === ORDER_TYPES.DINE_IN && !tableDoc) throw new ApiError(404, "Table not found");
 
-  const order = await Order.create({
-    orderNumber,
+  const result = await createOrderAtomically({
+    restaurantId,
+    tableDoc,
+    actorId: req.user._id,
+    payload: {
     customer: customerId,
     table: orderType === ORDER_TYPES.DINE_IN ? req.body.table || null : null,
     restaurant: restaurantId,
@@ -188,16 +221,13 @@ export const createOrder = asyncHandler(async (req, res) => {
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
     idempotencyKey,
+    },
   });
-
-  if (orderType === ORDER_TYPES.DINE_IN) {
-    try {
-      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
-    } catch (error) {
-      await Order.deleteOne({ _id: order._id });
-      throw error;
-    }
+  if (result.duplicate) {
+    const existingOrder = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
+    return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existingOrder)));
   }
+  const order = result.order;
 
   const populated = await Order.findById(order._id)
     .populate("customer", "fullName email phone")
@@ -218,13 +248,6 @@ export const createOrder = asyncHandler(async (req, res) => {
     total: populated.total,
   });
 
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
-  });
-
-  await createKotRevision({ order: populated, userId: req.user._id });
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -236,20 +259,6 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
-  const calculated = buildCalculatedOrderPayload({
-    orderType,
-    items: processedItems,
-    discount: req.body.discount,
-    tax: req.body.tax,
-    taxPercent: req.body.taxPercent,
-    serviceCharge: req.body.serviceCharge,
-    serviceChargePercent: req.body.serviceChargePercent,
-    deliveryCharge: req.body.deliveryCharge,
-  });
-
-  const orderNumber = await generateOrderNumber();
-
   const tableId = req.body.table || null;
   const qrContext = verifyQrOrderToken(req.body.qrToken);
   if (String(qrContext.tableId) !== String(tableId)) {
@@ -260,6 +269,19 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, "QR token does not match the selected restaurant");
   }
 
+  const processedItems = await prepareOrderItems(req.body.items || [], { restaurant: restaurantId });
+  const gstRate = await getRestaurantGstRate(restaurantId);
+  const calculated = buildCalculatedOrderPayload({
+    orderType,
+    items: processedItems,
+    discount: req.body.discount,
+    tax: null,
+    taxPercent: gstRate,
+    serviceCharge: req.body.serviceCharge,
+    serviceChargePercent: req.body.serviceChargePercent,
+    deliveryCharge: req.body.deliveryCharge,
+  });
+
   if (orderType !== ORDER_TYPES.DINE_IN) throw new ApiError(422, "QR ordering supports DINE_IN orders only");
   const idempotencyKey = getIdempotencyKey(req);
   const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
@@ -268,8 +290,10 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   assertOrderTableConsistency({ orderType, table: tableId, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
   if (!tableDoc) throw new ApiError(404, "Table not found");
 
-  const order = await Order.create({
-    orderNumber,
+  const result = await createOrderAtomically({
+    restaurantId,
+    tableDoc,
+    payload: {
     customer: null,
     table: orderType === ORDER_TYPES.DINE_IN ? tableId : null,
     restaurant: restaurantId,
@@ -290,16 +314,13 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
     idempotencyKey,
+    },
   });
-
-  if (orderType === ORDER_TYPES.DINE_IN) {
-    try {
-      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
-    } catch (error) {
-      await Order.deleteOne({ _id: order._id });
-      throw error;
-    }
+  if (result.duplicate) {
+    const existingOrder = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
+    return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existingOrder)));
   }
+  const order = result.order;
 
   const populated = await Order.findById(order._id)
     .populate("customer", "fullName email phone")
@@ -320,13 +341,6 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     total: populated.total,
   });
 
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
-  });
-
-  await createKotRevision({ order: populated });
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -423,7 +437,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
   ensureOrderEditAllowed(order);
 
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
-  const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
+  const gstRate = await getRestaurantGstRate(order.restaurant);
+  const nextItems = req.body.items ? await prepareOrderItems(req.body.items, { restaurant: order.restaurant }) : order.items;
 
   const itemsWithKitchenStatus = mergeItemsWithKitchenState({
     previousItems: order.items || [],
@@ -434,8 +449,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
     orderType: nextOrderType,
     items: itemsWithKitchenStatus,
     discount: req.body.discount !== undefined ? req.body.discount : order.discount,
-    tax: req.body.tax !== undefined ? req.body.tax : order.tax,
-    taxPercent: req.body.taxPercent,
+    tax: null,
+    taxPercent: gstRate,
     serviceCharge: req.body.serviceCharge !== undefined ? req.body.serviceCharge : order.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge !== undefined ? req.body.deliveryCharge : order.deliveryCharge,

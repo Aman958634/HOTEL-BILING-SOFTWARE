@@ -25,7 +25,10 @@ const stockMovementSchema = new mongoose.Schema(
 );
 
 stockMovementSchema.index({ restaurant: 1, createdAt: -1 });
-stockMovementSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+stockMovementSchema.index(
+  { restaurant: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $gt: "" } } }
+);
 
 const StockMovement = mongoose.model("StockMovement", stockMovementSchema);
 export default StockMovement;

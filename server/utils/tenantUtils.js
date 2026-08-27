@@ -70,11 +70,10 @@ export const resolveRestaurantForUser = async ({ restaurantId, user }) => {
     return restaurant;
   }
 
-  const restaurant = await Restaurant.findOne().sort({ hotelId: -1 });
-  if (!restaurant) {
-    throw new ApiError(400, "Restaurant setup missing. Please create a restaurant first.");
-  }
-  return restaurant;
+  // Selecting an arbitrary restaurant is a cross-tenant data leak. Guests can
+  // resolve their restaurant only through a verified table/QR context above;
+  // staff tokens must carry a restaurant or hotel scope.
+  throw new ApiError(403, "Restaurant context is required");
 };
 
 export const buildRestaurantQuery = async (baseFilters, user) => {

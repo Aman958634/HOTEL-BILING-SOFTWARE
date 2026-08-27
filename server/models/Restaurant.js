@@ -11,6 +11,7 @@ const restaurantSchema = new mongoose.Schema(
     address: { type: String, required: true },
     city: { type: String, index: true },
     gstNumber: { type: String, default: "" },
+    gstRate: { type: Number, min: 0, max: 100, default: 0 },
     logoUrl: { type: String, default: "" },
     website: { type: String, default: "" },
     isActive: { type: Boolean, default: true },

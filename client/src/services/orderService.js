@@ -1,7 +1,17 @@
 import api from "./api";
 
-export const createOrder = (payload) => api.post("/orders", payload);
-export const createGuestOrder = (payload) => api.post("/orders/guest", payload);
+const newIdempotencyKey = () => {
+  const value = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `order-${value}`;
+};
+
+// The caller may retain and resend the key after a timeout. The backend then
+// returns the original order instead of creating a duplicate KOT/order.
+const postOrder = (url, payload, idempotencyKey = newIdempotencyKey()) =>
+  api.post(url, { ...payload, idempotencyKey }, { headers: { "Idempotency-Key": idempotencyKey } });
+
+export const createOrder = (payload, idempotencyKey) => postOrder("/orders", payload, idempotencyKey);
+export const createGuestOrder = (payload, idempotencyKey) => postOrder("/orders/guest", payload, idempotencyKey);
 export const getOrders = (params = {}) => api.get("/orders", { params });
 export const getOrderById = (id) => api.get(`/orders/${id}`);
 export const updateOrder = (id, payload) => api.put(`/orders/${id}`, payload);

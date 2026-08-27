@@ -9,6 +9,7 @@ import {
 } from "./tableStateService.js";
 import { deriveTableLifecycle } from "./lifecycleService.js";
 import { ACTIVE_ORDER_QUERY, isActiveOrder } from "./posValidationService.js";
+import { transitionTable } from "./posIntegrityService.js";
 
 const tableLabel = (table) => (table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table");
 
@@ -184,7 +185,7 @@ export const reconcileTablesAvailability = async (tables = []) => {
  * A table may host MULTIPLE active DINE_IN orders, so an existing active order
  * no longer blocks a new one. Only MAINTENANCE tables cannot be seated.
  */
-export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId } = {}) => {
+export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId, actor = null, session = null } = {}) => {
   if (!tableId) {
     throw new ApiError(422, "Table is required for DINE_IN orders.");
   }
@@ -195,36 +196,28 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
   // Load once for tenant validation, then perform an atomic status write that
   // refuses to seat a table that is (or becomes) under MAINTENANCE. Multiple
   // active DINE_IN orders are allowed, so no single-order 409 is raised.
-  const table = await Table.findById(tableId);
+  let tableQuery = Table.findById(tableId);
+  if (session) tableQuery = tableQuery.session(session);
+  const table = await tableQuery;
   if (!table) throw new ApiError(404, "Table not found");
 
   assertTableTenant(table, restaurantId);
+  if (String(table.status).toUpperCase() === TABLE_STATUS.MAINTENANCE) {
+    throw new ApiError(409, `${tableLabel(table)} is under maintenance.`);
+  }
 
-  // An order has already been persisted at this point. Emit the intermediate
-  // lifecycle state only for an unoccupied table, then atomically seat it.
+  // The command, not a table read, owns the state transition.  Persist each
+  // lifecycle edge to make the progression auditable.
   if ([TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED].includes(String(table.status).toUpperCase())) {
-    const orderCreated = await Table.findOneAndUpdate(
-      { _id: table._id, status: { $in: [TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED] } },
-      { $set: { status: TABLE_STATUS.ORDER_CREATED, currentOrder: orderId } },
-      { new: true }
-    );
-    if (orderCreated) emitTableStatusChange(orderCreated);
+    table.currentOrder = orderId;
+    await transitionTable({ table, toStatus: TABLE_STATUS.ORDER_CREATED, order: orderId, actor, reason: "order-created", session });
+    await transitionTable({ table, toStatus: TABLE_STATUS.OCCUPIED, order: orderId, actor, reason: "order-confirmed", session });
+  } else {
+    table.currentOrder = orderId;
+    await table.save(session ? { session } : undefined);
   }
-
-  const updated = await Table.findOneAndUpdate(
-    { _id: table._id, status: { $ne: TABLE_STATUS.MAINTENANCE } },
-    { $set: { status: TABLE_STATUS.OCCUPIED, currentOrder: orderId } },
-    { new: true }
-  );
-
-  if (!updated) {
-    const exists = await Table.findById(table._id);
-    if (!exists) throw new ApiError(404, "Table not found");
-    throw new ApiError(409, `${tableLabel(exists)} is under maintenance.`);
-  }
-
-  emitTableStatusChange(updated);
-  return updated;
+  if (!session) emitTableStatusChange(table);
+  return table;
 };
 
 export const releaseOrderTableIfNeeded = async (order) => {
@@ -258,13 +251,15 @@ export const maybeReleaseTableAfterSettlement = async (order) => {
   if (status === "COMPLETED" && paymentStatus === "PAID") {
     const remainingOrders = await findActiveOrdersForTable(tableId);
     if (remainingOrders.length === 0) {
-      for (const lifecycleStatus of [TABLE_STATUS.PAYMENT_VERIFIED, TABLE_STATUS.PAID]) {
-        const updated = await Table.findOneAndUpdate(
-          { _id: tableId, status: { $ne: TABLE_STATUS.MAINTENANCE } },
-          { $set: { status: lifecycleStatus, currentOrder: null, activeOrderCount: 0 } },
-          { new: true }
-        );
-        if (updated) emitTableStatusChange(updated);
+      const table = await Table.findById(tableId);
+      if (table && String(table.status).toUpperCase() !== TABLE_STATUS.MAINTENANCE) {
+        table.currentOrder = null;
+        table.activeOrderCount = 0;
+        await transitionTable({ table, toStatus: TABLE_STATUS.BILL, order, reason: "bill-settlement" });
+        await transitionTable({ table, toStatus: TABLE_STATUS.PAYMENT_VERIFIED, order, reason: "payment-verified" });
+        await transitionTable({ table, toStatus: TABLE_STATUS.PAID, order, reason: "payment-settled" });
+        await transitionTable({ table, toStatus: TABLE_STATUS.AVAILABLE, order, reason: "table-released" });
+        emitTableStatusChange(table);
       }
     }
     return recalculateTableStatus(tableId);

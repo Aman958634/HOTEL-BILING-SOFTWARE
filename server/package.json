@@ -10,6 +10,7 @@
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "migrate:pos-indexes": "node scripts/migratePosIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
+    "test:pos": "node --test tests/posIntegrity.test.js",
     "lint": "echo \"Add ESLint config\""
   },
   "dependencies": {

@@ -17,6 +17,7 @@ import {
 import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
+import { runInTransaction } from "./transactionService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -175,6 +176,8 @@ export const syncPaymentFromOrder = async (
     status = null,
     note = "",
     session = null,
+    emit = true,
+    notify = true,
   } = {}
 ) => {
   const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
@@ -245,13 +248,11 @@ export const syncPaymentFromOrder = async (
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
 
-  if (isNew) {
-    emitPaymentCreated(serializePayment(payment));
-  } else {
-    emitPaymentUpdated(serializePayment(payment));
+  if (emit) {
+    if (isNew) emitPaymentCreated(serializePayment(payment));
+    else emitPaymentUpdated(serializePayment(payment));
   }
-
-  await notifyPaymentAudience({
+  if (notify) await notifyPaymentAudience({
     title: payment.paymentStatus === "FAILED" ? "Payment failed" : payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
     message: `${paymentMethodLabel(payment.paymentMethod)} ${payment.paymentStatus === "PAID" ? "payment received" : `payment is ${paymentStatusLabel(payment.paymentStatus).toLowerCase()}`} for Order #${orderDoc.orderNumber}`,
     payment,
@@ -273,8 +274,34 @@ export const updateOrderPaymentState = async (
     paidAt = null,
     note = "",
     session = null,
+    emit = true,
+    notify = true,
+    releaseTable = true,
   } = {}
 ) => {
+  // A settlement updates Order, Payment and (after commit) Table.  Do not let
+  // a transient network/database error leave only one of those records saved.
+  if (!session) {
+    const result = await runInTransaction((transactionSession) =>
+      updateOrderPaymentState(order, {
+        paymentMethod, paymentStatus, gateway, transactionId, razorpayOrderId,
+        razorpayPaymentId, paidAt, note, session: transactionSession,
+        emit: false, notify: false, releaseTable: false,
+      })
+    );
+    if (emit) emitPaymentUpdated(serializePayment(result.payment));
+    if (notify) await notifyPaymentAudience({
+      title: result.payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
+      message: `${paymentMethodLabel(result.payment.paymentMethod)} payment updated for Order #${result.order.orderNumber}`,
+      payment: result.payment,
+      order: result.order,
+    });
+    if (releaseTable && String(paymentStatus || result.order.paymentStatus).toUpperCase() === "PAID") {
+      const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+      await maybeReleaseTableAfterSettlement(result.order);
+    }
+    return result;
+  }
   const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
   if (!orderDoc) throw new ApiError(404, "Order not found");
 
@@ -316,6 +343,8 @@ export const updateOrderPaymentState = async (
     status: nextPaymentStatus,
     note,
     session,
+    emit: false,
+    notify: false,
   });
 
   orderDoc.paymentId = payment.paymentId;
@@ -324,11 +353,6 @@ export const updateOrderPaymentState = async (
   await orderDoc.save(session ? { session } : undefined);
 
   // Server-side table release after verified PAID (+ COMPLETED)
-  if (nextPaymentStatus === "PAID") {
-    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-    await maybeReleaseTableAfterSettlement(orderDoc);
-  }
-
   return { order: orderDoc, payment };
 };
 

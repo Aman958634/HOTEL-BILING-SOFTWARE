@@ -28,6 +28,7 @@ import {
   updateOrderPaymentState,
 } from "../services/paymentService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
+import { assertVerifiedSettlement } from "../services/posIntegrityService.js";
 
 const providerToMethod = {
   stripe: "OTHER",
@@ -347,6 +348,10 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   const nextStatus = normalizePaymentStatus(status === "success" ? "PAID" : status);
   const gateway = normalizeGateway(provider || meta.provider);
 
+  if (!['success', 'failed'].includes(String(status).toLowerCase())) {
+    throw new ApiError(422, "Verification status must be success or failed");
+  }
+
   if (!gateway || !["razorpay", "cash"].includes(gateway)) {
     throw new ApiError(422, "Unsupported payment provider");
   }
@@ -362,6 +367,9 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     }
     throw new ApiError(409, "Payment already completed");
   }
+
+  const existingPayment = await Payment.findOne({ orderId: order._id });
+  assertVerifiedSettlement({ order, payment: existingPayment, provider: gateway, actor: req.user });
 
   if (gateway === "razorpay") {
     if (!process.env.RAZORPAY_KEY_SECRET) {
