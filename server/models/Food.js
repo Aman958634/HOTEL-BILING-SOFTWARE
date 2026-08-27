@@ -6,6 +6,7 @@ const foodSchema = new mongoose.Schema(
     hotelId: { type: mongoose.Schema.Types.ObjectId, ref: "Hotel", default: null, index: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     description: { type: String, default: "", maxlength: 1200 },
     image: { type: String, default: "" },
     price: { type: Number, required: true, min: 0, index: true },

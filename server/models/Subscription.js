@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const subscriptionSchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     planId: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", default: null },
     planName: { type: String, required: true, index: true },
     price: { type: Number, default: 0 },

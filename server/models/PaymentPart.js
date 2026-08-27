@@ -4,6 +4,7 @@ const paymentPartSchema = new mongoose.Schema(
   {
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", required: true, index: true },
     amount: { type: Number, required: true, min: 0.01 },
     paymentMethod: { type: String, required: true, trim: true },
     status: { type: String, enum: ["PENDING", "VERIFIED", "VOIDED"], default: "VERIFIED", index: true },

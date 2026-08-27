@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import { ensureDefaultPlans } from "../services/planService.js";
 import { ensureRestaurantSubscriptions } from "../services/subscriptionBootstrapService.js";
 import { ensureSuperAdmin, shouldSeedSuperAdmin } from "../services/superAdminSeedService.js";
+import { getTenantContext, runWithTenantContext } from "../utils/tenantContext.js";
 
 /** Fail fast on queries when disconnected — avoids 10s buffering timeouts. */
 mongoose.set("bufferCommands", false);
@@ -42,11 +43,22 @@ const connectDB = async () => {
     serverSelectionTimeoutMS: 10000,
   });
 
+  const nativeCollection = conn.connection.db.collection.bind(conn.connection.db);
+  conn.connection.db.collection = (...args) => {
+    const context = getTenantContext();
+    if (!context || !["system", "super_admin"].includes(context.role)) {
+      throw new Error("Raw MongoDB collection access requires system or super_admin context");
+    }
+    return nativeCollection(...args);
+  };
+
   logger.info(`MongoDB connected successfully: ${conn.connection.host}`);
 
   try {
-    await ensureDefaultPlans();
-    await ensureRestaurantSubscriptions();
+    await runWithTenantContext({ role: "system", restaurantId: null, outletId: null }, async () => {
+      await ensureDefaultPlans();
+      await ensureRestaurantSubscriptions();
+    });
   } catch (error) {
     logger.error(`Subscription bootstrap failed: ${error.message}`);
   }

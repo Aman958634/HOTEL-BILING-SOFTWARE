@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const schema = new mongoose.Schema({
   restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+  outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
   table: { type: mongoose.Schema.Types.ObjectId, ref: "Table", required: true, index: true },
   order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null, index: true },
   fromStatus: { type: String, required: true },

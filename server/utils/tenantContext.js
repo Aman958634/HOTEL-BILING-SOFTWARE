@@ -6,10 +6,18 @@ export const tenantStorage = new AsyncLocalStorage();
 export const runWithTenantContext = (context, callback) => tenantStorage.run(context, callback);
 export const getTenantContext = () => tenantStorage.getStore() || null;
 
+export const assertRawDriverContext = () => {
+  const context = getTenantContext();
+  if (!context || !["system", "super_admin"].includes(context.role)) {
+    throw new ApiError(403, "Raw MongoDB access requires system or super_admin context");
+  }
+  return context;
+};
+
 const isScopedModel = (query) => Boolean(query.model?.schema?.path("outlet"));
 const assertContext = (query) => {
   const context = getTenantContext();
-  if (!context || context.role === "super_admin") return context;
+  if (!context || context.role === "super_admin" || context.role === "system") return context;
   if (!context.restaurantId || !context.outletId) throw new ApiError(403, "Tenant and outlet context is required");
   return context;
 };
@@ -19,7 +27,7 @@ export const installTenantQueryGuard = (mongoose) => {
     if (!schema.path("outlet")) return;
     schema.pre(/^find/, function enforceFindScope(next) {
       const context = assertContext(this);
-      if (context?.role !== "super_admin") {
+      if (context?.role !== "super_admin" && context?.role !== "system") {
         this.where({ restaurant: context.restaurantId, outlet: context.outletId });
       } else if (context?.outletId) {
         this.where({ outlet: context.outletId });
@@ -28,7 +36,7 @@ export const installTenantQueryGuard = (mongoose) => {
     });
     schema.pre(/^update|^delete/, function enforceWriteScope(next) {
       const context = assertContext(this);
-      if (context?.role !== "super_admin") {
+      if (context?.role !== "super_admin" && context?.role !== "system") {
         this.where({ restaurant: context.restaurantId, outlet: context.outletId });
       } else if (context?.outletId) {
         this.where({ outlet: context.outletId });
@@ -37,7 +45,7 @@ export const installTenantQueryGuard = (mongoose) => {
     });
     schema.pre("aggregate", function enforceAggregateScope(next) {
       const context = assertContext(this);
-      if (context?.role !== "super_admin" || context?.outletId) {
+      if (context?.role !== "super_admin" && context?.role !== "system" || context?.outletId) {
         const match = context?.role === "super_admin"
           ? { outlet: context.outletId }
           : { restaurant: context.restaurantId, outlet: context.outletId };
@@ -47,7 +55,7 @@ export const installTenantQueryGuard = (mongoose) => {
     });
     schema.pre("save", function enforceSaveScope(next) {
       const context = getTenantContext();
-      if (context?.role !== "super_admin") {
+      if (context?.role !== "super_admin" && context?.role !== "system") {
         if (!context?.restaurantId || !context?.outletId) return next(new ApiError(403, "Tenant and outlet context is required"));
         if (this.restaurant && String(this.restaurant) !== String(context.restaurantId)) return next(new ApiError(403, "Restaurant scope mismatch"));
         if (this.outlet && String(this.outlet) !== String(context.outletId)) return next(new ApiError(403, "Outlet scope mismatch"));

@@ -11,6 +11,7 @@ const staffSchema = new mongoose.Schema(
     email: { type: String, trim: true, lowercase: true, unique: true, sparse: true, index: true },
     hotelId: { type: mongoose.Schema.Types.ObjectId, ref: "Hotel", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     role: {
       type: String,
       enum: ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"],

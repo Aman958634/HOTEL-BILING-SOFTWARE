@@ -12,6 +12,7 @@ const recipeIngredientSchema = new mongoose.Schema(
 const recipeSchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     food: { type: mongoose.Schema.Types.ObjectId, ref: "Food", required: true, index: true },
     name: { type: String, required: true, trim: true },
     version: { type: Number, required: true, min: 1, default: 1 },
