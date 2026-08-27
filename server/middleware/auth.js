@@ -14,7 +14,7 @@ export const protect = async (req, _, next) => {
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     const user = await runWithTenantContext(
       { role: "system", restaurantId: null, outletId: null },
-      () => User.findById(decoded.id).select("-password")
+      async () => await User.findById(decoded.id).select("-password")
     );
 
     if (!user || !user.isActive) {

@@ -1,6 +1,6 @@
 import logger from "../utils/logger.js";
 
-export const errorHandler = (err, _req, res, _next) => {
+export const errorHandler = (err, req, res, _next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal server error";
   let code = typeof err.code === "string" ? err.code : null;
@@ -44,7 +44,9 @@ export const errorHandler = (err, _req, res, _next) => {
     message = "Duplicate value found";
   }
 
-  logger.error(err.stack || err.message);
+  logger.error(`Request failed ${req.method} ${req.originalUrl} status=${statusCode} message=${err.message || "Unknown error"}`, {
+    stack: err.stack,
+  });
   const clientMessage = statusCode >= 500 && statusCode !== 503 ? "Internal server error" : message;
   res.status(statusCode).json({
     success: false,

@@ -25,12 +25,15 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = req.body.password;
+  let loginStep = "input";
 
+  try {
   logger.info(`Login attempt email: ${email}`);
 
+  loginStep = "user-lookup";
   const user = await runWithTenantContext(
     { role: "system", restaurantId: null, outletId: null },
-    () => User.findOne({ email }).select("+password")
+    async () => await User.findOne({ email }).select("+password")
   );
   if (!user) {
     logger.warn(`Login failed: user not found (${email})`);
@@ -41,11 +44,24 @@ export const login = asyncHandler(async (req, res) => {
 
   if (!user.isActive) throw new ApiError(403, "Account is inactive");
 
-  const isMatch = await user.comparePassword(password);
+  loginStep = "password-verification";
+  if (!user.password || typeof user.password !== "string") {
+    logger.warn(`Login failed: password hash missing (${email})`);
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  let isMatch = false;
+  try {
+    isMatch = await user.comparePassword(password);
+  } catch (error) {
+    logger.error(`Login password verification error email=${email} message=${error.message}`, { stack: error.stack });
+    throw new ApiError(401, "Invalid credentials");
+  }
   logger.info(`Login password match: ${isMatch}`);
 
   if (!isMatch) throw new ApiError(401, "Invalid credentials");
 
+  loginStep = "token-generation";
   const payload = {
     id: user._id,
     role: user.role,
@@ -57,17 +73,22 @@ export const login = asyncHandler(async (req, res) => {
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
 
+  loginStep = "session-persistence";
   const safeUser = await runWithTenantContext(
     { role: "system", restaurantId: null, outletId: null },
     async () => {
       user.refreshToken = refreshToken;
       await user.save();
       await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
-      return User.findById(user._id).select("-password -refreshToken");
+      return await User.findById(user._id).select("-password -refreshToken");
     }
   );
   logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
   res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken }));
+  } catch (error) {
+    logger.error(`Login failed step=${loginStep} email=${email} message=${error.message}`, { stack: error.stack });
+    throw error;
+  }
 });
 
 export const refresh = asyncHandler(async (req, res) => {
@@ -83,7 +104,7 @@ export const refresh = asyncHandler(async (req, res) => {
 
   const user = await runWithTenantContext(
     { role: "system", restaurantId: null, outletId: null },
-    () => User.findOne({ refreshToken, _id: decoded.id })
+    async () => await User.findOne({ refreshToken, _id: decoded.id })
   );
   if (!user || !user.isActive) throw new ApiError(401, "Invalid refresh token");
 

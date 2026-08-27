@@ -31,3 +31,19 @@ test("repository scope overrides client filters", () => {
     outlet: "o1", restaurant: "r1",
   });
 });
+
+test("database thenables execute inside the context that created them", async () => {
+  let observed;
+  const query = {
+    then(resolve) {
+      observed = getTenantContext();
+      resolve(null);
+    },
+  };
+  const result = await runWithTenantContext(
+    { role: "system", restaurantId: null, outletId: null },
+    async () => await query
+  );
+  assert.equal(result, null);
+  assert.deepEqual(observed, { role: "system", restaurantId: null, outletId: null });
+});
