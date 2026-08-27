@@ -81,11 +81,15 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
   const filters = { ...baseFilters };
   if (!user) return filters;
 
+  if (user.role === "super_admin") return filters;
+
   if (user.restaurant) {
     return mergeTenantFilter(filters, { restaurant: user.restaurant });
   }
 
-  if (!user.hotelId) return filters;
+  if (!user.hotelId) {
+    throw new ApiError(403, "Restaurant context is required");
+  }
 
   const restaurants = await Restaurant.find({ $or: [{ hotelId: user.hotelId }, { hotelId: null }] }).select("_id").lean();
   const restaurantIds = restaurants.map((r) => r._id);

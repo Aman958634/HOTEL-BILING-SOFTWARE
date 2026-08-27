@@ -345,8 +345,38 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const nextStatus = normalizePaymentStatus(status === "success" ? "PAID" : status);
+  const gateway = normalizeGateway(provider || meta.provider);
 
-  if (normalizeGateway(provider || meta.provider) === "razorpay") {
+  if (!gateway || !["razorpay", "cash"].includes(gateway)) {
+    throw new ApiError(422, "Unsupported payment provider");
+  }
+
+  if (gateway === "cash" && nextStatus !== "PAID") {
+    throw new ApiError(422, "Cash settlement must be verified as paid by an authorized cashier");
+  }
+
+  if (normalizePaymentStatus(order.paymentStatus) === "PAID") {
+    const completed = await Payment.findOne({ orderId: order._id, paymentStatus: "PAID" });
+    if (completed && (!razorpay_payment_id || completed.razorpayPaymentId === razorpay_payment_id)) {
+      return res.status(200).json(new ApiResponse(true, "Payment already verified", serializePayment(completed)));
+    }
+    throw new ApiError(409, "Payment already completed");
+  }
+
+  if (gateway === "razorpay") {
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      throw new ApiError(500, "Razorpay is not configured");
+    }
+
+    const initiatedPayment = await Payment.findOne({
+      orderId: order._id,
+      razorpayOrderId: razorpay_order_id,
+      paymentStatus: { $in: ["PENDING", "PROCESSING"] },
+    }).select("_id");
+    if (!initiatedPayment) {
+      throw new ApiError(409, "Payment does not match an initiated order");
+    }
+
     logger.info(`Razorpay verify requested for orderId=${orderId} razorpayOrderId=${razorpay_order_id || ""} razorpayPaymentId=${razorpay_payment_id || ""}`);
 
     const generatedSignature = crypto

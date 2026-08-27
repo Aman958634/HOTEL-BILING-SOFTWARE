@@ -3,17 +3,19 @@ import Table from "../models/Table.js";
 import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import { getIO } from "../config/socket.js";
+import { deriveTableLifecycle, TABLE_LIFECYCLE } from "./lifecycleService.js";
 
 export const TABLE_STATUS = {
-  AVAILABLE: "AVAILABLE",
-  OCCUPIED: "OCCUPIED",
-  RESERVED: "RESERVED",
-  MAINTENANCE: "MAINTENANCE",
+  ...TABLE_LIFECYCLE,
 };
 
 const statusAliases = {
   available: TABLE_STATUS.AVAILABLE,
+  order_created: TABLE_STATUS.ORDER_CREATED,
   occupied: TABLE_STATUS.OCCUPIED,
+  bill: TABLE_STATUS.BILL,
+  payment_verified: TABLE_STATUS.PAYMENT_VERIFIED,
+  paid: TABLE_STATUS.PAID,
   reserved: TABLE_STATUS.RESERVED,
   maintenance: TABLE_STATUS.MAINTENANCE,
 };
@@ -57,7 +59,8 @@ export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CO
 export const emitTableStatusChange = (table) => {
   try {
     const io = getIO();
-    io.to("dashboard").emit("table:statusChanged", {
+    if (!table.restaurant) return;
+    io.to(`restaurant:${table.restaurant}`).emit("table:statusChanged", {
       tableId: table._id,
       tableNumber: table.tableNumber,
       status: table.status,
@@ -72,7 +75,7 @@ export const emitTableStatusChange = (table) => {
 /**
  * Derive a table's status from real database state.
  *   - MAINTENANCE is a manual override and is preserved.
- *   - OCCUPIED  = at least one ACTIVE order exists.
+ *   - Lifecycle state is derived from persisted server-side order/billing data.
  *   - RESERVED  = no active order but an active reservation exists.
  *   - AVAILABLE = no active order and no active reservation.
  *
@@ -86,24 +89,17 @@ const recomputeTableState = async (table) => {
     return table;
   }
 
-  const activeOrders = await Order.find({
+  const orders = await Order.find({
     table: table._id,
     isArchived: { $ne: true },
-    status: { $in: activeOrderStatuses },
   })
-    .select("_id")
+    .select("_id status paymentStatus billingStatus createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
-  if (activeOrders.length > 0) {
-    table.status = TABLE_STATUS.OCCUPIED;
-    table.currentOrder = activeOrders[0]?._id || null;
-  } else {
-    table.currentOrder = null;
-    table.status = table.currentReservation
-      ? TABLE_STATUS.RESERVED
-      : TABLE_STATUS.AVAILABLE;
-  }
+  const activeOrders = orders.filter((order) => activeOrderStatuses.includes(String(order.status).toUpperCase()));
+  table.status = deriveTableLifecycle({ table, orders });
+  table.currentOrder = activeOrders[0]?._id || null;
 
   table.activeOrderCount = activeOrders.length;
   await table.save();

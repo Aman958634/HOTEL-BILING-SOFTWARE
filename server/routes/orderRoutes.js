@@ -37,6 +37,7 @@ router.post(
       .notEmpty().withMessage("Table is required for guest orders")
       .isMongoId()
       .withMessage("Table id is invalid"),
+    body("qrToken").isString().isLength({ min: 20, max: 2048 }).withMessage("A valid QR table token is required"),
   ],
   validate,
   asyncHandler(async (req, res) => {

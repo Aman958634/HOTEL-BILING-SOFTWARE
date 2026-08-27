@@ -1,9 +1,9 @@
 import { getIO } from "../config/socket.js";
 
-const safeEmit = (event, payload) => {
+const safeEmit = (event, payload, userId) => {
   try {
     const io = getIO();
-    io.to("dashboard").emit(event, payload);
+    if (userId) io.to(`user:${userId}`).emit(event, payload);
   } catch (_error) {
     // Socket may be unavailable in script-only contexts.
   }
@@ -19,5 +19,5 @@ export const emitNotificationCreated = (notification) => {
     createdAt: notification.createdAt,
   };
 
-  safeEmit("notification:new", payload);
+  safeEmit("notification:new", payload, notification.user);
 };

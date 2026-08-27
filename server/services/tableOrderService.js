@@ -7,6 +7,7 @@ import {
   emitTableStatusChange,
   releaseOrderFromTable,
 } from "./tableStateService.js";
+import { deriveTableLifecycle } from "./lifecycleService.js";
 
 const tableLabel = (table) => (table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table");
 
@@ -76,19 +77,18 @@ export const recalculateTableStatus = async (tableId) => {
     return table;
   }
 
-  const activeOrders = await findActiveOrdersForTable(table._id);
+  const [orders, activeOrders] = await Promise.all([
+    Order.find({ table: table._id, isArchived: { $ne: true } })
+      .select("_id status paymentStatus billingStatus createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+    findActiveOrdersForTable(table._id),
+  ]);
   const activeCount = activeOrders.length;
   const latestActive = activeOrders[0];
 
-  if (activeCount > 0) {
-    table.status = TABLE_STATUS.OCCUPIED;
-    table.currentOrder = latestActive?._id || null;
-  } else {
-    table.currentOrder = null;
-    table.status = table.currentReservation
-      ? TABLE_STATUS.RESERVED
-      : TABLE_STATUS.AVAILABLE;
-  }
+  table.status = deriveTableLifecycle({ table, orders });
+  table.currentOrder = latestActive?._id || null;
 
   table.activeOrderCount = activeCount;
   await table.save();
@@ -144,6 +144,7 @@ export const reconcileTablesAvailability = async (tables = []) => {
   for (const table of list) {
     try {
       const currentStatus = String(table.status || "").toUpperCase();
+      const previousCurrentOrder = table.currentOrder || null;
       if (currentStatus === TABLE_STATUS.MAINTENANCE) continue;
 
       const info = countMap.get(String(table._id));
@@ -160,13 +161,13 @@ export const reconcileTablesAvailability = async (tables = []) => {
       table.activeOrderCount = activeCount;
 
       const statusChanged = currentStatus !== nextStatus;
-      const orderChanged = String(table.currentOrder || "") !== String(nextCurrentOrder || "");
+      const orderChanged = String(previousCurrentOrder || "") !== String(nextCurrentOrder || "");
 
       if (statusChanged || orderChanged) {
         bulk.push({
           updateOne: {
             filter: { _id: table._id },
-            update: { $set: { status: nextStatus, currentOrder: nextCurrentOrder } },
+          update: { $set: { status: nextStatus, currentOrder: nextCurrentOrder, activeOrderCount: activeCount } },
           },
         });
         emits.push({
@@ -217,6 +218,17 @@ export const assignTableForDineInOrder = async (tableId, orderId, { restaurantId
 
   assertTableTenant(table, restaurantId);
 
+  // An order has already been persisted at this point. Emit the intermediate
+  // lifecycle state only for an unoccupied table, then atomically seat it.
+  if ([TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED].includes(String(table.status).toUpperCase())) {
+    const orderCreated = await Table.findOneAndUpdate(
+      { _id: table._id, status: { $in: [TABLE_STATUS.AVAILABLE, TABLE_STATUS.RESERVED] } },
+      { $set: { status: TABLE_STATUS.ORDER_CREATED, currentOrder: orderId } },
+      { new: true }
+    );
+    if (orderCreated) emitTableStatusChange(orderCreated);
+  }
+
   const updated = await Table.findOneAndUpdate(
     { _id: table._id, status: { $ne: TABLE_STATUS.MAINTENANCE } },
     { $set: { status: TABLE_STATUS.OCCUPIED, currentOrder: orderId } },
@@ -262,6 +274,17 @@ export const maybeReleaseTableAfterSettlement = async (order) => {
 
   // Keep table occupied until order is completed AND paid.
   if (status === "COMPLETED" && paymentStatus === "PAID") {
+    const remainingOrders = await findActiveOrdersForTable(tableId);
+    if (remainingOrders.length === 0) {
+      for (const lifecycleStatus of [TABLE_STATUS.PAYMENT_VERIFIED, TABLE_STATUS.PAID]) {
+        const updated = await Table.findOneAndUpdate(
+          { _id: tableId, status: { $ne: TABLE_STATUS.MAINTENANCE } },
+          { $set: { status: lifecycleStatus, currentOrder: null, activeOrderCount: 0 } },
+          { new: true }
+        );
+        if (updated) emitTableStatusChange(updated);
+      }
+    }
     return recalculateTableStatus(tableId);
   }
 

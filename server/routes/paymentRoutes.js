@@ -14,13 +14,27 @@ import {
 } from "../controllers/paymentController.js";
 import { protect } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { requirePaymentAdminAccess, requirePaymentViewAccess } from "../middleware/paymentAuth.js";
+import { requirePaymentAdminAccess, requirePaymentSettlementAccess, requirePaymentViewAccess } from "../middleware/paymentAuth.js";
 
 const router = Router();
 
 router.post("/intent", protect, createPaymentIntent);
 router.post("/create-order", protect, createPaymentIntent);
-router.post("/verify", protect, verifyPayment);
+router.post(
+  "/verify",
+  protect,
+  requirePaymentSettlementAccess,
+  [
+    body("orderId").isMongoId().withMessage("A valid order id is required"),
+    body("provider").isIn(["razorpay", "cash"]).withMessage("Unsupported payment provider"),
+    body("paymentMethod").optional().isString().withMessage("Payment method is invalid"),
+    body("razorpay_order_id").if(body("provider").equals("razorpay")).notEmpty().withMessage("Razorpay order id is required"),
+    body("razorpay_payment_id").if(body("provider").equals("razorpay")).notEmpty().withMessage("Razorpay payment id is required"),
+    body("razorpay_signature").if(body("provider").equals("razorpay")).notEmpty().withMessage("Razorpay signature is required"),
+  ],
+  validate,
+  verifyPayment
+);
 router.get("/stats", protect, requirePaymentViewAccess, getPaymentStats);
 router.get("/export", protect, requirePaymentViewAccess, exportPayments);
 router.get("/:id/receipt", protect, requirePaymentViewAccess, getPaymentReceipt);

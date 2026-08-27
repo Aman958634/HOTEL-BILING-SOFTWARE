@@ -7,10 +7,13 @@ const CartPage = () => {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.cart.items);
   const tableNumber = useSelector((state) => state.cart.tableNumber);
+  const tableToken = useSelector((state) => state.cart.tableToken);
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const [searchParams] = useSearchParams();
 
-  const checkoutPath = tableNumber ? `/guest-checkout?table=${encodeURIComponent(tableNumber)}` : "/checkout";
+  const checkoutPath = tableNumber && tableToken
+    ? `/guest-checkout?table=${encodeURIComponent(tableNumber)}&token=${encodeURIComponent(tableToken)}`
+    : "/checkout";
 
   return (
     <div>

@@ -32,7 +32,9 @@ import {
 import { syncPaymentFromOrder } from "../services/paymentService.js";
 import { updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
+import { cancelKotTickets, createKotRevision, mergeItemsWithKitchenState } from "../services/kotService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
+import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -194,6 +196,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
   });
 
+  await createKotRevision({ order: populated, userId: req.user._id });
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -220,7 +223,14 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   const orderNumber = await generateOrderNumber();
 
   const tableId = req.body.table || null;
+  const qrContext = verifyQrOrderToken(req.body.qrToken);
+  if (String(qrContext.tableId) !== String(tableId)) {
+    throw new ApiError(403, "QR token does not match the selected table");
+  }
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+  if (String(qrContext.restaurantId) !== String(restaurantId)) {
+    throw new ApiError(403, "QR token does not match the selected restaurant");
+  }
 
   const order = await Order.create({
     orderNumber,
@@ -279,6 +289,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
   });
 
+  await createKotRevision({ order: populated });
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -377,14 +388,10 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
   const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
 
-  const existingStatusMap = new Map(
-    (order.items || []).map((item) => [String(item.menuItem), item.kitchenStatus || "NEW"])
-  );
-
-  const itemsWithKitchenStatus = nextItems.map((item) => ({
-    ...item,
-    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
-  }));
+  const itemsWithKitchenStatus = mergeItemsWithKitchenState({
+    previousItems: order.items || [],
+    nextItems,
+  });
 
   const calculated = buildCalculatedOrderPayload({
     orderType: nextOrderType,
@@ -400,10 +407,10 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const previousTable = order.table ? String(order.table) : null;
 
   order.orderType = nextOrderType;
-  order.items = calculated.items.map((item) => ({
-    ...item,
-    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
-  }));
+  order.items = mergeItemsWithKitchenState({
+    previousItems: order.items || [],
+    nextItems: calculated.items,
+  });
   order.subtotal = calculated.subtotal;
   order.discount = calculated.discount;
   order.tax = calculated.tax;
@@ -418,6 +425,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
     order.table = req.body.table;
   }
 
+  const itemsChanged = req.body.items !== undefined;
+  if (itemsChanged) order.kotRevision = Number(order.kotRevision || 0) + 1;
   await order.save();
 
   if (order.orderType === ORDER_TYPES.DINE_IN) {
@@ -437,6 +446,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name")
     .populate("statusHistory.changedBy", "fullName role");
+
+  if (itemsChanged) await createKotRevision({ order: populated, userId: req.user._id });
 
   await createOrderAuditLog({ user: req.user, action: "Order Updated", order: populated });
 
@@ -479,6 +490,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   addStatusHistoryEntry(order, ORDER_STATUSES.CANCELLED, req.user._id);
 
   await releaseOrderTableIfNeeded(order);
+  await cancelKotTickets({ order });
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
     title: "Order Cancelled",
@@ -522,6 +534,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   if (nextStatus === ORDER_STATUSES.CANCELLED) {
+    await cancelKotTickets({ order });
     await createOrderNotifications({
       title: "Order Cancelled",
       message: `${order.orderNumber} has been cancelled`,
@@ -563,26 +576,26 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
   const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
-  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
+  if (!["admin", "manager", "cashier"].includes(req.user.role)) {
     throw new ApiError(403, "Forbidden");
   }
 
-  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
-  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
+  if (req.body.paymentStatus !== undefined || req.body.transactionId || req.body.razorpayOrderId || req.body.razorpayPaymentId) {
+    throw new ApiError(422, "Payment status and transaction details are server-owned. Use payment verification.");
+  }
 
-  if (paymentStatus === PAYMENT_STATUSES.PAID && paymentMethod !== PAYMENT_METHODS.CASH && !req.body.gatewayVerified) {
-    throw new ApiError(422, "Payment cannot be marked as PAID without gateway verification");
+  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
+  const paymentStatus = normalizePaymentStatus(order.paymentStatus);
+
+  if (paymentStatus !== PAYMENT_STATUSES.PENDING && paymentStatus !== PAYMENT_STATUSES.FAILED) {
+    throw new ApiError(409, "Payment method cannot be changed after settlement has started");
   }
 
   const result = await updateOrderPaymentState(order, {
     paymentMethod,
     paymentStatus,
-    gateway: req.body.gateway || req.body.provider || paymentMethod,
-    transactionId: req.body.transactionId || "",
-    razorpayOrderId: req.body.razorpayOrderId || "",
-    razorpayPaymentId: req.body.razorpayPaymentId || "",
-    paidAt: req.body.paidAt || null,
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment updated to paid" : "Payment updated",
+    gateway: paymentMethod,
+    note: "Payment method selected",
   });
 
   const orderUpdate = result.order;
@@ -609,94 +622,11 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
 });
 
 export const payOrder = asyncHandler(async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
-
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
-  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
-
-  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
-    throw new ApiError(403, "Forbidden");
-  }
-
-  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
-  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || "PAID");
-
-  if (paymentStatus !== PAYMENT_STATUSES.PAID) {
-    throw new ApiError(422, "Pay endpoint only supports completed payments");
-  }
-
-  const result = await updateOrderPaymentState(order, {
-    paymentMethod,
-    paymentStatus: PAYMENT_STATUSES.PAID,
-    gateway: req.body.gateway || paymentMethod,
-    transactionId: req.body.transactionId || req.body.paymentId || "",
-    razorpayOrderId: req.body.razorpayOrderId || "",
-    razorpayPaymentId: req.body.razorpayPaymentId || "",
-    paidAt: req.body.paidAt || new Date(),
-    note: paymentMethod === PAYMENT_METHODS.CASH ? "Cash payment confirmed" : "Gateway payment verified",
-  });
-
-  await createOrderAuditLog({ user: req.user, action: "Order Paid", order: result.order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } });
-  await createOrderNotifications({
-    title: "Payment Received",
-    message: `${result.order.orderNumber} payment completed`,
-    actorUserId: req.user._id,
-    type: "PAYMENT_RECEIVED",
-    restaurantId: result.order.restaurant,
-    entityType: "Order",
-    entityId: result.order._id,
-    orderNumber: result.order.orderNumber,
-    total: result.order.total,
-    paymentMethod: paymentMethod,
-  });
-
-  emitOrderPaymentUpdated(result.order);
-  await maybeReleaseTableAfterSettlement(result.order);
-  res.status(200).json(new ApiResponse(true, "Order payment completed", normalizeOrderOutput(result.order)));
+  throw new ApiError(410, "This endpoint is retired. Create a payment intent and use server-side verification.");
 });
 
 export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
-  if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
-
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
-  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
-
-  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
-    throw new ApiError(403, "Forbidden");
-  }
-
-  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
-  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
-
-  const result = await updateOrderPaymentState(order, {
-    paymentMethod,
-    paymentStatus,
-    gateway: req.body.gateway || req.body.provider || paymentMethod,
-    transactionId: req.body.transactionId || "",
-    razorpayOrderId: req.body.razorpayOrderId || "",
-    razorpayPaymentId: req.body.razorpayPaymentId || "",
-    paidAt: req.body.paidAt || null,
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment verified successfully" : "Payment status updated",
-  });
-
-  if (paymentStatus === PAYMENT_STATUSES.PAID) {
-    await createOrderNotifications({
-      title: "Payment Received",
-      message: `${result.order.orderNumber} payment is now PAID`,
-      actorUserId: req.user._id,
-      type: "PAYMENT_RECEIVED",
-      restaurantId: result.order.restaurant,
-      entityType: "Order",
-      entityId: result.order._id,
-      orderNumber: result.order.orderNumber,
-      total: result.order.total,
-      paymentMethod: paymentMethod,
-    });
-  }
-
-  emitOrderPaymentUpdated(result.order);
-  await maybeReleaseTableAfterSettlement(result.order);
-  res.status(200).json(new ApiResponse(true, "Order payment status updated", normalizeOrderOutput(result.order)));
+  throw new ApiError(410, "This endpoint is retired. Use the payment verification workflow.");
 });
 
 export const getOrderStats = asyncHandler(async (req, res) => {

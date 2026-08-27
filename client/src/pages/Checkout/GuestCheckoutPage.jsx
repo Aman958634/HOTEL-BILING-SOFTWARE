@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { clearCart, setCartTableNumber } from "../../redux/slices/cartSlice";
+import { clearCart, setCartTableNumber, setCartTableToken } from "../../redux/slices/cartSlice";
 import { createGuestOrder } from "../../services/orderService";
 import { getTableByNumber } from "../../services/tableService";
 import { currency } from "../../utils/format";
@@ -12,6 +12,7 @@ const GuestCheckoutPage = () => {
   const items = useSelector((state) => state.cart.items);
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get("table") || useSelector((state) => state.cart.tableNumber);
+  const qrToken = searchParams.get("token") || useSelector((state) => state.cart.tableToken);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -28,7 +29,11 @@ const GuestCheckoutPage = () => {
 
     setPlacing(true);
     try {
-      const tableRes = await getTableByNumber(tableNumber);
+      if (!qrToken) {
+        toast.error("Please scan the table QR code again");
+        return;
+      }
+      const tableRes = await getTableByNumber(tableNumber, qrToken);
       const table = tableRes.data?.data;
       if (!table || !table._id) {
         toast.error("Invalid table");
@@ -38,6 +43,7 @@ const GuestCheckoutPage = () => {
       const payload = {
         orderType: "DINE_IN",
         table: table._id,
+        qrToken,
         restaurant: table.restaurant?._id || table.restaurant,
         items: items.map((item) => ({
           menuItem: item._id,
@@ -56,6 +62,7 @@ const GuestCheckoutPage = () => {
       await createGuestOrder(payload);
       dispatch(clearCart());
       dispatch(setCartTableNumber(null));
+      dispatch(setCartTableToken(null));
       toast.success("Order placed successfully");
     } catch {
       toast.error("Order failed. Please try again.");

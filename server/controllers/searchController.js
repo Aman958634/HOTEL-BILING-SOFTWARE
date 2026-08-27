@@ -67,8 +67,8 @@ const searchMenuItems = async (regex, restaurantFilter) => {
   }));
 };
 
-const searchCategories = async (regex) => {
-  const categories = await Category.find({ name: regex })
+const searchCategories = async (regex, restaurantFilter) => {
+  const categories = await Category.find({ ...restaurantFilter, name: regex })
     .sort({ createdAt: -1 })
     .limit(LIMIT_PER_CATEGORY)
     .lean();
@@ -237,7 +237,7 @@ export const search = asyncHandler(async (req, res) => {
   ] = await Promise.all([
     searchOrders(regex, restaurantFilter),
     searchMenuItems(regex, restaurantFilter),
-    searchCategories(regex),
+    searchCategories(regex, restaurantFilter),
     searchStaff(regex, restaurantFilter),
     searchTables(regex, restaurantFilter),
     searchPayments(regex, restaurantFilter, query),

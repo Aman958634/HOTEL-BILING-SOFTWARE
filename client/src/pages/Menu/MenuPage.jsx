@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { addToCart, setCartTableNumber } from "../../redux/slices/cartSlice";
+import { addToCart, setCartTableNumber, setCartTableToken } from "../../redux/slices/cartSlice";
 import { getCategories, getFoods } from "../../services/menuService";
 import { currency } from "../../utils/format";
 
@@ -17,6 +17,7 @@ const MenuPage = () => {
   const [error, setError] = useState("");
 
   const tableFromUrl = searchParams.get("table");
+  const tableTokenFromUrl = searchParams.get("token");
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -50,8 +51,9 @@ const MenuPage = () => {
   useEffect(() => {
     if (tableFromUrl) {
       dispatch(setCartTableNumber(tableFromUrl));
+      dispatch(setCartTableToken(tableTokenFromUrl || null));
     }
-  }, [tableFromUrl, dispatch]);
+  }, [tableFromUrl, tableTokenFromUrl, dispatch]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

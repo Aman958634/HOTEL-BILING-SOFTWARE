@@ -14,11 +14,7 @@ import {
   normalizeTableStatus,
   updateTableLifecycleState,
 } from "../services/tableStateService.js";
-import {
-  reconcileTablesAvailability,
-  findActiveOrdersForTable,
-  countActiveOrdersForTable,
-} from "../services/tableOrderService.js";
+import { findActiveOrdersForTable } from "../services/tableOrderService.js";
 
 const parseIntOrUndefined = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
@@ -174,10 +170,9 @@ export const getTables = asyncHandler(async (req, res) => {
     Table.countDocuments(filters),
   ]);
 
-  // Heal stale OCCUPIED status when no active order remains (keeps Create Order dropdown accurate)
-  const healedTables = await reconcileTablesAvailability(tables);
-
-  const tableIds = healedTables.map((table) => table._id);
+  // Reading a table board must never mutate lifecycle state. Only commands such
+  // as create/cancel/verified-payment are allowed to change a table.
+  const tableIds = tables.map((table) => table._id);
   const countRows = tableIds.length
     ? await Order.aggregate([
         {
@@ -192,7 +187,7 @@ export const getTables = asyncHandler(async (req, res) => {
     : [];
   const countMap = new Map(countRows.map((row) => [String(row._id), row.count]));
 
-  const tablesWithCounts = healedTables.map((table) => {
+  const tablesWithCounts = tables.map((table) => {
     const obj = table.toObject();
     obj.activeOrderCount = countMap.get(String(table._id)) || 0;
     return obj;
@@ -227,7 +222,11 @@ export const createTable = asyncHandler(async (req, res) => {
     floor: String(req.body.floor || "").trim(),
     section: String(req.body.section || "").trim(),
     shape: req.body.shape || "SQUARE",
-    status: req.body.status || TABLE_STATUS.AVAILABLE,
+    // Operational lifecycle states are server-owned; a new table cannot be
+    // created as occupied/billed from an admin form.
+    status: String(req.body.status || TABLE_STATUS.AVAILABLE).toUpperCase() === TABLE_STATUS.MAINTENANCE
+      ? TABLE_STATUS.MAINTENANCE
+      : TABLE_STATUS.AVAILABLE,
     description: req.body.description || "",
   };
 
@@ -251,13 +250,16 @@ export const updateTable = asyncHandler(async (req, res) => {
   const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!table) throw new ApiError(404, "Table not found");
 
+  if (req.body.status !== undefined) {
+    throw new ApiError(422, "Use the table status command. Lifecycle states are not editable fields.");
+  }
+
   const updates = {
     ...(req.body.tableNumber !== undefined ? { tableNumber: String(req.body.tableNumber).trim() } : {}),
     ...(req.body.capacity !== undefined ? { capacity: Number(req.body.capacity) } : {}),
     ...(req.body.floor !== undefined ? { floor: String(req.body.floor).trim() } : {}),
     ...(req.body.section !== undefined ? { section: String(req.body.section).trim() } : {}),
     ...(req.body.shape !== undefined ? { shape: req.body.shape } : {}),
-    ...(req.body.status !== undefined ? { status: req.body.status } : {}),
     ...(req.body.description !== undefined ? { description: req.body.description } : {}),
   };
 
@@ -303,6 +305,10 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
 
   const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!table) throw new ApiError(404, "Table not found");
+
+  if (![TABLE_STATUS.MAINTENANCE, TABLE_STATUS.AVAILABLE].includes(requestedStatus)) {
+    throw new ApiError(422, "Only MAINTENANCE can be set manually; table lifecycle is derived from server commands.");
+  }
 
   if (requestedStatus === TABLE_STATUS.MAINTENANCE) {
     const hasActiveOrder = await Order.exists({

@@ -26,6 +26,7 @@ import {
   emitKitchenOrderStatusChanged,
 } from "../socket/orderSocket.js";
 import { consumeOrderInventory } from "../services/inventoryService.js";
+import { syncKotKitchenStatus } from "../services/kotService.js";
 
 const BOARD_ORDER_STATUSES = [
   ORDER_STATUSES.PENDING,
@@ -62,6 +63,7 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
   }
 
   await order.save();
+  await syncKotKitchenStatus({ order, itemIndex, status: nextItemStatus });
 
 
   const populated = await Order.findById(order._id)
