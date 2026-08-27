@@ -1,4 +1,10 @@
-import KotTicket from "../models/KotTicket.js";
+import kotRepository from "../repositories/kotRepository.js";
+
+const contextFromOrder = (order) => ({
+  restaurantId: order.restaurant,
+  outletId: order.outlet,
+  role: "service",
+});
 
 const mapItems = (order) => (order.items || []).map((item) => ({
   menuItem: item.menuItem,
@@ -9,7 +15,7 @@ const mapItems = (order) => (order.items || []).map((item) => ({
 }));
 
 export const createKotRevision = async ({ order, userId = null, session = null }) => {
-  const query = KotTicket.findOneAndUpdate(
+  const query = kotRepository.findOneAndUpdate(contextFromOrder(order),
     { restaurant: order.restaurant, order: order._id, revision: Number(order.kotRevision || 0) },
     {
       $setOnInsert: {
@@ -45,7 +51,7 @@ export const mergeItemsWithKitchenState = ({ previousItems = [], nextItems = [] 
 };
 
 export const cancelKotTickets = async ({ order, session = null }) => {
-  const query = KotTicket.updateMany(
+  const query = kotRepository.updateMany(contextFromOrder(order),
     { restaurant: order.restaurant, order: order._id, status: { $in: ["NEW", "PREPARING", "READY"] } },
     { $set: { status: "CANCELLED", "items.$[].kitchenStatus": "CANCELLED" } }
   );
@@ -58,7 +64,7 @@ export const syncKotKitchenStatus = async ({ order, itemIndex = null, status, se
   const update = itemIndex == null
     ? { $set: { status, "items.$[].kitchenStatus": status } }
     : { $set: { status, [`items.${Number(itemIndex)}.kitchenStatus`]: status } };
-  const query = KotTicket.updateOne(filter, update);
+  const query = kotRepository.updateOne(contextFromOrder(order), filter, update);
   if (session) query.session(session);
   return query;
 };

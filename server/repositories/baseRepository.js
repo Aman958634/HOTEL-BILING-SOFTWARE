@@ -34,6 +34,7 @@ export const createRepository = (Model) => ({
   create: (context, document, options = {}) =>
     Model.create([{ ...document, ...scopedFilter(context) }], options).then(([created]) => created),
   update: (context, filter, update, options = {}) => Model.updateMany(scopedFilter(context, filter), update, options),
+  updateMany: (context, filter, update, options = {}) => Model.updateMany(scopedFilter(context, filter), update, options),
   updateOne: (context, filter, update, options = {}) => Model.updateOne(scopedFilter(context, filter), update, options),
   deleteOne: (context, filter, options = {}) => Model.deleteOne(scopedFilter(context, filter), options),
   aggregate: (context, pipeline = []) => {
