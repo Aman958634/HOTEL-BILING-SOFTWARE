@@ -188,11 +188,14 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
 
   const payload = {
     id: user._id,
+    userId: user._id,
     role: user.role,
     email: user.email,
     hotelId: user.hotelId || null,
     restaurant: restaurant._id,
+    restaurantId: restaurant._id,
     outletId: outlet._id,
+    outlet: outlet._id,
   };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);

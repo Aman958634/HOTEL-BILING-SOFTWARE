@@ -17,6 +17,10 @@ export const outletContext = async (req, _res, next) => {
     if (!user || !user.isActive) return next(new ApiError(401, "User not found or inactive"));
 
     const context = await resolveUserTenant({ ...user.toObject(), role: user.role });
+    const restaurantHeader = req.headers["x-restaurant-id"];
+    if (restaurantHeader && context.restaurantId && String(restaurantHeader) !== String(context.restaurantId)) {
+      return next(new ApiError(403, "Restaurant does not belong to this session"));
+    }
     const header = req.headers["x-outlet-id"];
     if (header && context.outletId && String(header) !== String(context.outletId)) {
       return next(new ApiError(403, "Outlet does not belong to this session"));

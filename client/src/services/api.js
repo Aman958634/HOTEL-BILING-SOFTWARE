@@ -35,6 +35,8 @@ const processQueue = (error, token = null) => {
 const clearAuthAndRedirectToLogin = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+  localStorage.removeItem("restaurantId");
+  localStorage.removeItem("outletId");
   authStore?.dispatch({ type: "auth/logout" });
   if (window.location.pathname !== "/login" && window.location.pathname !== "/super-admin-login") {
     window.location.replace("/login");

@@ -66,6 +66,7 @@ export const login = asyncHandler(async (req, res) => {
   const tenant = await resolveUserTenant(user);
   const payload = {
     id: user._id,
+    userId: user._id,
     role: user.role,
     email: user.email,
     ...tenantClaims(user, tenant),
@@ -118,6 +119,7 @@ export const refresh = asyncHandler(async (req, res) => {
   const tenant = await resolveUserTenant(user);
   const accessToken = generateAccessToken({
     id: user._id,
+    userId: user._id,
     role: user.role,
     email: user.email,
     ...tenantClaims(user, tenant),
