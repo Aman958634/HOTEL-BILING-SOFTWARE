@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { runWithTenantContext } from "../utils/tenantContext.js";
 
 /** Project-default super admin credentials (see server/.env.example). */
 export const getSuperAdminConfig = () => ({
@@ -16,6 +17,7 @@ export const shouldSeedSuperAdmin = () => process.env.SUPER_ADMIN_SEED !== "fals
  * - never changes password unless SUPER_ADMIN_RESET_PASSWORD=true
  */
 export const ensureSuperAdmin = async (log = console) => {
+  return runWithTenantContext({ role: "system", restaurantId: null, outletId: null }, async () => {
   const { email, password, fullName } = getSuperAdminConfig();
 
   const existingSuperAdmin = await User.findOne({ role: "super_admin" });
@@ -58,13 +60,16 @@ export const ensureSuperAdmin = async (log = console) => {
     return { action: "exists", email };
   }
 
-  await User.create({
-    fullName,
-    email,
-    password,
-    role: "super_admin",
-    isActive: true,
+  try {
+    await User.create({ fullName, email, password, role: "super_admin", isActive: true });
+    log.info?.(`Super admin created: ${email}`);
+    return { action: "created", email };
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const raced = await User.findOne({ email }).select("email role isActive");
+    if (!raced) throw error;
+    log.info?.(`Super admin already exists: ${raced.email}`);
+    return { action: "exists", email: raced.email };
+  }
   });
-  log.info?.(`Super admin created: ${email}`);
-  return { action: "created", email };
 };

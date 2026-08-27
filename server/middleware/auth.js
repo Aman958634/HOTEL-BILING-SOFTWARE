@@ -12,7 +12,10 @@ export const protect = async (req, _, next) => {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
+    const user = await runWithTenantContext(
+      { role: "system", restaurantId: null, outletId: null },
+      () => User.findById(decoded.id).select("-password")
+    );
 
     if (!user || !user.isActive) {
       return next(new ApiError(401, "User not found or inactive"));

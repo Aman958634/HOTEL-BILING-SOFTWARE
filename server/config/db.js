@@ -65,7 +65,7 @@ const connectDB = async () => {
 
   if (shouldSeedSuperAdmin()) {
     try {
-      await ensureSuperAdmin(logger);
+      await runWithTenantContext({ role: "system", restaurantId: null, outletId: null }, () => ensureSuperAdmin(logger));
     } catch (error) {
       logger.error(`Super admin seed failed: ${error.message}`);
     }
