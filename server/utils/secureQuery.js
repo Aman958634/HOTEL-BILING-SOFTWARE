@@ -16,6 +16,8 @@ export const secureFilter = (req, query = {}) => {
 
 export const secureQuery = (model, req, query = {}) => model.find(secureFilter(req, query));
 export const secureFindOne = (model, req, query = {}) => model.findOne(secureFilter(req, query));
+export const secureWrite = (model, req, query = {}, update = {}, options = {}) =>
+  model.updateOne(secureFilter(req, query), update, options);
 export const secureAggregate = (model, req, pipeline = []) => {
   const context = getOutletContext(req);
   const match = context.outlet ? { outlet: context.outlet, ...(context.restaurant ? { restaurant: context.restaurant } : {}) } : {};

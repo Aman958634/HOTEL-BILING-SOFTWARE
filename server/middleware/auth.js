@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import ApiError from "../utils/ApiError.js";
+import { runWithTenantContext } from "../utils/tenantContext.js";
 
 export const protect = async (req, _, next) => {
   try {
@@ -27,7 +28,11 @@ export const protect = async (req, _, next) => {
       fullName: user.fullName,
       isActive: user.isActive,
     };
-    return next();
+    return runWithTenantContext({
+      role: user.role,
+      restaurantId: user.restaurant || null,
+      outletId: user.outlet || null,
+    }, () => next());
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return next(new ApiError(401, "Session expired. Please login again."));
