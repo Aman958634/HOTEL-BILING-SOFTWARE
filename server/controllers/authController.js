@@ -84,7 +84,13 @@ export const login = asyncHandler(async (req, res) => {
     }
   );
   logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
-  res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken, context: tenantClaims(user, tenant) }));
+  res.status(200).json(new ApiResponse(true, "Logged in", {
+    user: safeUser,
+    accessToken,
+    refreshToken,
+    outletId: tenant.outletId,
+    context: tenantClaims(user, tenant),
+  }));
   } catch (error) {
     logger.error(`Login failed step=${loginStep} email=${email} message=${error.message}`, { stack: error.stack });
     throw error;

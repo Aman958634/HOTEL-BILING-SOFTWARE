@@ -5,6 +5,30 @@ import ApiError from "./ApiError.js";
 
 const toId = (value) => (value ? String(value) : null);
 
+const ensureDefaultOutlet = async (restaurantId) => {
+  try {
+    return await Outlet.findOneAndUpdate(
+      { restaurant: restaurantId, code: "MAIN" },
+      {
+        $setOnInsert: {
+          restaurant: restaurantId,
+          name: "Main Outlet",
+          code: "MAIN",
+          isActive: true,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    )
+      .select("_id restaurant isActive")
+      .lean();
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    return Outlet.findOne({ restaurant: restaurantId, code: "MAIN" })
+      .select("_id restaurant isActive")
+      .lean();
+  }
+};
+
 export const resolveUserTenant = async (user) => {
   if (!user) throw new ApiError(401, "Unauthorized");
 
@@ -42,7 +66,7 @@ export const resolveUserTenant = async (user) => {
     else if (outlets.length > 1) {
       throw new ApiError(403, "Outlet context is required for this account");
     } else {
-      throw new ApiError(403, "Outlet setup is missing for this restaurant");
+      outlet = await ensureDefaultOutlet(restaurant._id);
     }
   }
 
