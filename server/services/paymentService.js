@@ -332,6 +332,89 @@ export const updateOrderPaymentState = async (
   return { order: orderDoc, payment };
 };
 
+export const recordVerifiedPayment = async (
+  order,
+  {
+    amount,
+    paymentMethod,
+    gateway = "",
+    transactionId = "",
+    razorpayOrderId = "",
+    razorpayPaymentId = "",
+    paidAt = new Date(),
+    note = "Payment verified successfully",
+  } = {}
+) => {
+  const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order);
+  if (!orderDoc) throw new ApiError(404, "Order not found");
+
+  const billTotal = Number(orderDoc.total || 0);
+  const requestedAmount = amount === undefined || amount === null || amount === ""
+    ? billTotal
+    : Number(amount);
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+    throw new ApiError(422, "Payment amount must be greater than zero");
+  }
+
+  const successfulPayments = await Payment.find({
+    orderId: orderDoc._id,
+    paymentStatus: "PAID",
+  }).select("amount totalAmount").lean();
+  const paidBefore = successfulPayments.reduce(
+    (sum, payment) => sum + Number(payment.amount || payment.totalAmount || 0),
+    0
+  );
+  const remaining = Math.max(billTotal - paidBefore, 0);
+  if (requestedAmount > remaining + 0.01) {
+    throw new ApiError(422, "Payment amount exceeds the remaining balance");
+  }
+
+  const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
+  const payment = new Payment({
+    paymentId: await nextPaymentSequence(),
+    orderId: orderDoc._id,
+    customerId: orderDoc.customer?._id || orderDoc.customer || null,
+    tableId: orderDoc.table?._id || orderDoc.table || null,
+    restaurant: orderDoc.restaurant || null,
+    amount: requestedAmount,
+    currency: "INR",
+    subtotal: Number(orderDoc.subtotal || 0),
+    tax: Number(orderDoc.tax || 0),
+    discount: Number(orderDoc.discount || 0),
+    serviceCharge: Number(orderDoc.serviceCharge || 0),
+    totalAmount: requestedAmount,
+    paymentMethod: method,
+    gateway: normalizeGateway(gateway),
+    paymentStatus: "PAID",
+    transactionId: transactionId || `CASH-${Date.now()}-${String(orderDoc._id).slice(-6)}`,
+    razorpayOrderId: razorpayOrderId || "",
+    razorpayPaymentId: razorpayPaymentId || "",
+    paidAt: paidAt ? new Date(paidAt) : new Date(),
+    metadata: { verified: true },
+    timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
+  });
+  await payment.save();
+
+  const paidTotal = paidBefore + requestedAmount;
+  const fullyPaid = paidTotal + 0.01 >= billTotal;
+  orderDoc.paymentMethod = method;
+  orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
+  orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
+  if (fullyPaid) orderDoc.status = "COMPLETED";
+  await orderDoc.save();
+
+  if (fullyPaid) {
+    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+    await maybeReleaseTableAfterSettlement(orderDoc);
+  }
+
+  await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
+  await payment.populate("customerId", "fullName email phone avatar");
+  await payment.populate("tableId", "tableNumber floor section");
+  emitPaymentCreated(serializePayment(payment));
+  return { order: orderDoc, payment, paidTotal, remaining: Math.max(billTotal - paidTotal, 0), fullyPaid };
+};
+
 export const completeOrderPayment = async (order, options = {}) =>
   updateOrderPaymentState(order, {
     ...options,

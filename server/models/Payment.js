@@ -27,7 +27,7 @@ const paymentTimelineSchema = new mongoose.Schema(
 const paymentSchema = new mongoose.Schema(
   {
     paymentId: { type: String, required: true, unique: true, index: true, trim: true },
-    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true, index: true },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     tableId: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },

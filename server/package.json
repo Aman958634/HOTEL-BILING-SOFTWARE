@@ -8,6 +8,7 @@
     "dev": "kill-port 5002 && nodemon server.js",
     "start": "node server.js",
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
+    "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "lint": "echo \"Add ESLint config\""
   },

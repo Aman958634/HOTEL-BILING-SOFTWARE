@@ -122,6 +122,7 @@ router.patch(
 		param("id").isMongoId().withMessage("Invalid order id"),
 		body("paymentMethod").optional().isString().withMessage("Payment method is invalid"),
 		body("paymentStatus").optional().isString().withMessage("Payment status is invalid"),
+		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
 	updateOrderPayment
@@ -133,6 +134,7 @@ router.post(
 		param("id").isMongoId().withMessage("Invalid order id"),
 		body("paymentMethod").optional().isString().withMessage("Payment method is invalid"),
 		body("paymentStatus").optional().isString().withMessage("Payment status is invalid"),
+		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
 	payOrder
@@ -144,6 +146,7 @@ router.put(
 		param("id").isMongoId().withMessage("Invalid order id"),
 		body("paymentMethod").optional().isString().withMessage("Payment method is invalid"),
 		body("paymentStatus").optional().isString().withMessage("Payment status is invalid"),
+		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
 	updateOrderPaymentStatus

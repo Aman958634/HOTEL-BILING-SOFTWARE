@@ -29,8 +29,7 @@ import {
   prepareOrderItems,
   searchCustomers,
 } from "../services/orderService.js";
-import { syncPaymentFromOrder } from "../services/paymentService.js";
-import { updateOrderPaymentState } from "../services/paymentService.js";
+import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import {
@@ -574,16 +573,27 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Payment cannot be marked as PAID without gateway verification");
   }
 
-  const result = await updateOrderPaymentState(order, {
-    paymentMethod,
-    paymentStatus,
-    gateway: req.body.gateway || req.body.provider || paymentMethod,
-    transactionId: req.body.transactionId || "",
-    razorpayOrderId: req.body.razorpayOrderId || "",
-    razorpayPaymentId: req.body.razorpayPaymentId || "",
-    paidAt: req.body.paidAt || null,
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment updated to paid" : "Payment updated",
-  });
+  const result = paymentStatus === PAYMENT_STATUSES.PAID
+    ? await recordVerifiedPayment(order, {
+        amount: req.body.amount,
+        paymentMethod,
+        gateway: req.body.gateway || req.body.provider || paymentMethod,
+        transactionId: req.body.transactionId || "",
+        razorpayOrderId: req.body.razorpayOrderId || "",
+        razorpayPaymentId: req.body.razorpayPaymentId || "",
+        paidAt: req.body.paidAt || new Date(),
+        note: "Payment updated to paid",
+      })
+    : await updateOrderPaymentState(order, {
+        paymentMethod,
+        paymentStatus,
+        gateway: req.body.gateway || req.body.provider || paymentMethod,
+        transactionId: req.body.transactionId || "",
+        razorpayOrderId: req.body.razorpayOrderId || "",
+        razorpayPaymentId: req.body.razorpayPaymentId || "",
+        paidAt: req.body.paidAt || null,
+        note: "Payment updated",
+      });
 
   const orderUpdate = result.order;
 
@@ -625,9 +635,9 @@ export const payOrder = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Pay endpoint only supports completed payments");
   }
 
-  const result = await updateOrderPaymentState(order, {
+  const result = await recordVerifiedPayment(order, {
+    amount: req.body.amount,
     paymentMethod,
-    paymentStatus: PAYMENT_STATUSES.PAID,
     gateway: req.body.gateway || paymentMethod,
     transactionId: req.body.transactionId || req.body.paymentId || "",
     razorpayOrderId: req.body.razorpayOrderId || "",
@@ -668,16 +678,27 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
   const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
 
-  const result = await updateOrderPaymentState(order, {
-    paymentMethod,
-    paymentStatus,
-    gateway: req.body.gateway || req.body.provider || paymentMethod,
-    transactionId: req.body.transactionId || "",
-    razorpayOrderId: req.body.razorpayOrderId || "",
-    razorpayPaymentId: req.body.razorpayPaymentId || "",
-    paidAt: req.body.paidAt || null,
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment verified successfully" : "Payment status updated",
-  });
+  const result = paymentStatus === PAYMENT_STATUSES.PAID
+    ? await recordVerifiedPayment(order, {
+        amount: req.body.amount,
+        paymentMethod,
+        gateway: req.body.gateway || req.body.provider || paymentMethod,
+        transactionId: req.body.transactionId || "",
+        razorpayOrderId: req.body.razorpayOrderId || "",
+        razorpayPaymentId: req.body.razorpayPaymentId || "",
+        paidAt: req.body.paidAt || new Date(),
+        note: "Payment verified successfully",
+      })
+    : await updateOrderPaymentState(order, {
+        paymentMethod,
+        paymentStatus,
+        gateway: req.body.gateway || req.body.provider || paymentMethod,
+        transactionId: req.body.transactionId || "",
+        razorpayOrderId: req.body.razorpayOrderId || "",
+        razorpayPaymentId: req.body.razorpayPaymentId || "",
+        paidAt: req.body.paidAt || null,
+        note: "Payment status updated",
+      });
 
   if (paymentStatus === PAYMENT_STATUSES.PAID) {
     await createOrderNotifications({

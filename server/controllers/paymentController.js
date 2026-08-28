@@ -20,7 +20,7 @@ import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import {
   applyRefundToPayment,
   buildPaymentReceipt,
-  completeOrderPayment,
+  recordVerifiedPayment,
   getRazorpayClient,
   serializePayment,
   stripe,
@@ -361,7 +361,8 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
   const payment =
     nextStatus === "PAID"
-      ? (await completeOrderPayment(order, {
+        ? (await recordVerifiedPayment(order, {
+          amount: req.body.amount,
           paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
           gateway: provider || meta.provider || "Razorpay",
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
