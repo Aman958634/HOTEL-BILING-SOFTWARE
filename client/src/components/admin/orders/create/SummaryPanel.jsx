@@ -10,7 +10,6 @@ const SummaryPanel = ({
   orderType,
   notes,
   onNotesChange,
-  onTaxPercentChange,
   onServiceChargePercentChange,
 }) => (
   <aside className="lg:sticky lg:top-4 lg:self-start">
@@ -28,22 +27,8 @@ const SummaryPanel = ({
           <span className="font-medium text-rose-600">-{currency(totals.discount)}</span>
         </div>
 
-        <div>
-          <label htmlFor="summary-tax" className={labelClass}>Tax {taxPercent ? `(${taxPercent}%)` : ""}</label>
-          <input
-            id="summary-tax"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            className={fieldClass}
-            value={taxPercent}
-            onChange={(e) => onTaxPercentChange(e.target.value)}
-            placeholder="0"
-          />
-        </div>
         <div className="flex justify-between text-slate-600">
-          <span>Tax</span>
+          <span>GST ({taxPercent || 18}%)</span>
           <span className="font-medium text-slate-900">{currency(totals.tax)}</span>
         </div>
 

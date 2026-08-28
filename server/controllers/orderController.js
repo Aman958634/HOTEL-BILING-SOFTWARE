@@ -3,10 +3,11 @@ import Order from "../models/Order.js";
 import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
+import Restaurant from "../models/Restaurant.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { buildInvoiceBuffer } from "../services/invoiceService.js";
+import { buildInvoiceBuffer, refreshInvoice } from "../services/invoiceService.js";
 import {
   ORDER_STATUSES,
   ORDER_TYPES,
@@ -33,6 +34,7 @@ import {
 import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
+import { resolveGstType } from "../services/gstService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import {
   emitOrderCancelled,
@@ -107,6 +109,11 @@ const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   return restaurant._id;
 };
 
+const resolveOrderGstType = async (restaurantId, billingState) => {
+  const restaurant = restaurantId ? await Restaurant.findById(restaurantId).select("state").lean() : null;
+  return resolveGstType({ restaurantState: restaurant?.state, billingState });
+};
+
 export const createOrder = asyncHandler(async (req, res) => {
   const role = req.user.role;
   if (!["admin", "manager", "cashier", "waiter", "customer"].includes(role)) {
@@ -123,20 +130,20 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const processedItems = await prepareOrderItems(req.body.items || []);
-  const calculated = buildCalculatedOrderPayload({
-    orderType,
-    items: processedItems,
-    discount: req.body.discount,
-    tax: req.body.tax,
-    taxPercent: req.body.taxPercent,
-    serviceCharge: req.body.serviceCharge,
-    serviceChargePercent: req.body.serviceChargePercent,
-    deliveryCharge: req.body.deliveryCharge,
-  });
 
   const orderNumber = await generateOrderNumber();
 
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const billingState = req.body.billingState || req.body.customerState || "";
+  const calculated = buildCalculatedOrderPayload({
+    orderType,
+    items: processedItems,
+    discount: req.body.discount,
+    serviceCharge: req.body.serviceCharge,
+    serviceChargePercent: req.body.serviceChargePercent,
+    deliveryCharge: req.body.deliveryCharge,
+    gstType: await resolveOrderGstType(restaurantId, billingState),
+  });
 
   const order = await Order.create({
     orderNumber,
@@ -150,6 +157,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     tax: calculated.tax,
     serviceCharge: calculated.serviceCharge,
     deliveryCharge: calculated.deliveryCharge,
+    taxableAmount: calculated.taxableAmount,
+    gstType: calculated.gstType,
+    cgst: calculated.cgst,
+    sgst: calculated.sgst,
+    igst: calculated.igst,
     total: calculated.total,
     paymentMethod,
     paymentStatus,
@@ -158,7 +170,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
-    billingState: req.body.billingState || req.body.customerState || "",
+    billingState,
     notes: req.body.notes || "",
   });
 
@@ -209,21 +221,21 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
   const processedItems = await prepareOrderItems(req.body.items || []);
-  const calculated = buildCalculatedOrderPayload({
-    orderType,
-    items: processedItems,
-    discount: req.body.discount,
-    tax: req.body.tax,
-    taxPercent: req.body.taxPercent,
-    serviceCharge: req.body.serviceCharge,
-    serviceChargePercent: req.body.serviceChargePercent,
-    deliveryCharge: req.body.deliveryCharge,
-  });
 
   const orderNumber = await generateOrderNumber();
 
   const tableId = req.body.table || null;
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+  const billingState = req.body.billingState || req.body.customerState || "";
+  const calculated = buildCalculatedOrderPayload({
+    orderType,
+    items: processedItems,
+    discount: req.body.discount,
+    serviceCharge: req.body.serviceCharge,
+    serviceChargePercent: req.body.serviceChargePercent,
+    deliveryCharge: req.body.deliveryCharge,
+    gstType: await resolveOrderGstType(restaurantId, billingState),
+  });
 
   const order = await Order.create({
     orderNumber,
@@ -237,6 +249,11 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     tax: calculated.tax,
     serviceCharge: calculated.serviceCharge,
     deliveryCharge: calculated.deliveryCharge,
+    taxableAmount: calculated.taxableAmount,
+    gstType: calculated.gstType,
+    cgst: calculated.cgst,
+    sgst: calculated.sgst,
+    igst: calculated.igst,
     total: calculated.total,
     paymentMethod,
     paymentStatus,
@@ -245,7 +262,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     createdBy: null,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
-    billingState: req.body.billingState || req.body.customerState || "",
+    billingState,
     notes: req.body.notes || "",
   });
 
@@ -412,11 +429,13 @@ export const updateOrder = asyncHandler(async (req, res) => {
     orderType: nextOrderType,
     items: itemsWithKitchenStatus,
     discount: req.body.discount !== undefined ? req.body.discount : order.discount,
-    tax: req.body.tax !== undefined ? req.body.tax : order.tax,
-    taxPercent: req.body.taxPercent,
     serviceCharge: req.body.serviceCharge !== undefined ? req.body.serviceCharge : order.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge !== undefined ? req.body.deliveryCharge : order.deliveryCharge,
+    gstType: await resolveOrderGstType(
+      order.restaurant,
+      req.body.billingState ?? req.body.customerState ?? order.billingState
+    ),
   });
 
   const previousTable = order.table ? String(order.table) : null;
@@ -431,8 +450,14 @@ export const updateOrder = asyncHandler(async (req, res) => {
   order.tax = calculated.tax;
   order.serviceCharge = calculated.serviceCharge;
   order.deliveryCharge = calculated.deliveryCharge;
+  order.taxableAmount = calculated.taxableAmount;
+  order.gstType = calculated.gstType;
+  order.cgst = calculated.cgst;
+  order.sgst = calculated.sgst;
+  order.igst = calculated.igst;
   order.total = calculated.total;
   order.specialInstructions = req.body.specialInstructions ?? order.specialInstructions;
+  order.billingState = req.body.billingState ?? req.body.customerState ?? order.billingState;
 
   if (nextOrderType !== ORDER_TYPES.DINE_IN) {
     order.table = null;
@@ -502,6 +527,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   addStatusHistoryEntry(order, ORDER_STATUSES.CANCELLED, req.user._id);
 
   await syncKotForOrder(order);
+  await refreshInvoice(order);
   await releaseOrderTableIfNeeded(order);
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
@@ -541,6 +567,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   addStatusHistoryEntry(order, nextStatus, req.user._id);
   await order.save();
   await syncKotForOrder(order);
+  if (nextStatus === ORDER_STATUSES.CANCELLED) await refreshInvoice(order);
 
   if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(nextStatus)) {
     await maybeReleaseTableAfterSettlement(order);

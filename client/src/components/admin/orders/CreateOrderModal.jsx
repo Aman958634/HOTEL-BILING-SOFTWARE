@@ -51,7 +51,7 @@ const buildInitialState = (initialData, menuItems, categories) => {
     specialInstructions: initialData?.specialInstructions || "",
     notes: initialData?.notes || "",
     discountPercent: derivePercent(discount, subtotal),
-    taxPercent: derivePercent(initialData?.tax, taxableBase),
+    taxPercent: 18,
     serviceChargePercent: derivePercent(initialData?.serviceCharge, taxableBase),
     deliveryCharge: initialData?.deliveryCharge ?? "",
     deliveryAddress: initialData?.deliveryAddress || "",

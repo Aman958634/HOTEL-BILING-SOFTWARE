@@ -1,11 +1,10 @@
 import PDFDocument from "pdfkit";
 import Invoice from "../models/Invoice.js";
 import Payment from "../models/Payment.js";
-import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
 import ApiError from "../utils/ApiError.js";
+import { calculateGst, resolveGstType } from "./gstService.js";
 
-const GST_RATE = 0.18;
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
 const getInvoiceNumber = async () => {
@@ -17,30 +16,32 @@ const getInvoiceNumber = async () => {
   return `INV-${String(sequence.value).padStart(6, "0")}`;
 };
 
-const normalizeState = (value) => String(value || "").trim().toLowerCase();
-
-const getGstType = (restaurant, order) => {
-  const restaurantState = normalizeState(restaurant?.state);
-  const customerState = normalizeState(order?.billingState || order?.customer?.state);
-  return restaurantState && customerState && restaurantState !== customerState ? "IGST" : "CGST_SGST";
-};
-
 const buildInvoiceSnapshot = async (order) => {
   const restaurantId = order.restaurant?._id || order.restaurant || null;
-  const restaurant = restaurantId ? await Restaurant.findById(restaurantId).select("state").lean() : null;
   const items = (order.items || []).map((item) => ({
     name: item.name || item.menuItem?.name || "Item",
     quantity: Number(item.quantity || 0),
     price: Number(item.price || 0),
-    subtotal: round2(Number(item.price || 0) * Number(item.quantity || 0)),
+    subtotal: round2(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0)),
   }));
-  const subtotal = round2(items.reduce((sum, item) => sum + item.subtotal, 0));
-  const gstType = getGstType(restaurant, order);
-  const totalTax = round2(subtotal * GST_RATE);
-  const cgst = gstType === "CGST_SGST" ? round2(totalTax / 2) : 0;
-  const sgst = gstType === "CGST_SGST" ? round2(totalTax - cgst) : 0;
-  const igst = gstType === "IGST" ? totalTax : 0;
-  const total = round2(subtotal + totalTax);
+  // The order is the bill source of truth. Invoice generation deliberately
+  // snapshots its persisted totals instead of calculating a second bill.
+  const subtotal = round2(order.subtotal ?? items.reduce((sum, item) => sum + item.subtotal, 0));
+  const discount = round2(order.discount || 0);
+  const taxableAmount = round2(order.taxableAmount ?? Math.max(subtotal - discount, 0));
+  const fallbackGst = calculateGst(taxableAmount, order.gstType || resolveGstType({ billingState: order.billingState }));
+  const totalTax = round2(order.tax ?? fallbackGst.totalTax);
+  const storedTaxParts = round2(Number(order.cgst || 0) + Number(order.sgst || 0) + Number(order.igst || 0));
+  // Mongoose supplies zero defaults to legacy orders. Treat zero tax parts
+  // with a non-zero stored tax as legacy data and safely reconstruct its GST.
+  const useStoredGstParts = storedTaxParts > 0 || totalTax === 0;
+  const gstType = useStoredGstParts ? order.gstType || fallbackGst.gstType : fallbackGst.gstType;
+  const cgst = round2(useStoredGstParts ? order.cgst || 0 : fallbackGst.cgst);
+  const sgst = round2(useStoredGstParts ? order.sgst || 0 : fallbackGst.sgst);
+  const igst = round2(useStoredGstParts ? order.igst || 0 : fallbackGst.igst);
+  const serviceCharge = round2(order.serviceCharge || 0);
+  const deliveryCharge = round2(order.deliveryCharge || 0);
+  const total = round2(order.total ?? subtotal - discount + totalTax + serviceCharge + deliveryCharge);
   const payments = await Payment.find({ orderId: order._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } })
     .sort({ paidAt: 1, createdAt: 1 })
     .lean();
@@ -56,7 +57,27 @@ const buildInvoiceSnapshot = async (order) => {
   const netTotal = round2(Math.max(total - refundTotal, 0));
   const netTax = total > 0 ? round2(totalTax * (netTotal / total)) : 0;
   const status = refundTotal >= total ? "REFUNDED" : refundTotal > 0 ? "PARTIALLY_REFUNDED" : "FINAL";
-  return { restaurant: restaurantId, items, gstType, subtotal, cgst, sgst, igst, totalTax, total, totalPaid, refundTotal, netTotal, netTax, paymentBreakdown, status };
+  return {
+    restaurant: restaurantId,
+    items,
+    gstType,
+    subtotal,
+    discount,
+    taxableAmount,
+    serviceCharge,
+    deliveryCharge,
+    cgst,
+    sgst,
+    igst,
+    totalTax,
+    total,
+    totalPaid,
+    refundTotal,
+    netTotal,
+    netTax,
+    paymentBreakdown,
+    status,
+  };
 };
 
 /** Create one immutable-number invoice only after the order is fully paid. */

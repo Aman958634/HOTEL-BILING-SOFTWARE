@@ -9,7 +9,7 @@ const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 1
 export const calculateOrderTotals = ({
   items = [],
   discount = 0,
-  taxPercent = 0,
+  taxPercent = 18,
   serviceChargePercent = 0,
   deliveryCharge = 0,
   orderType = "DINE_IN",
@@ -26,7 +26,9 @@ export const calculateOrderTotals = ({
   safeDiscount = Math.min(safeDiscount, subtotal);
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
-  const tax = round2((taxableBase * Math.max(0, toNumber(taxPercent))) / 100);
+  // Mirrors the statutory server calculation: GST is always 18% (9% CGST +
+  // 9% SGST for same-state billing, or 18% IGST for inter-state billing).
+  const tax = round2((taxableBase * Math.max(18, toNumber(taxPercent, 18))) / 100);
   const serviceCharge = round2((taxableBase * Math.max(0, toNumber(serviceChargePercent))) / 100);
   const resolvedDeliveryCharge =
     String(orderType).toUpperCase() === "DELIVERY" ? Math.max(0, toNumber(deliveryCharge)) : 0;

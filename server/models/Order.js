@@ -100,6 +100,11 @@ const orderSchema = new mongoose.Schema(
     tax: { type: Number, default: 0, min: 0 },
     serviceCharge: { type: Number, default: 0, min: 0 },
     deliveryCharge: { type: Number, default: 0, min: 0 },
+    taxableAmount: { type: Number, default: 0, min: 0 },
+    gstType: { type: String, enum: ["CGST_SGST", "IGST"], default: "CGST_SGST", index: true },
+    cgst: { type: Number, default: 0, min: 0 },
+    sgst: { type: Number, default: 0, min: 0 },
+    igst: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
     paymentMethod: {
       type: String,

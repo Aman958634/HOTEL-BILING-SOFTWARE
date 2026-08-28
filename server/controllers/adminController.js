@@ -81,9 +81,10 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     sumInvoiceSales(invoiceMatch),
     sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: todayStart } }),
     sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
-    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" } }),
-    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" }, issuedAt: { $gte: todayStart } }),
-    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" }, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    // Revenue is invoice-based; paid-order count is intentionally order-based.
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID" }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: todayStart } }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: yesterdayStart, $lt: todayStart } }),
     Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
     Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
     Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
@@ -175,20 +176,20 @@ export const salesOverview = asyncHandler(async (req, res) => {
     groupFormat = "%Y-%m";
   }
 
-  const paymentMatch = await buildRestaurantQuery(
+  const invoiceMatch = await buildRestaurantQuery(
     {
-      createdAt: { $gte: startDate },
-      paymentStatus: { $in: PAID_PAYMENT_STATUSES },
+      issuedAt: { $gte: startDate },
+      status: { $ne: "VOID" },
     },
     req.user
   );
 
-  const data = await Payment.aggregate([
-    { $match: paymentMatch },
+  const data = await Invoice.aggregate([
+    { $match: invoiceMatch },
     {
       $group: {
-        _id: { $dateToString: { format: groupFormat, date: "$createdAt" } },
-        revenue: netRevenueExpr,
+        _id: { $dateToString: { format: groupFormat, date: "$issuedAt" } },
+        revenue: { $sum: "$netTotal" },
         orders: { $sum: 1 },
       },
     },

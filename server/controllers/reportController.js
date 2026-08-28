@@ -173,7 +173,12 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
       { $match: orderMatch },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
-    Order.distinct("customer", { ...orderMatch, customer: { $ne: null } }),
+    Order.distinct("customer", {
+      ...orderMatch,
+      customer: { $ne: null },
+      status: { $ne: "CANCELLED" },
+      paymentStatus: "PAID",
+    }),
     Invoice.aggregate([
       { $match: invoiceMatch },
       {
@@ -184,7 +189,13 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
         },
       },
     ]),
-    Invoice.countDocuments(invoiceMatch),
+    Order.countDocuments({
+      ...restaurantFilter,
+      isArchived: { $ne: true },
+      status: { $ne: "CANCELLED" },
+      paymentStatus: "PAID",
+      paidAt: { $gte: rangeContext.start, $lt: rangeContext.end },
+    }),
   ]);
 
   const statusMap = orderStatusRows.reduce((acc, row) => {

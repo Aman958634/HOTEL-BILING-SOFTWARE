@@ -115,10 +115,16 @@ const buildOrderLookup = async (orderId, session = null) => {
 };
 
 const getSuccessfulPaymentTotal = async (orderId, session = null) => {
-  let query = Payment.find({ orderId, paymentStatus: "PAID" }).select("amount totalAmount").lean();
+  let query = Payment.find({
+    orderId,
+    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED"] },
+  }).select("amount totalAmount refundAmount").lean();
   if (session) query = query.session(session);
   const payments = await query;
-  return payments.reduce((sum, payment) => sum + Number(payment.amount || payment.totalAmount || 0), 0);
+  return payments.reduce(
+    (sum, payment) => sum + Math.max(Number(payment.amount || payment.totalAmount || 0) - Number(payment.refundAmount || 0), 0),
+    0
+  );
 };
 
 export const serializePayment = (payment) => {
@@ -477,7 +483,14 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
   await paymentDoc.populate("refundedBy", "fullName email role");
 
   if (orderDoc) {
-    orderDoc.paymentStatus = nextStatus;
+    const refundedPayments = await Payment.find({ orderId: orderDoc._id }).select("refundAmount").lean();
+    const totalRefundedForOrder = refundedPayments.reduce(
+      (sum, item) => sum + Number(item.refundAmount || 0),
+      0
+    );
+    orderDoc.paymentStatus = totalRefundedForOrder + 0.01 >= Number(orderDoc.total || 0)
+      ? "REFUNDED"
+      : "PARTIALLY_REFUNDED";
     await orderDoc.save();
     await refreshInvoice(orderDoc);
   }

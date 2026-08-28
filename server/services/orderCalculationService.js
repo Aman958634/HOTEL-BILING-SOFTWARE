@@ -1,4 +1,5 @@
 import ApiError from "../utils/ApiError.js";
+import { calculateGst } from "./gstService.js";
 
 const toNumber = (value, fallback = 0) => {
   const num = Number(value);
@@ -10,8 +11,7 @@ const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 1
 export const calculateOrderAmounts = ({
   items,
   discount = 0,
-  tax = null,
-  taxPercent = 18,
+  gstType = "CGST_SGST",
   serviceCharge = null,
   serviceChargePercent = 0,
   deliveryCharge = 0,
@@ -50,9 +50,11 @@ export const calculateOrderAmounts = ({
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
 
-  // POS bills are GST-inclusive only through this calculation path. The
-  // configured/legacy input cannot lower the statutory 18% tax below GST.
-  const resolvedTax = round2((taxableBase * Math.max(18, toNumber(taxPercent, 18))) / 100);
+  // GST is always derived from the bill's taxable item amount: 9% + 9% for
+  // intra-state sales or 18% IGST for inter-state sales. Client tax inputs
+  // never override this calculation.
+  const gst = calculateGst(taxableBase, gstType);
+  const resolvedTax = gst.totalTax;
 
   const resolvedServiceCharge = serviceCharge !== null && serviceCharge !== undefined
     ? Math.max(0, toNumber(serviceCharge))
@@ -73,6 +75,11 @@ export const calculateOrderAmounts = ({
     tax: round2(resolvedTax),
     serviceCharge: round2(resolvedServiceCharge),
     deliveryCharge: round2(resolvedDeliveryCharge),
+    taxableAmount: round2(taxableBase),
+    gstType: gst.gstType,
+    cgst: gst.cgst,
+    sgst: gst.sgst,
+    igst: gst.igst,
     total,
   };
 };
