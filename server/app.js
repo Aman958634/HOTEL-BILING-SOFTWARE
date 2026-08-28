@@ -12,6 +12,7 @@ import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { requireDb } from "./middleware/dbReady.js";
 import { isDbConnected } from "./config/db.js";
+import { isDatabaseRestoreInProgress } from "./services/backupService.js";
 import { isOriginAllowed } from "./utils/allowedOrigins.js";
 import authRoutes from "./routes/authRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
@@ -72,6 +73,9 @@ app.get("/api-docs/openapi.json", (_req, res) => {
 app.use((req, res, next) => {
   if (!req.path.startsWith("/api")) return next();
   if (req.path === "/api/v1/health") return next();
+  if (isDatabaseRestoreInProgress()) {
+    return res.status(503).json({ success: false, message: "Database restore is in progress. Please retry shortly." });
+  }
   return requireDb(req, res, next);
 });
 

@@ -368,6 +368,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
           razorpayOrderId: razorpay_order_id || meta.razorpayOrderId || "",
           razorpayPaymentId: razorpay_payment_id || meta.razorpayPaymentId || "",
+          idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
           paidAt: new Date(),
           note: "Payment verified successfully",
         })).payment

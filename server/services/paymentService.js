@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import Razorpay from "razorpay";
+import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import Restaurant from "../models/Restaurant.js";
@@ -278,6 +279,7 @@ export const syncPaymentFromOrder = async (
 export const updateOrderPaymentState = async (
   order,
   {
+    amount = undefined,
     paymentMethod,
     paymentStatus,
     gateway = "",
@@ -287,6 +289,7 @@ export const updateOrderPaymentState = async (
     paidAt = null,
     note = "",
     session = null,
+    idempotencyKey = "",
   } = {}
 ) => {
   const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
@@ -294,27 +297,31 @@ export const updateOrderPaymentState = async (
 
   const nextPaymentMethod = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
   const nextPaymentStatus = normalizePaymentStatus(paymentStatus || orderDoc.paymentStatus || "PENDING");
-  const orderWasPaid = normalizePaymentStatus(orderDoc.paymentStatus) === "PAID";
 
-  if (orderWasPaid && nextPaymentStatus === "PAID") {
-    throw new ApiError(409, "Payment already completed.");
-  }
-
+  // Settlement is intentionally delegated to the transactional write path.
+  // This prevents internal callers from bypassing idempotency/invoice safety.
   if (nextPaymentStatus === "PAID") {
-    orderDoc.paymentMethod = nextPaymentMethod;
-    orderDoc.paymentStatus = "PAID";
-    orderDoc.status = "COMPLETED";
-    orderDoc.paidAt = paidAt ? new Date(paidAt) : new Date();
-    orderDoc.transactionId = transactionId || orderDoc.transactionId || "";
-  } else {
-    orderDoc.paymentMethod = nextPaymentMethod;
-    orderDoc.paymentStatus = nextPaymentStatus;
-    orderDoc.paidAt = null;
-    if (orderDoc.status === "COMPLETED") {
-      orderDoc.status = "PENDING";
-    }
-    orderDoc.transactionId = transactionId || orderDoc.transactionId || "";
+    if (session) throw new ApiError(500, "Nested payment transactions are not supported");
+    return recordVerifiedPayment(orderDoc, {
+      amount,
+      paymentMethod: nextPaymentMethod,
+      gateway,
+      transactionId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      paidAt: paidAt || new Date(),
+      note,
+      idempotencyKey,
+    });
   }
+
+  orderDoc.paymentMethod = nextPaymentMethod;
+  orderDoc.paymentStatus = nextPaymentStatus;
+  orderDoc.paidAt = null;
+  if (orderDoc.status === "COMPLETED") {
+    orderDoc.status = "PENDING";
+  }
+  orderDoc.transactionId = transactionId || orderDoc.transactionId || "";
 
   await orderDoc.save(session ? { session } : undefined);
 
@@ -364,76 +371,189 @@ export const recordVerifiedPayment = async (
     transactionId = "",
     razorpayOrderId = "",
     razorpayPaymentId = "",
+    idempotencyKey = "",
     paidAt = new Date(),
     note = "Payment verified successfully",
   } = {}
 ) => {
-  const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order);
-  if (!orderDoc) throw new ApiError(404, "Order not found");
-
-  const billTotal = Number(orderDoc.total || 0);
+  const orderId = order?._id || order;
+  if (!orderId) throw new ApiError(404, "Order not found");
   const requestedAmount = amount === undefined || amount === null || amount === ""
-    ? billTotal
+    ? null
     : Number(amount);
-  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+  if (requestedAmount !== null && (!Number.isFinite(requestedAmount) || requestedAmount <= 0)) {
     throw new ApiError(422, "Payment amount must be greater than zero");
   }
-
-  const paidBefore = await getSuccessfulPaymentTotal(orderDoc._id);
-  const remaining = Math.max(billTotal - paidBefore, 0);
-  if (requestedAmount > remaining + 0.01) {
-    throw new ApiError(422, "Payment amount exceeds the remaining balance");
+  const stableIdempotencyKey = String(idempotencyKey || razorpayPaymentId || transactionId || "").trim();
+  if (!stableIdempotencyKey) {
+    throw new ApiError(422, "Idempotency-Key is required for a payment without a gateway transaction id");
   }
 
-  const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
-  const payment = new Payment({
-    paymentId: await nextPaymentSequence(),
-    orderId: orderDoc._id,
-    customerId: orderDoc.customer?._id || orderDoc.customer || null,
-    tableId: orderDoc.table?._id || orderDoc.table || null,
-    restaurant: orderDoc.restaurant || null,
-    amount: requestedAmount,
-    currency: "INR",
-    subtotal: Number(orderDoc.subtotal || 0),
-    tax: Number(orderDoc.tax || 0),
-    discount: Number(orderDoc.discount || 0),
-    serviceCharge: Number(orderDoc.serviceCharge || 0),
-    totalAmount: requestedAmount,
-    paymentMethod: method,
-    gateway: normalizeGateway(gateway),
-    paymentStatus: "PAID",
-    transactionId: transactionId || `CASH-${Date.now()}-${String(orderDoc._id).slice(-6)}`,
-    razorpayOrderId: razorpayOrderId || "",
-    razorpayPaymentId: razorpayPaymentId || "",
-    paidAt: paidAt ? new Date(paidAt) : new Date(),
-    metadata: { verified: true },
-    timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
-  });
-  await payment.save();
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const orderDoc = await buildOrderLookup(orderId, session);
+      if (!orderDoc) throw new ApiError(404, "Order not found");
 
-  // Re-read successful payments after persisting this split payment. This is
-  // the source of truth for aggregate settlement, not the request amount.
-  const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id);
-  const fullyPaid = totalPaid + 0.01 >= billTotal;
-  orderDoc.paymentMethod = method;
-  orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
-  orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
-  if (fullyPaid) orderDoc.status = "COMPLETED";
-  await orderDoc.save();
+      // Idempotent retries succeed with the original result before the
+      // already-paid guard is evaluated.
+      const priorPayment = await Payment.findOne({ orderId: orderDoc._id, idempotencyKey: stableIdempotencyKey }).session(session);
+      if (priorPayment) {
+        const paidTotal = await getSuccessfulPaymentTotal(orderDoc._id, session);
+        result = {
+          order: orderDoc,
+          payment: priorPayment,
+          paidTotal,
+          remaining: Math.max(Number(orderDoc.total || 0) - paidTotal, 0),
+          fullyPaid: String(orderDoc.paymentStatus || "").toUpperCase() === "PAID",
+          idempotent: true,
+        };
+        return;
+      }
+
+      if (normalizePaymentStatus(orderDoc.paymentStatus) === "PAID") {
+        throw new ApiError(409, "Payment already completed.");
+      }
+
+      const billTotal = Number(orderDoc.total || 0);
+      const paidBefore = await getSuccessfulPaymentTotal(orderDoc._id, session);
+      const remaining = Math.max(billTotal - paidBefore, 0);
+      const paymentAmount = requestedAmount === null ? remaining : requestedAmount;
+      if (paymentAmount > remaining + 0.01) {
+        throw new ApiError(422, "Payment amount exceeds the remaining balance");
+      }
+      if (paymentAmount <= 0) throw new ApiError(409, "Order balance is already settled");
+
+      const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
+      const payment = new Payment({
+        paymentId: await nextPaymentSequence(session),
+        orderId: orderDoc._id,
+        customerId: orderDoc.customer?._id || orderDoc.customer || null,
+        tableId: orderDoc.table?._id || orderDoc.table || null,
+        restaurant: orderDoc.restaurant || null,
+        amount: paymentAmount,
+        currency: "INR",
+        subtotal: Number(orderDoc.subtotal || 0),
+        tax: Number(orderDoc.tax || 0),
+        discount: Number(orderDoc.discount || 0),
+        serviceCharge: Number(orderDoc.serviceCharge || 0),
+        totalAmount: paymentAmount,
+        paymentMethod: method,
+        gateway: normalizeGateway(gateway),
+        paymentStatus: "PAID",
+        transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
+        razorpayOrderId: razorpayOrderId || "",
+        razorpayPaymentId: razorpayPaymentId || "",
+        idempotencyKey: stableIdempotencyKey,
+        paidAt: paidAt ? new Date(paidAt) : new Date(),
+        metadata: { verified: true },
+        timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
+      });
+      await payment.save({ session });
+
+      const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+      const fullyPaid = totalPaid + 0.01 >= billTotal;
+      orderDoc.paymentMethod = method;
+      orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
+      orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
+      if (fullyPaid) orderDoc.status = "COMPLETED";
+      await orderDoc.save({ session });
+      if (fullyPaid) await generateInvoice(orderDoc, { session });
+
+      result = { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid, idempotent: false };
+    });
+  } catch (error) {
+    // A concurrent retry can lose the unique-index race after its transaction
+    // snapshot was taken. Return the committed payment for that same key.
+    if (error?.code === 11000) {
+      const priorPayment = await Payment.findOne({ orderId, idempotencyKey: stableIdempotencyKey });
+      if (priorPayment) {
+        const currentOrder = await buildOrderLookup(orderId);
+        const paidTotal = await getSuccessfulPaymentTotal(orderId);
+        result = {
+          order: currentOrder,
+          payment: priorPayment,
+          paidTotal,
+          remaining: Math.max(Number(currentOrder?.total || 0) - paidTotal, 0),
+          fullyPaid: String(currentOrder?.paymentStatus || "").toUpperCase() === "PAID",
+          idempotent: true,
+        };
+      } else {
+        throw error;
+      }
+    } else if (String(error?.message || "").includes("Transaction numbers are only allowed")) {
+      throw new ApiError(503, "Payments require MongoDB replica-set transactions. Configure a replica set before accepting payments.");
+    } else {
+      throw error;
+    }
+  } finally {
+    await session.endSession();
+  }
+
+  const { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent } = result;
 
   // Payment verification also re-derives the table. A partial payment leaves
   // it OCCUPIED; a settled/terminal order can become AVAILABLE only if no
   // other active order exists for that table.
   const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-  await maybeReleaseTableAfterSettlement(orderDoc);
-
-  if (fullyPaid) await generateInvoice(orderDoc);
+  await maybeReleaseTableAfterSettlement(committedOrder);
 
   await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
-  emitPaymentCreated(serializePayment(payment));
-  return { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid };
+  if (!idempotent) emitPaymentCreated(serializePayment(payment));
+  return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
+};
+
+/**
+ * Repairs a crash window such as a committed gateway payment followed by a
+ * process exit before settlement/invoice work completed. It is safe to run on
+ * every boot because all decisions are derived from successful payments.
+ */
+export const reconcilePaymentSettlements = async () => {
+  const orders = await Order.find({
+    isArchived: false,
+    status: { $ne: "CANCELLED" },
+    paymentStatus: { $in: ["PENDING", "PAID", "FAILED"] },
+  }).select("_id").lean();
+
+  let reconciled = 0;
+  for (const candidate of orders) {
+    const session = await mongoose.startSession();
+    let needsTableRefresh = false;
+    try {
+      await session.withTransaction(async () => {
+        const orderDoc = await buildOrderLookup(candidate._id, session);
+        if (!orderDoc || orderDoc.isArchived || orderDoc.status === "CANCELLED") return;
+
+        const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+        const shouldBePaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
+        const nextStatus = shouldBePaid ? "PAID" : "PENDING";
+        const changed = orderDoc.paymentStatus !== nextStatus || (shouldBePaid && orderDoc.status !== "COMPLETED");
+
+        if (changed) {
+          orderDoc.paymentStatus = nextStatus;
+          orderDoc.paidAt = shouldBePaid ? orderDoc.paidAt || new Date() : null;
+          if (shouldBePaid) orderDoc.status = "COMPLETED";
+          await orderDoc.save({ session });
+          needsTableRefresh = true;
+          reconciled += 1;
+        }
+        if (shouldBePaid) await generateInvoice(orderDoc, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (needsTableRefresh) {
+      const repairedOrder = await Order.findById(candidate._id).select("table");
+      if (repairedOrder) {
+        const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+        await maybeReleaseTableAfterSettlement(repairedOrder);
+      }
+    }
+  }
+  return reconciled;
 };
 
 export const completeOrderPayment = async (order, options = {}) =>

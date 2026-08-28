@@ -44,6 +44,10 @@ const paymentSchema = new mongoose.Schema(
     transactionId: { type: String, default: "", trim: true, index: true, sparse: true, unique: true },
     razorpayOrderId: { type: String, default: "", trim: true, index: true, sparse: true },
     razorpayPaymentId: { type: String, default: "", trim: true, index: true, sparse: true },
+    // Supplied by the caller (Idempotency-Key header) or derived from a
+    // provider payment id. It makes a retry return the original payment
+    // rather than recording money twice.
+    idempotencyKey: { type: String, default: "", trim: true, index: true },
     paidAt: { type: Date, default: null, index: true },
     refundAmount: { type: Number, default: 0, min: 0 },
     refundReason: { type: String, default: "", trim: true },
@@ -57,6 +61,14 @@ const paymentSchema = new mongoose.Schema(
 );
 
 paymentSchema.index({ createdAt: -1 });
+paymentSchema.index(
+  { orderId: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: "string", $gt: "" } },
+    name: "payment_order_idempotency_key_unique",
+  }
+);
 
 const Payment = mongoose.model("Payment", paymentSchema);
 export default Payment;

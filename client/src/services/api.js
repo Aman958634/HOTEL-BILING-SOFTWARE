@@ -50,6 +50,14 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const method = String(config.method || "get").toLowerCase();
+  const url = String(config.url || "");
+  const isPaymentWrite =
+    /\/orders\/[^/]+\/(pay|payment|payment-status)$/.test(url) ||
+    /\/payments\/verify$/.test(url);
+  if (["post", "put", "patch"].includes(method) && isPaymentWrite && !config.headers["Idempotency-Key"]) {
+    config.headers["Idempotency-Key"] = globalThis.crypto?.randomUUID?.() || `payment-${Date.now()}-${Math.random()}`;
+  }
   return config;
 });
 

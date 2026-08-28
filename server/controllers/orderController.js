@@ -634,6 +634,7 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
         transactionId: req.body.transactionId || "",
         razorpayOrderId: req.body.razorpayOrderId || "",
         razorpayPaymentId: req.body.razorpayPaymentId || "",
+        idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
         paidAt: req.body.paidAt || new Date(),
         note: "Payment updated to paid",
       })
@@ -695,6 +696,7 @@ export const payOrder = asyncHandler(async (req, res) => {
     transactionId: req.body.transactionId || req.body.paymentId || "",
     razorpayOrderId: req.body.razorpayOrderId || "",
     razorpayPaymentId: req.body.razorpayPaymentId || "",
+    idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
     paidAt: req.body.paidAt || new Date(),
     note: paymentMethod === PAYMENT_METHODS.CASH ? "Cash payment confirmed" : "Gateway payment verified",
   });
@@ -739,6 +741,7 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
         transactionId: req.body.transactionId || "",
         razorpayOrderId: req.body.razorpayOrderId || "",
         razorpayPaymentId: req.body.razorpayPaymentId || "",
+        idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
         paidAt: req.body.paidAt || new Date(),
         note: "Payment verified successfully",
       })

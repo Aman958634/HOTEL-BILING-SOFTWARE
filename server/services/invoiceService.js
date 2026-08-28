@@ -7,16 +7,16 @@ import { calculateGst, resolveGstType } from "./gstService.js";
 
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
-const getInvoiceNumber = async () => {
+const getInvoiceNumber = async (session = null) => {
   const sequence = await Sequence.findOneAndUpdate(
     { key: "invoiceNumber" },
     { $inc: { value: 1 } },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
+    { new: true, upsert: true, setDefaultsOnInsert: true, session: session || undefined }
   );
   return `INV-${String(sequence.value).padStart(6, "0")}`;
 };
 
-const buildInvoiceSnapshot = async (order) => {
+const buildInvoiceSnapshot = async (order, session = null) => {
   const restaurantId = order.restaurant?._id || order.restaurant || null;
   const items = (order.items || []).map((item) => ({
     name: item.name || item.menuItem?.name || "Item",
@@ -42,9 +42,11 @@ const buildInvoiceSnapshot = async (order) => {
   const serviceCharge = round2(order.serviceCharge || 0);
   const deliveryCharge = round2(order.deliveryCharge || 0);
   const total = round2(order.total ?? subtotal - discount + totalTax + serviceCharge + deliveryCharge);
-  const payments = await Payment.find({ orderId: order._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } })
+  let paymentsQuery = Payment.find({ orderId: order._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } })
     .sort({ paidAt: 1, createdAt: 1 })
     .lean();
+  if (session) paymentsQuery = paymentsQuery.session(session);
+  const payments = await paymentsQuery;
   const paymentBreakdown = payments.map((payment) => ({
     paymentId: payment.paymentId,
     paymentMethod: payment.paymentMethod,
@@ -81,32 +83,38 @@ const buildInvoiceSnapshot = async (order) => {
 };
 
 /** Create one immutable-number invoice only after the order is fully paid. */
-export const generateInvoice = async (order) => {
+export const generateInvoice = async (order, { session = null } = {}) => {
   if (!order?._id) throw new ApiError(422, "Order is required for invoice generation");
   if (String(order.status || "").toUpperCase() === "CANCELLED" || String(order.paymentStatus || "").toUpperCase() !== "PAID") {
     return null;
   }
-  const snapshot = await buildInvoiceSnapshot(order);
+  const snapshot = await buildInvoiceSnapshot(order, session);
   if (snapshot.totalPaid + 0.01 < snapshot.total) return null;
 
-  const existing = await Invoice.findOne({ order: order._id });
+  let existingQuery = Invoice.findOne({ order: order._id });
+  if (session) existingQuery = existingQuery.session(session);
+  const existing = await existingQuery;
   if (existing) {
     Object.assign(existing, snapshot);
-    await existing.save();
+    await existing.save(session ? { session } : undefined);
     return existing;
   }
-  return Invoice.create({ invoiceNumber: await getInvoiceNumber(), order: order._id, issuedAt: new Date(), ...snapshot });
+  const invoice = new Invoice({ invoiceNumber: await getInvoiceNumber(session), order: order._id, issuedAt: new Date(), ...snapshot });
+  await invoice.save(session ? { session } : undefined);
+  return invoice;
 };
 
 /** Keep payment breakdown/refund-adjusted report totals synchronized post-issue. */
-export const refreshInvoice = async (order) => {
+export const refreshInvoice = async (order, { session = null } = {}) => {
   if (!order?._id) return null;
-  const invoice = await Invoice.findOne({ order: order._id });
+  let invoiceQuery = Invoice.findOne({ order: order._id });
+  if (session) invoiceQuery = invoiceQuery.session(session);
+  const invoice = await invoiceQuery;
   if (!invoice) return null;
-  const snapshot = await buildInvoiceSnapshot(order);
+  const snapshot = await buildInvoiceSnapshot(order, session);
   Object.assign(invoice, snapshot);
   if (String(order.status || "").toUpperCase() === "CANCELLED") invoice.status = "VOID";
-  await invoice.save();
+  await invoice.save(session ? { session } : undefined);
   return invoice;
 };
 

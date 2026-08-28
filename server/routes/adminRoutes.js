@@ -22,6 +22,7 @@ import {
 } from "../controllers/publicSubscriptionController.js";
 import notificationRoutes from "./notificationRoutes.js";
 import restaurantRoutes from "./restaurantRoutes.js";
+import { createBackup, listBackups, restoreBackup } from "../controllers/backupController.js";
 
 const router = Router();
 
@@ -35,6 +36,12 @@ router.get("/billing/payments/:id/pdf", downloadMyBillingPaymentPdf);
 router.post("/billing/select-plan", selectBillingPlan);
 router.post("/billing/checkout", billingCtrl.createBillingCheckout);
 router.post("/billing/verify", billingCtrl.verifyBillingPayment);
+
+// Restore is deliberately disabled unless ENABLE_BACKUP_RESTORE=true and an
+// explicit confirmation is supplied. It runs only from a local backup name.
+router.get("/backups", listBackups);
+router.post("/backups", createBackup);
+router.post("/restore-backup", restoreBackup);
 
 router.use(requireActiveSubscription);
 

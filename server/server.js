@@ -20,6 +20,20 @@ const bootstrap = async () => {
     process.exit(1);
   }
 
+  const [{ reconcilePaymentSettlements }, { scheduleDailyBackup }] = await Promise.all([
+    import("./services/paymentService.js"),
+    import("./services/backupService.js"),
+  ]);
+  try {
+    const repaired = await reconcilePaymentSettlements();
+    if (repaired) logger.info(`Recovered ${repaired} payment settlement(s) after startup`);
+  } catch (error) {
+    // The server stays available, but production MongoDB must be a replica
+    // set so the payment transaction and recovery guarantees can run.
+    logger.error(`Payment settlement recovery failed: ${error.message}`);
+  }
+  scheduleDailyBackup();
+
   const httpServer = http.createServer(app);
   initSocketServer(httpServer);
 
