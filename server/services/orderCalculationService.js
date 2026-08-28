@@ -49,12 +49,6 @@ export const calculateOrderAmounts = ({
   safeDiscount = Math.min(safeDiscount, subtotal);
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
-  if (toNumber(taxPercent) < 0 || toNumber(taxPercent) > 100) {
-    throw new ApiError(422, "Tax rate must be between 0 and 100");
-  }
-  if (toNumber(serviceChargePercent) < 0 || toNumber(serviceChargePercent) > 100) {
-    throw new ApiError(422, "Service charge rate must be between 0 and 100");
-  }
 
   const resolvedTax = tax !== null && tax !== undefined
     ? Math.max(0, toNumber(tax))

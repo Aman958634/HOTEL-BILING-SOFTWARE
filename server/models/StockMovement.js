@@ -8,7 +8,6 @@ const MOVEMENT_TYPES = [
 const stockMovementSchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
-    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     inventoryItem: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true, index: true },
     movementType: { type: String, enum: MOVEMENT_TYPES, required: true, index: true },
     quantity: { type: Number, required: true },
@@ -26,10 +25,7 @@ const stockMovementSchema = new mongoose.Schema(
 );
 
 stockMovementSchema.index({ restaurant: 1, createdAt: -1 });
-stockMovementSchema.index(
-  { restaurant: 1, idempotencyKey: 1 },
-  { unique: true, partialFilterExpression: { idempotencyKey: { $gt: "" } } }
-);
+stockMovementSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 const StockMovement = mongoose.model("StockMovement", stockMovementSchema);
 export default StockMovement;

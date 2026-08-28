@@ -3,25 +3,20 @@ import Food from "../models/Food.js";
 import Inventory from "../models/Inventory.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import orderRepository from "../repositories/orderRepository.js";
-import inventoryRepository from "../repositories/inventoryRepository.js";
-import { foodRepository } from "../repositories/searchRepositories.js";
-import { contextFromRequest } from "../repositories/baseRepository.js";
 
-export const dashboardStats = asyncHandler(async (req, res) => {
-  const context = contextFromRequest(req);
+export const dashboardStats = asyncHandler(async (_req, res) => {
   const [orders, foods, inventory] = await Promise.all([
-    orderRepository.count(context),
-    foodRepository.count(context),
-    inventoryRepository.count(context),
+    Order.countDocuments(),
+    Food.countDocuments(),
+    Inventory.countDocuments(),
   ]);
 
-  const revenueAgg = await orderRepository.aggregate(context, [
+  const revenueAgg = await Order.aggregate([
     { $match: { paymentStatus: { $in: ["PAID", "paid"] }, isArchived: { $ne: true } } },
     { $group: { _id: null, revenue: { $sum: "$total" } } },
   ]);
 
-  const dailySales = await orderRepository.aggregate(context, [
+  const dailySales = await Order.aggregate([
     { $match: { isArchived: { $ne: true } } },
     { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, amount: { $sum: "$total" }, orders: { $sum: 1 } } },
     { $sort: { _id: 1 } },

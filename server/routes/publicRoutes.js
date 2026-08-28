@@ -8,7 +8,6 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
-import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
 import {
   listPublicPlans,
   publicSubscribeSignup,
@@ -110,12 +109,11 @@ router.get(
   "/tables/:tableNumber",
   asyncHandler(async (req, res) => {
     const tableNumber = String(req.params.tableNumber || "").trim();
-    const context = verifyQrOrderToken(req.query.token);
     if (!tableNumber) {
       return res.status(400).json(new ApiResponse(false, "Table number is required"));
     }
 
-    const table = await Table.findOne({ _id: context.tableId, restaurant: context.restaurantId, tableNumber })
+    const table = await Table.findOne({ tableNumber, restaurant: { $ne: null } })
       .populate("restaurant", "name branchCode address city")
       .lean();
 

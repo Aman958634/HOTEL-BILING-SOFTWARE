@@ -54,13 +54,6 @@ const normalizePayload = (body = {}) => {
   payload.email = payload.email ? String(payload.email).trim() : "";
   payload.phone = payload.phone ? String(payload.phone).trim() : "";
   payload.gstNumber = payload.gstNumber ? String(payload.gstNumber).trim() : "";
-  if (payload.gstRate !== undefined) {
-    const gstRate = Number(payload.gstRate);
-    if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 100) {
-      throw new ApiError(422, "GST rate must be between 0 and 100");
-    }
-    payload.gstRate = gstRate;
-  }
   payload.openingHours = payload.openingHours ? String(payload.openingHours).trim() : "09:00-23:00";
   payload.logoUrl = payload.logoUrl ? String(payload.logoUrl).trim() : "";
   payload.website = payload.website ? String(payload.website).trim() : "";

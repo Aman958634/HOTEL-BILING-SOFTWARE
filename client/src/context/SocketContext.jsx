@@ -18,6 +18,7 @@ export const SocketProvider = ({ children }) => {
     if (!shouldConnectSocket()) return undefined;
 
     socket.connect();
+    socket.emit("join-room", "dashboard");
     return () => socket.disconnect();
   }, []);
 

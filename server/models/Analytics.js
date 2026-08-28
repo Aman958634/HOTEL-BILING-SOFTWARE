@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 const analyticsSchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
-    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     day: { type: Date, required: true, index: true },
     orders: { type: Number, default: 0 },
     revenue: { type: Number, default: 0 },

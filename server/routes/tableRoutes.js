@@ -8,7 +8,6 @@ import { validate } from "../middleware/validate.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
-import { createQrOrderToken } from "../utils/qrOrderToken.js";
 import Table from "../models/Table.js";
 import {
   createTable,
@@ -64,7 +63,7 @@ router.post(
       .withMessage("Shape must be ROUND, SQUARE, or RECTANGLE"),
     body("status")
       .optional()
-      .isIn(["AVAILABLE", "MAINTENANCE", "available", "maintenance"])
+      .isIn(["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "available", "occupied", "reserved", "maintenance"])
       .withMessage("Status is invalid"),
     body("description")
       .optional()
@@ -87,6 +86,10 @@ router.put(
       .optional()
       .isIn(["ROUND", "SQUARE", "RECTANGLE", "round", "square", "rectangle"])
       .withMessage("Shape must be ROUND, SQUARE, or RECTANGLE"),
+    body("status")
+      .optional()
+      .isIn(["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "available", "occupied", "reserved", "maintenance"])
+      .withMessage("Status is invalid"),
     body("description")
       .optional()
       .isLength({ max: 500 })
@@ -103,7 +106,7 @@ router.patch(
   [
     param("id").isMongoId().withMessage("Invalid table id"),
     body("status")
-      .isIn(["AVAILABLE", "MAINTENANCE", "available", "maintenance"])
+      .isIn(["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "available", "occupied", "reserved", "maintenance"])
       .withMessage("Status is invalid"),
   ],
   validate,
@@ -119,9 +122,7 @@ router.get(
     if (!table) throw new ApiError(404, "Table not found");
 
     const frontendUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
-    if (!table.restaurant) throw new ApiError(422, "A restaurant is required for QR ordering");
-    const token = createQrOrderToken({ tableId: table._id, restaurantId: table.restaurant });
-    const qrData = `${frontendUrl}/menu?table=${encodeURIComponent(table.tableNumber)}&token=${encodeURIComponent(token)}`;
+    const qrData = `${frontendUrl}/menu?table=${encodeURIComponent(table.tableNumber)}`;
 
     try {
       const pngBuffer = await QRCode.toBuffer(qrData, {

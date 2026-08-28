@@ -17,20 +17,6 @@ import {
 import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
-import { runInTransaction } from "./transactionService.js";
-import orderRepository from "../repositories/orderRepository.js";
-import paymentRepository from "../repositories/paymentRepository.js";
-
-const contextFromDocument = (document) => ({
-  restaurantId: document?.restaurant || null,
-  outletId: document?.outlet || null,
-  role: "service",
-});
-
-const repositoryContext = (document) =>
-  document && typeof document === "object" && (document.restaurant || document.outlet)
-    ? contextFromDocument(document)
-    : null;
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -119,7 +105,7 @@ const buildPaymentTimeline = (order, payment, status, refundReason = "") => {
 const buildOrderLookup = async (orderId, session = null) => {
   if (!orderId) return null;
   if (orderId?.populate) return orderId;
-  const query = orderRepository.findById(repositoryContext(orderId), orderId)
+  const query = Order.findById(orderId)
     .populate("customer", "fullName email phone")
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name price");
@@ -189,8 +175,6 @@ export const syncPaymentFromOrder = async (
     status = null,
     note = "",
     session = null,
-    emit = true,
-    notify = true,
   } = {}
 ) => {
   const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
@@ -203,7 +187,7 @@ export const syncPaymentFromOrder = async (
       ? ""
       : normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
 
-  let paymentQuery = paymentRepository.findOne(contextFromDocument(orderDoc), { orderId: orderDoc._id });
+  let paymentQuery = Payment.findOne({ orderId: orderDoc._id });
   if (session) paymentQuery = paymentQuery.session(session);
   let payment = await paymentQuery;
   const isNew = !payment;
@@ -215,7 +199,6 @@ export const syncPaymentFromOrder = async (
       customerId: orderDoc.customer?._id || orderDoc.customer || null,
       tableId: orderDoc.table?._id || orderDoc.table || null,
       restaurant: orderDoc.restaurant || null,
-      outlet: orderDoc.outlet || null,
       amount: Number(orderDoc.total || 0),
       currency: metadata.currency || "INR",
       subtotal: Number(orderDoc.subtotal || 0),
@@ -246,7 +229,6 @@ export const syncPaymentFromOrder = async (
     payment.customerId = orderDoc.customer?._id || orderDoc.customer || payment.customerId;
     payment.tableId = orderDoc.table?._id || orderDoc.table || payment.tableId;
     payment.restaurant = orderDoc.restaurant || payment.restaurant;
-    payment.outlet = orderDoc.outlet || payment.outlet;
     if (transactionId) payment.transactionId = transactionId;
     if (metadata.razorpayOrderId) payment.razorpayOrderId = metadata.razorpayOrderId;
     if (metadata.razorpayPaymentId) payment.razorpayPaymentId = metadata.razorpayPaymentId;
@@ -263,11 +245,13 @@ export const syncPaymentFromOrder = async (
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
 
-  if (emit) {
-    if (isNew) emitPaymentCreated(serializePayment(payment));
-    else emitPaymentUpdated(serializePayment(payment));
+  if (isNew) {
+    emitPaymentCreated(serializePayment(payment));
+  } else {
+    emitPaymentUpdated(serializePayment(payment));
   }
-  if (notify) await notifyPaymentAudience({
+
+  await notifyPaymentAudience({
     title: payment.paymentStatus === "FAILED" ? "Payment failed" : payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
     message: `${paymentMethodLabel(payment.paymentMethod)} ${payment.paymentStatus === "PAID" ? "payment received" : `payment is ${paymentStatusLabel(payment.paymentStatus).toLowerCase()}`} for Order #${orderDoc.orderNumber}`,
     payment,
@@ -289,34 +273,8 @@ export const updateOrderPaymentState = async (
     paidAt = null,
     note = "",
     session = null,
-    emit = true,
-    notify = true,
-    releaseTable = true,
   } = {}
 ) => {
-  // A settlement updates Order, Payment and (after commit) Table.  Do not let
-  // a transient network/database error leave only one of those records saved.
-  if (!session) {
-    const result = await runInTransaction((transactionSession) =>
-      updateOrderPaymentState(order, {
-        paymentMethod, paymentStatus, gateway, transactionId, razorpayOrderId,
-        razorpayPaymentId, paidAt, note, session: transactionSession,
-        emit: false, notify: false, releaseTable: false,
-      })
-    );
-    if (emit) emitPaymentUpdated(serializePayment(result.payment));
-    if (notify) await notifyPaymentAudience({
-      title: result.payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
-      message: `${paymentMethodLabel(result.payment.paymentMethod)} payment updated for Order #${result.order.orderNumber}`,
-      payment: result.payment,
-      order: result.order,
-    });
-    if (releaseTable && String(paymentStatus || result.order.paymentStatus).toUpperCase() === "PAID") {
-      const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-      await maybeReleaseTableAfterSettlement(result.order);
-    }
-    return result;
-  }
   const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
   if (!orderDoc) throw new ApiError(404, "Order not found");
 
@@ -358,8 +316,6 @@ export const updateOrderPaymentState = async (
     status: nextPaymentStatus,
     note,
     session,
-    emit: false,
-    notify: false,
   });
 
   orderDoc.paymentId = payment.paymentId;
@@ -368,6 +324,11 @@ export const updateOrderPaymentState = async (
   await orderDoc.save(session ? { session } : undefined);
 
   // Server-side table release after verified PAID (+ COMPLETED)
+  if (nextPaymentStatus === "PAID") {
+    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+    await maybeReleaseTableAfterSettlement(orderDoc);
+  }
+
   return { order: orderDoc, payment };
 };
 
@@ -377,55 +338,64 @@ export const completeOrderPayment = async (order, options = {}) =>
     paymentStatus: "PAID",
   });
 
-export const applyRefundToPayment = async ({ payment, refundAmount, refundReason, refundedBy, restaurantId }) => {
-  if (!restaurantId) throw new ApiError(403, "Restaurant context is required");
+export const applyRefundToPayment = async ({ payment, refundAmount, refundReason, refundedBy }) => {
+  const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);
+  if (!paymentDoc) throw new ApiError(404, "Payment not found");
 
-  const result = await runInTransaction(async (session) => {
-    const paymentDoc = await paymentRepository.findOne({ restaurantId, outletId: payment?.outlet || null, role: "service" }, { _id: payment?._id || payment }).session(session);
-    if (!paymentDoc) throw new ApiError(404, "Payment not found");
-    const orderDoc = await orderRepository.findOne({ restaurantId, outletId: paymentDoc.outlet || null, role: "service" }, { _id: paymentDoc.orderId }).session(session);
-    if (!orderDoc) throw new ApiError(409, "Payment order does not belong to this restaurant");
+  const orderDoc = await buildOrderLookup(paymentDoc.orderId);
+  const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
+  const nextRefundAmount = Number(refundAmount || 0);
 
-    const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
-    const nextRefundAmount = Number(refundAmount || 0);
-    if (nextRefundAmount <= 0) throw new ApiError(422, "Refund amount must be greater than zero");
-    if (nextRefundAmount > remaining) throw new ApiError(422, "Refund amount cannot exceed the remaining paid amount");
+  if (nextRefundAmount <= 0) {
+    throw new ApiError(422, "Refund amount must be greater than zero");
+  }
 
-    const totalRefunded = Number(paymentDoc.refundAmount || 0) + nextRefundAmount;
-    const fullyRefunded = totalRefunded >= Number(paymentDoc.totalAmount || paymentDoc.amount || 0);
-    const nextStatus = fullyRefunded ? "REFUNDED" : "PARTIALLY_REFUNDED";
-    paymentDoc.refundAmount = totalRefunded;
-    paymentDoc.refundReason = String(refundReason || "").trim();
-    paymentDoc.refundStatus = nextStatus;
-    paymentDoc.refundedAt = new Date();
-    paymentDoc.refundedBy = refundedBy || null;
-    paymentDoc.paymentStatus = nextStatus;
-    paymentDoc.gateway = normalizeGateway(paymentDoc.gateway || paymentDoc.metadata?.gateway || paymentDoc.paymentMethod);
-    paymentDoc.timeline = buildPaymentTimeline(orderDoc, paymentDoc, paymentDoc.paymentStatus, paymentDoc.refundReason);
-    paymentDoc.metadata = { ...paymentDoc.metadata, lastRefundAmount: nextRefundAmount, lastRefundReason: paymentDoc.refundReason };
-    orderDoc.paymentStatus = nextStatus;
-    await paymentDoc.save({ session });
-    await orderDoc.save({ session });
-    return { paymentDoc, orderDoc, nextRefundAmount };
-  });
+  if (nextRefundAmount > remaining) {
+    throw new ApiError(422, "Refund amount cannot exceed the remaining paid amount");
+  }
 
-  const { paymentDoc, orderDoc, nextRefundAmount } = result;
+  const totalRefunded = Number(paymentDoc.refundAmount || 0) + nextRefundAmount;
+  const fullyRefunded = totalRefunded >= Number(paymentDoc.totalAmount || paymentDoc.amount || 0);
+  const nextStatus = fullyRefunded ? "REFUNDED" : "PARTIALLY_REFUNDED";
+
+  paymentDoc.refundAmount = totalRefunded;
+  paymentDoc.refundReason = String(refundReason || "").trim();
+  paymentDoc.refundStatus = nextStatus;
+  paymentDoc.refundedAt = new Date();
+  paymentDoc.refundedBy = refundedBy || null;
+  paymentDoc.paymentStatus = nextStatus;
+  paymentDoc.gateway = normalizeGateway(paymentDoc.gateway || paymentDoc.metadata?.gateway || paymentDoc.paymentMethod);
+  paymentDoc.timeline = buildPaymentTimeline(orderDoc, paymentDoc, paymentDoc.paymentStatus, paymentDoc.refundReason);
+  paymentDoc.metadata = {
+    ...paymentDoc.metadata,
+    lastRefundAmount: nextRefundAmount,
+    lastRefundReason: paymentDoc.refundReason,
+  };
+
+  await paymentDoc.save();
   await paymentDoc.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await paymentDoc.populate("customerId", "fullName email phone avatar");
   await paymentDoc.populate("tableId", "tableNumber floor section");
   await paymentDoc.populate("refundedBy", "fullName email role");
+
+  if (orderDoc) {
+    orderDoc.paymentStatus = nextStatus;
+    await orderDoc.save();
+  }
+
   emitPaymentRefunded(serializePayment(paymentDoc));
   await notifyPaymentAudience({
     title: "Refund processed",
-    message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc.orderNumber}`,
+    message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc?.orderNumber || paymentDoc.orderId}`,
     payment: paymentDoc,
     order: orderDoc,
   });
+
   return paymentDoc;
 };
 
 export const buildPaymentReceipt = async (payment) => {
-  const paymentDoc = payment?.populate ? payment : await paymentRepository.findById(repositoryContext(payment), payment?._id || payment);
+  const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);
   if (!paymentDoc) throw new ApiError(404, "Payment not found");
 
   const order = await buildOrderLookup(paymentDoc.orderId?._id || paymentDoc.orderId);

@@ -1,5 +1,4 @@
 import Restaurant from "../models/Restaurant.js";
-import Outlet from "../models/Outlet.js";
 import User from "../models/User.js";
 import Subscription from "../models/Subscription.js";
 import SaasPayment from "../models/SaasPayment.js";
@@ -108,13 +107,6 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     isActive: true,
   });
 
-  const outlet = await Outlet.create({
-    restaurant: restaurant._id,
-    name: "Main Outlet",
-    code: "MAIN",
-    isActive: true,
-  });
-
   const user = await User.create({
     fullName: String(fullName).trim(),
     email: String(email).toLowerCase().trim(),
@@ -122,7 +114,6 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     phone: String(phone).trim(),
     role: "admin",
     restaurant: restaurant._id,
-    outlet: outlet._id,
   });
 
   const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
@@ -188,14 +179,10 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
 
   const payload = {
     id: user._id,
-    userId: user._id,
     role: user.role,
     email: user.email,
     hotelId: user.hotelId || null,
     restaurant: restaurant._id,
-    restaurantId: restaurant._id,
-    outletId: outlet._id,
-    outlet: outlet._id,
   };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);

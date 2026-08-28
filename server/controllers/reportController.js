@@ -8,8 +8,6 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { normalizePaymentMethod, normalizePaymentStatus } from "../utils/paymentUtils.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
-import orderRepository from "../repositories/orderRepository.js";
-import paymentRepository from "../repositories/paymentRepository.js";
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
 const SUCCESS_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
@@ -167,13 +165,13 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
     uniqueCustomers,
     revenueAgg,
   ] = await Promise.all([
-    orderRepository.aggregate(null, [
+    Order.aggregate([
       { $match: orderMatch },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
-    orderRepository.count(null, orderMatch),
+    Order.countDocuments(orderMatch),
     Order.distinct("customer", { ...orderMatch, customer: { $ne: null } }),
-    paymentRepository.aggregate(null, [
+    Payment.aggregate([
       { $match: paymentMatch },
       {
         $group: {
@@ -245,7 +243,7 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
         ? "%Y-%m"
         : "%Y-%m-%d";
 
-  const rows = await paymentRepository.aggregate(null, [
+  const rows = await Payment.aggregate([
     {
       $match: {
         ...toPaymentMatch(rangeContext, restaurantFilter),
@@ -276,7 +274,7 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
 export const getOrdersReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
   const restaurantFilter = await getRestaurantFilter(req.user);
-  const rows = await orderRepository.aggregate(null, [
+  const rows = await Order.aggregate([
     { $match: toOrderMatch(rangeContext, restaurantFilter) },
     { $group: { _id: "$status", count: { $sum: 1 } } },
   ]);
@@ -315,7 +313,7 @@ export const getTopItemsReport = asyncHandler(async (req, res) => {
   const restaurantFilter = await getRestaurantFilter(req.user);
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 20);
 
-  const rows = await orderRepository.aggregate(null, [
+  const rows = await Order.aggregate([
     {
       $match: {
         ...toOrderMatch(rangeContext, restaurantFilter),
@@ -380,7 +378,7 @@ export const getCategoryReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
   const restaurantFilter = await getRestaurantFilter(req.user);
 
-  const rows = await orderRepository.aggregate(null, [
+  const rows = await Order.aggregate([
     {
       $match: {
         ...toOrderMatch(rangeContext, restaurantFilter),
@@ -441,16 +439,16 @@ export const getPaymentReport = asyncHandler(async (req, res) => {
   const match = toPaymentMatch(rangeContext, restaurantFilter);
 
   const [statusRows, methodRows, totalCount] = await Promise.all([
-    paymentRepository.aggregate(null, [
+    Payment.aggregate([
       { $match: match },
       { $group: { _id: "$paymentStatus", count: { $sum: 1 } } },
     ]),
-    paymentRepository.aggregate(null, [
+    Payment.aggregate([
       { $match: match },
       { $group: { _id: "$paymentMethod", count: { $sum: 1 }, totalAmount: { $sum: "$totalAmount" } } },
       { $sort: { totalAmount: -1 } },
     ]),
-    paymentRepository.count(null, match),
+    Payment.countDocuments(match),
   ]);
 
   const statusMap = statusRows.reduce((acc, row) => {
@@ -480,7 +478,7 @@ export const getCustomerReport = asyncHandler(async (req, res) => {
   const restaurantFilter = await getRestaurantFilter(req.user);
 
   const [customersInPeriod, firstOrderRows] = await Promise.all([
-    orderRepository.aggregate(null, [
+    Order.aggregate([
       {
         $match: {
           ...toOrderMatch(rangeContext, restaurantFilter),
@@ -499,7 +497,7 @@ export const getCustomerReport = asyncHandler(async (req, res) => {
         },
       },
     ]),
-    orderRepository.aggregate(null, [
+    Order.aggregate([
       {
         $match: {
           ...restaurantFilter,
@@ -632,7 +630,7 @@ export const getSalesReport = asyncHandler(async (req, res) => {
     }
   );
 
-  const [result] = await orderRepository.aggregate(null, pipeline);
+  const [result] = await Order.aggregate(pipeline);
   const data = result?.data || [];
   const total = result?.meta?.[0]?.total || 0;
 
@@ -673,7 +671,7 @@ const buildExportPayload = async (query, user) => {
           : rangeContext.granularity === "month"
             ? "%Y-%m"
             : "%Y-%m-%d";
-      return paymentRepository.aggregate(null, [
+      return Payment.aggregate([
         {
           $match: {
             ...toPaymentMatch(rangeContext, restaurantFilter),
@@ -690,7 +688,7 @@ const buildExportPayload = async (query, user) => {
       ]);
     })(),
     (async () => {
-      return orderRepository.aggregate(null, [
+      return Order.aggregate([
         {
           $match: {
             ...toOrderMatch(rangeContext, restaurantFilter),
@@ -729,11 +727,11 @@ const buildExportPayload = async (query, user) => {
     })(),
     (async () => {
       const [statusRows, methodRows] = await Promise.all([
-        paymentRepository.aggregate(null, [
+        Payment.aggregate([
           { $match: toPaymentMatch(rangeContext, restaurantFilter) },
           { $group: { _id: "$paymentStatus", count: { $sum: 1 } } },
         ]),
-        paymentRepository.aggregate(null, [
+        Payment.aggregate([
           { $match: toPaymentMatch(rangeContext, restaurantFilter) },
           { $group: { _id: "$paymentMethod", count: { $sum: 1 }, totalAmount: { $sum: "$totalAmount" } } },
           { $sort: { totalAmount: -1 } },
@@ -742,7 +740,7 @@ const buildExportPayload = async (query, user) => {
       return { statusRows, methodRows };
     })(),
     (async () => {
-      return orderRepository.aggregate(null, [
+      return Order.aggregate([
         { $match: toOrderMatch(rangeContext, restaurantFilter) },
         {
           $lookup: {

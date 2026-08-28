@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
-import Sequence from "../models/Sequence.js";
 import Food from "../models/Food.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
@@ -191,18 +190,28 @@ export const canTransitionOrderStatus = (from, to) => {
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export const generateOrderNumber = async (session = null) => {
-  const sequence = await Sequence.findOneAndUpdate(
-    { key: "orderNumber" },
-    { $inc: { value: 1 }, $setOnInsert: { value: 10000 } },
-    { new: true, upsert: true, setDefaultsOnInsert: true, session: session || undefined }
-  );
-  return `ORD-${sequence.value}`;
+export const generateOrderNumber = async () => {
+  const latest = await Order.findOne({ orderNumber: /^ORD-\d+$/i })
+    .select("orderNumber")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const latestDigits = Number(latest?.orderNumber?.split("-")[1] || 10000);
+  let nextNumber = latestDigits + 1;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = `ORD-${nextNumber}`;
+    const exists = await Order.exists({ orderNumber: candidate });
+    if (!exists) return candidate;
+    nextNumber += 1;
+  }
+
+  return `ORD-${Date.now()}${crypto.randomInt(100, 999)}`;
 };
 
 const selectMenuItemFields = "name price isAvailable available";
 
-export const prepareOrderItems = async (items, { restaurant, session = null } = {}) => {
+export const prepareOrderItems = async (items) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ApiError(422, "An order must contain at least one item.");
   }
@@ -211,12 +220,7 @@ export const prepareOrderItems = async (items, { restaurant, session = null } = 
   if (!menuIds.length) throw new ApiError(422, "Menu item is required for each order item.");
 
   const uniqueMenuIds = [...new Set(menuIds.map((id) => String(id)))];
-  if (!restaurant || !mongoose.isValidObjectId(restaurant)) {
-    throw new ApiError(403, "Restaurant context is required for order items");
-  }
-  let foodsQuery = Food.find({ _id: { $in: uniqueMenuIds }, restaurant }).select(selectMenuItemFields).lean();
-  if (session) foodsQuery = foodsQuery.session(session);
-  const foods = await foodsQuery;
+  const foods = await Food.find({ _id: { $in: uniqueMenuIds } }).select(selectMenuItemFields).lean();
   const foodMap = new Map(foods.map((food) => [String(food._id), food]));
 
   const normalizedItems = items.map((item) => {

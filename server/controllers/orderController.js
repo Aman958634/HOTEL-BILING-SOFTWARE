@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
-import Restaurant from "../models/Restaurant.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -33,13 +32,7 @@ import {
 import { syncPaymentFromOrder } from "../services/paymentService.js";
 import { updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
-import { cancelKotTickets, createKotRevision, mergeItemsWithKitchenState } from "../services/kotService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
-import { verifyQrOrderToken } from "../utils/qrOrderToken.js";
-import { assertOrderTableConsistency } from "../services/posValidationService.js";
-import { runInTransaction } from "../services/transactionService.js";
-import orderRepository from "../repositories/orderRepository.js";
-import { contextFromRequest } from "../repositories/baseRepository.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -113,52 +106,6 @@ const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   return restaurant._id;
 };
 
-const getRestaurantGstRate = async (restaurantId) => {
-  const restaurant = await Restaurant.findById(restaurantId).select("gstRate").lean();
-  if (!restaurant) throw new ApiError(404, "Restaurant not found");
-  return Number(restaurant.gstRate || 0);
-};
-
-const getIdempotencyKey = (req) => {
-  const value = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
-  if (!value) return "";
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(value)) {
-    throw new ApiError(422, "Idempotency-Key must be 8-128 URL-safe characters");
-  }
-  return value;
-};
-
-const findIdempotentOrder = async ({ restaurant, idempotencyKey }) => {
-  if (!idempotencyKey) return null;
-  return Order.findOne({ restaurant, idempotencyKey, isArchived: { $ne: true } })
-    .populate("customer", "fullName email phone")
-    .populate("table", "tableNumber floor section status")
-    .populate("items.menuItem", "name");
-};
-
-const createOrderAtomically = async ({ payload, restaurantId, tableDoc, actorId = null }) =>
-  runInTransaction(async (session) => {
-    if (payload.idempotencyKey) {
-      const existing = await Order.findOne({ restaurant: restaurantId, idempotencyKey: payload.idempotencyKey, isArchived: { $ne: true } }).session(session);
-      if (existing) return { order: existing, duplicate: true };
-    }
-    const orderNumber = await generateOrderNumber(session);
-    const [order] = await Order.create([{ ...payload, orderNumber }], { session });
-    if (order.orderType === ORDER_TYPES.DINE_IN) {
-      await assignTableForDineInOrder(order.table, order._id, { restaurantId, actor: actorId, session });
-    }
-    await syncPaymentFromOrder(order, {
-      status: PAYMENT_STATUSES.PENDING,
-      metadata: { paymentMethod: order.paymentMethod, paymentStatus: PAYMENT_STATUSES.PENDING, orderType: order.orderType },
-      note: "Payment initiated during order creation",
-      session,
-      emit: false,
-      notify: false,
-    });
-    await createKotRevision({ order, userId: actorId, session });
-    return { order, duplicate: false };
-  });
-
 export const createOrder = asyncHandler(async (req, res) => {
   const role = req.user.role;
   if (!["admin", "manager", "cashier", "waiter", "customer"].includes(role)) {
@@ -174,39 +121,27 @@ export const createOrder = asyncHandler(async (req, res) => {
     customerId = req.user._id;
   }
 
-  const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
-  const gstRate = await getRestaurantGstRate(restaurantId);
-  const processedItems = await prepareOrderItems(req.body.items || [], { restaurant: restaurantId });
+  const processedItems = await prepareOrderItems(req.body.items || []);
   const calculated = buildCalculatedOrderPayload({
     orderType,
     items: processedItems,
     discount: req.body.discount,
-    tax: null,
-    taxPercent: gstRate,
+    tax: req.body.tax,
+    taxPercent: req.body.taxPercent,
     serviceCharge: req.body.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge,
   });
 
-  const idempotencyKey = getIdempotencyKey(req);
-  const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
-  if (existing) return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existing)));
+  const orderNumber = await generateOrderNumber();
 
-  const tableDoc = orderType === ORDER_TYPES.DINE_IN
-    ? await Table.findOne({ _id: req.body.table, restaurant: restaurantId }).select("restaurant")
-    : null;
-  assertOrderTableConsistency({ orderType, table: req.body.table, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
-  if (orderType === ORDER_TYPES.DINE_IN && !tableDoc) throw new ApiError(404, "Table not found");
+  const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
 
-  const result = await createOrderAtomically({
-    restaurantId,
-    tableDoc,
-    actorId: req.user._id,
-    payload: {
+  const order = await Order.create({
+    orderNumber,
     customer: customerId,
     table: orderType === ORDER_TYPES.DINE_IN ? req.body.table || null : null,
     restaurant: restaurantId,
-    outlet: req.outletId,
     orderType,
     items: calculated.items,
     subtotal: calculated.subtotal,
@@ -223,14 +158,16 @@ export const createOrder = asyncHandler(async (req, res) => {
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
-    idempotencyKey,
-    },
   });
-  if (result.duplicate) {
-    const existingOrder = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
-    return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existingOrder)));
+
+  if (orderType === ORDER_TYPES.DINE_IN) {
+    try {
+      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
+    } catch (error) {
+      await Order.deleteOne({ _id: order._id });
+      throw error;
+    }
   }
-  const order = result.order;
 
   const populated = await Order.findById(order._id)
     .populate("customer", "fullName email phone")
@@ -251,6 +188,12 @@ export const createOrder = asyncHandler(async (req, res) => {
     total: populated.total,
   });
 
+  await syncPaymentFromOrder(populated, {
+    status: paymentStatus,
+    metadata: { paymentMethod, paymentStatus, orderType },
+    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
+  });
+
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -262,41 +205,25 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
-  const tableId = req.body.table || null;
-  const qrContext = verifyQrOrderToken(req.body.qrToken);
-  if (String(qrContext.tableId) !== String(tableId)) {
-    throw new ApiError(403, "QR token does not match the selected table");
-  }
-  const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
-  if (String(qrContext.restaurantId) !== String(restaurantId)) {
-    throw new ApiError(403, "QR token does not match the selected restaurant");
-  }
-
-  const processedItems = await prepareOrderItems(req.body.items || [], { restaurant: restaurantId });
-  const gstRate = await getRestaurantGstRate(restaurantId);
+  const processedItems = await prepareOrderItems(req.body.items || []);
   const calculated = buildCalculatedOrderPayload({
     orderType,
     items: processedItems,
     discount: req.body.discount,
-    tax: null,
-    taxPercent: gstRate,
+    tax: req.body.tax,
+    taxPercent: req.body.taxPercent,
     serviceCharge: req.body.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge,
   });
 
-  if (orderType !== ORDER_TYPES.DINE_IN) throw new ApiError(422, "QR ordering supports DINE_IN orders only");
-  const idempotencyKey = getIdempotencyKey(req);
-  const existing = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
-  if (existing) return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existing)));
-  const tableDoc = await Table.findOne({ _id: tableId, restaurant: restaurantId }).select("restaurant");
-  assertOrderTableConsistency({ orderType, table: tableId, restaurant: restaurantId, tableRestaurant: tableDoc?.restaurant });
-  if (!tableDoc) throw new ApiError(404, "Table not found");
+  const orderNumber = await generateOrderNumber();
 
-  const result = await createOrderAtomically({
-    restaurantId,
-    tableDoc,
-    payload: {
+  const tableId = req.body.table || null;
+  const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+
+  const order = await Order.create({
+    orderNumber,
     customer: null,
     table: orderType === ORDER_TYPES.DINE_IN ? tableId : null,
     restaurant: restaurantId,
@@ -316,14 +243,16 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
     notes: req.body.notes || "",
-    idempotencyKey,
-    },
   });
-  if (result.duplicate) {
-    const existingOrder = await findIdempotentOrder({ restaurant: restaurantId, idempotencyKey });
-    return res.status(200).json(new ApiResponse(true, "Order already created", normalizeOrderOutput(existingOrder)));
+
+  if (orderType === ORDER_TYPES.DINE_IN) {
+    try {
+      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
+    } catch (error) {
+      await Order.deleteOne({ _id: order._id });
+      throw error;
+    }
   }
-  const order = result.order;
 
   const populated = await Order.findById(order._id)
     .populate("customer", "fullName email phone")
@@ -342,6 +271,12 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     orderNumber: populated.orderNumber,
     customerName: null,
     total: populated.total,
+  });
+
+  await syncPaymentFromOrder(populated, {
+    status: paymentStatus,
+    metadata: { paymentMethod, paymentStatus, orderType },
+    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
   });
 
   emitOrderCreated(normalizeOrderOutput(populated));
@@ -415,7 +350,7 @@ export const listOrders = asyncHandler(async (req, res) => {
 export const getOrderById = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await orderRepository.find(contextFromRequest(req), { _id: req.params.id })
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user))
     .populate("customer", "fullName email phone")
     .populate("table", "tableNumber floor section status")
     .populate("items.menuItem", "name")
@@ -430,7 +365,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
 export const updateOrder = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
@@ -440,45 +375,35 @@ export const updateOrder = asyncHandler(async (req, res) => {
   ensureOrderEditAllowed(order);
 
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
-  const gstRate = await getRestaurantGstRate(order.restaurant);
-  const nextItems = req.body.items ? await prepareOrderItems(req.body.items, { restaurant: order.restaurant }) : order.items;
+  const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
 
-  const itemsWithKitchenStatus = mergeItemsWithKitchenState({
-    previousItems: order.items || [],
-    nextItems,
-  });
+  const existingStatusMap = new Map(
+    (order.items || []).map((item) => [String(item.menuItem), item.kitchenStatus || "NEW"])
+  );
+
+  const itemsWithKitchenStatus = nextItems.map((item) => ({
+    ...item,
+    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+  }));
 
   const calculated = buildCalculatedOrderPayload({
     orderType: nextOrderType,
     items: itemsWithKitchenStatus,
     discount: req.body.discount !== undefined ? req.body.discount : order.discount,
-    tax: null,
-    taxPercent: gstRate,
+    tax: req.body.tax !== undefined ? req.body.tax : order.tax,
+    taxPercent: req.body.taxPercent,
     serviceCharge: req.body.serviceCharge !== undefined ? req.body.serviceCharge : order.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge !== undefined ? req.body.deliveryCharge : order.deliveryCharge,
   });
 
   const previousTable = order.table ? String(order.table) : null;
-  const requestedTable = nextOrderType === ORDER_TYPES.DINE_IN
-    ? (req.body.table !== undefined ? req.body.table : order.table)
-    : null;
-  const targetTable = nextOrderType === ORDER_TYPES.DINE_IN
-    ? await Table.findOne({ _id: requestedTable, restaurant: order.restaurant }).select("restaurant")
-    : null;
-  assertOrderTableConsistency({
-    orderType: nextOrderType,
-    table: requestedTable,
-    restaurant: order.restaurant,
-    tableRestaurant: targetTable?.restaurant,
-  });
-  if (nextOrderType === ORDER_TYPES.DINE_IN && !targetTable) throw new ApiError(404, "Table not found");
 
   order.orderType = nextOrderType;
-  order.items = mergeItemsWithKitchenState({
-    previousItems: order.items || [],
-    nextItems: calculated.items,
-  });
+  order.items = calculated.items.map((item) => ({
+    ...item,
+    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+  }));
   order.subtotal = calculated.subtotal;
   order.discount = calculated.discount;
   order.tax = calculated.tax;
@@ -489,18 +414,11 @@ export const updateOrder = asyncHandler(async (req, res) => {
 
   if (nextOrderType !== ORDER_TYPES.DINE_IN) {
     order.table = null;
-  } else {
-    order.table = requestedTable;
+  } else if (req.body.table !== undefined) {
+    order.table = req.body.table;
   }
 
-  const itemsChanged = req.body.items !== undefined;
-  if (itemsChanged) order.kotRevision = Number(order.kotRevision || 0) + 1;
-  await runInTransaction(async (session) => {
-    await order.save({ session });
-    if (itemsChanged) {
-      await createKotRevision({ order, userId: req.user._id, session });
-    }
-  });
+  await order.save();
 
   if (order.orderType === ORDER_TYPES.DINE_IN) {
     await assignTableForDineInOrder(order.table, order._id, { restaurantId: order.restaurant });
@@ -530,8 +448,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
 export const deleteOrder = asyncHandler(async (req, res) => {
   const identifier = String(req.params.id || "").trim();
   const order = mongoose.isValidObjectId(identifier)
-    ? await orderRepository.findOne(contextFromRequest(req), { _id: identifier })
-    : await orderRepository.findOne(contextFromRequest(req), { orderNumber: identifier });
+    ? await Order.findOne(await buildRestaurantQuery({ _id: identifier }, req.user))
+    : await Order.findOne(await buildRestaurantQuery({ orderNumber: identifier }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   if (!["admin", "manager"].includes(req.user.role)) throw new ApiError(403, "Forbidden");
@@ -561,7 +479,6 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   addStatusHistoryEntry(order, ORDER_STATUSES.CANCELLED, req.user._id);
 
   await releaseOrderTableIfNeeded(order);
-  await cancelKotTickets({ order });
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
     title: "Order Cancelled",
@@ -582,7 +499,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 export const updateOrderStatus = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = normalizeOrderStatus(order.status);
@@ -605,7 +522,6 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   if (nextStatus === ORDER_STATUSES.CANCELLED) {
-    await cancelKotTickets({ order });
     await createOrderNotifications({
       title: "Order Cancelled",
       message: `${order.orderNumber} has been cancelled`,
@@ -644,29 +560,29 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 export const updateOrderPayment = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
 
-  const order = await orderRepository.findOne(contextFromRequest(req), { _id: req.params.id });
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
-  if (!["admin", "manager", "cashier"].includes(req.user.role)) {
+  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
     throw new ApiError(403, "Forbidden");
   }
 
-  if (req.body.paymentStatus !== undefined || req.body.transactionId || req.body.razorpayOrderId || req.body.razorpayPaymentId) {
-    throw new ApiError(422, "Payment status and transaction details are server-owned. Use payment verification.");
-  }
-
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
-  const paymentStatus = normalizePaymentStatus(order.paymentStatus);
+  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
 
-  if (paymentStatus !== PAYMENT_STATUSES.PENDING && paymentStatus !== PAYMENT_STATUSES.FAILED) {
-    throw new ApiError(409, "Payment method cannot be changed after settlement has started");
+  if (paymentStatus === PAYMENT_STATUSES.PAID && paymentMethod !== PAYMENT_METHODS.CASH && !req.body.gatewayVerified) {
+    throw new ApiError(422, "Payment cannot be marked as PAID without gateway verification");
   }
 
   const result = await updateOrderPaymentState(order, {
     paymentMethod,
     paymentStatus,
-    gateway: paymentMethod,
-    note: "Payment method selected",
+    gateway: req.body.gateway || req.body.provider || paymentMethod,
+    transactionId: req.body.transactionId || "",
+    razorpayOrderId: req.body.razorpayOrderId || "",
+    razorpayPaymentId: req.body.razorpayPaymentId || "",
+    paidAt: req.body.paidAt || null,
+    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment updated to paid" : "Payment updated",
   });
 
   const orderUpdate = result.order;
@@ -693,11 +609,94 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
 });
 
 export const payOrder = asyncHandler(async (req, res) => {
-  throw new ApiError(410, "This endpoint is retired. Create a payment intent and use server-side verification.");
+  if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
+
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
+
+  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
+  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || "PAID");
+
+  if (paymentStatus !== PAYMENT_STATUSES.PAID) {
+    throw new ApiError(422, "Pay endpoint only supports completed payments");
+  }
+
+  const result = await updateOrderPaymentState(order, {
+    paymentMethod,
+    paymentStatus: PAYMENT_STATUSES.PAID,
+    gateway: req.body.gateway || paymentMethod,
+    transactionId: req.body.transactionId || req.body.paymentId || "",
+    razorpayOrderId: req.body.razorpayOrderId || "",
+    razorpayPaymentId: req.body.razorpayPaymentId || "",
+    paidAt: req.body.paidAt || new Date(),
+    note: paymentMethod === PAYMENT_METHODS.CASH ? "Cash payment confirmed" : "Gateway payment verified",
+  });
+
+  await createOrderAuditLog({ user: req.user, action: "Order Paid", order: result.order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } });
+  await createOrderNotifications({
+    title: "Payment Received",
+    message: `${result.order.orderNumber} payment completed`,
+    actorUserId: req.user._id,
+    type: "PAYMENT_RECEIVED",
+    restaurantId: result.order.restaurant,
+    entityType: "Order",
+    entityId: result.order._id,
+    orderNumber: result.order.orderNumber,
+    total: result.order.total,
+    paymentMethod: paymentMethod,
+  });
+
+  emitOrderPaymentUpdated(result.order);
+  await maybeReleaseTableAfterSettlement(result.order);
+  res.status(200).json(new ApiResponse(true, "Order payment completed", normalizeOrderOutput(result.order)));
 });
 
 export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
-  throw new ApiError(410, "This endpoint is retired. Use the payment verification workflow.");
+  if (!mongoose.isValidObjectId(req.params.id)) throw new ApiError(404, "Order not found");
+
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
+
+  if (!["admin", "manager", "cashier", "waiter"].includes(req.user.role)) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
+  const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
+
+  const result = await updateOrderPaymentState(order, {
+    paymentMethod,
+    paymentStatus,
+    gateway: req.body.gateway || req.body.provider || paymentMethod,
+    transactionId: req.body.transactionId || "",
+    razorpayOrderId: req.body.razorpayOrderId || "",
+    razorpayPaymentId: req.body.razorpayPaymentId || "",
+    paidAt: req.body.paidAt || null,
+    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment verified successfully" : "Payment status updated",
+  });
+
+  if (paymentStatus === PAYMENT_STATUSES.PAID) {
+    await createOrderNotifications({
+      title: "Payment Received",
+      message: `${result.order.orderNumber} payment is now PAID`,
+      actorUserId: req.user._id,
+      type: "PAYMENT_RECEIVED",
+      restaurantId: result.order.restaurant,
+      entityType: "Order",
+      entityId: result.order._id,
+      orderNumber: result.order.orderNumber,
+      total: result.order.total,
+      paymentMethod: paymentMethod,
+    });
+  }
+
+  emitOrderPaymentUpdated(result.order);
+  await maybeReleaseTableAfterSettlement(result.order);
+  res.status(200).json(new ApiResponse(true, "Order payment status updated", normalizeOrderOutput(result.order)));
 });
 
 export const getOrderStats = asyncHandler(async (req, res) => {

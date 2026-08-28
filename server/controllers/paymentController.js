@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
-import PaymentPart from "../models/PaymentPart.js";
 import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -29,11 +28,6 @@ import {
   updateOrderPaymentState,
 } from "../services/paymentService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
-import { assertVerifiedSettlement } from "../services/posIntegrityService.js";
-import { runInTransaction } from "../services/transactionService.js";
-import { maybeReleaseTableAfterSettlement } from "../services/tableOrderService.js";
-import paymentRepository from "../repositories/paymentRepository.js";
-import { contextFromRequest } from "../repositories/baseRepository.js";
 
 const providerToMethod = {
   stripe: "OTHER",
@@ -47,7 +41,6 @@ const providerToMethod = {
 };
 
 const normalizeGateway = (value) => String(value || "").trim().toLowerCase();
-const contextFromUser = (user) => ({ restaurantId: user?.restaurant || null, outletId: user?.outletId || null, role: user?.role || "" });
 
 const getPagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -262,57 +255,12 @@ const getPaymentDoc = async (identifier, user) => {
     ? await buildRestaurantQuery({ _id: identifier }, user)
     : await buildRestaurantQuery({ paymentId: paymentIdPattern || String(identifier).trim().toUpperCase() }, user);
 
-  return paymentRepository.findOne(contextFromUser(user), query)
+  return Payment.findOne(query)
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
     .populate("refundedBy", "fullName email role");
 };
-
-export const createSplitPayment = asyncHandler(async (req, res) => {
-  const { orderId, amount, paymentMethod, transactionId = "" } = req.body;
-  const idempotencyKey = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
-  if (!idempotencyKey || idempotencyKey.length < 8) throw new ApiError(422, "A valid Idempotency-Key is required");
-  const restaurantQuery = await buildRestaurantQuery({ _id: orderId }, req.user);
-  const order = await Order.findOne(restaurantQuery);
-  if (!order) throw new ApiError(404, "Order not found");
-  assertVerifiedSettlement({ order, provider: "cash", actor: req.user });
-  const requestedAmount = Number(amount);
-  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) throw new ApiError(422, "Amount must be greater than zero");
-  const method = normalizePaymentMethod(paymentMethod);
-  if (method !== "CASH") throw new ApiError(422, "Split verification currently supports CASH only");
-
-  const result = await runInTransaction(async (session) => {
-    const existing = await PaymentPart.findOne({ restaurant: order.restaurant, idempotencyKey }).session(session);
-    if (existing) return { part: existing, duplicate: true };
-    const paidRows = await PaymentPart.find({ orderId: order._id, restaurant: order.restaurant, status: "VERIFIED" }).session(session).lean();
-    const paid = paidRows.reduce((sum, part) => sum + Number(part.amount || 0), 0);
-    const remaining = Math.round((Number(order.total) - paid) * 100) / 100;
-    if (requestedAmount > remaining) throw new ApiError(422, "Split payment exceeds the remaining order total");
-    const [part] = await PaymentPart.create([{ orderId: order._id, restaurant: order.restaurant, amount: requestedAmount, paymentMethod: normalizePaymentMethod(paymentMethod), transactionId: String(transactionId).trim(), idempotencyKey, verifiedBy: req.user._id }], { session });
-    const nextPaid = Math.round((paid + requestedAmount) * 100) / 100;
-    order.paymentStatus = nextPaid === Number(order.total) ? "PAID" : "PARTIALLY_PAID";
-    if (order.paymentStatus === "PAID") {
-      order.status = "COMPLETED";
-      order.paidAt = new Date();
-    }
-    await order.save({ session });
-    await syncPaymentFromOrder(order, {
-      status: order.paymentStatus,
-      metadata: { paymentMethod: method, provider: "cash", gateway: "Cash" },
-      note: "Split payment verified",
-      session,
-      emit: false,
-      notify: false,
-    });
-    return { part, duplicate: false };
-  });
-  if (!result.duplicate) {
-    const updatedOrder = await Order.findById(order._id);
-    if (updatedOrder?.paymentStatus === "PAID") await maybeReleaseTableAfterSettlement(updatedOrder);
-  }
-  res.status(result.duplicate ? 200 : 201).json(new ApiResponse(true, result.duplicate ? "Split payment already recorded" : "Split payment verified", result.part));
-});
 
 export const createPaymentIntent = asyncHandler(async (req, res) => {
   const { orderId, provider, paymentMethod } = req.body;
@@ -322,7 +270,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const resolvedMethod = normalizePaymentMethod(paymentMethod || providerToMethod[provider] || provider || order.paymentMethod);
-  const existing = await paymentRepository.findOne(contextFromRequest(req), { orderId: order._id });
+  const existing = await Payment.findOne({ orderId: order._id });
   if (normalizePaymentStatus(existing?.paymentStatus || order.paymentStatus) === "PAID") {
     throw new ApiError(409, "Payment already completed.");
   }
@@ -397,45 +345,8 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const nextStatus = normalizePaymentStatus(status === "success" ? "PAID" : status);
-  const gateway = normalizeGateway(provider || meta.provider);
 
-  if (!['success', 'failed'].includes(String(status).toLowerCase())) {
-    throw new ApiError(422, "Verification status must be success or failed");
-  }
-
-  if (!gateway || !["razorpay", "cash"].includes(gateway)) {
-    throw new ApiError(422, "Unsupported payment provider");
-  }
-
-  if (gateway === "cash" && nextStatus !== "PAID") {
-    throw new ApiError(422, "Cash settlement must be verified as paid by an authorized cashier");
-  }
-
-  if (normalizePaymentStatus(order.paymentStatus) === "PAID") {
-    const completed = await paymentRepository.findOne(contextFromRequest(req), { orderId: order._id, paymentStatus: "PAID" });
-    if (completed && (!razorpay_payment_id || completed.razorpayPaymentId === razorpay_payment_id)) {
-      return res.status(200).json(new ApiResponse(true, "Payment already verified", serializePayment(completed)));
-    }
-    throw new ApiError(409, "Payment already completed");
-  }
-
-  const existingPayment = await paymentRepository.findOne(contextFromRequest(req), { orderId: order._id });
-  assertVerifiedSettlement({ order, payment: existingPayment, provider: gateway, actor: req.user });
-
-  if (gateway === "razorpay") {
-    if (!process.env.RAZORPAY_KEY_SECRET) {
-      throw new ApiError(500, "Razorpay is not configured");
-    }
-
-    const initiatedPayment = await paymentRepository.findOne(contextFromRequest(req), {
-      orderId: order._id,
-      razorpayOrderId: razorpay_order_id,
-      paymentStatus: { $in: ["PENDING", "PROCESSING"] },
-    }).select("_id");
-    if (!initiatedPayment) {
-      throw new ApiError(409, "Payment does not match an initiated order");
-    }
-
+  if (normalizeGateway(provider || meta.provider) === "razorpay") {
     logger.info(`Razorpay verify requested for orderId=${orderId} razorpayOrderId=${razorpay_order_id || ""} razorpayPaymentId=${razorpay_payment_id || ""}`);
 
     const generatedSignature = crypto
@@ -502,7 +413,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 });
 
 export const getPaymentByOrderId = asyncHandler(async (req, res) => {
-  const payment = await paymentRepository.findOne(contextFromRequest(req), { orderId: req.params.orderId })
+  const payment = await Payment.findOne(await buildRestaurantQuery({ orderId: req.params.orderId }, req.user))
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
@@ -516,7 +427,7 @@ export const getPaymentByOrderId = asyncHandler(async (req, res) => {
 
 export const listPayments = asyncHandler(async (req, res) => {
   const { pipeline, page, limit } = await buildListPipeline(req.query, req.user);
-  const [result] = await paymentRepository.aggregate(contextFromRequest(req), pipeline);
+  const [result] = await Payment.aggregate(pipeline);
   const rows = (result?.data || []).map(mapPaymentRow);
   const total = result?.meta?.[0]?.total || 0;
 
@@ -534,10 +445,7 @@ export const getPaymentById = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
 
-  const order = await Order.findOne({
-    _id: payment.orderId?._id || payment.orderId,
-    restaurant: payment.restaurant,
-  })
+  const order = await Order.findById(payment.orderId?._id || payment.orderId)
     .populate("customer", "fullName email phone avatar")
     .populate("table", "tableNumber floor section")
     .populate("items.menuItem", "name price");
@@ -590,23 +498,23 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
     revenueByMethod,
     statusBreakdown,
   ] = await Promise.all([
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: revenueStatuses } }, req.user) },
       { $group: { _id: null, total: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
     ]),
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: revenueStatuses }, createdAt: { $gte: todayStart, $lt: tomorrowStart } }, req.user) },
       { $group: { _id: null, total: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
     ]),
-    paymentRepository.count(contextFromRequest(req), { paymentStatus: { $in: successfulStatuses } }),
-    paymentRepository.count(contextFromRequest(req), { paymentStatus: { $in: ["PENDING", "PROCESSING"] } }),
-    paymentRepository.count(contextFromRequest(req), { paymentStatus: { $in: ["FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] } }),
-    paymentRepository.aggregate(contextFromRequest(req), [{ $match: await buildRestaurantQuery({}, req.user) }, { $group: { _id: null, total: { $sum: { $ifNull: ["$refundAmount", 0] } } } }]),
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.countDocuments(await buildRestaurantQuery({ paymentStatus: { $in: successfulStatuses } }, req.user)),
+    Payment.countDocuments(await buildRestaurantQuery({ paymentStatus: { $in: ["PENDING", "PROCESSING"] } }, req.user)),
+    Payment.countDocuments(await buildRestaurantQuery({ paymentStatus: { $in: ["FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] } }, req.user)),
+    Payment.aggregate([{ $match: await buildRestaurantQuery({}, req.user) }, { $group: { _id: null, total: { $sum: { $ifNull: ["$refundAmount", 0] } } } }]),
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({ paymentStatus: { $in: successfulStatuses } }, req.user) },
       { $group: { _id: null, avg: { $avg: { $ifNull: ["$totalAmount", 0] } } } },
     ]),
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({ createdAt: { $gte: thisMonthStart } }, req.user) },
       {
         $group: {
@@ -617,12 +525,12 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
       },
       { $sort: { _id: 1 } },
     ]),
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({}, req.user) },
       { $group: { _id: "$paymentMethod", revenue: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } }, count: { $sum: 1 } } },
       { $sort: { revenue: -1 } },
     ]),
-    paymentRepository.aggregate(contextFromRequest(req), [
+    Payment.aggregate([
       { $match: await buildRestaurantQuery({}, req.user) },
       { $group: { _id: "$paymentStatus", count: { $sum: 1 }, revenue: { $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
       { $sort: { count: -1 } },
@@ -666,7 +574,7 @@ export const getPaymentReceipt = asyncHandler(async (req, res) => {
 export const exportPayments = asyncHandler(async (req, res) => {
   const { pipeline } = await buildListPipeline(req.query, req.user);
   const exportPipeline = pipeline.slice(0, -1);
-  const payments = await paymentRepository.aggregate(contextFromRequest(req), exportPipeline);
+  const payments = await Payment.aggregate(exportPipeline);
   const csv = buildPaymentCsv(payments.map(mapPaymentRow));
 
   res.setHeader("Content-Type", "text/csv");
@@ -691,7 +599,6 @@ export const refundPayment = asyncHandler(async (req, res) => {
     refundAmount: amountToRefund,
     refundReason,
     refundedBy: req.user._id,
-    restaurantId: payment.restaurant,
   });
 
   res.status(200).json(new ApiResponse(true, "Refund processed", serializePayment(updated)));
@@ -706,7 +613,7 @@ export const deletePayment = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Paid or refunded payments cannot be deleted");
   }
 
-  await paymentRepository.deleteOne(contextFromRequest(req), { _id: payment._id });
+  await Payment.deleteOne({ _id: payment._id });
 
   if (payment.orderId?._id || payment.orderId) {
     const order = await Order.findById(payment.orderId?._id || payment.orderId);

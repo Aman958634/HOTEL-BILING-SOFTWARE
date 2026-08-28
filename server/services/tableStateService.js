@@ -3,22 +3,17 @@ import Table from "../models/Table.js";
 import Order from "../models/Order.js";
 import ApiError from "../utils/ApiError.js";
 import { getIO } from "../config/socket.js";
-import SocketEvent from "../models/SocketEvent.js";
-import { deriveTableLifecycle, TABLE_LIFECYCLE } from "./lifecycleService.js";
-import Reservation from "../models/Reservation.js";
-import { isActiveOrder } from "./posValidationService.js";
 
 export const TABLE_STATUS = {
-  ...TABLE_LIFECYCLE,
+  AVAILABLE: "AVAILABLE",
+  OCCUPIED: "OCCUPIED",
+  RESERVED: "RESERVED",
+  MAINTENANCE: "MAINTENANCE",
 };
 
 const statusAliases = {
   available: TABLE_STATUS.AVAILABLE,
-  order_created: TABLE_STATUS.ORDER_CREATED,
   occupied: TABLE_STATUS.OCCUPIED,
-  bill: TABLE_STATUS.BILL,
-  payment_verified: TABLE_STATUS.PAYMENT_VERIFIED,
-  paid: TABLE_STATUS.PAID,
   reserved: TABLE_STATUS.RESERVED,
   maintenance: TABLE_STATUS.MAINTENANCE,
 };
@@ -62,18 +57,13 @@ export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CO
 export const emitTableStatusChange = (table) => {
   try {
     const io = getIO();
-    if (!table.restaurant) return;
-    const eventId = new mongoose.Types.ObjectId().toString();
-    const payload = {
-      eventId,
+    io.to("dashboard").emit("table:statusChanged", {
       tableId: table._id,
       tableNumber: table.tableNumber,
       status: table.status,
       currentOrder: table.currentOrder || null,
       ...(table.activeOrderCount != null ? { activeOrderCount: table.activeOrderCount } : {}),
-    };
-    void SocketEvent.create({ eventId, event: "table:statusChanged", restaurant: table.restaurant, payload, occurredAt: new Date() }).catch(() => {});
-    io.to(`restaurant:${table.restaurant}`).emit("table:statusChanged", payload);
+    });
   } catch (_error) {
     // Socket server may be unavailable in non-server runtime contexts.
   }
@@ -82,7 +72,7 @@ export const emitTableStatusChange = (table) => {
 /**
  * Derive a table's status from real database state.
  *   - MAINTENANCE is a manual override and is preserved.
- *   - Lifecycle state is derived from persisted server-side order/billing data.
+ *   - OCCUPIED  = at least one ACTIVE order exists.
  *   - RESERVED  = no active order but an active reservation exists.
  *   - AVAILABLE = no active order and no active reservation.
  *
@@ -96,22 +86,24 @@ const recomputeTableState = async (table) => {
     return table;
   }
 
-  const orders = await Order.find({
+  const activeOrders = await Order.find({
     table: table._id,
     isArchived: { $ne: true },
+    status: { $in: activeOrderStatuses },
   })
-    .select("_id status paymentStatus billingStatus createdAt")
+    .select("_id")
     .sort({ createdAt: -1 })
     .lean();
 
-  const activeReservation = await Reservation.findOne({
-    table: table._id,
-    status: { $in: activeReservationStatuses },
-  }).sort({ date: 1 }).select("_id").lean();
-  const activeOrders = orders.filter(isActiveOrder);
-  table.currentReservation = activeReservation?._id || null;
-  table.status = deriveTableLifecycle({ table, orders });
-  table.currentOrder = activeOrders[0]?._id || null;
+  if (activeOrders.length > 0) {
+    table.status = TABLE_STATUS.OCCUPIED;
+    table.currentOrder = activeOrders[0]?._id || null;
+  } else {
+    table.currentOrder = null;
+    table.status = table.currentReservation
+      ? TABLE_STATUS.RESERVED
+      : TABLE_STATUS.AVAILABLE;
+  }
 
   table.activeOrderCount = activeOrders.length;
   await table.save();

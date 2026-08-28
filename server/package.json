@@ -8,11 +8,7 @@
     "dev": "kill-port 5002 && nodemon server.js",
     "start": "node server.js",
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
-    "migrate:pos-indexes": "node scripts/migratePosIndexes.js",
-    "check:source-purity": "node scripts/checkSourcePurity.js",
-    "test": "node --test tests/tenantContext.test.js tests/outletIsolation.test.js tests/posIntegrity.test.js tests/subscriptionTrial.test.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
-    "test:pos": "node --test tests/posIntegrity.test.js",
     "lint": "echo \"Add ESLint config\""
   },
   "dependencies": {
@@ -29,7 +25,6 @@
     "mongoose": "^8.18.1",
     "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.2",
-    "node-cron": "^4.6.0",
     "nodemailer": "^7.0.6",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",

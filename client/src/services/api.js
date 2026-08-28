@@ -35,8 +35,6 @@ const processQueue = (error, token = null) => {
 const clearAuthAndRedirectToLogin = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
-  localStorage.removeItem("restaurantId");
-  localStorage.removeItem("outletId");
   authStore?.dispatch({ type: "auth/logout" });
   if (window.location.pathname !== "/login" && window.location.pathname !== "/super-admin-login") {
     window.location.replace("/login");
@@ -49,16 +47,8 @@ export const setupAuthInterceptor = (store) => {
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
-  const restaurantId = localStorage.getItem("restaurantId");
-  const outletId = localStorage.getItem("outletId");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-  }
-  if (restaurantId) {
-    config.headers["x-restaurant-id"] = restaurantId;
-  }
-  if (outletId) {
-    config.headers["x-outlet-id"] = outletId;
   }
   return config;
 });

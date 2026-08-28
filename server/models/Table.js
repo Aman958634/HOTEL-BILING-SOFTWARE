@@ -1,16 +1,7 @@
 import mongoose from "mongoose";
 
 const TABLE_SHAPES = ["ROUND", "SQUARE", "RECTANGLE"];
-const TABLE_STATUSES = [
-  "AVAILABLE",
-  "ORDER_CREATED",
-  "OCCUPIED",
-  "BILL",
-  "PAYMENT_VERIFIED",
-  "PAID",
-  "RESERVED",
-  "MAINTENANCE",
-];
+const TABLE_STATUSES = ["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE"];
 
 const normalizeEnum = (value, fallback) => {
   if (!value) return fallback;
@@ -31,7 +22,6 @@ const tableSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
-    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     capacity: { type: Number, required: true, min: 1 },
     floor: { type: String, required: true, trim: true },
     section: { type: String, required: true, trim: true },
@@ -62,7 +52,6 @@ const tableSchema = new mongoose.Schema(
       ref: "Reservation",
       default: null,
     },
-    activeOrderCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );
@@ -83,9 +72,8 @@ tableSchema.pre("validate", function normalizeLegacyValues(next) {
   next();
 });
 
-tableSchema.index({ restaurant: 1, outlet: 1, tableNumber: 1 }, { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" } } });
+tableSchema.index({ restaurant: 1, tableNumber: 1 }, { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" } } });
 tableSchema.index({ status: 1 });
-tableSchema.index({ restaurant: 1, status: 1, updatedAt: -1 });
 tableSchema.index({ floor: 1 });
 tableSchema.index({ section: 1 });
 

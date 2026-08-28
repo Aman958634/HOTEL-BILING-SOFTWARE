@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const ORDER_TYPES = ["DINE_IN", "TAKEAWAY", "DELIVERY"];
 const PAYMENT_METHODS = ["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "RAZORPAY", "OTHER"];
-const PAYMENT_STATUSES = ["PENDING", "PARTIALLY_PAID", "PAYMENT_VERIFIED", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
-const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED", "VOIDED"];
+const PAYMENT_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
+const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED"];
 
 const orderTypeAliases = {
   dine_in: "DINE_IN",
@@ -86,7 +86,6 @@ const orderSchema = new mongoose.Schema(
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false, index: true },
     table: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: false, index: true },
-    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     orderType: {
       type: String,
       enum: ORDER_TYPES,
@@ -118,10 +117,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentId: { type: String, default: "", trim: true, index: true },
     transactionId: { type: String, default: "", trim: true, index: true, sparse: true },
-    idempotencyKey: { type: String, default: "", trim: true, maxlength: 128 },
     paidAt: { type: Date, default: null, index: true },
-    billingStatus: { type: String, enum: ["UNBILLED", "BILLED", "VOIDED"], default: "UNBILLED", index: true },
-    kotRevision: { type: Number, min: 0, default: 0 },
     status: {
       type: String,
       enum: ORDER_STATUSES,
@@ -143,9 +139,6 @@ orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderType: 1, createdAt: -1 });
-orderSchema.index({ restaurant: 1, table: 1, status: 1, paymentStatus: 1, createdAt: -1 });
-orderSchema.index({ restaurant: 1, outlet: 1, createdAt: -1 });
-orderSchema.index({ restaurant: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 
 orderSchema.pre("validate", function normalizeLegacyOrder(next) {
   if (!this.orderType) {
