@@ -9,13 +9,15 @@ export const KITCHEN_ITEM_STATUSES = {
   NEW: "NEW",
   PREPARING: "PREPARING",
   READY: "READY",
+  SERVED: "SERVED",
   CANCELLED: "CANCELLED",
 };
 
 export const KITCHEN_ITEM_TRANSITIONS = {
   [KITCHEN_ITEM_STATUSES.NEW]: [KITCHEN_ITEM_STATUSES.PREPARING, KITCHEN_ITEM_STATUSES.CANCELLED],
   [KITCHEN_ITEM_STATUSES.PREPARING]: [KITCHEN_ITEM_STATUSES.READY, KITCHEN_ITEM_STATUSES.CANCELLED],
-  [KITCHEN_ITEM_STATUSES.READY]: [KITCHEN_ITEM_STATUSES.CANCELLED],
+  [KITCHEN_ITEM_STATUSES.READY]: [KITCHEN_ITEM_STATUSES.SERVED, KITCHEN_ITEM_STATUSES.CANCELLED],
+  [KITCHEN_ITEM_STATUSES.SERVED]: [],
   [KITCHEN_ITEM_STATUSES.CANCELLED]: [],
 };
 
@@ -29,7 +31,6 @@ export const computeOrderKitchenPhase = (order) => {
   if (!order) return null;
   const status = String(order.status || "").toUpperCase();
   if (status === ORDER_STATUSES.CANCELLED) return "CANCELLED";
-  if ([ORDER_STATUSES.SERVED, ORDER_STATUSES.COMPLETED].includes(status)) return "COMPLETED";
 
   const items = order.items || [];
   const activeItems = items.filter(
@@ -39,10 +40,14 @@ export const computeOrderKitchenPhase = (order) => {
   if (activeItems.length === 0) return "CANCELLED";
 
   const statuses = activeItems.map((i) => String(i.kitchenStatus || KITCHEN_ITEM_STATUSES.NEW).toUpperCase());
-  const allReady = statuses.every((s) => s === KITCHEN_ITEM_STATUSES.READY);
+  const allServed = statuses.every((s) => s === KITCHEN_ITEM_STATUSES.SERVED);
+  // A served item remains kitchen-complete, so a mix of READY and SERVED
+  // items means the order is still ready to be served as a whole.
+  const allReady = statuses.every((s) => [KITCHEN_ITEM_STATUSES.READY, KITCHEN_ITEM_STATUSES.SERVED].includes(s));
   const anyReady = statuses.some((s) => s === KITCHEN_ITEM_STATUSES.READY);
   const anyPreparing = statuses.some((s) => s === KITCHEN_ITEM_STATUSES.PREPARING);
 
+  if (allServed) return "COMPLETED";
   if (allReady) return "READY";
   if (anyReady && anyPreparing) return "PARTIALLY_READY";
   if (anyPreparing) return "PREPARING";
@@ -102,6 +107,19 @@ export const recalculateOrderStatusFromKitchen = (order) => {
   const phase = computeOrderKitchenPhase(order);
   const currentStatus = String(order.status || "").toUpperCase();
 
+  if (phase === "COMPLETED") {
+    order.kitchenStatus = "COMPLETED";
+    if (![ORDER_STATUSES.SERVED, ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(currentStatus)) {
+      order.status = ORDER_STATUSES.SERVED;
+    }
+  } else if (phase === "READY") {
+    order.kitchenStatus = "READY";
+  } else if (["PREPARING", "PARTIALLY_READY"].includes(phase)) {
+    order.kitchenStatus = "PREPARING";
+  } else {
+    order.kitchenStatus = "PENDING";
+  }
+
   if (phase === "READY" && currentStatus !== ORDER_STATUSES.READY && currentStatus !== ORDER_STATUSES.SERVED && currentStatus !== ORDER_STATUSES.COMPLETED) {
     order.status = ORDER_STATUSES.READY;
   } else if (phase === "PREPARING" && currentStatus === ORDER_STATUSES.PENDING) {
@@ -145,4 +163,3 @@ export const buildKitchenStationMenuFilter = async (stationId, user) => {
   if (!foodIds.length) return { _id: "no-match" };
   return { "items.menuItem": { $in: foodIds.map((f) => f._id) } };
 };
-

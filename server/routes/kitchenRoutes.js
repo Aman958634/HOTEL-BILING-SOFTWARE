@@ -7,6 +7,7 @@ import { requireRole } from "../middleware/roleMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import {
   bulkReadyKitchenItems,
+  bulkServeKitchenItems,
   bulkStartKitchenItems,
   createKitchenStation,
   deleteKitchenStation,
@@ -56,6 +57,13 @@ router.patch(
   [param("orderId").isMongoId().withMessage("Invalid order id")],
   validate,
   bulkReadyKitchenItems
+);
+
+router.patch(
+  "/tickets/:orderId/serve",
+  [param("orderId").isMongoId().withMessage("Invalid order id")],
+  validate,
+  bulkServeKitchenItems
 );
 
 router.get(

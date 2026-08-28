@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
+import KotTicket from "../models/KotTicket.js";
 import KitchenStation from "../models/KitchenStation.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -16,10 +17,9 @@ import {
   updateItemKitchenStatus,
   bulkUpdateItemsKitchenStatus,
   recalculateOrderStatusFromKitchen,
-  buildKitchenTicket,
   buildKitchenStationMenuFilter,
-  isOrderKitchenReady,
 } from "../services/kitchenService.js";
+import { buildKitchenTicketFromKot, syncKotForOrder } from "../services/kotService.js";
 import {
   emitOrderStatusChanged,
   emitKitchenItemStatusChanged,
@@ -70,12 +70,13 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
     .populate("items.menuItem", "name kitchenStation")
     .lean();
 
-  const ticket = buildKitchenTicket(populated);
+  const kot = await syncKotForOrder(populated);
+  const ticket = buildKitchenTicketFromKot(kot);
   emitOrderStatusChanged(populated);
 
-  if (nextItemStatus === KITCHEN_ITEM_STATUSES.READY && isOrderKitchenReady(populated)) {
-    emitKitchenOrderStatusChanged(populated);
-  } else {
+  // Keep all order consumers in sync with the derived aggregate kitchen phase.
+  emitKitchenOrderStatusChanged(populated);
+  if (itemIndex != null) {
     emitKitchenItemStatusChanged(populated, Number(itemIndex), nextItemStatus);
   }
 
@@ -119,7 +120,23 @@ export const getKitchenTickets = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name kitchenStation")
     .lean();
 
-  const tickets = orders.map((order) => buildKitchenTicket(normalizeOrderForBoard(order)));
+  const orderIds = orders.map((order) => order._id);
+  const existingKots = orderIds.length ? await KotTicket.find({ orderId: { $in: orderIds } }).select("orderId") : [];
+  const existingOrderIds = new Set(existingKots.map((kot) => String(kot.orderId)));
+  const missingOrders = orders.filter((order) => !existingOrderIds.has(String(order._id)));
+  await Promise.all(missingOrders.map((order) => syncKotForOrder(normalizeOrderForBoard(order))));
+
+  const kotFilters = { orderId: { $in: orderIds } };
+  if (Object.keys(stationFilter).length > 0) {
+    Object.assign(kotFilters, stationFilter);
+  }
+  const kots = await KotTicket.find(kotFilters)
+    .sort({ createdAt: -1 })
+    .populate("tableId", "tableNumber floor section")
+    .populate("items.menuItem", "name kitchenStation")
+    .populate("orderId", "status kitchenStatus customer")
+    .lean();
+  const tickets = kots.map(buildKitchenTicketFromKot);
 
   res.status(200).json(new ApiResponse(true, "Kitchen tickets fetched", tickets));
 });
@@ -190,6 +207,17 @@ export const bulkReadyKitchenItems = asyncHandler(async (req, res) => {
   const ticket = await saveAndEmit(order, req, null, KITCHEN_ITEM_STATUSES.READY);
 
   res.status(200).json(new ApiResponse(true, "Kitchen items marked ready", ticket));
+});
+
+export const bulkServeKitchenItems = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.orderId)) throw new ApiError(404, "Order not found");
+  if (!canUpdateKitchenItem(req.user.role)) throw new ApiError(403, "You do not have permission to update kitchen items");
+
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user));
+  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
+  bulkUpdateItemsKitchenStatus(order, KITCHEN_ITEM_STATUSES.SERVED);
+  const ticket = await saveAndEmit(order, req, null, KITCHEN_ITEM_STATUSES.SERVED);
+  res.status(200).json(new ApiResponse(true, "Kitchen items marked served", ticket));
 });
 
 export const listKitchenStations = asyncHandler(async (req, res) => {

@@ -44,7 +44,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
   const phase = ticket.kitchenPhase || "NEW";
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className={`flex h-full flex-col rounded-xl border bg-white shadow-sm ${phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200"}`}>
       <div className="border-b border-slate-100 p-3">
         <div className="flex items-center justify-between gap-2">
           <div>

@@ -4,6 +4,7 @@ const STATUS_CONFIG = {
   NEW: { label: "New", className: "border-slate-200 bg-slate-50 text-slate-700" },
   PREPARING: { label: "Preparing", className: "border-amber-200 bg-amber-50 text-amber-700" },
   READY: { label: "Ready", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  SERVED: { label: "Served", className: "border-sky-200 bg-sky-50 text-sky-700" },
   CANCELLED: { label: "Cancelled", className: "border-rose-200 bg-rose-50 text-rose-700 line-through" },
 };
 
@@ -37,7 +38,7 @@ const KitchenItem = ({ item, onStatusChange, canUpdate }) => {
         </span>
       </div>
 
-      {canUpdate && status !== "CANCELLED" && status !== "READY" && (
+      {canUpdate && status !== "CANCELLED" && status !== "SERVED" && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {status === "NEW" && (
             <button
@@ -53,6 +54,14 @@ const KitchenItem = ({ item, onStatusChange, canUpdate }) => {
               className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
             >
               Ready
+            </button>
+          )}
+          {status === "READY" && (
+            <button
+              onClick={() => onStatusChange?.(item.index, "SERVED")}
+              className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+            >
+              Serve
             </button>
           )}
           <button

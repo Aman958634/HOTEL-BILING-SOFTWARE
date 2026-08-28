@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { FiAlertTriangle, FiCheckCircle, FiClock, FiCoffee, FiLoader, FiMaximize, FiMinimize, FiRefreshCw, FiSearch, FiVolume2, FiVolumeX, FiWifi, FiWifiOff } from "react-icons/fi";
 import { useSocket } from "../../context/SocketContext";
-import { getKitchenTickets, getKitchenStations, updateKitchenItemStatus, bulkStartKitchenItems, bulkReadyKitchenItems } from "../../services/kitchenService";
-import { updateOrderStatus } from "../../services/orderService";
+import { getKitchenTickets, getKitchenStations, updateKitchenItemStatus, bulkStartKitchenItems, bulkReadyKitchenItems, bulkServeKitchenItems } from "../../services/kitchenService";
 import KdsHeader from "../../components/kitchen/KdsHeader";
 import KdsBoard from "../../components/kitchen/KdsBoard";
 import EmptyState from "../../components/common/EmptyState";
@@ -23,6 +22,43 @@ const waitSeverity = (mins, t = DEFAULT_THRESHOLDS) => {
   if (mins >= t.delayed) return "delayed";
   if (mins >= t.warning) return "warning";
   return "normal";
+};
+
+const toKitchenPhase = (status) => {
+  const normalized = String(status || "NEW").toUpperCase();
+  return normalized === "SERVED" ? "COMPLETED" : normalized;
+};
+
+// `new_kot` / `kot_updated` contain KOT documents, while the board renders
+// kitchen-ticket DTOs. Adapt the socket payload so a new KOT appears instantly
+// before the background refresh enriches its table/customer details.
+const ticketFromKotSocket = (kot) => {
+  if (!kot?._id || !kot?.orderId) return null;
+  const kotStatus = String(kot.status || "NEW").toUpperCase();
+  const kitchenPhase = toKitchenPhase(kotStatus);
+  return {
+    kotId: kot._id,
+    orderId: kot.orderId?._id || kot.orderId,
+    orderNumber: kot.orderNumber,
+    orderType: kot.orderType,
+    status: kotStatus === "SERVED" ? "SERVED" : "PENDING",
+    kitchenStatus: kitchenPhase === "COMPLETED" ? "COMPLETED" : kitchenPhase === "READY" ? "READY" : kitchenPhase === "PREPARING" ? "PREPARING" : "PENDING",
+    kitchenPhase,
+    kotStatus,
+    createdAt: kot.createdAt || new Date().toISOString(),
+    updatedAt: kot.updatedAt || new Date().toISOString(),
+    table: kot.tableId || null,
+    customer: null,
+    restaurant: kot.restaurant || null,
+    items: (kot.items || []).map((item) => ({
+      index: item.orderItemIndex,
+      name: item.name,
+      quantity: item.quantity ?? item.qty ?? 1,
+      specialInstructions: item.specialInstructions || "",
+      kitchenStatus: item.status || "NEW",
+      menuItem: item.menuItem || null,
+    })),
+  };
 };
 
 const KitchenDisplay = () => {
@@ -47,7 +83,7 @@ const KitchenDisplay = () => {
 
   const thresholds = DEFAULT_THRESHOLDS;
   const audioRef = useRef(null);
-  const lastFetchRef = useRef(0);
+  const socketRefreshRef = useRef(null);
 
   // Guards to prevent overlapping polling requests and honour 429 backoff.
   const inFlightRef = useRef(false);
@@ -142,6 +178,7 @@ const KitchenDisplay = () => {
     return () => {
       clearInterval(id);
       if (abortRef.current) abortRef.current.abort();
+      if (socketRefreshRef.current) clearTimeout(socketRefreshRef.current);
     };
   }, [refreshAll, POLL_INTERVAL]);
 
@@ -150,15 +187,32 @@ const KitchenDisplay = () => {
     setConnected(Boolean(socket.connected));
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
-    const onEvent = () => {
-      const now = Date.now();
-      if (now - lastFetchRef.current < 1200) return;
-      lastFetchRef.current = now;
-      playAlert();
-      refreshAll();
+    const scheduleRefresh = () => {
+      if (socketRefreshRef.current) return;
+      socketRefreshRef.current = setTimeout(() => {
+        socketRefreshRef.current = null;
+        refreshAll();
+      }, 250);
+    };
+    const upsertKot = (payload, alert = false) => {
+      const ticket = ticketFromKotSocket(payload);
+      if (ticket) {
+        setTickets((previous) => {
+          const index = previous.findIndex((item) => String(item.orderId) === String(ticket.orderId));
+          if (index < 0) return [ticket, ...previous];
+          const next = [...previous];
+          next[index] = { ...next[index], ...ticket };
+          return next;
+        });
+      }
+      if (alert) playAlert();
+      scheduleRefresh();
     };
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
+    const onKotCreated = (payload) => upsertKot(payload, true);
+    const onKotUpdated = (payload) => upsertKot(payload);
+    const onEvent = () => scheduleRefresh();
     [
       "kitchen:ticketCreated",
       "kitchen:itemStatusChanged",
@@ -167,6 +221,8 @@ const KitchenDisplay = () => {
       "order:created",
       "order:cancelled",
     ].forEach((e) => socket.on(e, onEvent));
+    socket.on("new_kot", onKotCreated);
+    socket.on("kot_updated", onKotUpdated);
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -178,6 +234,12 @@ const KitchenDisplay = () => {
         "order:created",
         "order:cancelled",
       ].forEach((e) => socket.off(e, onEvent));
+      socket.off("new_kot", onKotCreated);
+      socket.off("kot_updated", onKotUpdated);
+      if (socketRefreshRef.current) {
+        clearTimeout(socketRefreshRef.current);
+        socketRefreshRef.current = null;
+      }
     };
   }, [socket, refreshAll, playAlert]);
 
@@ -284,7 +346,7 @@ const KitchenDisplay = () => {
 
   const handleBulkComplete = useCallback(async (orderId) => {
     try {
-      const { data } = await updateOrderStatus(orderId, "COMPLETED");
+      const { data } = await bulkServeKitchenItems(orderId);
       setTickets((prev) => {
         const next = [...prev];
         const idx = next.findIndex((t) => String(t.orderId) === String(orderId));

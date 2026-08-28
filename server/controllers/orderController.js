@@ -31,6 +31,7 @@ import {
 } from "../services/orderService.js";
 import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
+import { syncKotForOrder } from "../services/kotService.js";
 import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import {
   emitOrderCancelled,
@@ -193,6 +194,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
   });
 
+  await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -278,6 +280,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
   });
 
+  await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
   emitKitchenTicketCreated(populated);
 
@@ -376,13 +379,30 @@ export const updateOrder = asyncHandler(async (req, res) => {
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
   const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
 
-  const existingStatusMap = new Map(
-    (order.items || []).map((item) => [String(item.menuItem), item.kitchenStatus || "NEW"])
-  );
+  // Retain kitchen progress only for an exactly matching pre-existing item.
+  // Extra copies of an item are new kitchen work and must start as NEW.
+  const kitchenItemKey = (item) => [
+    String(item.menuItem?._id || item.menuItem || ""),
+    String(item.name || ""),
+    Number(item.price || 0),
+    Number(item.quantity || 0),
+    String(item.specialInstructions || ""),
+  ].join("|");
+  const existingStatusMap = new Map();
+  (order.items || []).forEach((item) => {
+    const key = kitchenItemKey(item);
+    const statuses = existingStatusMap.get(key) || [];
+    statuses.push(item.kitchenStatus || "NEW");
+    existingStatusMap.set(key, statuses);
+  });
+  const takeExistingKitchenStatus = (item) => {
+    const statuses = existingStatusMap.get(kitchenItemKey(item));
+    return statuses?.length ? statuses.shift() : null;
+  };
 
   const itemsWithKitchenStatus = nextItems.map((item) => ({
     ...item,
-    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+    kitchenStatus: takeExistingKitchenStatus(item) || "NEW",
   }));
 
   const calculated = buildCalculatedOrderPayload({
@@ -401,7 +421,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
   order.orderType = nextOrderType;
   order.items = calculated.items.map((item) => ({
     ...item,
-    kitchenStatus: existingStatusMap.get(String(item.menuItem)) || item.kitchenStatus || "NEW",
+    kitchenStatus: item.kitchenStatus || "NEW",
   }));
   order.subtotal = calculated.subtotal;
   order.discount = calculated.discount;
@@ -437,6 +457,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name")
     .populate("statusHistory.changedBy", "fullName role");
 
+  await syncKotForOrder(populated);
   await createOrderAuditLog({ user: req.user, action: "Order Updated", order: populated });
 
   emitOrderStatusChanged(populated);
@@ -477,6 +498,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   order.status = ORDER_STATUSES.CANCELLED;
   addStatusHistoryEntry(order, ORDER_STATUSES.CANCELLED, req.user._id);
 
+  await syncKotForOrder(order);
   await releaseOrderTableIfNeeded(order);
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
@@ -515,6 +537,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   order.status = nextStatus;
   addStatusHistoryEntry(order, nextStatus, req.user._id);
   await order.save();
+  await syncKotForOrder(order);
 
   if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(nextStatus)) {
     await maybeReleaseTableAfterSettlement(order);

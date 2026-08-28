@@ -4,7 +4,7 @@ const COLUMNS = [
   { key: "NEW", label: "New", filter: (t) => t.kitchenPhase === "NEW" },
   { key: "PREPARING", label: "Preparing", filter: (t) => ["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase) },
   { key: "READY", label: "Ready", filter: (t) => t.kitchenPhase === "READY" },
-  { key: "COMPLETED", label: "Completed", filter: (t) => ["SERVED", "COMPLETED"].includes(t.status) },
+  { key: "COMPLETED", label: "Completed", filter: (t) => t.kitchenPhase === "COMPLETED" || ["SERVED", "COMPLETED"].includes(t.status) },
 ];
 
 const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulkReady, onBulkComplete, canUpdate, canComplete }) => {

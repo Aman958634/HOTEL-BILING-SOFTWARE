@@ -64,7 +64,7 @@ const orderItemSchema = new mongoose.Schema(
     specialInstructions: { type: String, default: "" },
     kitchenStatus: {
       type: String,
-      enum: ["NEW", "PREPARING", "READY", "CANCELLED"],
+      enum: ["NEW", "PREPARING", "READY", "SERVED", "CANCELLED"],
       default: "NEW",
     },
   },
@@ -123,6 +123,12 @@ const orderSchema = new mongoose.Schema(
       enum: ORDER_STATUSES,
       default: "PENDING",
       set: (value) => normalizeAlias(value, orderStatusAliases, "PENDING"),
+      index: true,
+    },
+    kitchenStatus: {
+      type: String,
+      enum: ["PENDING", "PREPARING", "READY", "COMPLETED"],
+      default: "PENDING",
       index: true,
     },
     specialInstructions: { type: String, default: "" },

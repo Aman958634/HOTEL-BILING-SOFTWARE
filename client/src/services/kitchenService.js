@@ -12,6 +12,9 @@ export const bulkStartKitchenItems = (orderId) =>
 export const bulkReadyKitchenItems = (orderId) =>
   api.patch(`/kitchen/tickets/${orderId}/ready`);
 
+export const bulkServeKitchenItems = (orderId) =>
+  api.patch(`/kitchen/tickets/${orderId}/serve`);
+
 export const getKitchenStations = (params = {}, options = {}) =>
   api.get("/kitchen/stations", { params, ...options });
 
