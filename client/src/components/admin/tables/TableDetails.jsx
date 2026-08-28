@@ -20,6 +20,7 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   const [qrOpen, setQrOpen] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState("");
+  const [qrCode, setQrCode] = useState("");
 
   const handleCreateOrder = () => {
     navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
@@ -36,8 +37,13 @@ const TableDetails = ({ open, loading, table, onClose }) => {
     setQrOpen(true);
     setQrLoading(true);
     setQrError("");
+    setQrCode("");
     try {
-      await getTableQr(table._id);
+      const { data } = await getTableQr(table._id);
+      if (!data?.qrCode || !String(data.qrCode).startsWith("data:image/")) {
+        throw new Error("Invalid QR response");
+      }
+      setQrCode(data.qrCode);
     } catch {
       setQrError("Unable to load QR code");
     } finally {
@@ -181,11 +187,15 @@ const TableDetails = ({ open, loading, table, onClose }) => {
                   <div className="mt-4 flex items-center justify-center">
                     {qrLoading && <p className="text-sm text-slate-500">Loading QR...</p>}
                     {qrError && <p className="text-sm text-rose-600">{qrError}</p>}
-                    {!qrLoading && !qrError && (
+                    {!qrLoading && !qrError && qrCode && (
                       <img
-                        src={`${import.meta.env.VITE_API_URL || "http://localhost:5002/api/v1"}/tables/${table._id}/qr`}
+                        src={qrCode}
                         alt={`QR for table ${table.tableNumber}`}
                         className="h-64 w-64 rounded-xl border border-slate-200"
+                        onError={() => {
+                          setQrCode("");
+                          setQrError("Unable to display QR code");
+                        }}
                       />
                     )}
                   </div>

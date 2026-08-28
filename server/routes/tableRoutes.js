@@ -125,16 +125,14 @@ router.get(
     const qrData = `${frontendUrl}/menu?table=${encodeURIComponent(table.tableNumber)}`;
 
     try {
-      const pngBuffer = await QRCode.toBuffer(qrData, {
-        type: "png",
+      const qrCode = await QRCode.toDataURL(qrData, {
         width: 600,
         margin: 2,
         errorCorrectionLevel: "M",
       });
 
-      res.setHeader("Content-Type", "image/png");
       res.setHeader("Cache-Control", "no-store");
-      res.send(pngBuffer);
+      res.status(200).json({ qrCode });
     } catch (qrError) {
       throw new ApiError(500, "Failed to generate QR code");
     }
