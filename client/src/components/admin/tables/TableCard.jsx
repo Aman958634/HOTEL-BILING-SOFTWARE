@@ -1,9 +1,7 @@
 import { FiEdit2, FiEye, FiTrash2, FiUsers, FiShoppingBag, FiCheckCircle } from "react-icons/fi";
 import TableStatusBadge from "./TableStatusBadge";
 
-const statusChoices = ["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE"];
-
-const TableCard = ({ table, onEdit, onView, onDelete, onStatusChange, statusUpdating, onTableClick, onSelect, selected }) => {
+const TableCard = ({ table, onEdit, onView, onDelete, onTableClick, onSelect, selected }) => {
   const hasActiveOrder = table?.currentOrder && String(table.status || "").toUpperCase() === "OCCUPIED";
   const activeOrderCount = Number(table?.activeOrderCount || 0);
   const orderNumber = table?.currentOrder?.orderNumber;
@@ -87,18 +85,6 @@ const TableCard = ({ table, onEdit, onView, onDelete, onStatusChange, statusUpda
 
       <div className="mt-4 flex items-center justify-between gap-2">
         <TableStatusBadge status={table.status} />
-        <select
-          value={String(table.status || "AVAILABLE").toUpperCase()}
-          onChange={(e) => onStatusChange(table, e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          disabled={statusUpdating}
-          aria-label={`Change status for table ${table.tableNumber}`}
-          className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
-        >
-          {statusChoices.map((status) => (
-            <option key={status} value={status}>{status}</option>
-          ))}
-        </select>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

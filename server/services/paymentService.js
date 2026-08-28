@@ -113,6 +113,13 @@ const buildOrderLookup = async (orderId, session = null) => {
   return query;
 };
 
+const getSuccessfulPaymentTotal = async (orderId, session = null) => {
+  let query = Payment.find({ orderId, paymentStatus: "PAID" }).select("amount totalAmount").lean();
+  if (session) query = query.session(session);
+  const payments = await query;
+  return payments.reduce((sum, payment) => sum + Number(payment.amount || payment.totalAmount || 0), 0);
+};
+
 export const serializePayment = (payment) => {
   if (!payment) return null;
   const data = payment.toObject ? payment.toObject() : payment;
@@ -321,13 +328,20 @@ export const updateOrderPaymentState = async (
   orderDoc.paymentId = payment.paymentId;
   orderDoc.transactionId = payment.transactionId || orderDoc.transactionId || "";
   orderDoc.paidAt = payment.paidAt || orderDoc.paidAt || null;
+
+  // A payment is settled only when the sum of all successful payments covers
+  // the order total. This also protects aggregate/split-payment flows.
+  const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+  const fullyPaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
+  orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
+  if (fullyPaid) {
+    orderDoc.status = "COMPLETED";
+    orderDoc.paidAt = payment.paidAt || new Date();
+  }
   await orderDoc.save(session ? { session } : undefined);
 
-  // Server-side table release after verified PAID (+ COMPLETED)
-  if (nextPaymentStatus === "PAID") {
-    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-    await maybeReleaseTableAfterSettlement(orderDoc);
-  }
+  const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+  await maybeReleaseTableAfterSettlement(orderDoc);
 
   return { order: orderDoc, payment };
 };
@@ -356,14 +370,7 @@ export const recordVerifiedPayment = async (
     throw new ApiError(422, "Payment amount must be greater than zero");
   }
 
-  const successfulPayments = await Payment.find({
-    orderId: orderDoc._id,
-    paymentStatus: "PAID",
-  }).select("amount totalAmount").lean();
-  const paidBefore = successfulPayments.reduce(
-    (sum, payment) => sum + Number(payment.amount || payment.totalAmount || 0),
-    0
-  );
+  const paidBefore = await getSuccessfulPaymentTotal(orderDoc._id);
   const remaining = Math.max(billTotal - paidBefore, 0);
   if (requestedAmount > remaining + 0.01) {
     throw new ApiError(422, "Payment amount exceeds the remaining balance");
@@ -395,24 +402,27 @@ export const recordVerifiedPayment = async (
   });
   await payment.save();
 
-  const paidTotal = paidBefore + requestedAmount;
-  const fullyPaid = paidTotal + 0.01 >= billTotal;
+  // Re-read successful payments after persisting this split payment. This is
+  // the source of truth for aggregate settlement, not the request amount.
+  const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id);
+  const fullyPaid = totalPaid + 0.01 >= billTotal;
   orderDoc.paymentMethod = method;
   orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
   orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
   if (fullyPaid) orderDoc.status = "COMPLETED";
   await orderDoc.save();
 
-  if (fullyPaid) {
-    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-    await maybeReleaseTableAfterSettlement(orderDoc);
-  }
+  // Payment verification also re-derives the table. A partial payment leaves
+  // it OCCUPIED; a settled/terminal order can become AVAILABLE only if no
+  // other active order exists for that table.
+  const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+  await maybeReleaseTableAfterSettlement(orderDoc);
 
   await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
   emitPaymentCreated(serializePayment(payment));
-  return { order: orderDoc, payment, paidTotal, remaining: Math.max(billTotal - paidTotal, 0), fullyPaid };
+  return { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid };
 };
 
 export const completeOrderPayment = async (order, options = {}) =>

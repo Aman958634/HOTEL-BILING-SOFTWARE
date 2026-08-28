@@ -12,7 +12,7 @@ import {
   activeOrderStatuses,
   activeReservationStatuses,
   normalizeTableStatus,
-  updateTableLifecycleState,
+  updateTableStatus as deriveTableStatus,
 } from "../services/tableStateService.js";
 import {
   reconcileTablesAvailability,
@@ -227,7 +227,6 @@ export const createTable = asyncHandler(async (req, res) => {
     floor: String(req.body.floor || "").trim(),
     section: String(req.body.section || "").trim(),
     shape: req.body.shape || "SQUARE",
-    status: req.body.status || TABLE_STATUS.AVAILABLE,
     description: req.body.description || "",
   };
 
@@ -240,7 +239,8 @@ export const createTable = asyncHandler(async (req, res) => {
   await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant);
 
   const table = await Table.create(payload);
-  res.status(201).json(new ApiResponse(true, "Table created", table));
+  const derivedTable = await deriveTableStatus(table._id);
+  res.status(201).json(new ApiResponse(true, "Table created", derivedTable));
 });
 
 export const updateTable = asyncHandler(async (req, res) => {
@@ -257,7 +257,6 @@ export const updateTable = asyncHandler(async (req, res) => {
     ...(req.body.floor !== undefined ? { floor: String(req.body.floor).trim() } : {}),
     ...(req.body.section !== undefined ? { section: String(req.body.section).trim() } : {}),
     ...(req.body.shape !== undefined ? { shape: req.body.shape } : {}),
-    ...(req.body.status !== undefined ? { status: req.body.status } : {}),
     ...(req.body.description !== undefined ? { description: req.body.description } : {}),
   };
 
@@ -299,36 +298,14 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const requestedStatus = normalizeTableStatus(req.body.status);
-
   const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
   if (!table) throw new ApiError(404, "Table not found");
 
-  if (requestedStatus === TABLE_STATUS.MAINTENANCE) {
-    const hasActiveOrder = await Order.exists({
-      table: table._id,
-      status: { $in: activeOrderStatuses },
-    });
-
-    if (hasActiveOrder) {
-      throw new ApiError(409, "Cannot move table to maintenance while an active order exists.");
-    }
-  }
-
-  const payload = {
-    status: requestedStatus,
-  };
-
-  if (requestedStatus === TABLE_STATUS.AVAILABLE) {
-    payload.currentOrder = null;
-    payload.currentReservation = null;
-  }
-
-  const updated = await updateTableLifecycleState(table._id, payload);
+  const updated = await deriveTableStatus(table._id);
   const populated = await Table.findById(updated._id).populate(tableWithDetailsPopulate);
   const data = await toPresentation(populated);
 
-  res.status(200).json(new ApiResponse(true, "Table status updated", data));
+  res.status(200).json(new ApiResponse(true, "Table status derived", data));
 });
 
 export const getTableStats = asyncHandler(async (req, res) => {

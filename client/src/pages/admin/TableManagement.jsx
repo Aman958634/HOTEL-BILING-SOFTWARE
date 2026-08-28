@@ -16,7 +16,6 @@ import {
   getTables,
   getTableStats,
   updateTable,
-  updateTableStatus,
 } from "../../services/tableService";
 
 const defaultFilters = {
@@ -51,7 +50,6 @@ const TableManagement = () => {
   const [tablesError, setTablesError] = useState("");
   const [loadingStats, setLoadingStats] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [statusUpdatingId, setStatusUpdatingId] = useState("");
   const [filters, setFilters] = useState(defaultFilters);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -236,38 +234,6 @@ const TableManagement = () => {
     }
   };
 
-  const changeTableStatus = async (table, status) => {
-    setStatusUpdatingId(table._id);
-    try {
-      const { data } = await updateTableStatus(table._id, status);
-      const updated = data.data;
-      setTables((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
-      setStats((prev) => {
-        if (!prev) return prev;
-        const previousStatus = String(table.status || "").toLowerCase();
-        const nextStatus = String(updated.status || "").toLowerCase();
-
-        const next = { ...prev };
-        if (previousStatus === "available") next.available = Math.max((next.available || 0) - 1, 0);
-        if (previousStatus === "occupied") next.occupied = Math.max((next.occupied || 0) - 1, 0);
-        if (previousStatus === "reserved") next.reserved = Math.max((next.reserved || 0) - 1, 0);
-        if (previousStatus === "maintenance") next.maintenance = Math.max((next.maintenance || 0) - 1, 0);
-
-        if (nextStatus === "available") next.available = (next.available || 0) + 1;
-        if (nextStatus === "occupied") next.occupied = (next.occupied || 0) + 1;
-        if (nextStatus === "reserved") next.reserved = (next.reserved || 0) + 1;
-        if (nextStatus === "maintenance") next.maintenance = (next.maintenance || 0) + 1;
-
-        return next;
-      });
-      toast.success("Table status updated");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Unable to update table status"));
-    } finally {
-      setStatusUpdatingId("");
-    }
-  };
-
   const handleTableClick = (table) => {
     // A table can always host another DINE_IN order, whether AVAILABLE or
     // OCCUPIED. Selecting it opens the Create Order flow pre-targeted at it.
@@ -305,9 +271,7 @@ const TableManagement = () => {
         onEdit={openEdit}
         onView={openDetails}
         onDelete={requestDelete}
-        onStatusChange={changeTableStatus}
         onAddFirst={openCreate}
-        statusUpdatingId={statusUpdatingId}
         onTableClick={handleTableClick}
         onSelect={handleSelectTable}
         selectedId={selectedId}

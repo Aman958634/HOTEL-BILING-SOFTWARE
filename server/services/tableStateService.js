@@ -19,45 +19,28 @@ const statusAliases = {
 };
 
 const toObjectId = (value, fieldName) => {
-  if (!value) return null;
-  if (!mongoose.isValidObjectId(value)) {
-    throw new ApiError(400, `Invalid ${fieldName}`);
-  }
-  return value;
+  const id = typeof value === "object" && value ? value._id || value.id : value;
+  if (!id) return null;
+  if (!mongoose.isValidObjectId(id)) throw new ApiError(400, `Invalid ${fieldName}`);
+  return id;
 };
 
 export const normalizeTableStatus = (value) => {
   if (!value) return TABLE_STATUS.AVAILABLE;
-
   const normalized = String(value).trim();
   if (TABLE_STATUS[normalized]) return normalized;
-
   const alias = statusAliases[normalized.toLowerCase()];
   if (alias) return alias;
-
   throw new ApiError(422, "Invalid table status");
 };
 
-export const activeOrderStatuses = [
-  "PENDING",
-  "CONFIRMED",
-  "PREPARING",
-  "READY",
-  "SERVED",
-  "placed",
-  "accepted",
-  "preparing",
-  "ready",
-  "served",
-  "out_for_delivery",
-];
-
+// The sole definition of an active order for table occupancy.
+export const activeOrderStatuses = ["PENDING", "CONFIRMED", "PREPARING"];
 export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CONFIRMED"];
 
 export const emitTableStatusChange = (table) => {
   try {
-    const io = getIO();
-    io.to("dashboard").emit("table:statusChanged", {
+    getIO().to("dashboard").emit("table:statusChanged", {
       tableId: table._id,
       tableNumber: table.tableNumber,
       status: table.status,
@@ -65,128 +48,65 @@ export const emitTableStatusChange = (table) => {
       ...(table.activeOrderCount != null ? { activeOrderCount: table.activeOrderCount } : {}),
     });
   } catch (_error) {
-    // Socket server may be unavailable in non-server runtime contexts.
+    // Socket delivery must not affect lifecycle consistency.
   }
 };
 
 /**
- * Derive a table's status from real database state.
- *   - MAINTENANCE is a manual override and is preserved.
- *   - OCCUPIED  = at least one ACTIVE order exists.
- *   - RESERVED  = no active order but an active reservation exists.
- *   - AVAILABLE = no active order and no active reservation.
- *
- * Supports MULTIPLE active orders per table: the table stays OCCUPIED until the
- * last active order is completed/cancelled.
+ * The single table-status lifecycle writer. Never accept a requested status:
+ * table occupancy is derived exclusively from the current order records.
  */
-const recomputeTableState = async (table) => {
-  if (String(table.status).toUpperCase() === TABLE_STATUS.MAINTENANCE) {
-    await table.save();
-    emitTableStatusChange(table);
-    return table;
-  }
+export const updateTableStatus = async (tableId) => {
+  const id = toObjectId(tableId, "table id");
+  if (!id) throw new ApiError(400, "Table id is required");
 
-  const activeOrders = await Order.find({
-    table: table._id,
-    isArchived: { $ne: true },
+  const activeOrders = await Order.countDocuments({
+    table: id,
     status: { $in: activeOrderStatuses },
-  })
-    .select("_id")
-    .sort({ createdAt: -1 })
-    .lean();
+  });
+  const currentOrder = activeOrders > 0
+    ? await Order.findOne({ table: id, status: { $in: activeOrderStatuses } })
+        .sort({ createdAt: -1 })
+        .select("_id")
+        .lean()
+    : null;
 
-  if (activeOrders.length > 0) {
-    table.status = TABLE_STATUS.OCCUPIED;
-    table.currentOrder = activeOrders[0]?._id || null;
-  } else {
-    table.currentOrder = null;
-    table.status = table.currentReservation
-      ? TABLE_STATUS.RESERVED
-      : TABLE_STATUS.AVAILABLE;
-  }
+  const table = await Table.findByIdAndUpdate(
+    id,
+    {
+      status: activeOrders > 0 ? TABLE_STATUS.OCCUPIED : TABLE_STATUS.AVAILABLE,
+      currentOrder: currentOrder?._id || null,
+    },
+    { new: true, runValidators: true }
+  );
+  if (!table) throw new ApiError(404, "Table not found");
 
-  table.activeOrderCount = activeOrders.length;
-  await table.save();
+  table.activeOrderCount = activeOrders;
   emitTableStatusChange(table);
   return table;
 };
 
-export const updateTableLifecycleState = async (tableId, payload = {}) => {
-  const id = toObjectId(tableId, "table id");
-  if (!id) throw new ApiError(400, "Table id is required");
+// Compatibility alias for callers that previously used the old lifecycle API.
+export const updateTableLifecycleState = updateTableStatus;
 
-  const table = await Table.findById(id);
-  if (!table) throw new ApiError(404, "Table not found");
-
-  if (payload.currentOrder !== undefined) {
-    table.currentOrder = toObjectId(payload.currentOrder, "order id");
-  }
-
-  if (payload.currentReservation !== undefined) {
-    table.currentReservation = toObjectId(payload.currentReservation, "reservation id");
-  }
-
-  const requested = payload.status !== undefined ? normalizeTableStatus(payload.status) : null;
-
-  if (requested === TABLE_STATUS.MAINTENANCE) {
-    table.status = TABLE_STATUS.MAINTENANCE;
-    table.currentOrder = null;
-    await table.save();
-    emitTableStatusChange(table);
-    return table;
-  }
-
-  // AVAILABLE / OCCUPIED / RESERVED are derived from active orders & reservations.
-  await recomputeTableState(table);
-  return table;
-};
-
-export const assignOrderToTable = async (tableId, orderId) =>
-  updateTableLifecycleState(tableId, {
-    status: TABLE_STATUS.OCCUPIED,
-    currentOrder: orderId,
-  });
-
-export const releaseOrderFromTable = async (tableId, orderId = null) => {
-  const id = toObjectId(
-    typeof tableId === "object" && tableId ? tableId._id || tableId.id || tableId : tableId,
-    "table id"
-  );
-  if (!id) return null;
-
-  const table = await Table.findById(id);
-  if (!table) return null;
-
-  // The table state is derived from all active orders, not from a single pointer,
-  // so releasing one order never frees the table while other active orders remain.
-  await recomputeTableState(table);
-  return table;
-};
+export const assignOrderToTable = (tableId) => updateTableStatus(tableId);
+export const releaseOrderFromTable = (tableId) => updateTableStatus(tableId);
 
 export const assignReservationToTable = async (tableId, reservationId) => {
   const id = toObjectId(tableId, "table id");
-  if (!id) throw new ApiError(400, "Table id is required");
-
-  const table = await Table.findById(id);
+  const reservation = toObjectId(reservationId, "reservation id");
+  if (!id || !reservation) throw new ApiError(400, "Table id and reservation id are required");
+  const table = await Table.findByIdAndUpdate(id, { currentReservation: reservation }, { new: true });
   if (!table) throw new ApiError(404, "Table not found");
-
-  table.currentReservation = toObjectId(reservationId, "reservation id");
-  await recomputeTableState(table);
-  return table;
+  return updateTableStatus(id);
 };
 
 export const releaseReservationFromTable = async (tableId, reservationId = null) => {
   const id = toObjectId(tableId, "table id");
   if (!id) return null;
-
   const table = await Table.findById(id);
   if (!table) return null;
-
-  if (reservationId && table.currentReservation && String(table.currentReservation) !== String(reservationId)) {
-    return table;
-  }
-
-  table.currentReservation = null;
-  await recomputeTableState(table);
-  return table;
+  if (reservationId && String(table.currentReservation || "") !== String(reservationId)) return table;
+  await Table.updateOne({ _id: id }, { $set: { currentReservation: null } });
+  return updateTableStatus(id);
 };

@@ -6,14 +6,12 @@ const initialForm = {
   floor: "Ground Floor",
   section: "Main Hall",
   shape: "SQUARE",
-  status: "AVAILABLE",
   description: "",
 };
 
 const floorOptions = ["Ground Floor", "First Floor", "Rooftop"];
 const sectionOptions = ["Main Hall", "AC Hall", "Outdoor", "VIP", "Family Area"];
 const shapeOptions = ["ROUND", "SQUARE", "RECTANGLE"];
-const statusOptions = ["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE"];
 
 const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
   const [form, setForm] = useState(initialForm);
@@ -29,7 +27,6 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         floor: initialData.floor || "Ground Floor",
         section: initialData.section || "Main Hall",
         shape: String(initialData.shape || "SQUARE").toUpperCase(),
-        status: String(initialData.status || "AVAILABLE").toUpperCase(),
         description: initialData.description || "",
       });
     } else {
@@ -74,7 +71,6 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
       floor: form.floor,
       section: form.section,
       shape: form.shape,
-      status: form.status,
       description: form.description.trim(),
     });
   };
@@ -83,7 +79,7 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
       <form onSubmit={submit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <h3 className="text-xl font-bold text-slate-900">{initialData ? "Edit Table" : "Add Table"}</h3>
-        <p className="mt-1 text-sm text-slate-500">Manage table identity, seating details, and occupancy status.</p>
+        <p className="mt-1 text-sm text-slate-500">Manage table identity and seating details. Occupancy is derived from active orders.</p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
@@ -149,18 +145,6 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
             </select>
           </div>
 
-          <div>
-            <label className="text-sm text-slate-600">Status</label>
-            <select
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              {statusOptions.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div className="mt-4">

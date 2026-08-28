@@ -9,9 +9,7 @@ const TableGrid = ({
   onEdit,
   onView,
   onDelete,
-  onStatusChange,
   onAddFirst,
-  statusUpdatingId,
   onTableClick,
   onSelect,
   selectedId,
@@ -44,8 +42,6 @@ const TableGrid = ({
           onEdit={onEdit}
           onView={onView}
           onDelete={onDelete}
-          onStatusChange={onStatusChange}
-          statusUpdating={statusUpdatingId === table._id}
           onTableClick={onTableClick}
           onSelect={onSelect}
           selected={selectedId === table._id}
