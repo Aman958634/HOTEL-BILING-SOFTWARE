@@ -136,6 +136,7 @@ const orderSchema = new mongoose.Schema(
     statusHistory: { type: [statusHistorySchema], default: [] },
     isArchived: { type: Boolean, default: false, index: true },
     deliveryAddress: { type: String, default: "" },
+    billingState: { type: String, default: "", trim: true, index: true },
     notes: { type: String, default: "" },
   },
   { timestamps: true }

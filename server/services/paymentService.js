@@ -17,6 +17,7 @@ import {
 import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
+import { generateInvoice, refreshInvoice } from "./invoiceService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -343,6 +344,8 @@ export const updateOrderPaymentState = async (
   const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
   await maybeReleaseTableAfterSettlement(orderDoc);
 
+  if (fullyPaid) await generateInvoice(orderDoc);
+
   return { order: orderDoc, payment };
 };
 
@@ -418,6 +421,8 @@ export const recordVerifiedPayment = async (
   const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
   await maybeReleaseTableAfterSettlement(orderDoc);
 
+  if (fullyPaid) await generateInvoice(orderDoc);
+
   await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
@@ -474,6 +479,7 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
   if (orderDoc) {
     orderDoc.paymentStatus = nextStatus;
     await orderDoc.save();
+    await refreshInvoice(orderDoc);
   }
 
   emitPaymentRefunded(serializePayment(paymentDoc));

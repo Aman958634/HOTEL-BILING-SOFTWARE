@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
+import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -147,6 +148,12 @@ const toPaymentMatch = (rangeContext, restaurantFilter = {}) => ({
   createdAt: { $gte: rangeContext.start, $lt: rangeContext.end },
 });
 
+const toInvoiceMatch = (rangeContext, restaurantFilter = {}) => ({
+  ...restaurantFilter,
+  status: { $ne: "VOID" },
+  issuedAt: { $gte: rangeContext.start, $lt: rangeContext.end },
+});
+
 const getRestaurantFilter = async (user) => {
   if (!user) return {};
   return buildRestaurantQuery({}, user);
@@ -154,32 +161,30 @@ const getRestaurantFilter = async (user) => {
 
 const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
   const orderMatch = toOrderMatch(rangeContext, restaurantFilter);
-  const paymentMatch = {
-    ...toPaymentMatch(rangeContext, restaurantFilter),
-    paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
-  };
+  const invoiceMatch = toInvoiceMatch(rangeContext, restaurantFilter);
 
   const [
     orderStatusRows,
-    totalOrders,
     uniqueCustomers,
     revenueAgg,
+    paidOrders,
   ] = await Promise.all([
     Order.aggregate([
       { $match: orderMatch },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
-    Order.countDocuments(orderMatch),
     Order.distinct("customer", { ...orderMatch, customer: { $ne: null } }),
-    Payment.aggregate([
-      { $match: paymentMatch },
+    Invoice.aggregate([
+      { $match: invoiceMatch },
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } },
+          totalSales: { $sum: "$netTotal" },
+          totalTax: { $sum: "$netTax" },
         },
       },
     ]),
+    Invoice.countDocuments(invoiceMatch),
   ]);
 
   const statusMap = orderStatusRows.reduce((acc, row) => {
@@ -189,15 +194,18 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
 
   const completedOrders = statusMap.COMPLETED || 0;
   const cancelledOrders = statusMap.CANCELLED || 0;
-  const revenue = Number(revenueAgg[0]?.totalRevenue || 0);
-  const averageOrderValue = completedOrders ? revenue / completedOrders : 0;
+  const revenue = Number(revenueAgg[0]?.totalSales || 0);
+  const totalTax = Number(revenueAgg[0]?.totalTax || 0);
+  const averageOrderValue = paidOrders ? revenue / paidOrders : 0;
 
   return {
     totalRevenue: revenue,
-    totalOrders,
+    totalSales: revenue,
+    totalTax,
+    totalOrders: paidOrders,
     averageOrderValue,
     totalCustomers: uniqueCustomers.length,
-    completedOrders,
+    completedOrders: paidOrders,
     cancelledOrders,
   };
 };
@@ -243,17 +251,16 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
         ? "%Y-%m"
         : "%Y-%m-%d";
 
-  const rows = await Payment.aggregate([
+  const rows = await Invoice.aggregate([
     {
       $match: {
-        ...toPaymentMatch(rangeContext, restaurantFilter),
-        paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
+        ...toInvoiceMatch(rangeContext, restaurantFilter),
       },
     },
     {
       $group: {
-        _id: { $dateToString: { format, date: "$createdAt" } },
-        revenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } },
+        _id: { $dateToString: { format, date: "$issuedAt" } },
+        revenue: { $sum: "$netTotal" },
         payments: { $sum: 1 },
       },
     },

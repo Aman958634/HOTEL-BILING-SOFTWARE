@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
+import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -157,6 +158,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
+    billingState: req.body.billingState || req.body.customerState || "",
     notes: req.body.notes || "",
   });
 
@@ -243,6 +245,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     createdBy: null,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
+    billingState: req.body.billingState || req.body.customerState || "",
     notes: req.body.notes || "",
   });
 
@@ -855,14 +858,17 @@ export const addOrderCustomer = asyncHandler(async (req, res) => {
 });
 
 export const downloadInvoice = asyncHandler(async (req, res) => {
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user))
-    .populate("customer", "fullName")
-    .populate("items.menuItem", "name");
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
 
   if (!order) throw new ApiError(404, "Order not found");
+  if (String(order.paymentStatus).toUpperCase() !== PAYMENT_STATUSES.PAID) {
+    throw new ApiError(409, "Invoice is available only after verified full payment");
+  }
+  const invoice = await Invoice.findOne({ order: order._id });
+  if (!invoice) throw new ApiError(404, "Final invoice not found");
 
-  const buffer = await buildInvoiceBuffer(order);
+  const buffer = await buildInvoiceBuffer(invoice);
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename=invoice-${order.orderNumber}.pdf`);
+  res.setHeader("Content-Disposition", `attachment; filename=${invoice.invoiceNumber}.pdf`);
   res.send(buffer);
 });

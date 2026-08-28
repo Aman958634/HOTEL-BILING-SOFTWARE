@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
+import Invoice from "../models/Invoice.js";
 import Food from "../models/Food.js";
 import Reservation from "../models/Reservation.js";
 import Table from "../models/Table.js";
@@ -24,6 +25,14 @@ const sumNetRevenue = async (match) => {
   const [result] = await Payment.aggregate([
     { $match: match },
     { $group: { _id: null, total: netRevenueExpr } },
+  ]);
+  return Number(result?.total || 0);
+};
+
+const sumInvoiceSales = async (match) => {
+  const [result] = await Invoice.aggregate([
+    { $match: { ...match, status: { $ne: "VOID" } } },
+    { $group: { _id: null, total: { $sum: "$netTotal" } } },
   ]);
   return Number(result?.total || 0);
 };
@@ -55,10 +64,7 @@ export const dashboardStats = asyncHandler(async (req, res) => {
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
   const baseOrderMatch = await buildRestaurantQuery({ isArchived: { $ne: true } }, req.user);
-  const paidPaymentMatch = await buildRestaurantQuery(
-    { paymentStatus: { $in: PAID_PAYMENT_STATUSES } },
-    req.user
-  );
+  const invoiceMatch = await buildRestaurantQuery({}, req.user);
 
   const [
     totalRevenue,
@@ -72,12 +78,12 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     lowStockItems,
     totalMenuItems,
   ] = await Promise.all([
-    sumNetRevenue(paidPaymentMatch),
-    sumNetRevenue({ ...paidPaymentMatch, createdAt: { $gte: todayStart } }),
-    sumNetRevenue({ ...paidPaymentMatch, createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
-    Order.countDocuments(baseOrderMatch),
-    Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: todayStart } }),
-    Order.countDocuments({ ...baseOrderMatch, createdAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    sumInvoiceSales(invoiceMatch),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: todayStart } }),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" } }),
+    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" }, issuedAt: { $gte: todayStart } }),
+    Invoice.countDocuments({ ...invoiceMatch, status: { $ne: "VOID" }, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
     Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
     Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
     Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),

@@ -10,6 +10,7 @@ const restaurantSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     address: { type: String, required: true },
     city: { type: String, index: true },
+    state: { type: String, default: "", trim: true, index: true },
     gstNumber: { type: String, default: "" },
     logoUrl: { type: String, default: "" },
     website: { type: String, default: "" },

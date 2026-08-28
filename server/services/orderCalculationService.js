@@ -11,7 +11,7 @@ export const calculateOrderAmounts = ({
   items,
   discount = 0,
   tax = null,
-  taxPercent = 0,
+  taxPercent = 18,
   serviceCharge = null,
   serviceChargePercent = 0,
   deliveryCharge = 0,
@@ -50,9 +50,9 @@ export const calculateOrderAmounts = ({
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
 
-  const resolvedTax = tax !== null && tax !== undefined
-    ? Math.max(0, toNumber(tax))
-    : round2((taxableBase * Math.max(0, toNumber(taxPercent))) / 100);
+  // POS bills are GST-inclusive only through this calculation path. The
+  // configured/legacy input cannot lower the statutory 18% tax below GST.
+  const resolvedTax = round2((taxableBase * Math.max(18, toNumber(taxPercent, 18))) / 100);
 
   const resolvedServiceCharge = serviceCharge !== null && serviceCharge !== undefined
     ? Math.max(0, toNumber(serviceCharge))

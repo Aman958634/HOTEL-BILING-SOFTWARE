@@ -51,6 +51,7 @@ const normalizePayload = (body = {}) => {
   payload.branchCode = String(payload.branchCode).trim();
   payload.address = String(payload.address).trim();
   payload.city = payload.city ? String(payload.city).trim() : "";
+  payload.state = payload.state ? String(payload.state).trim() : "";
   payload.email = payload.email ? String(payload.email).trim() : "";
   payload.phone = payload.phone ? String(payload.phone).trim() : "";
   payload.gstNumber = payload.gstNumber ? String(payload.gstNumber).trim() : "";
