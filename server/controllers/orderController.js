@@ -3,6 +3,7 @@ import Order from "../models/Order.js";
 import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
+import Staff from "../models/Staff.js";
 import Restaurant from "../models/Restaurant.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -99,8 +100,14 @@ const normalizeOrderOutput = (order) => {
 
 const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   if (orderType === ORDER_TYPES.DINE_IN && tableId) {
-    const table = await Table.findById(tableId).select("restaurant");
+    const table = user
+      ? await Table.findOne(await buildRestaurantQuery({ _id: tableId }, user)).select("restaurant outlet assignedStaff")
+      : await Table.findById(tableId).select("restaurant outlet");
     if (!table) throw new ApiError(404, "Table not found");
+    if (user?.role === "waiter" && table.assignedStaff) {
+      const staff = await Staff.findOne({ restaurant: table.restaurant, outlet: table.outlet || null, user: user._id, status: "ACTIVE" }).select("_id").lean();
+      if (!staff || String(staff._id) !== String(table.assignedStaff)) throw new ApiError(403, "This table is assigned to another waiter");
+    }
     if (table.restaurant) {
       const restaurant = await resolveRestaurantForUser({ restaurantId: table.restaurant, user });
       return restaurant._id;

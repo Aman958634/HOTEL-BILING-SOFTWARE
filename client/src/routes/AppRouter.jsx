@@ -59,6 +59,7 @@ const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
 const Outlets = lazy(() => import("../pages/admin/Outlets"));
 const CentralKitchen = lazy(() => import("../pages/admin/CentralKitchen"));
+const MobileServiceMode = lazy(() => import("../pages/service/MobileServiceMode"));
 const PageSkeleton = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
@@ -193,6 +194,15 @@ const AppRouter = () => (
       <Route path="settings" element={<Settings />} />
       <Route path="outlets" element={<Outlets />} />
     </Route>
+
+    <Route
+      path="/dashboard/service"
+      element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
+    />
+    <Route
+      path="/dashboard/service/tables/:id"
+      element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
+    />
 
     <Route
       path="/dashboard/admin/kitchen"

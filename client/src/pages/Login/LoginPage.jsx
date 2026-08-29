@@ -11,11 +11,11 @@ const roleRedirectMap = {
   super_admin: "/super-admin/dashboard",
   admin: "/dashboard/admin",
   chef: "/dashboard/chef",
-  waiter: "/dashboard/waiter",
+  waiter: "/dashboard/service",
   delivery: "/dashboard/delivery",
   customer: "/dashboard/customer",
-  manager: "/dashboard/customer",
-  cashier: "/dashboard/customer",
+  manager: "/dashboard/service",
+  cashier: "/dashboard/service",
 };
 
 const resolvePostLoginPath = (role, location) => {
