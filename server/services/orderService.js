@@ -562,15 +562,19 @@ export const createOrderNotifications = async ({ title, message, actorUserId = n
   }
 };
 
-export const searchCustomers = async (term) => {
+export const searchCustomers = async (term, restaurantIds = []) => {
   const search = String(term || "").trim();
   if (!search) return [];
 
   const pattern = new RegExp(escapeRegex(search), "i");
-  return User.find({
+  const filters = {
     role: "customer",
-    $or: [{ fullName: pattern }, { email: pattern }, { phone: pattern }],
-  })
+    $and: [
+      { $or: [{ fullName: pattern }, { email: pattern }, { phone: pattern }] },
+      ...(restaurantIds.length ? [{ $or: [{ restaurant: { $in: restaurantIds } }, { "customerRestaurants.restaurant": { $in: restaurantIds } }] }] : []),
+    ],
+  };
+  return User.find(filters)
     .select("fullName email phone")
     .sort({ fullName: 1 })
     .limit(15)

@@ -11,6 +11,7 @@ import {
   assignReservationToTable,
   releaseReservationFromTable,
 } from "../services/tableStateService.js";
+import { linkCustomerToRestaurant } from "../services/customerService.js";
 
 const reservationStatusMap = {
   pending: "pending",
@@ -79,6 +80,8 @@ export const createReservation = asyncHandler(async (req, res) => {
     restaurant: restaurantId,
     notes,
   });
+
+  await linkCustomerToRestaurant(req.user._id, restaurantId);
 
   await assignReservationToTable(tableDoc._id, reservation._id);
 

@@ -13,5 +13,7 @@ const reservationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+reservationSchema.index({ restaurant: 1, customer: 1, date: -1 });
+
 const Reservation = mongoose.model("Reservation", reservationSchema);
 export default Reservation;

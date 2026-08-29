@@ -86,6 +86,9 @@ router.post(
 			.optional({ nullable: true, values: "falsy" })
 			.isMongoId()
 			.withMessage("Table id is invalid"),
+		body("customerDetails").optional().isObject().withMessage("Customer details are invalid"),
+		body("customerDetails.email").optional({ values: "falsy" }).isEmail().withMessage("Customer email is invalid"),
+		body("customerDetails.phone").optional({ values: "falsy" }).isLength({ min: 7, max: 20 }).withMessage("Customer phone is invalid"),
 	],
 	validate,
 	createOrder

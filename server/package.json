@@ -9,6 +9,7 @@
     "start": "node server.js",
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
+    "migrate:customer-crm": "node scripts/migrateCustomerCrmIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "lint": "echo \"Add ESLint config\""
   },

@@ -30,6 +30,7 @@ import staffRoutes from "./routes/staffRoutes.js";
 import serviceCockpitRoutes from "./routes/serviceCockpitRoutes.js";
 import kitchenRoutes from "./routes/kitchenRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import customerRoutes from "./routes/customerRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -93,6 +94,7 @@ app.use("/api/v1/orders", orderRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/v1/kitchen", kitchenRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
+app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/payments", paymentRoutes);

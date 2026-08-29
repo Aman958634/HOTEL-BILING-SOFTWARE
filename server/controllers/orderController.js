@@ -21,7 +21,6 @@ import {
   createOrderNotifications,
   ensureOrderDeleteAllowed,
   ensureOrderEditAllowed,
-  findOrCreateCustomer,
   generateOrderNumber,
   getSortCriteria,
   normalizeOrderStatus,
@@ -33,6 +32,7 @@ import {
   searchCustomers,
   stampOrderLifecycle,
 } from "../services/orderService.js";
+import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, linkCustomerToRestaurant } from "../services/customerService.js";
 import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
@@ -151,6 +151,26 @@ export const createOrder = asyncHandler(async (req, res) => {
   const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
   if (duplicate) {
     return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
+  }
+
+  // Anonymous dine-in remains supported. When a reliable customer identifier
+  // arrives with an order, use the shared CRM identity resolver instead.
+  if (role === "customer") {
+    await linkCustomerToRestaurant(req.user._id, restaurantId);
+  } else if (!customerId && req.body.customerDetails) {
+    const details = req.body.customerDetails;
+    const resolved = await findOrCreateRestaurantCustomer({
+      fullName: details.fullName || details.name,
+      email: details.email,
+      phone: details.phone,
+      address: details.address || req.body.deliveryAddress,
+      restaurantId,
+    });
+    customerId = resolved.customer._id;
+  } else if (customerId) {
+    const existingCustomer = await User.findOne({ _id: customerId, role: "customer" }).select("_id");
+    if (!existingCustomer) throw new ApiError(404, "Customer not found");
+    await linkCustomerToRestaurant(existingCustomer._id, restaurantId);
   }
 
   const processedItems = await prepareOrderItems(req.body.items || []);
@@ -934,7 +954,7 @@ export const searchOrderCustomers = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Forbidden");
   }
 
-  const customers = await searchCustomers(req.query.search || "");
+  const customers = await searchCustomers(req.query.search || "", await getAuthorizedRestaurantIds(req.user));
   res.status(200).json(new ApiResponse(true, "Customers fetched", customers));
 });
 
@@ -949,7 +969,8 @@ export const addOrderCustomer = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Customer name with email or phone is required");
   }
 
-  const { customer, created } = await findOrCreateCustomer({ fullName, email, phone });
+  const restaurantId = await resolveOrderRestaurant({ user: req.user });
+  const { customer, created } = await findOrCreateRestaurantCustomer({ fullName, email, phone, restaurantId });
   const message = created ? "Customer created" : "Existing customer found";
 
   res.status(created ? 201 : 200).json(new ApiResponse(true, message, customer));
