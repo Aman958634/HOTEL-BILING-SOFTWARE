@@ -31,6 +31,7 @@ import serviceCockpitRoutes from "./routes/serviceCockpitRoutes.js";
 import kitchenRoutes from "./routes/kitchenRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
+import loyaltyRoutes from "./routes/loyaltyRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -95,6 +96,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/v1/kitchen", kitchenRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
 app.use("/api/v1/customers", customerRoutes);
+app.use("/api/v1/loyalty", loyaltyRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/payments", paymentRoutes);

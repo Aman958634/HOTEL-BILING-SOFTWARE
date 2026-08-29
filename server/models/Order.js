@@ -100,6 +100,9 @@ const orderSchema = new mongoose.Schema(
     items: { type: [orderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
+    // Included in discount for backward-compatible billing totals, retained
+    // separately so receipts and loyalty reversals remain auditable.
+    loyaltyDiscount: { type: Number, default: 0, min: 0 },
     tax: { type: Number, default: 0, min: 0 },
     serviceCharge: { type: Number, default: 0, min: 0 },
     deliveryCharge: { type: Number, default: 0, min: 0 },

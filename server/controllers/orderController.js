@@ -34,6 +34,7 @@ import {
 } from "../services/orderService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, linkCustomerToRestaurant } from "../services/customerService.js";
 import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
+import { restoreRedeemedPointsForCancelledOrder } from "../services/loyaltyService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
 import { resolveGstType } from "../services/gstService.js";
@@ -594,6 +595,7 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 
   await syncKotForOrder(order);
   await refreshInvoice(order);
+  await restoreRedeemedPointsForCancelledOrder(order);
   await releaseOrderTableIfNeeded(order);
   await createOrderAuditLog({ user: req.user, action: "Order Cancelled", order });
   await createOrderNotifications({
@@ -642,6 +644,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     await syncKotForOrder(order);
   }
   if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) await refreshInvoice(order);
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) await restoreRedeemedPointsForCancelledOrder(order);
 
   if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) {
     await maybeReleaseTableAfterSettlement(order);

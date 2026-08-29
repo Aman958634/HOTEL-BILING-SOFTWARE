@@ -7,6 +7,7 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, validOrderMatch } from "../services/customerService.js";
+import { loyaltySummaryForCustomer } from "../services/loyaltyService.js";
 
 const pagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -112,11 +113,12 @@ export const getCustomerProfile = asyncHandler(async (req, res) => {
   const restaurantIds = await getAuthorizedRestaurantIds(req.user);
   const customer = await getAccessibleCustomer({ id: req.params.id, restaurantIds });
   const customerId = customer._id;
-  const [orders, reservations, frequentItems, orderTypes] = await Promise.all([
+  const [orders, reservations, frequentItems, orderTypes, loyalty] = await Promise.all([
     Order.find({ customer: customerId, restaurant: { $in: restaurantIds }, isArchived: { $ne: true } }).select("orderNumber orderType orderSource total paymentStatus status createdAt items").sort({ createdAt: -1 }).limit(50).lean(),
     Reservation.find({ customer: customerId, restaurant: { $in: restaurantIds } }).populate("table", "tableNumber").select("date guests status notes table createdAt").sort({ date: -1 }).limit(50).lean(),
     Order.aggregate([{ $match: { customer: customerId, ...validOrderMatch(restaurantIds) } }, { $unwind: "$items" }, { $group: { _id: "$items.name", count: { $sum: "$items.quantity" } } }, { $sort: { count: -1, _id: 1 } }, { $limit: 5 }]),
     Order.aggregate([{ $match: { customer: customerId, ...validOrderMatch(restaurantIds) } }, { $group: { _id: "$orderType", count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } }, { $limit: 1 }]),
+    loyaltySummaryForCustomer({ customerId, restaurantIds }),
   ]);
   const activity = [
     { type: "CUSTOMER_CREATED", at: customer.createdAt, label: "Customer profile created" },
@@ -124,7 +126,7 @@ export const getCustomerProfile = asyncHandler(async (req, res) => {
     ...orders.slice(0, 15).map((order) => ({ type: "ORDER", at: order.createdAt, label: `Order #${order.orderNumber}`, detail: `${order.status} · ${order.total}` })),
     ...reservations.slice(0, 15).map((reservation) => ({ type: "RESERVATION", at: reservation.date, label: `Reservation ${reservation.status}`, detail: `${reservation.guests} guests` })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 40);
-  res.status(200).json(new ApiResponse(true, "Customer profile fetched", { customer, orders, reservations, preferences: { favouriteItems: frequentItems.map((item) => ({ name: item._id, count: item.count })), commonOrderType: orderTypes[0]?._id || null, recentItems: [...new Set(orders.flatMap((order) => (order.items || []).map((item) => item.name)))].slice(0, 8) }, activity }));
+  res.status(200).json(new ApiResponse(true, "Customer profile fetched", { customer, orders, reservations, loyalty, preferences: { favouriteItems: frequentItems.map((item) => ({ name: item._id, count: item.count })), commonOrderType: orderTypes[0]?._id || null, recentItems: [...new Set(orders.flatMap((order) => (order.items || []).map((item) => item.name)))].slice(0, 8) }, activity }));
 });
 
 export const updateCustomer = asyncHandler(async (req, res) => {

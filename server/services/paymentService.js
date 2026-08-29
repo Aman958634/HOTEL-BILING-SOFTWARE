@@ -19,6 +19,7 @@ import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
 import { generateInvoice, refreshInvoice } from "./invoiceService.js";
+import { awardPointsForPaidOrder, reversePointsForFullRefund } from "./loyaltyService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -502,6 +503,8 @@ export const recordVerifiedPayment = async (
   await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
+  // earn:<orderId> makes this safe for gateway retries and recovery runs.
+  if (fullyPaid) await awardPointsForPaidOrder({ order: committedOrder, payment });
   if (!idempotent) emitPaymentCreated(serializePayment(payment));
   return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
 };
@@ -614,6 +617,10 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
     await orderDoc.save();
     await refreshInvoice(orderDoc);
   }
+
+  // A partial refund has no reliable universal point ratio. A full refund can
+  // be reversed deterministically without removing the original EARN entry.
+  if (nextStatus === "REFUNDED") await reversePointsForFullRefund({ order: orderDoc, payment: paymentDoc });
 
   emitPaymentRefunded(serializePayment(paymentDoc));
   await notifyPaymentAudience({

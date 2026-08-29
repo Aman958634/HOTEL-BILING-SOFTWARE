@@ -33,6 +33,7 @@ const ServiceCockpit = lazy(() => import("../pages/admin/ServiceCockpit"));
 const OrderManagement = lazy(() => import("../pages/admin/OrderManagement"));
 const OnlineOrdersHub = lazy(() => import("../pages/admin/OnlineOrdersHub"));
 const CustomerCRM = lazy(() => import("../pages/admin/CustomerCRM"));
+const LoyaltyManagement = lazy(() => import("../pages/admin/LoyaltyManagement"));
 const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
 const Payments = lazy(() => import("../pages/admin/Payments"));
 const Reports = lazy(() => import("../pages/admin/Reports"));
@@ -174,6 +175,7 @@ const AppRouter = () => (
       <Route path="orders" element={<OrderManagement />} />
       <Route path="online-orders" element={<OnlineOrdersHub />} />
       <Route path="customers" element={<CustomerCRM />} />
+      <Route path="loyalty" element={<LoyaltyManagement />} />
       <Route path="staff" element={<StaffManagement />} />
       <Route path="inventory" element={<InventoryPage />} />
       <Route path="payments" element={<Payments />} />
