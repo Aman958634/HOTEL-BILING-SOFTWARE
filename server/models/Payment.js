@@ -34,6 +34,7 @@ const paymentSchema = new mongoose.Schema(
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     tableId: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, default: "INR", trim: true },
     subtotal: { type: Number, default: 0, min: 0 },
@@ -80,6 +81,7 @@ paymentSchema.index(
 paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentId: 1 });
+paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, createdAt: -1 });
 paymentSchema.index(
   { bill: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }

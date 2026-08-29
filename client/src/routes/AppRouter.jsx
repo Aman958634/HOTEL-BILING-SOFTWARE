@@ -57,6 +57,7 @@ const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPayme
 const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
 const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
+const Outlets = lazy(() => import("../pages/admin/Outlets"));
 const PageSkeleton = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
@@ -188,6 +189,7 @@ const AppRouter = () => (
       <Route path="intelligence" element={<RestoSphereIntelligence />} />
       <Route path="notifications" element={<Notifications />} />
       <Route path="settings" element={<Settings />} />
+      <Route path="outlets" element={<Outlets />} />
     </Route>
 
     <Route

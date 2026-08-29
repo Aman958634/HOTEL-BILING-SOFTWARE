@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { body, param } from "express-validator";
+import { protect } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { createOutlet, getActiveOutlet, listMyOutlets, listOutlets, updateOutlet, updateOutletStatus } from "../controllers/outletController.js";
+const router = Router();
+router.use(protect);
+router.get("/me", listMyOutlets);
+router.get("/active", getActiveOutlet);
+router.get("/", listOutlets);
+router.post("/", [body("name").trim().notEmpty(), body("code").trim().matches(/^[A-Za-z0-9_-]+$/), body("address").optional().isString(), body("timeZone").optional().isString()], validate, createOutlet);
+router.patch("/:id", [param("id").isMongoId(), body("code").optional().trim().matches(/^[A-Za-z0-9_-]+$/)], validate, updateOutlet);
+router.patch("/:id/status", [param("id").isMongoId(), body("isActive").isBoolean()], validate, updateOutletStatus);
+export default router;

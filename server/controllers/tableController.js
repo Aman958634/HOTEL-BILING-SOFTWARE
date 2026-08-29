@@ -134,7 +134,7 @@ const toPresentation = async (tableDoc) => {
   return table;
 };
 
-const ensureUniqueTableNumber = async (tableNumber, restaurant = null, excludeId = null) => {
+const ensureUniqueTableNumber = async (tableNumber, restaurant = null, outlet = null, excludeId = null) => {
   const query = {
     tableNumber: {
       $regex: `^${String(tableNumber).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
@@ -147,6 +147,7 @@ const ensureUniqueTableNumber = async (tableNumber, restaurant = null, excludeId
   } else {
     query.restaurant = null;
   }
+  if (outlet) query.outlet = outlet;
 
   if (excludeId) {
     query._id = { $ne: excludeId };
@@ -232,11 +233,12 @@ export const createTable = asyncHandler(async (req, res) => {
 
   if (req.user?.restaurant) {
     payload.restaurant = req.user.restaurant;
+    payload.outlet = req.user.activeOutlet || null;
   } else if (req.user?.hotelId) {
     payload.restaurant = null;
   }
 
-  await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant);
+  await ensureUniqueTableNumber(payload.tableNumber, payload.restaurant, payload.outlet);
 
   const table = await Table.create(payload);
   const derivedTable = await deriveTableStatus(table._id);
@@ -261,7 +263,7 @@ export const updateTable = asyncHandler(async (req, res) => {
   };
 
   if (updates.tableNumber) {
-    await ensureUniqueTableNumber(updates.tableNumber, table.restaurant, table._id);
+    await ensureUniqueTableNumber(updates.tableNumber, table.restaurant, table.outlet, table._id);
   }
 
   Object.assign(table, updates);

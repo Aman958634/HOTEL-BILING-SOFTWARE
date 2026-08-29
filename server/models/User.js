@@ -24,6 +24,8 @@ const userSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
+    defaultOutlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
+    outletAccess: [{ outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", required: true }, role: { type: String, default: "" }, isActive: { type: Boolean, default: true } }],
     role: {
       type: String,
       enum: ["super_admin", "hotel_admin", "restaurant_admin", "manager", "staff", "cashier", "admin", "chef", "waiter", "delivery", "receptionist", "inventory_manager", "customer"],

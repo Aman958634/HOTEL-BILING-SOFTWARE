@@ -1,6 +1,7 @@
 import { FiCalendar, FiChevronDown } from "react-icons/fi";
 import NotificationBell from "./NotificationBell";
 import GlobalSearch from "../common/GlobalSearch";
+import OutletSwitcher from "./OutletSwitcher";
 
 const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }) => {
   return (
@@ -13,6 +14,7 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" })
 
         <div className="flex items-center gap-2 md:gap-3">
           <GlobalSearch className="hidden sm:block" />
+          <OutletSwitcher />
 
           <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
             <FiCalendar className="h-4 w-4 text-slate-500" />

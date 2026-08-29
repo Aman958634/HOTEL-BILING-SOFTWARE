@@ -2,6 +2,7 @@ import { FiMenu, FiUser } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import NotificationBell from "../admin/NotificationBell";
 import GlobalSearch from "./GlobalSearch";
+import OutletSwitcher from "../admin/OutletSwitcher";
 
 const MobileAppHeader = ({ onMenuClick }) => {
   return (
@@ -20,6 +21,7 @@ const MobileAppHeader = ({ onMenuClick }) => {
           <h1 className="text-lg font-bold text-slate-900">RestoSphere</h1>
           <p className="text-xs text-slate-500">Restaurant Management</p>
         </div>
+        <div className="hidden sm:block"><OutletSwitcher /></div>
 
         <div className="flex items-center gap-2">
           <div className="sm:hidden">

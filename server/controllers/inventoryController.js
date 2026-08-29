@@ -38,13 +38,14 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
   const item = await Inventory.create({ 
     ...req.body, 
     restaurant, 
+    outlet: req.user.activeOutlet || null,
     itemName: String(req.body.itemName || "").trim(), 
     sku: String(req.body.sku || "").trim(), 
     unit,
     baseUnit,
     quantity: 0 
   });
-  if (openingStock > 0) await recordStockMovement({ restaurant, inventoryItem: item._id, movementType: "OPENING_STOCK", quantity: openingStock, unit: item.unit, referenceType: "INVENTORY_ITEM", referenceId: item._id, reason: "Opening stock", user: req.user._id });
+  if (openingStock > 0) await recordStockMovement({ restaurant, outlet: req.user.activeOutlet || null, inventoryItem: item._id, movementType: "OPENING_STOCK", quantity: openingStock, unit: item.unit, referenceType: "INVENTORY_ITEM", referenceId: item._id, reason: "Opening stock", user: req.user._id });
   res.status(201).json(new ApiResponse(true, "Inventory item created", item));
 });
 

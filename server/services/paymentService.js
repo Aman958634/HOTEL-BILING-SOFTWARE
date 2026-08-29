@@ -215,6 +215,7 @@ export const syncPaymentFromOrder = async (
       customerId: orderDoc.customer?._id || orderDoc.customer || null,
       tableId: orderDoc.table?._id || orderDoc.table || null,
       restaurant: orderDoc.restaurant || null,
+      outlet: orderDoc.outlet || null,
       amount: Number(orderDoc.total || 0),
       currency: metadata.currency || "INR",
       subtotal: Number(orderDoc.subtotal || 0),

@@ -20,6 +20,7 @@ const kotTicketSchema = new mongoose.Schema(
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true, index: true },
     tableId: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     orderNumber: { type: String, required: true, index: true },
     orderType: { type: String, default: "DINE_IN" },
     assignedChef: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null, index: true },
@@ -31,6 +32,7 @@ const kotTicketSchema = new mongoose.Schema(
 
 kotTicketSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 kotTicketSchema.index({ restaurant: 1, orderNumber: 1 });
+kotTicketSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
 
 const KotTicket = mongoose.model("KotTicket", kotTicketSchema);
 export default KotTicket;

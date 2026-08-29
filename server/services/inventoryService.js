@@ -49,8 +49,8 @@ export const calculateRecipeCost = async (recipe) => {
   return { lines, ingredientCost, wastage, totalCost, costPerPortion: money(totalCost / Math.max(1, Number(recipe.yieldQuantity || 1))) };
 };
 
-export const recordStockMovement = async ({ restaurant, inventoryItem, movementType, quantity, unit, referenceType = "", referenceId = "", idempotencyKey = "", reason = "", user = null, metadata = {} }) => {
-  const item = await Inventory.findOne({ _id: inventoryItem, restaurant });
+export const recordStockMovement = async ({ restaurant, outlet = null, inventoryItem, movementType, quantity, unit, referenceType = "", referenceId = "", idempotencyKey = "", reason = "", user = null, metadata = {} }) => {
+  const item = await Inventory.findOne({ _id: inventoryItem, restaurant, ...(outlet ? { outlet } : {}) });
   if (!item) throw new ApiError(404, "Inventory item not found");
   const baseUnit = item.baseUnit || item.unit;
   const baseQuantity = convertQuantity(quantity, unit || baseUnit, baseUnit);
@@ -69,14 +69,14 @@ export const recordStockMovement = async ({ restaurant, inventoryItem, movementT
   if (newStock < 0) throw new ApiError(409, `Insufficient stock for ${item.itemName}`);
 
   const updated = await Inventory.findOneAndUpdate(
-    { _id: item._id, restaurant, quantity: previousStock },
+    { _id: item._id, restaurant, ...(outlet ? { outlet } : {}), quantity: previousStock },
     { $set: { quantity: newStock } },
     { new: true }
   );
   if (!updated) throw new ApiError(409, "Stock changed concurrently. Please retry.");
 
   try {
-    return await StockMovement.create({ restaurant, inventoryItem: item._id, movementType, quantity: signedQuantity, unit: baseUnit, previousStock, newStock, referenceType, referenceId: String(referenceId || ""), idempotencyKey, reason, user, metadata });
+    return await StockMovement.create({ restaurant, outlet: outlet || item.outlet || null, inventoryItem: item._id, movementType, quantity: signedQuantity, unit: baseUnit, previousStock, newStock, referenceType, referenceId: String(referenceId || ""), idempotencyKey, reason, user, metadata });
   } catch (error) {
     if (error?.code === 11000 && idempotencyKey) return StockMovement.findOne({ idempotencyKey });
     throw error;
@@ -94,7 +94,7 @@ export const consumeOrderInventory = async ({ order, user = null, itemIndexes = 
     const costing = await calculateRecipeCost(recipe);
     const multiplier = Number(orderItem.quantity || 0) / Math.max(1, Number(recipe.yieldQuantity || 1));
     for (const line of costing.lines) {
-      await recordStockMovement({ restaurant: order.restaurant, inventoryItem: line.inventoryItem._id, movementType: "CONSUMPTION", quantity: line.baseQuantity * multiplier, unit: line.inventoryItem.baseUnit || line.inventoryItem.unit, referenceType: "ORDER_ITEM", referenceId: `${order._id}:${itemIndex}`, idempotencyKey: `consumption:${order._id}:${itemIndex}:recipe-${recipe.version}:ingredient-${line.inventoryItem._id}`, reason: `Order ${order.orderNumber}`, user, metadata: { orderId: String(order._id), recipeId: String(recipe._id), recipeVersion: recipe.version } });
+      await recordStockMovement({ restaurant: order.restaurant, outlet: order.outlet || null, inventoryItem: line.inventoryItem._id, movementType: "CONSUMPTION", quantity: line.baseQuantity * multiplier, unit: line.inventoryItem.baseUnit || line.inventoryItem.unit, referenceType: "ORDER_ITEM", referenceId: `${order._id}:${itemIndex}`, idempotencyKey: `consumption:${order._id}:${itemIndex}:recipe-${recipe.version}:ingredient-${line.inventoryItem._id}`, reason: `Order ${order.orderNumber}`, user, metadata: { orderId: String(order._id), recipeId: String(recipe._id), recipeVersion: recipe.version } });
       consumed += 1;
     }
   }

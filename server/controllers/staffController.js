@@ -236,6 +236,7 @@ export const createStaff = asyncHandler(async (req, res) => {
     status,
     lastLogin: null,
     restaurant: req.user.restaurant || null,
+    outlet: req.user.activeOutlet || null,
     hotelId: req.user.hotelId || null,
   });
 

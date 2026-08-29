@@ -89,6 +89,7 @@ const orderSchema = new mongoose.Schema(
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false, index: true },
     table: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: false, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     orderType: {
       type: String,
       enum: ORDER_TYPES,
@@ -185,6 +186,7 @@ orderSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderNumber: 1 });
 orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, sparse: true });
 orderSchema.index({ restaurant: 1, customer: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
 
 orderSchema.pre("validate", function normalizeLegacyOrder(next) {
   if (!this.orderType) {

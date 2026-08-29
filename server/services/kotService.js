@@ -46,6 +46,7 @@ export const syncKotForOrder = async (order) => {
       orderId: order._id,
       tableId: order.table?._id || order.table || null,
       restaurant: order.restaurant || null,
+      outlet: order.outlet || null,
       orderNumber: order.orderNumber,
       orderType: order.orderType,
       items,
@@ -54,6 +55,7 @@ export const syncKotForOrder = async (order) => {
   } else {
     kot.tableId = order.table?._id || order.table || null;
     kot.restaurant = order.restaurant || kot.restaurant;
+    kot.outlet = order.outlet || kot.outlet;
     kot.orderNumber = order.orderNumber;
     kot.orderType = order.orderType;
     kot.items = items;

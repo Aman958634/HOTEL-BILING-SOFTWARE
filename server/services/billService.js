@@ -52,7 +52,9 @@ export const createConsolidatedBill = async ({ orderIds, restaurantId, user, ide
       const existing = await activeBillForOrders(orders.map((order) => order._id), session);
       if (existing) throw new ApiError(409, "One or more orders already belong to an open bill");
       const snapshot = buildSnapshot(orders);
-      const bill = new Bill({ billNumber: await nextBillNumber(session), restaurant: restaurantId, table: orders[0].table || null, customer: orders.find((order) => order.customer)?.customer || null, allocations: orders.map(allocationFromOrder), ...snapshot, paidAmount: 0, balanceDue: snapshot.total, status: "OPEN", idempotencyKey, createdBy: user._id });
+      const outlet = orders[0].outlet || null;
+      if (orders.some((order) => String(order.outlet || "") !== String(outlet || ""))) throw new ApiError(422, "Consolidated orders must belong to the same outlet");
+      const bill = new Bill({ billNumber: await nextBillNumber(session), restaurant: restaurantId, outlet, table: orders[0].table || null, customer: orders.find((order) => order.customer)?.customer || null, allocations: orders.map(allocationFromOrder), ...snapshot, paidAmount: 0, balanceDue: snapshot.total, status: "OPEN", idempotencyKey, createdBy: user._id });
       await bill.save({ session });
       const claimed = await Order.updateMany({ _id: { $in: orders.map((order) => order._id) }, $or: [{ billingBill: null }, { billingBill: { $exists: false } }] }, { $set: { billingBill: bill._id, billingState: "BILLED" } }, { session });
       if (claimed.modifiedCount !== orders.length) throw new ApiError(409, "One or more orders were billed concurrently");
@@ -81,7 +83,7 @@ export const recordBillPayment = async ({ billId, restaurantId, amount, paymentM
       const due = toPaise(bill.balanceDue);
       if (requested > due) throw new ApiError(422, "Payment amount exceeds the remaining balance");
       const now = new Date();
-      const payment = new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
+      const payment = new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, outlet: bill.outlet || null, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
       await payment.save({ session });
       const paidAmount = fromPaise(toPaise(bill.paidAmount) + requested); const balanceDue = fromPaise(Math.max(toPaise(bill.total) - toPaise(paidAmount), 0));
       bill.paidAmount = paidAmount; bill.balanceDue = balanceDue; bill.status = balanceDue === 0 ? "PAID" : "PARTIALLY_PAID";
@@ -124,7 +126,7 @@ export const splitOpenBillByOrders = async ({ billId, restaurantId, groups, user
       children = [];
       for (const group of groups) {
         const allocations = group.map((orderId) => original.get(String(orderId))); const snapshot = buildSnapshot(allocations);
-        const child = new Bill({ billNumber: await nextBillNumber(session), restaurant: bill.restaurant, table: bill.table, customer: bill.customer, allocations, ...snapshot, paidAmount: 0, balanceDue: snapshot.total, status: "OPEN", createdBy: user._id, parentBill: bill._id });
+        const child = new Bill({ billNumber: await nextBillNumber(session), restaurant: bill.restaurant, outlet: bill.outlet || null, table: bill.table, customer: bill.customer, allocations, ...snapshot, paidAmount: 0, balanceDue: snapshot.total, status: "OPEN", createdBy: user._id, parentBill: bill._id });
         await child.save({ session }); await Order.updateMany({ _id: { $in: allocations.map((row) => row.order) }, billingBill: bill._id }, { $set: { billingBill: child._id, billingState: "BILLED" } }, { session }); children.push(child);
       }
     });

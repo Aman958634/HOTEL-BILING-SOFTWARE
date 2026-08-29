@@ -15,6 +15,7 @@ const allocationSchema = new mongoose.Schema({
 const billSchema = new mongoose.Schema({
   billNumber: { type: String, required: true, unique: true, index: true },
   restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
+  outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
   table: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
   allocations: { type: [allocationSchema], required: true, validate: [(rows) => Array.isArray(rows) && rows.length > 0, "A bill requires at least one order"] },
@@ -42,6 +43,7 @@ const billSchema = new mongoose.Schema({
 billSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 billSchema.index({ restaurant: 1, table: 1, status: 1, createdAt: -1 });
 billSchema.index({ restaurant: 1, billNumber: 1 });
+billSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
 billSchema.index({ restaurant: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string", $gt: "" } }, name: "bill_restaurant_idempotency_unique" });
 
 export default mongoose.model("Bill", billSchema);

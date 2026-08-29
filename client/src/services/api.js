@@ -50,6 +50,8 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const outletId = localStorage.getItem("activeOutletId");
+  if (outletId && !String(config.url || "").startsWith("/outlets")) config.headers["X-Outlet-Id"] = outletId;
   const method = String(config.method || "get").toLowerCase();
   const url = String(config.url || "");
   const isPaymentWrite =

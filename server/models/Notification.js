@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const notificationSchema = new mongoose.Schema(
   {
     restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: false, index: true },
+    outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     eventType: { type: String, default: "SYSTEM", index: true },
     category: { type: String, default: "SYSTEM", index: true },

@@ -1,6 +1,7 @@
 import KitchenStation from "./KitchenStation.js";
 import User from "./User.js";
 import Restaurant from "./Restaurant.js";
+import Outlet from "./Outlet.js";
 import Sequence from "./Sequence.js";
 import Table from "./Table.js";
 import Reservation from "./Reservation.js";
@@ -30,6 +31,7 @@ export {
   KitchenStation,
   User,
   Restaurant,
+  Outlet,
   Sequence,
   Table,
   Reservation,

@@ -82,7 +82,8 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
   if (!user) return filters;
 
   if (user.restaurant) {
-    return mergeTenantFilter(filters, { restaurant: user.restaurant });
+    const scoped = mergeTenantFilter(filters, { restaurant: user.restaurant });
+    return user.activeOutlet ? mergeTenantFilter(scoped, { outlet: user.activeOutlet }) : scoped;
   }
 
   if (!user.hotelId) return filters;
