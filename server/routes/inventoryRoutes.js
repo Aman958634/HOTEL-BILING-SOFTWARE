@@ -31,7 +31,7 @@ router.post("/items/:id/adjust", requireRole(...managers), [objectId("id"), body
 router.post("/items/:id/receive", requireRole(...managers), [objectId("id"), body("quantity").isFloat({ min: 0.000001 }), body("unit").optional().isString()], validate, receiveStock);
 router.post("/items/:id/wastage", requireRole(...managers), [objectId("id"), body("quantity").isFloat({ min: 0.000001 }), body("unit").optional().isString()], validate, recordWastage);
 router.get("/recipes", listRecipes);
-router.post("/recipes", requireRole(...managers), [body("food").isMongoId(), body("ingredients").isArray({ min: 1 })], validate, createRecipe);
+router.post("/recipes", requireRole(...managers), [body("food").isMongoId(), body("centralKitchen").optional().isMongoId(), body("ingredients").isArray({ min: 1 })], validate, createRecipe);
 router.get("/recipes/:id/cost", [objectId("id")], validate, recipeCost);
 router.patch("/recipes/:id/status", requireRole(...managers), [objectId("id"), body("status").isIn(["DRAFT", "ACTIVE", "INACTIVE"])], validate, updateRecipeStatus);
 

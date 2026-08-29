@@ -2,13 +2,14 @@ import mongoose from "mongoose";
 
 const MOVEMENT_TYPES = [
   "OPENING_STOCK", "PURCHASE", "PURCHASE_RETURN", "CONSUMPTION", "WASTAGE",
-  "DAMAGE", "ADJUSTMENT", "TRANSFER_IN", "TRANSFER_OUT", "STOCK_COUNT", "RETURN", "REVERSAL",
+  "DAMAGE", "ADJUSTMENT", "TRANSFER_IN", "TRANSFER_OUT", "PRODUCTION_CONSUMPTION", "PRODUCTION_OUTPUT", "STOCK_COUNT", "RETURN", "REVERSAL",
 ];
 
 const stockMovementSchema = new mongoose.Schema(
   {
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
     outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
+    centralKitchen: { type: mongoose.Schema.Types.ObjectId, ref: "CentralKitchen", default: null, index: true },
     inventoryItem: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true, index: true },
     movementType: { type: String, enum: MOVEMENT_TYPES, required: true, index: true },
     quantity: { type: Number, required: true },
@@ -26,6 +27,7 @@ const stockMovementSchema = new mongoose.Schema(
 );
 
 stockMovementSchema.index({ restaurant: 1, createdAt: -1 });
+stockMovementSchema.index({ restaurant: 1, centralKitchen: 1, createdAt: -1 });
 stockMovementSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 const StockMovement = mongoose.model("StockMovement", stockMovementSchema);

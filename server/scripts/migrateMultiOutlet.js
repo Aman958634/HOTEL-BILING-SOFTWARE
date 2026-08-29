@@ -23,7 +23,9 @@ try {
   for (const restaurant of await Restaurant.find().lean()) {
     let outlet = await Outlet.findOne({ restaurant: restaurant._id }).sort({ isDefault: -1, createdAt: 1 });
     if (!outlet) outlet = await Outlet.create({ restaurant: restaurant._id, name: "Main Outlet", code: "MAIN", address: restaurant.address || "", city: restaurant.city || "", state: restaurant.state || "", phone: restaurant.phone || "", email: restaurant.email || "", timeZone: restaurant.timeZone || "Asia/Kolkata", gstNumber: restaurant.gstNumber || "", isDefault: true });
-    await Promise.all(models.map((Model) => Model.updateMany({ restaurant: restaurant._id, outlet: null }, { $set: { outlet: outlet._id } })));
+    // Preserve stock held by Central Kitchen. Only legacy records with no
+    // location at all should be assigned to the tenant's Main Outlet.
+    await Promise.all(models.map((Model) => Model.updateMany({ restaurant: restaurant._id, outlet: null, centralKitchen: null }, { $set: { outlet: outlet._id } })));
     await User.updateMany({ restaurant: restaurant._id, defaultOutlet: null, role: { $ne: "customer" } }, { $set: { defaultOutlet: outlet._id } });
   }
   await Promise.all([Outlet.syncIndexes(), Table.syncIndexes(), Order.syncIndexes(), Bill.syncIndexes(), Payment.syncIndexes(), Inventory.syncIndexes(), KotTicket.syncIndexes(), Staff.syncIndexes(), StockMovement.syncIndexes(), Reservation.syncIndexes(), Notification.syncIndexes(), User.syncIndexes()]);

@@ -9,13 +9,16 @@ import Reservation from "../models/Reservation.js";
 import Staff from "../models/Staff.js";
 import Table from "../models/Table.js";
 import User from "../models/User.js";
+import CentralKitchenRequisition from "../models/CentralKitchenRequisition.js";
+import ProductionBatch from "../models/ProductionBatch.js";
+import CentralKitchenTransfer from "../models/CentralKitchenTransfer.js";
 import ApiError from "../utils/ApiError.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { getAuthorizedRestaurantIds } from "./customerService.js";
 
 export const GLOBAL_SEARCH_TYPES = Object.freeze([
   "orders", "onlineOrders", "customers", "bills", "payments", "tables",
-  "staff", "menuItems", "kots", "reservations", "inventory", "loyalty",
+  "staff", "menuItems", "kots", "reservations", "inventory", "loyalty", "centralKitchen",
 ]);
 
 const RESULTS_PER_TYPE = 5;
@@ -34,6 +37,7 @@ const SEARCH_ACCESS = Object.freeze({
   reservations: rolesFor("admin", "manager", "waiter", "receptionist"),
   inventory: rolesFor("admin", "manager", "inventory_manager"),
   loyalty: rolesFor("admin", "manager", "cashier"),
+  centralKitchen: rolesFor("admin"),
 });
 
 const ONLINE_SOURCES = ["ONLINE", "DELIVERY", "PICKUP"];
@@ -138,6 +142,20 @@ const searchLoyalty = async ({ scope, query, customerIds, customerById }) => {
   return take(rows.map((row) => ({ type: "loyalty", id: row._id, title: customerById.get(String(row.customer))?.fullName || "Loyalty member", subtitle: `${Number(row.currentPoints || 0)} points`, metadata: {}, route: route("/dashboard/admin/loyalty", customerById.get(String(row.customer))?.fullName || query), _rankValues: [customerById.get(String(row.customer))?.fullName] })), query, (row) => row._rankValues);
 };
 
+const searchCentralKitchen = async ({ scope, regex, query }) => {
+  const [requisitions, batches, transfers] = await Promise.all([
+    CentralKitchenRequisition.find(scoped(scope, { requisitionNumber: regex })).select("requisitionNumber status outlet createdAt").populate("outlet", "name").sort({ createdAt: -1 }).limit(FETCH_LIMIT).lean(),
+    ProductionBatch.find(scoped(scope, { batchNumber: regex })).select("batchNumber status outputInventoryItem createdAt").populate("outputInventoryItem", "itemName").sort({ createdAt: -1 }).limit(FETCH_LIMIT).lean(),
+    CentralKitchenTransfer.find(scoped(scope, { transferNumber: regex })).select("transferNumber status destinationOutlet createdAt").populate("destinationOutlet", "name").sort({ createdAt: -1 }).limit(FETCH_LIMIT).lean(),
+  ]);
+  const rows = [
+    ...requisitions.map((row) => ({ type: "centralKitchen", id: row._id, title: row.requisitionNumber, subtitle: `Requisition · ${title(row.status)} · ${row.outlet?.name || "Outlet"}`, metadata: { status: row.status }, route: route("/dashboard/admin/central-kitchen", row.requisitionNumber), _rankValues: [row.requisitionNumber] })),
+    ...batches.map((row) => ({ type: "centralKitchen", id: row._id, title: row.batchNumber, subtitle: `Production batch · ${title(row.status)} · ${row.outputInventoryItem?.itemName || "Output"}`, metadata: { status: row.status }, route: route("/dashboard/admin/central-kitchen", row.batchNumber), _rankValues: [row.batchNumber] })),
+    ...transfers.map((row) => ({ type: "centralKitchen", id: row._id, title: row.transferNumber, subtitle: `Transfer · ${title(row.status)} · ${row.destinationOutlet?.name || "Outlet"}`, metadata: { status: row.status }, route: route("/dashboard/admin/central-kitchen", row.transferNumber), _rankValues: [row.transferNumber] })),
+  ];
+  return take(rows, query, (row) => row._rankValues);
+};
+
 export const globalSearch = async ({ user, query: rawQuery, type, limit }) => {
   const query = normalizeSearchQuery(rawQuery);
   const requestedTypes = normalizeTypes(type);
@@ -166,6 +184,7 @@ export const globalSearch = async ({ user, query: rawQuery, type, limit }) => {
     reservations: () => searchReservations({ scope, regex, query, customerIds, tableIds }),
     inventory: () => searchInventory({ scope, regex, query }),
     loyalty: () => searchLoyalty({ scope, query, customerIds, customerById }),
+    centralKitchen: () => searchCentralKitchen({ scope, regex, query }),
   };
   const entries = await Promise.all(resultTypes.map(async (searchType) => [searchType, (await tasks[searchType]()).slice(0, safeLimit)]));
   // Object insertion order is preserved by the response and consumed by the

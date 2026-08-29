@@ -58,6 +58,7 @@ const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"
 const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
 const Outlets = lazy(() => import("../pages/admin/Outlets"));
+const CentralKitchen = lazy(() => import("../pages/admin/CentralKitchen"));
 const PageSkeleton = () => (
   <div className="flex min-h-[50vh] items-center justify-center">
     <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
@@ -181,6 +182,7 @@ const AppRouter = () => (
       <Route path="loyalty" element={<LoyaltyManagement />} />
       <Route path="staff" element={<StaffManagement />} />
       <Route path="inventory" element={<InventoryPage />} />
+      <Route path="central-kitchen" element={<CentralKitchen />} />
       <Route path="payments" element={<Payments />} />
       <Route path="billing" element={<BillingPage />} />
       <Route path="my-subscription" element={<MySubscriptionPage />} />

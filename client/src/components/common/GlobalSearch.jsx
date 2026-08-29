@@ -30,6 +30,7 @@ const categoryMeta = {
   reservations: { label: "Reservations", icon: FiCalendar },
   inventory: { label: "Inventory", icon: FiBox },
   loyalty: { label: "Loyalty", icon: FiTag },
+  centralKitchen: { label: "Central Kitchen", icon: FiCoffee },
 };
 
 const isEditableTarget = (target) => {

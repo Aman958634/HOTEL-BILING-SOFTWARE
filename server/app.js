@@ -35,6 +35,7 @@ import loyaltyRoutes from "./routes/loyaltyRoutes.js";
 import billRoutes from "./routes/billRoutes.js";
 import reconciliationRoutes from "./routes/reconciliationRoutes.js";
 import outletRoutes from "./routes/outletRoutes.js";
+import centralKitchenRoutes from "./routes/centralKitchenRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -86,6 +87,7 @@ app.use((req, res, next) => {
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/outlets", outletRoutes);
+app.use("/api/v1/central-kitchens", centralKitchenRoutes);
 app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/menu", menuRoutes);
 app.use("/api/v1/categories", categoryRoutes);

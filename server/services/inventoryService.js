@@ -49,36 +49,38 @@ export const calculateRecipeCost = async (recipe) => {
   return { lines, ingredientCost, wastage, totalCost, costPerPortion: money(totalCost / Math.max(1, Number(recipe.yieldQuantity || 1))) };
 };
 
-export const recordStockMovement = async ({ restaurant, outlet = null, inventoryItem, movementType, quantity, unit, referenceType = "", referenceId = "", idempotencyKey = "", reason = "", user = null, metadata = {} }) => {
-  const item = await Inventory.findOne({ _id: inventoryItem, restaurant, ...(outlet ? { outlet } : {}) });
+export const recordStockMovement = async ({ restaurant, outlet = null, centralKitchen = null, inventoryItem, movementType, quantity, unit, referenceType = "", referenceId = "", idempotencyKey = "", reason = "", user = null, metadata = {}, session = null }) => {
+  const locationFilter = centralKitchen ? { centralKitchen, outlet: null } : outlet ? { outlet, centralKitchen: null } : { outlet: null, centralKitchen: null };
+  const item = await Inventory.findOne({ _id: inventoryItem, restaurant, ...locationFilter }).session(session);
   if (!item) throw new ApiError(404, "Inventory item not found");
   const baseUnit = item.baseUnit || item.unit;
   const baseQuantity = convertQuantity(quantity, unit || baseUnit, baseUnit);
   if (baseQuantity === null || baseQuantity <= 0) throw new ApiError(422, "Quantity must be a positive compatible amount");
 
   if (idempotencyKey) {
-    const existing = await StockMovement.findOne({ idempotencyKey });
+    const existing = await StockMovement.findOne({ idempotencyKey }).session(session);
     if (existing) return existing;
   }
 
   const signedQuantity = movementType === "ADJUSTMENT"
     ? (metadata.direction === "IN" ? baseQuantity : -baseQuantity)
-    : ["PURCHASE", "OPENING_STOCK", "TRANSFER_IN", "RETURN"].includes(movementType) ? baseQuantity : -baseQuantity;
+    : ["PURCHASE", "OPENING_STOCK", "TRANSFER_IN", "PRODUCTION_OUTPUT", "RETURN"].includes(movementType) ? baseQuantity : -baseQuantity;
   const previousStock = Number(item.quantity || 0);
   const newStock = money(previousStock + signedQuantity);
   if (newStock < 0) throw new ApiError(409, `Insufficient stock for ${item.itemName}`);
 
   const updated = await Inventory.findOneAndUpdate(
-    { _id: item._id, restaurant, ...(outlet ? { outlet } : {}), quantity: previousStock },
+    { _id: item._id, restaurant, ...locationFilter, quantity: previousStock },
     { $set: { quantity: newStock } },
-    { new: true }
+    { new: true, session }
   );
   if (!updated) throw new ApiError(409, "Stock changed concurrently. Please retry.");
 
   try {
-    return await StockMovement.create({ restaurant, outlet: outlet || item.outlet || null, inventoryItem: item._id, movementType, quantity: signedQuantity, unit: baseUnit, previousStock, newStock, referenceType, referenceId: String(referenceId || ""), idempotencyKey, reason, user, metadata });
+    const [movement] = await StockMovement.create([{ restaurant, outlet: outlet || item.outlet || null, centralKitchen: centralKitchen || item.centralKitchen || null, inventoryItem: item._id, movementType, quantity: signedQuantity, unit: baseUnit, previousStock, newStock, referenceType, referenceId: String(referenceId || ""), idempotencyKey, reason, user, metadata }], { session });
+    return movement;
   } catch (error) {
-    if (error?.code === 11000 && idempotencyKey) return StockMovement.findOne({ idempotencyKey });
+    if (error?.code === 11000 && idempotencyKey) return StockMovement.findOne({ idempotencyKey }).session(session);
     throw error;
   }
 };
@@ -89,7 +91,7 @@ export const consumeOrderInventory = async ({ order, user = null, itemIndexes = 
   const selectedIndexes = itemIndexes ? new Set(itemIndexes.map((index) => Number(index))) : null;
   for (const [itemIndex, orderItem] of (order.items || []).entries()) {
     if (selectedIndexes && !selectedIndexes.has(itemIndex)) continue;
-    const recipe = await Recipe.findOne({ restaurant: order.restaurant, food: orderItem.menuItem, status: "ACTIVE" }).sort({ version: -1 });
+    const recipe = await Recipe.findOne({ restaurant: order.restaurant, centralKitchen: null, food: orderItem.menuItem, status: "ACTIVE" }).sort({ version: -1 });
     if (!recipe) continue;
     const costing = await calculateRecipeCost(recipe);
     const multiplier = Number(orderItem.quantity || 0) / Math.max(1, Number(recipe.yieldQuantity || 1));

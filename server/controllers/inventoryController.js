@@ -82,7 +82,7 @@ export const listMovements = asyncHandler(async (req, res) => {
 
 export const adjustInventory = asyncHandler(async (req, res) => {
   const restaurant = resolveRestaurantId(req.user);
-  const movement = await recordStockMovement({ restaurant, inventoryItem: req.params.id, movementType: "ADJUSTMENT", quantity: toPositive(Math.abs(req.body.quantity), "Adjustment quantity"), unit: req.body.unit, referenceType: "ADJUSTMENT", referenceId: new mongoose.Types.ObjectId(), reason: req.body.reason || "Stock adjustment", user: req.user._id, metadata: { direction: Number(req.body.quantity) >= 0 ? "IN" : "OUT" } });
+  const movement = await recordStockMovement({ restaurant, outlet: req.user.activeOutlet || null, inventoryItem: req.params.id, movementType: "ADJUSTMENT", quantity: toPositive(Math.abs(req.body.quantity), "Adjustment quantity"), unit: req.body.unit, referenceType: "ADJUSTMENT", referenceId: new mongoose.Types.ObjectId(), reason: req.body.reason || "Stock adjustment", user: req.user._id, metadata: { direction: Number(req.body.quantity) >= 0 ? "IN" : "OUT" } });
   res.json(new ApiResponse(true, "Stock adjusted", movement));
 });
 
@@ -90,6 +90,7 @@ export const receiveStock = asyncHandler(async (req, res) => {
   const restaurant = resolveRestaurantId(req.user);
   const movement = await recordStockMovement({
     restaurant,
+    outlet: req.user.activeOutlet || null,
     inventoryItem: req.params.id,
     movementType: "PURCHASE",
     quantity: toPositive(req.body.quantity, "Quantity"),
@@ -107,6 +108,7 @@ export const recordWastage = asyncHandler(async (req, res) => {
   const restaurant = resolveRestaurantId(req.user);
   const movement = await recordStockMovement({
     restaurant,
+    outlet: req.user.activeOutlet || null,
     inventoryItem: req.params.id,
     movementType: "WASTAGE",
     quantity: toPositive(req.body.quantity, "Quantity"),
@@ -125,7 +127,7 @@ export const updateRecipeStatus = asyncHandler(async (req, res) => {
   if (!["DRAFT", "ACTIVE", "INACTIVE"].includes(status)) throw new ApiError(422, "Invalid recipe status");
   const recipe = await Recipe.findOne({ _id: req.params.id, restaurant });
   if (!recipe) throw new ApiError(404, "Recipe not found");
-  if (status === "ACTIVE") await Recipe.updateMany({ restaurant, food: recipe.food, status: "ACTIVE", _id: { $ne: recipe._id } }, { $set: { status: "INACTIVE" } });
+  if (status === "ACTIVE") await Recipe.updateMany({ restaurant, centralKitchen: recipe.centralKitchen || null, food: recipe.food, status: "ACTIVE", _id: { $ne: recipe._id } }, { $set: { status: "INACTIVE" } });
   recipe.status = status;
   recipe.updatedBy = req.user._id;
   await recipe.save();
@@ -147,11 +149,15 @@ export const createRecipe = asyncHandler(async (req, res) => {
   if (!ingredients.length) throw new ApiError(422, "Recipe requires at least one ingredient");
   const duplicateIds = ingredients.map((line) => String(line.inventoryItem));
   if (new Set(duplicateIds).size !== duplicateIds.length) throw new ApiError(422, "Recipe contains duplicate ingredients");
+  const centralKitchen = req.body.centralKitchen || null;
+  if (centralKitchen && !mongoose.isValidObjectId(centralKitchen)) throw new ApiError(422, "Central kitchen is invalid");
+  const inventoryItems = await Inventory.find({ _id: { $in: ingredients.map((line) => line.inventoryItem) }, restaurant, ...(centralKitchen ? { centralKitchen, outlet: null } : { outlet: req.user.activeOutlet || null, centralKitchen: null }) }).select("_id").lean();
+  if (inventoryItems.length !== ingredients.length) throw new ApiError(422, "Recipe ingredients must belong to the active inventory location");
   if (String(req.body.status || "DRAFT").toUpperCase() === "ACTIVE") {
-    await Recipe.updateMany({ restaurant, food: food._id, status: "ACTIVE" }, { $set: { status: "INACTIVE" } });
+    await Recipe.updateMany({ restaurant, centralKitchen, food: food._id, status: "ACTIVE" }, { $set: { status: "INACTIVE" } });
   }
-  const latest = await Recipe.findOne({ restaurant, food: food._id }).sort({ version: -1 }).select("version").lean();
-  const recipe = await Recipe.create({ ...req.body, restaurant, food: food._id, version: Number(req.body.version || (latest?.version || 0) + 1), createdBy: req.user._id, updatedBy: req.user._id });
+  const latest = await Recipe.findOne({ restaurant, centralKitchen, food: food._id }).sort({ version: -1 }).select("version").lean();
+  const recipe = await Recipe.create({ ...req.body, restaurant, centralKitchen, food: food._id, version: Number(req.body.version || (latest?.version || 0) + 1), createdBy: req.user._id, updatedBy: req.user._id });
   res.status(201).json(new ApiResponse(true, "Recipe created", { recipe, costing: await calculateRecipeCost(recipe) }));
 });
 

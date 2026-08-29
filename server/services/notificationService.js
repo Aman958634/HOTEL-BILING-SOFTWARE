@@ -4,7 +4,7 @@ import User from "../models/User.js";
 import { emitNotificationCreated } from "../socket/notificationSocket.js";
 
 export const NOTIFICATION_EVENTS = Object.freeze({
-  ORDER_CREATED: "ORDER_CREATED", ONLINE_ORDER_RECEIVED: "ONLINE_ORDER_RECEIVED", KOT_CREATED: "KOT_CREATED", KOT_READY: "KOT_READY", CUSTOMER_CREATED: "CUSTOMER_CREATED", STAFF_CREATED: "STAFF_CREATED", BILL_GENERATED: "BILL_GENERATED", PAYMENT_RECEIVED: "PAYMENT_RECEIVED", PARTIAL_PAYMENT_RECEIVED: "PARTIAL_PAYMENT_RECEIVED", BILL_FULLY_PAID: "BILL_FULLY_PAID", REFUND_CREATED: "REFUND_CREATED", REFUND_COMPLETED: "REFUND_COMPLETED", LOYALTY_MEMBER_ENROLLED: "LOYALTY_MEMBER_ENROLLED", INVENTORY_LOW: "INVENTORY_LOW", INVENTORY_OUT_OF_STOCK: "INVENTORY_OUT_OF_STOCK", RECONCILIATION_MISMATCH: "RECONCILIATION_MISMATCH", INTELLIGENCE_ALERT_CREATED: "INTELLIGENCE_ALERT_CREATED",
+  ORDER_CREATED: "ORDER_CREATED", ONLINE_ORDER_RECEIVED: "ONLINE_ORDER_RECEIVED", KOT_CREATED: "KOT_CREATED", KOT_READY: "KOT_READY", CUSTOMER_CREATED: "CUSTOMER_CREATED", STAFF_CREATED: "STAFF_CREATED", BILL_GENERATED: "BILL_GENERATED", PAYMENT_RECEIVED: "PAYMENT_RECEIVED", PARTIAL_PAYMENT_RECEIVED: "PARTIAL_PAYMENT_RECEIVED", BILL_FULLY_PAID: "BILL_FULLY_PAID", REFUND_CREATED: "REFUND_CREATED", REFUND_COMPLETED: "REFUND_COMPLETED", LOYALTY_MEMBER_ENROLLED: "LOYALTY_MEMBER_ENROLLED", INVENTORY_LOW: "INVENTORY_LOW", INVENTORY_OUT_OF_STOCK: "INVENTORY_OUT_OF_STOCK", RECONCILIATION_MISMATCH: "RECONCILIATION_MISMATCH", INTELLIGENCE_ALERT_CREATED: "INTELLIGENCE_ALERT_CREATED", CENTRAL_KITCHEN_REQUISITION_CREATED: "CENTRAL_KITCHEN_REQUISITION_CREATED", CENTRAL_KITCHEN_REQUISITION_APPROVED: "CENTRAL_KITCHEN_REQUISITION_APPROVED", CENTRAL_KITCHEN_REQUISITION_REJECTED: "CENTRAL_KITCHEN_REQUISITION_REJECTED", CENTRAL_KITCHEN_BATCH_COMPLETED: "CENTRAL_KITCHEN_BATCH_COMPLETED", CENTRAL_KITCHEN_TRANSFER_DISPATCHED: "CENTRAL_KITCHEN_TRANSFER_DISPATCHED", CENTRAL_KITCHEN_TRANSFER_RECEIVED: "CENTRAL_KITCHEN_TRANSFER_RECEIVED", CENTRAL_KITCHEN_TRANSFER_DISCREPANCY: "CENTRAL_KITCHEN_TRANSFER_DISCREPANCY",
 });
 
 const templates = {
@@ -25,6 +25,13 @@ const templates = {
   INVENTORY_OUT_OF_STOCK: ["INVENTORY", "CRITICAL", ["admin", "manager", "inventory_manager"], "Out of stock", (p) => `${p.itemName || "An inventory item"} is out of stock.`, "/dashboard/admin/inventory"],
   RECONCILIATION_MISMATCH: ["PAYMENTS", "WARNING", ["admin", "manager", "cashier"], "Payment mismatch detected", (p) => `${p.reference || "A payment"} requires reconciliation review.`, "/dashboard/admin/payment-reconciliation"],
   INTELLIGENCE_ALERT_CREATED: ["INTELLIGENCE", "WARNING", ["admin", "manager"], "Management alert", (p) => p.summary || "A new actionable business insight requires review.", "/dashboard/admin/intelligence"],
+  CENTRAL_KITCHEN_REQUISITION_CREATED: ["INVENTORY", "INFO", ["admin", "manager", "inventory_manager"], "Central kitchen requisition", (p) => `Requisition #${p.requisitionNumber} was submitted for ${p.outletName || "an outlet"}.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_REQUISITION_APPROVED: ["INVENTORY", "SUCCESS", ["admin", "manager", "inventory_manager"], "Requisition approved", (p) => `Requisition #${p.requisitionNumber} has been approved.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_REQUISITION_REJECTED: ["INVENTORY", "WARNING", ["admin", "manager", "inventory_manager"], "Requisition rejected", (p) => `Requisition #${p.requisitionNumber} was rejected.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_BATCH_COMPLETED: ["INVENTORY", "SUCCESS", ["admin", "manager", "inventory_manager"], "Production batch completed", (p) => `Batch #${p.batchNumber} has completed.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_TRANSFER_DISPATCHED: ["INVENTORY", "INFO", ["admin", "manager", "inventory_manager"], "Transfer dispatched", (p) => `Transfer #${p.transferNumber} is in transit.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_TRANSFER_RECEIVED: ["INVENTORY", "SUCCESS", ["admin", "manager", "inventory_manager"], "Transfer received", (p) => `Transfer #${p.transferNumber} was received.`, "/dashboard/admin/central-kitchen"],
+  CENTRAL_KITCHEN_TRANSFER_DISCREPANCY: ["INVENTORY", "WARNING", ["admin", "manager", "inventory_manager"], "Transfer receiving discrepancy", (p) => `Transfer #${p.transferNumber} was partially received and needs review.`, "/dashboard/admin/central-kitchen"],
 };
 
 const validId = (value) => value && mongoose.isValidObjectId(value);

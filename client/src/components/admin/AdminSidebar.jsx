@@ -16,6 +16,7 @@ const links = [
   { to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward /> },
   { to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
   { to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox /> },
+  { to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee /> },
   { to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },
   { to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText /> },
   { to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign /> },
