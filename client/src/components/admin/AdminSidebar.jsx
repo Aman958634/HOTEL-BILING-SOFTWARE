@@ -21,6 +21,7 @@ const links = [
   { to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign /> },
   { to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 /> },
   { to: "/dashboard/admin/business-intelligence", label: "Business Intelligence", icon: <FiBarChart2 /> },
+  { to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward /> },
   { to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell /> },
   { to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
 ];

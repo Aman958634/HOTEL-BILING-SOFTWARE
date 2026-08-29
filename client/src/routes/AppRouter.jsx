@@ -38,6 +38,7 @@ const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
 const Payments = lazy(() => import("../pages/admin/Payments"));
 const Reports = lazy(() => import("../pages/admin/Reports"));
 const BusinessIntelligence = lazy(() => import("../pages/admin/BusinessIntelligence"));
+const RestoSphereIntelligence = lazy(() => import("../pages/admin/RestoSphereIntelligence"));
 const Notifications = lazy(() => import("../pages/admin/Notifications"));
 const Settings = lazy(() => import("../pages/admin/Settings"));
 const AdminModuleLayout = lazy(() => import("../pages/admin/AdminModuleLayout"));
@@ -184,6 +185,7 @@ const AppRouter = () => (
       <Route path="my-subscription" element={<MySubscriptionPage />} />
       <Route path="reports" element={<Reports />} />
       <Route path="business-intelligence" element={<BusinessIntelligence />} />
+      <Route path="intelligence" element={<RestoSphereIntelligence />} />
       <Route path="notifications" element={<Notifications />} />
       <Route path="settings" element={<Settings />} />
     </Route>
