@@ -9,6 +9,7 @@ import ApiError from "../utils/ApiError.js";
 import { createActivity } from "./activityService.js";
 import { reversePointsForFullRefund } from "./loyaltyService.js";
 import { emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "./notificationService.js";
 
 const paise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
 const money = (value) => Number((Math.round(value) / 100).toFixed(2));
@@ -71,6 +72,11 @@ export const refundRecordedPayment = async ({ paymentId, restaurantId, amount, r
   } finally { await session.endSession(); }
   if (!result.idempotent && result.payment.orderId && result.payment.paymentStatus === "REFUNDED") await reversePointsForFullRefund({ order: result.payment.orderId, payment: result.payment });
   await createActivity({ action: "Refund Completed", description: `Refund ${result.refund._id} recorded`, performedBy: initiatedBy, restaurantId, targetId: result.refund._id, targetType: "Refund" });
+  if (!result.idempotent) {
+    const payload = { amount: result.refund.amount, paymentNumber: result.payment.paymentId };
+    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.REFUND_CREATED, restaurantId, entityType: "Refund", entityId: result.refund._id, actorUserId: initiatedBy, payload });
+    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.REFUND_COMPLETED, restaurantId, entityType: "Refund", entityId: result.refund._id, actorUserId: initiatedBy, payload });
+  }
   if (!result.idempotent) emitPaymentRefunded(result.payment.toObject ? result.payment.toObject() : result.payment);
   return result;
 };
@@ -93,6 +99,7 @@ export const reconcileCash = async ({ restaurantId, cashier, countedCash, note, 
   const expected = rows.reduce((sum, row) => sum + Math.max(paise(row.amount || row.totalAmount) - paise(row.refundAmount), 0), 0); const counted = paise(countedCash); const difference = counted - expected;
   if (difference !== 0 && !String(note || "").trim()) throw new ApiError(422, "A note is required for a cash variance");
   const record = await CashReconciliation.create({ restaurant: restaurantId, cashier, staff: staff?._id || null, startedAt, closedAt: new Date(), expectedCash: money(expected), countedCash: money(counted), difference: money(difference), note: String(note || "").trim(), status: difference === 0 ? "MATCHED" : "MISMATCHED", reconciledBy });
+  if (record.status === "MISMATCHED") await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.RECONCILIATION_MISMATCH, restaurantId, entityType: "CashReconciliation", entityId: record._id, actorUserId: reconciledBy, payload: { reference: "Cash reconciliation" } });
   await createActivity({ action: "Cash Reconciled", description: `Cash reconciliation ${record.status}`, performedBy: reconciledBy, restaurantId, targetId: record._id, targetType: "CashReconciliation" }); return record;
 };
 

@@ -1,5 +1,6 @@
 import KotTicket from "../models/KotTicket.js";
 import { emitKotCreated, emitKotUpdated } from "../socket/orderSocket.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "./notificationService.js";
 
 export const KOT_ITEM_STATUSES = {
   NEW: "NEW",
@@ -60,7 +61,10 @@ export const syncKotForOrder = async (order) => {
   }
 
   await kot.save();
-  if (created) emitKotCreated(kot);
+  if (created) {
+    emitKotCreated(kot);
+    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_CREATED, restaurantId: kot.restaurant, entityType: "KotTicket", entityId: kot._id, payload: { kotNumber: kot.kotNumber || kot.orderNumber, orderNumber: kot.orderNumber } });
+  }
   else emitKotUpdated(kot);
   return kot;
 };

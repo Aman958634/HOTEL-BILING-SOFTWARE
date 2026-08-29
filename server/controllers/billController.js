@@ -6,6 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { createActivity } from "../services/activityService.js";
 import { buildBillReceiptBuffer, cancelOpenBill, createConsolidatedBill, recordBillPayment, serializeBill, splitOpenBillByOrders } from "../services/billService.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "../services/notificationService.js";
 
 const pagination = (query) => { const page = Math.max(Number(query.page) || 1, 1); const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100); return { page, limit, skip: (page - 1) * limit }; };
 
@@ -21,6 +22,7 @@ export const createBill = asyncHandler(async (req, res) => {
   if (!restaurantId || Array.isArray(restaurantId?.$in)) throw new ApiError(403, "A single restaurant context is required to create a bill");
   const result = await createConsolidatedBill({ orderIds: req.body.orderIds, restaurantId, user: req.user, idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim() });
   await createActivity({ action: "Bill Generated", description: `Bill ${result.bill.billNumber} generated`, performedBy: req.user._id, restaurantId, targetId: result.bill._id, targetType: "Bill" });
+  if (!result.idempotent) await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.BILL_GENERATED, restaurantId, entityType: "Bill", entityId: result.bill._id, actorUserId: req.user._id, payload: { billNumber: result.bill.billNumber } });
   res.status(result.idempotent ? 200 : 201).json(new ApiResponse(true, result.idempotent ? "Bill already generated" : "Bill generated", await serializeBill(result.bill)));
 });
 
@@ -43,6 +45,11 @@ export const addBillPayment = asyncHandler(async (req, res) => {
   if (!restaurantId || Array.isArray(restaurantId?.$in)) throw new ApiError(403, "A single restaurant context is required to settle a bill");
   const result = await recordBillPayment({ billId: req.params.id, restaurantId, amount: req.body.amount, paymentMethod: req.body.paymentMethod, transactionId: String(req.body.transactionId || "").trim(), idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim(), receivedBy: req.user._id });
   await createActivity({ action: "Bill Payment Recorded", description: `Payment recorded for ${result.bill.billNumber}`, performedBy: req.user._id, restaurantId, targetId: result.payment._id, targetType: "Payment" });
+  if (!result.idempotent) {
+    const payload = { billNumber: result.bill.billNumber, amount: result.payment.amount, balanceDue: result.bill.balanceDue };
+    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.PAYMENT_RECEIVED, restaurantId, entityType: "Payment", entityId: result.payment._id, actorUserId: req.user._id, payload });
+    await publishBusinessEvent({ eventType: result.bill.status === "PAID" ? NOTIFICATION_EVENTS.BILL_FULLY_PAID : NOTIFICATION_EVENTS.PARTIAL_PAYMENT_RECEIVED, restaurantId, entityType: "Bill", entityId: result.bill._id, actorUserId: req.user._id, payload });
+  }
   res.json(new ApiResponse(true, result.idempotent ? "Bill payment already recorded" : "Bill payment recorded", { bill: await serializeBill(result.bill), payment: result.payment }));
 });
 

@@ -482,7 +482,7 @@ export const createOrderAuditLog = async ({ user, action, order, context = {} })
   }
 };
 
-export const createOrderNotifications = async ({ title, message, actorUserId = null, type = "order", restaurantId, entityType, entityId, orderNumber, customerName, total, paymentMethod, reason }) => {
+export const createOrderNotifications = async ({ title, message, actorUserId = null, type = "order", restaurantId, entityType, entityId, orderNumber, customerName, total, paymentMethod, reason, online = false }) => {
   try {
     const safeRestaurantId = restaurantId && mongoose.isValidObjectId(restaurantId) ? restaurantId : null;
     const safeEntityId = entityId && mongoose.isValidObjectId(entityId) ? entityId : null;
@@ -495,6 +495,7 @@ export const createOrderNotifications = async ({ title, message, actorUserId = n
         customerName: customerName || null,
         total: total || 0,
         actorUserId,
+        online,
       });
       return;
     }

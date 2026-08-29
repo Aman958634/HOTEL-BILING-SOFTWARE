@@ -7,6 +7,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { getAuthorizedRestaurantIds } from "../services/customerService.js";
 import { adjustLoyaltyPoints, enrollLoyaltyCustomer, getLoyaltyAccount, getLoyaltySettings, listLoyaltyAccounts, redeemLoyaltyPoints, updateLoyaltySettings } from "../services/loyaltyService.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "../services/notificationService.js";
 
 const restaurantContext = async (req) => {
   const ids = await getAuthorizedRestaurantIds(req.user);
@@ -36,6 +37,7 @@ export const enrollCustomer = asyncHandler(async (req, res) => {
   if (!customer) throw new ApiError(404, "Customer not found");
   const account = await enrollLoyaltyCustomer({ customerId: customer._id, restaurantId: restaurant });
   await createActivity({ action: "Loyalty Customer Enrolled", description: `Customer ${customer.fullName} enrolled in loyalty`, performedBy: req.user._id, restaurantId: restaurant, targetId: account._id, targetType: "LoyaltyAccount" });
+  await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.LOYALTY_MEMBER_ENROLLED, restaurantId: restaurant, entityType: "LoyaltyAccount", entityId: account._id, actorUserId: req.user._id });
   res.status(201).json(new ApiResponse(true, "Customer enrolled in loyalty", account));
 });
 

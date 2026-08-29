@@ -4,7 +4,9 @@ import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDo
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
 
-const getNotificationLink = (type) => {
+const getNotificationLink = (notification) => {
+  if (notification?.route) return notification.route;
+  const type = typeof notification === "string" ? notification : notification?.type;
   switch (type) {
     case "NEW_ORDER":
     case "ORDER_CANCELLED":
@@ -25,6 +27,22 @@ const getNotificationLink = (type) => {
 };
 
 const typeIconMap = {
+  ORDER_CREATED: FiShoppingBag,
+  ONLINE_ORDER_RECEIVED: FiShoppingBag,
+  KOT_CREATED: FiShoppingBag,
+  KOT_READY: FiShoppingBag,
+  CUSTOMER_CREATED: FiUsers,
+  STAFF_CREATED: FiUsers,
+  BILL_GENERATED: FiDollarSign,
+  PARTIAL_PAYMENT_RECEIVED: FiCreditCard,
+  BILL_FULLY_PAID: FiCreditCard,
+  REFUND_CREATED: FiXCircle,
+  REFUND_COMPLETED: FiCreditCard,
+  LOYALTY_MEMBER_ENROLLED: FiUsers,
+  INVENTORY_LOW: FiAlertCircle,
+  INVENTORY_OUT_OF_STOCK: FiAlertCircle,
+  RECONCILIATION_MISMATCH: FiAlertCircle,
+  INTELLIGENCE_ALERT_CREATED: FiAlertCircle,
   NEW_ORDER: FiShoppingBag,
   PAYMENT_RECEIVED: FiCreditCard,
   ORDER_CANCELLED: FiXCircle,
@@ -49,6 +67,22 @@ const typeIconColorMap = {
 };
 
 const actionLabelMap = {
+  ORDER_CREATED: "View Orders",
+  ONLINE_ORDER_RECEIVED: "View Online Orders",
+  KOT_CREATED: "View Kitchen",
+  KOT_READY: "View Kitchen",
+  CUSTOMER_CREATED: "View Customers",
+  STAFF_CREATED: "View Staff",
+  BILL_GENERATED: "View Billing",
+  PARTIAL_PAYMENT_RECEIVED: "View Billing",
+  BILL_FULLY_PAID: "View Billing",
+  REFUND_CREATED: "View Reconciliation",
+  REFUND_COMPLETED: "View Reconciliation",
+  LOYALTY_MEMBER_ENROLLED: "View Loyalty",
+  INVENTORY_LOW: "View Inventory",
+  INVENTORY_OUT_OF_STOCK: "View Inventory",
+  RECONCILIATION_MISMATCH: "View Reconciliation",
+  INTELLIGENCE_ALERT_CREATED: "View Intelligence",
   NEW_ORDER: "View Order",
   PAYMENT_RECEIVED: "View Payment",
   ORDER_CANCELLED: "View Order",
@@ -95,9 +129,16 @@ const NotificationBell = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const onNewNotification = () => {
-      loadSummary();
-      loadNotifications();
+    const onNewNotification = (notification) => {
+      if (!notification?.id && !notification?.notificationId) return;
+      const id = notification.id || notification.notificationId;
+      setNotifications((current) => {
+        if (current.some((item) => String(item._id || item.id) === String(id))) return current;
+        return [{ ...notification, _id: id, isRead: Boolean(notification.isRead) }, ...current].slice(0, 3);
+      });
+      setSummary((current) => ({ ...current, total: Number(current.total || 0) + 1, unread: Number(current.unread || 0) + (notification.isRead ? 0 : 1) }));
+      // REST remains canonical after reconnect/reload; defer avoids duplicate UI races.
+      window.setTimeout(() => { loadSummary(); loadNotifications(); }, 250);
     };
 
     socket.on("notification:new", onNewNotification);
@@ -168,7 +209,7 @@ const NotificationBell = () => {
               </div>
             ) : notifications.length ? (
               notifications.map((item) => {
-                const link = getNotificationLink(item.type);
+                const link = getNotificationLink(item);
                 const Icon = typeIconMap[item.type] || FiBell;
                 const iconColor = typeIconColorMap[item.type] || "text-slate-600 bg-slate-50";
                 const actionLabel = actionLabelMap[item.type];

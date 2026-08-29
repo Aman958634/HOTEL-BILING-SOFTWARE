@@ -94,6 +94,8 @@ export const createOne = asyncHandler(async (req, res) => {
         quantity,
         reorderLevel,
       }).catch(() => {});
+    } else {
+      await Notification.updateMany({ entityType: "Inventory", entityId: doc._id, eventType: { $in: ["INVENTORY_LOW", "INVENTORY_OUT_OF_STOCK"] }, resolvedAt: null }, { $set: { resolvedAt: new Date(), dedupeKey: null } });
     }
   }
 

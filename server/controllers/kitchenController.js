@@ -27,6 +27,7 @@ import {
   emitKitchenOrderStatusChanged,
 } from "../socket/orderSocket.js";
 import { consumeOrderInventory } from "../services/inventoryService.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "../services/notificationService.js";
 
 const BOARD_ORDER_STATUSES = [
   ORDER_STATUSES.PENDING,
@@ -81,6 +82,7 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
   if (itemIndex != null) {
     emitKitchenItemStatusChanged(populated, Number(itemIndex), nextItemStatus);
   }
+  if (previousStatus !== nextStatus && nextStatus === ORDER_STATUSES.READY) await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_READY, restaurantId: populated.restaurant, entityType: "KotTicket", entityId: kot?._id, actorUserId: req.user._id, payload: { kotNumber: kot?.kotNumber || populated.orderNumber, orderNumber: populated.orderNumber, tableNumber: populated.table?.tableNumber }, recipientUserIds: populated.assignedWaiter ? [populated.assignedWaiter] : [] });
 
   return ticket;
 };

@@ -1,9 +1,9 @@
 import { getIO } from "../config/socket.js";
 
-const safeEmit = (event, payload) => {
+const safeEmit = (event, payload, restaurantId = null) => {
   try {
     const io = getIO();
-    io.to("dashboard").emit(event, payload);
+    if (restaurantId) io.to(`restaurant:${restaurantId}`).emit(event, payload);
   } catch (_error) {
     // Socket may be unavailable in script-only contexts.
   }
@@ -18,8 +18,8 @@ export const emitOrderCreated = (order) => {
     order,
   };
 
-  safeEmit("order:created", payload);
-  safeEmit("order:new", order);
+  safeEmit("order:created", payload, order.restaurant);
+  safeEmit("order:new", order, order.restaurant);
 };
 
 export const emitOrderStatusChanged = (order) => {
@@ -30,8 +30,8 @@ export const emitOrderStatusChanged = (order) => {
     updatedAt: order.updatedAt,
   };
 
-  safeEmit("order:statusChanged", payload);
-  safeEmit("order:status", order);
+  safeEmit("order:statusChanged", payload, order.restaurant);
+  safeEmit("order:status", order, order.restaurant);
 };
 
 export const emitOrderCancelled = (order) => {
@@ -42,8 +42,8 @@ export const emitOrderCancelled = (order) => {
     updatedAt: order.updatedAt,
   };
 
-  safeEmit("order:cancelled", payload);
-  safeEmit("order:status", order);
+  safeEmit("order:cancelled", payload, order.restaurant);
+  safeEmit("order:status", order, order.restaurant);
 };
 
 export const emitOrderPaymentUpdated = (order) => {
@@ -53,7 +53,7 @@ export const emitOrderPaymentUpdated = (order) => {
     paymentStatus: order.paymentStatus,
     paymentMethod: order.paymentMethod,
     updatedAt: order.updatedAt,
-  });
+  }, order.restaurant);
 };
 
 export const emitKitchenItemStatusChanged = (order, itemIndex, kitchenStatus) => {
@@ -65,7 +65,7 @@ export const emitKitchenItemStatusChanged = (order, itemIndex, kitchenStatus) =>
     orderKitchenStatus: order.kitchenStatus,
     orderStatus: order.status,
     updatedAt: order.updatedAt,
-  });
+  }, order.restaurant);
 };
 
 export const emitKitchenOrderStatusChanged = (order) => {
@@ -75,7 +75,7 @@ export const emitKitchenOrderStatusChanged = (order) => {
     status: order.status,
     kitchenStatus: order.kitchenStatus,
     updatedAt: order.updatedAt,
-  });
+  }, order.restaurant);
 };
 
 export const emitKitchenTicketCreated = (order) => {
@@ -84,12 +84,12 @@ export const emitKitchenTicketCreated = (order) => {
     orderNumber: order.orderNumber,
     status: order.status,
     createdAt: order.createdAt,
-  });
+  }, order.restaurant);
 };
 
 export const emitKotCreated = (kot) => {
   try {
-    getIO().to("dashboard").emit("new_kot", kot.toObject ? kot.toObject() : kot);
+    getIO().to(`restaurant:${kot.restaurant}`).emit("new_kot", kot.toObject ? kot.toObject() : kot);
   } catch (_error) {
     // Socket may be unavailable in script-only contexts.
   }
@@ -97,7 +97,7 @@ export const emitKotCreated = (kot) => {
 
 export const emitKotUpdated = (kot) => {
   try {
-    getIO().to("dashboard").emit("kot_updated", kot.toObject ? kot.toObject() : kot);
+    getIO().to(`restaurant:${kot.restaurant}`).emit("kot_updated", kot.toObject ? kot.toObject() : kot);
   } catch (_error) {
     // Socket may be unavailable in script-only contexts.
   }

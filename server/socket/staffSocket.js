@@ -3,7 +3,7 @@ import { getIO } from "../config/socket.js";
 const safeEmit = (event, payload) => {
   try {
     const io = getIO();
-    io.to("dashboard").emit(event, payload);
+    if (payload?.restaurant) io.to(`restaurant:${payload.restaurant}`).emit(event, payload);
   } catch (_error) {
     // Socket may not be available in scripts.
   }

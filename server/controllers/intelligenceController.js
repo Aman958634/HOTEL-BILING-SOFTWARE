@@ -6,6 +6,7 @@ import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { createActivity } from "../services/activityService.js";
 import { answerAllowedQuestion, getIntelligenceSnapshot, persistInsights } from "../services/intelligenceSignalService.js";
 import { getIntelligenceProviderStatus } from "../services/intelligenceProviderService.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "../services/notificationService.js";
 
 const restaurantFor = async (user) => {
   const scope = await buildRestaurantQuery({}, user);
@@ -22,6 +23,7 @@ export const getIntelligenceSummary = asyncHandler(async (req, res) => {
 export const refreshIntelligence = asyncHandler(async (req, res) => {
   const restaurantId = await restaurantFor(req.user);
   const snapshot = await persistInsights({ restaurantId, query: req.body });
+  await Promise.all((snapshot.insights || []).filter((insight) => ["ATTENTION", "CRITICAL"].includes(String(insight.severity).toUpperCase())).map((insight) => publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.INTELLIGENCE_ALERT_CREATED, restaurantId, entityType: "IntelligenceInsight", entityId: insight.id || insight._id, actorUserId: req.user._id, payload: { summary: insight.summary, reference: insight.signalKey || insight.id } })));
   await createActivity({ action: "Intelligence Refreshed", description: "Deterministic business insights refreshed", performedBy: req.user._id, restaurantId, targetType: "Intelligence" });
   res.json(new ApiResponse(true, "Intelligence insights refreshed", { executiveSummary: snapshot.executiveSummary, insights: snapshot.insights, period: snapshot.bi.period, provider: getIntelligenceProviderStatus() }));
 });

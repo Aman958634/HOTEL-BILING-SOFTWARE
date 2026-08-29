@@ -8,6 +8,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, validOrderMatch } from "../services/customerService.js";
 import { loyaltySummaryForCustomer } from "../services/loyaltyService.js";
+import { NOTIFICATION_EVENTS, publishBusinessEvent } from "../services/notificationService.js";
 
 const pagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -106,6 +107,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     await customer.save();
   }
   await createActivity({ action: created ? "Customer Created" : "Customer Linked", description: `Customer ${customer.fullName} ${created ? "created" : "linked"}`, performedBy: req.user._id, restaurantId, targetId: customer._id, targetType: "Customer" });
+  if (created) await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.CUSTOMER_CREATED, restaurantId, entityType: "Customer", entityId: customer._id, actorUserId: req.user._id });
   res.status(created ? 201 : 200).json(new ApiResponse(true, created ? "Customer created" : "Existing customer linked", customer));
 });
 

@@ -90,7 +90,7 @@ const typeLabel = (type) => {
     case "system":
       return "System";
     default:
-      return "General";
+      return String(type || "General").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 };
 

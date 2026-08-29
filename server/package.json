@@ -17,10 +17,12 @@
     "migrate:business-intelligence": "node scripts/migrateBusinessIntelligenceIndexes.js",
     "migrate:intelligence": "node scripts/migrateIntelligenceIndexes.js",
     "migrate:global-search": "node scripts/migrateGlobalSearchIndexes.js",
+    "migrate:notifications": "node scripts/migrateNotificationIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",
     "test:intelligence": "node tests/intelligenceSignals.test.js",
     "test:global-search": "node tests/globalSearch.test.js",
+    "test:notifications": "node tests/notificationEvents.test.js",
     "lint": "echo \"Add ESLint config\""
   },
   "dependencies": {

@@ -245,6 +245,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     orderNumber: populated.orderNumber,
     customerName: populated.customer?.fullName || null,
     total: populated.total,
+    online: isOnlineOrder(populated),
   });
 
   await syncPaymentFromOrder(populated, {

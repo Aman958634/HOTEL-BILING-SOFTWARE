@@ -32,15 +32,15 @@ export const getNotifications = asyncHandler(async (req, res) => {
   const filters = buildBaseFilters(req);
 
   if (req.query.search) {
-    filters.$or = [
-      ...(filters.$or || [{ user: req.user._id }]),
-      { title: { $regex: req.query.search, $options: "i" } },
-      { message: { $regex: req.query.search, $options: "i" } },
-    ];
+    const escaped = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filters.$and = [...(filters.$and || []), { $or: [{ title: { $regex: escaped, $options: "i" } }, { message: { $regex: escaped, $options: "i" } }] }];
   }
   if (req.query.type) {
     filters.type = req.query.type;
   }
+  if (req.query.category) filters.category = String(req.query.category).toUpperCase();
+  if (req.query.severity) filters.severity = String(req.query.severity).toUpperCase();
+  if (req.query.dateFrom || req.query.dateTo) filters.createdAt = { ...(req.query.dateFrom ? { $gte: new Date(req.query.dateFrom) } : {}), ...(req.query.dateTo ? { $lte: new Date(req.query.dateTo) } : {}) };
   if (req.query.isRead !== undefined) {
     const parsed = parseBoolean(req.query.isRead);
     if (parsed !== undefined) filters.isRead = parsed;
@@ -115,7 +115,7 @@ export const updateNotificationStatus = asyncHandler(async (req, res) => {
 
   const notification = await Notification.findOneAndUpdate(
     filters,
-    { isRead },
+    { isRead, readAt: isRead ? new Date() : null },
     { new: true, runValidators: true }
   );
 
@@ -135,7 +135,7 @@ export const markAllNotificationsRead = asyncHandler(async (req, res) => {
     ];
   }
 
-  const result = await Notification.updateMany(filters, { isRead: true });
+  const result = await Notification.updateMany(filters, { isRead: true, readAt: new Date() });
   res.status(200).json(new ApiResponse(true, "All notifications marked as read", { modifiedCount: result.modifiedCount }));
 });
 
