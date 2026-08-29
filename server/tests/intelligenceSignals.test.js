@@ -11,6 +11,8 @@ const base = {
 const signals = detectSignals(base);
 assert.ok(signals.some((row) => row.signalKey === "net-sales-decline"));
 assert.equal(signals.find((row) => row.signalKey === "net-sales-decline").evidence[0].change, -20);
+assert.equal(signals.find((row) => row.signalKey === "net-sales-decline").evidence[0].metric, "Net sales");
+assert.equal(typeof signals.find((row) => row.signalKey === "net-sales-decline").evidence[0].metric, "string");
 assert.ok(!JSON.stringify(signals).includes("Infinity"));
 
 const small = detectSignals({ ...base, overview: { ...base.overview, orders: metric(1, 0) } });

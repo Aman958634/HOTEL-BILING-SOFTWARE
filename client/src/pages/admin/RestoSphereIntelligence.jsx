@@ -7,7 +7,43 @@ import { currency } from "../../utils/format";
 
 const severityStyle = { CRITICAL: "border-rose-200 bg-rose-50 text-rose-800", ATTENTION: "border-amber-200 bg-amber-50 text-amber-800", OPPORTUNITY: "border-emerald-200 bg-emerald-50 text-emerald-800", INFO: "border-sky-200 bg-sky-50 text-sky-800" };
 const number = (value) => new Intl.NumberFormat("en-IN").format(Number(value || 0));
+const finiteOrNull = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+
+// BI comparisons can be structured objects while older insight rows can carry
+// a primitive growth value. Normalize both forms before they reach JSX.
+const normalizeComparison = (value) => {
+  if (value === null || value === undefined) return { current: null, previous: null, difference: null, growth: null, isNewActivity: false };
+  if (typeof value !== "object") return { current: null, previous: null, difference: null, growth: finiteOrNull(value), isNewActivity: false };
+  const rawGrowth = typeof value.growth === "object" ? value.growth?.value : value.growth;
+  const current = finiteOrNull(value.current);
+  const previous = finiteOrNull(value.previous);
+  return {
+    current,
+    previous,
+    difference: finiteOrNull(value.difference),
+    growth: finiteOrNull(rawGrowth),
+    isNewActivity: previous === 0 && current !== null && current > 0 && finiteOrNull(rawGrowth) === null,
+  };
+};
+
+const normalizeEvidence = (row = {}) => {
+  const legacyMetric = row.metric && typeof row.metric === "object" ? row.metric : null;
+  const comparison = normalizeComparison(legacyMetric || {
+    current: row.current,
+    previous: row.baseline ?? row.previous,
+    difference: row.difference,
+    growth: row.change,
+  });
+  return {
+    label: typeof row.metric === "string" ? row.metric : "Verified metric",
+    unit: row.unit,
+    current: comparison.current ?? finiteOrNull(row.current) ?? 0,
+    comparison,
+  };
+};
+
 const evidenceValue = (row) => row.unit === "INR" ? currency(row.current) : `${number(row.current)}${row.unit === "orders" ? " orders" : row.unit === "units" ? " units" : row.unit === "items" ? " items" : ""}`;
+const comparisonLabel = (comparison) => comparison.isNewActivity ? " (New activity)" : comparison.growth !== null ? ` (${comparison.growth > 0 ? "+" : ""}${comparison.growth}%)` : "";
 
 const RestoSphereIntelligence = () => {
   const [range, setRange] = useState("last_7_days"); const [data, setData] = useState(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [question, setQuestion] = useState(""); const [answer, setAnswer] = useState(null);
@@ -19,7 +55,7 @@ const RestoSphereIntelligence = () => {
   const insights = data?.insights || [];
   return <div className="space-y-4 pb-20"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-slate-900 sm:text-2xl"><FiCpu />RestoSphere Intelligence</h2><p className="mt-1 text-sm text-slate-500">Evidence-backed alerts and recommendations for management review only.</p></div><div className="flex gap-2"><select value={range} onChange={(event) => setRange(event.target.value)} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"><option value="today">Today</option><option value="last_7_days">Last 7 Days</option><option value="last_30_days">Last 30 Days</option><option value="this_month">This Month</option></select><button onClick={refresh} disabled={refreshing} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"><FiRefreshCw />{refreshing ? "Refreshing…" : "Refresh insights"}</button></div></div>
     <section className="rounded-2xl border border-brand-100 bg-brand-50 p-5"><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Management summary</p><p className="mt-2 text-base font-medium leading-7 text-slate-800">{loading ? "Loading verified signals…" : data?.executiveSummary || "No summary is available yet."}</p><p className="mt-3 text-xs text-slate-500">Generated from Business Intelligence for {data?.period?.range?.replaceAll("_", " ") || range}. {data?.provider?.available ? "Advanced explanation is available." : "Advanced explanation is unavailable; deterministic evidence is displayed."}</p></section>
-    {loading ? <div className="grid gap-3 lg:grid-cols-2">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-44 animate-pulse rounded-2xl bg-slate-100" />)}</div> : insights.length ? <div className="grid gap-3 lg:grid-cols-2">{insights.map((insight) => <article key={insight._id || insight.signalKey} className={`rounded-2xl border p-4 ${severityStyle[insight.severity] || severityStyle.INFO}`}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide">{insight.severity} · {insight.category}</p><h3 className="mt-1 text-lg font-bold">{insight.title}</h3></div><span className="rounded-full border border-current/20 px-2 py-1 text-xs font-semibold">{insight.confidence} confidence</span></div><p className="mt-3 text-sm leading-6">{insight.summary}</p>{insight.evidence?.length ? <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs"><p className="font-semibold">Why this was flagged</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">{insight.evidence.map((row, index) => <span key={`${row.metric}-${index}`}>{row.metric}: <strong>{evidenceValue(row)}</strong>{row.change !== null && row.change !== undefined ? ` (${row.change > 0 ? "+" : ""}${row.change}%)` : ""}</span>)}</div></div> : null}<div className="mt-3"><p className="text-xs font-semibold">Recommended human review</p><ul className="mt-1 list-disc space-y-1 pl-5 text-sm">{(insight.recommendedActions || []).map((action) => <li key={action}>{action}</li>)}</ul></div>{insight._id && insight.status === "ACTIVE" ? <button onClick={() => acknowledge(insight)} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-current/30 bg-white/70 px-3 py-2 text-sm font-medium"><FiCheckCircle />Acknowledge</button> : null}</article>)}</div> : <EmptyState icon={<FiAlertTriangle className="h-10 w-10" />} title="Not enough data for advanced insights yet" description="Complete more orders and transactions to unlock reliable trend insights." />}
+    {loading ? <div className="grid gap-3 lg:grid-cols-2">{Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-44 animate-pulse rounded-2xl bg-slate-100" />)}</div> : insights.length ? <div className="grid gap-3 lg:grid-cols-2">{insights.map((insight) => <article key={insight._id || insight.signalKey} className={`rounded-2xl border p-4 ${severityStyle[insight.severity] || severityStyle.INFO}`}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide">{insight.severity} · {insight.category}</p><h3 className="mt-1 text-lg font-bold">{insight.title}</h3></div><span className="rounded-full border border-current/20 px-2 py-1 text-xs font-semibold">{insight.confidence} confidence</span></div><p className="mt-3 text-sm leading-6">{insight.summary}</p>{insight.evidence?.length ? <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs"><p className="font-semibold">Why this was flagged</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">{insight.evidence.map((row, index) => { const normalized = normalizeEvidence(row); return <span key={`${normalized.label}-${index}`}>{normalized.label}: <strong>{evidenceValue(normalized)}</strong>{comparisonLabel(normalized.comparison)}</span>; })}</div></div> : null}<div className="mt-3"><p className="text-xs font-semibold">Recommended human review</p><ul className="mt-1 list-disc space-y-1 pl-5 text-sm">{(insight.recommendedActions || []).map((action) => <li key={action}>{action}</li>)}</ul></div>{insight._id && insight.status === "ACTIVE" ? <button onClick={() => acknowledge(insight)} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-current/30 bg-white/70 px-3 py-2 text-sm font-medium"><FiCheckCircle />Acknowledge</button> : null}</article>)}</div> : <EmptyState icon={<FiAlertTriangle className="h-10 w-10" />} title="Not enough data for advanced insights yet" description="Complete more orders and transactions to unlock reliable trend insights." />}
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h3 className="text-lg font-bold text-slate-900">Ask RestoSphere</h3><p className="mt-1 text-sm text-slate-500">Uses only the selected period's authorized BI metrics. Supported topics: sales, top items, payments, peak hours, and inventory.</p><form onSubmit={ask} className="mt-3 flex flex-col gap-2 sm:flex-row"><input value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={300} placeholder="How were sales this week?" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" /><button className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700"><FiSend />Ask</button></form>{answer ? <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm"><p className="font-semibold text-slate-900">{answer.intent.replaceAll("_", " ")}</p><p className="mt-1 text-slate-700">{answer.answer}</p></div> : null}</section>
   </div>;
 };
