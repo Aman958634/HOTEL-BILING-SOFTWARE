@@ -37,6 +37,7 @@ const foodSchema = new mongoose.Schema(
 );
 
 foodSchema.index({ name: "text", description: "text" });
+foodSchema.index({ restaurant: 1, name: 1 });
 
 foodSchema.pre("save", function syncCompatibility(next) {
   if (this.preparationTime !== undefined) {

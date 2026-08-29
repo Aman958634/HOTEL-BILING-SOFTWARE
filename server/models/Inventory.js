@@ -21,6 +21,7 @@ const inventorySchema = new mongoose.Schema(
 );
 
 inventorySchema.index({ restaurant: 1, sku: 1 }, { unique: true });
+inventorySchema.index({ restaurant: 1, itemName: 1 });
 
 // Validate that unit and baseUnit don't contain numbers (prevent "10kg" format)
 inventorySchema.pre("save", function (next) {

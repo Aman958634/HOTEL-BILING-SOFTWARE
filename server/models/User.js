@@ -60,6 +60,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ "customerRestaurants.restaurant": 1, phoneNormalized: 1 });
+userSchema.index({ "customerRestaurants.restaurant": 1, role: 1, fullName: 1 });
 userSchema.index({ "customerRestaurants.restaurant": 1, createdAt: -1 });
 userSchema.index({ "tags.restaurant": 1, "tags.name": 1 });
 

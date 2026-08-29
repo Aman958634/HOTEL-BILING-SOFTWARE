@@ -30,6 +30,7 @@ const kotTicketSchema = new mongoose.Schema(
 );
 
 kotTicketSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
+kotTicketSchema.index({ restaurant: 1, orderNumber: 1 });
 
 const KotTicket = mongoose.model("KotTicket", kotTicketSchema);
 export default KotTicket;

@@ -51,6 +51,7 @@ const staffSchema = new mongoose.Schema(
 );
 
 staffSchema.index({ restaurant: 1, status: 1, dutyStatus: 1 });
+staffSchema.index({ restaurant: 1, firstName: 1, lastName: 1 });
 
 const Staff = mongoose.model("Staff", staffSchema);
 export default Staff;

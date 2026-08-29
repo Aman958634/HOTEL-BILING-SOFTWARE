@@ -23,7 +23,7 @@ const MobileAppHeader = ({ onMenuClick }) => {
 
         <div className="flex items-center gap-2">
           <div className="sm:hidden">
-            <GlobalSearch className="block sm:hidden" />
+            <GlobalSearch className="block sm:hidden" compact />
           </div>
           <NotificationBell />
           <Link

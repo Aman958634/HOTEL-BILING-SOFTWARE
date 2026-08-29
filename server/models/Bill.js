@@ -41,6 +41,7 @@ const billSchema = new mongoose.Schema({
 
 billSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 billSchema.index({ restaurant: 1, table: 1, status: 1, createdAt: -1 });
+billSchema.index({ restaurant: 1, billNumber: 1 });
 billSchema.index({ restaurant: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string", $gt: "" } }, name: "bill_restaurant_idempotency_unique" });
 
 export default mongoose.model("Bill", billSchema);
