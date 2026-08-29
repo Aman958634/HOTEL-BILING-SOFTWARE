@@ -11,6 +11,7 @@ import {
   addStatusHistoryEntry,
   buildLiveBoardOrderFilter,
   normalizeOrderForBoard,
+  stampOrderLifecycle,
 } from "../services/orderService.js";
 import {
   KITCHEN_ITEM_STATUSES,
@@ -59,6 +60,7 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
 
   if (previousStatus !== nextStatus) {
     addStatusHistoryEntry(order, nextStatus, req.user._id);
+    stampOrderLifecycle(order, nextStatus);
   }
 
   await order.save();
@@ -174,7 +176,7 @@ export const bulkStartKitchenItems = asyncHandler(async (req, res) => {
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = String(order.status || "").toUpperCase();
-  if (currentStatus === ORDER_STATUSES.CANCELLED || currentStatus === ORDER_STATUSES.COMPLETED) {
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED, ORDER_STATUSES.COMPLETED].includes(currentStatus)) {
     throw new ApiError(409, "Cannot start items for a completed or cancelled order");
   }
 
@@ -198,7 +200,7 @@ export const bulkReadyKitchenItems = asyncHandler(async (req, res) => {
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = String(order.status || "").toUpperCase();
-  if (currentStatus === ORDER_STATUSES.CANCELLED || currentStatus === ORDER_STATUSES.COMPLETED) {
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED, ORDER_STATUSES.COMPLETED].includes(currentStatus)) {
     throw new ApiError(409, "Cannot ready items for a completed or cancelled order");
   }
 

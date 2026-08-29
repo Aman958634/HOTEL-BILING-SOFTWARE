@@ -30,7 +30,7 @@ export const canTransitionKitchenItemStatus = (from, to) => {
 export const computeOrderKitchenPhase = (order) => {
   if (!order) return null;
   const status = String(order.status || "").toUpperCase();
-  if (status === ORDER_STATUSES.CANCELLED) return "CANCELLED";
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(status)) return "CANCELLED";
 
   const items = order.items || [];
   const activeItems = items.filter(
@@ -122,10 +122,8 @@ export const recalculateOrderStatusFromKitchen = (order) => {
 
   if (phase === "READY" && currentStatus !== ORDER_STATUSES.READY && currentStatus !== ORDER_STATUSES.SERVED && currentStatus !== ORDER_STATUSES.COMPLETED) {
     order.status = ORDER_STATUSES.READY;
-  } else if (phase === "PREPARING" && currentStatus === ORDER_STATUSES.PENDING) {
-    order.status = ORDER_STATUSES.CONFIRMED;
-  } else if (phase === "PARTIALLY_READY" && currentStatus === ORDER_STATUSES.PENDING) {
-    order.status = ORDER_STATUSES.CONFIRMED;
+  } else if (["PREPARING", "PARTIALLY_READY"].includes(phase) && [ORDER_STATUSES.PENDING, ORDER_STATUSES.CONFIRMED].includes(currentStatus)) {
+    order.status = ORDER_STATUSES.PREPARING;
   }
 };
 

@@ -5,9 +5,11 @@ const statusConfig = {
   CONFIRMED: { label: "Confirmed", icon: <FiCheckCircle aria-hidden="true" />, className: "border-sky-200 bg-sky-50 text-sky-700" },
   PREPARING: { label: "Preparing", icon: <FiLoader aria-hidden="true" />, className: "border-violet-200 bg-violet-50 text-violet-700" },
   READY: { label: "Ready", icon: <FiArchive aria-hidden="true" />, className: "border-indigo-200 bg-indigo-50 text-indigo-700" },
+  OUT_FOR_DELIVERY: { label: "Out for delivery", icon: <FiLoader aria-hidden="true" />, className: "border-cyan-200 bg-cyan-50 text-cyan-700" },
   SERVED: { label: "Served", icon: <FiCheckCircle aria-hidden="true" />, className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
   COMPLETED: { label: "Completed", icon: <FiCheckCircle aria-hidden="true" />, className: "border-green-200 bg-green-50 text-green-700" },
   CANCELLED: { label: "Cancelled", icon: <FiXCircle aria-hidden="true" />, className: "border-rose-200 bg-rose-50 text-rose-700" },
+  REJECTED: { label: "Rejected", icon: <FiXCircle aria-hidden="true" />, className: "border-rose-200 bg-rose-50 text-rose-700" },
 };
 
 const normalize = (status) => String(status || "PENDING").toUpperCase();

@@ -18,15 +18,27 @@ export const ORDER_STATUSES = {
   CONFIRMED: "CONFIRMED",
   PREPARING: "PREPARING",
   READY: "READY",
+  OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
   SERVED: "SERVED",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
+  REJECTED: "REJECTED",
 };
 
 export const ORDER_TYPES = {
   DINE_IN: "DINE_IN",
   TAKEAWAY: "TAKEAWAY",
   DELIVERY: "DELIVERY",
+  PICKUP: "PICKUP",
+};
+
+export const ORDER_SOURCES = {
+  DINE_IN: "DINE_IN",
+  TAKEAWAY: "TAKEAWAY",
+  QR_ORDER: "QR_ORDER",
+  ONLINE: "ONLINE",
+  DELIVERY: "DELIVERY",
+  PICKUP: "PICKUP",
 };
 
 export const PAYMENT_METHODS = {
@@ -52,10 +64,12 @@ const statusAliases = {
   accepted: ORDER_STATUSES.CONFIRMED,
   preparing: ORDER_STATUSES.PREPARING,
   ready: ORDER_STATUSES.READY,
+  out_for_delivery: ORDER_STATUSES.OUT_FOR_DELIVERY,
   served: ORDER_STATUSES.SERVED,
   completed: ORDER_STATUSES.COMPLETED,
   delivered: ORDER_STATUSES.COMPLETED,
   cancelled: ORDER_STATUSES.CANCELLED,
+  rejected: ORDER_STATUSES.REJECTED,
   placed: ORDER_STATUSES.PENDING,
 };
 
@@ -85,16 +99,19 @@ const orderTypeAliases = {
   dine_in: ORDER_TYPES.DINE_IN,
   takeaway: ORDER_TYPES.TAKEAWAY,
   delivery: ORDER_TYPES.DELIVERY,
+  pickup: ORDER_TYPES.PICKUP,
 };
 
 const statusTransitions = {
-  [ORDER_STATUSES.PENDING]: [ORDER_STATUSES.CONFIRMED, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.PENDING]: [ORDER_STATUSES.CONFIRMED, ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED],
   [ORDER_STATUSES.CONFIRMED]: [ORDER_STATUSES.PREPARING, ORDER_STATUSES.CANCELLED],
   [ORDER_STATUSES.PREPARING]: [ORDER_STATUSES.READY, ORDER_STATUSES.CANCELLED],
-  [ORDER_STATUSES.READY]: [ORDER_STATUSES.SERVED, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.READY]: [ORDER_STATUSES.SERVED, ORDER_STATUSES.COMPLETED, ORDER_STATUSES.OUT_FOR_DELIVERY, ORDER_STATUSES.CANCELLED],
+  [ORDER_STATUSES.OUT_FOR_DELIVERY]: [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED],
   [ORDER_STATUSES.SERVED]: [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED],
   [ORDER_STATUSES.COMPLETED]: [],
   [ORDER_STATUSES.CANCELLED]: [],
+  [ORDER_STATUSES.REJECTED]: [],
 };
 
 const toNumber = (value, fallback = 0) => {
@@ -126,6 +143,7 @@ export const safeNormalizeOrderStatus = (value) => {
 
 const CANCELLED_STATUS_VARIANTS = [
   ORDER_STATUSES.CANCELLED,
+  ORDER_STATUSES.REJECTED,
   "cancelled",
   "Cancelled",
 ];
@@ -135,6 +153,16 @@ export const buildLiveBoardOrderFilter = (base = {}) => ({
   ...base,
   isArchived: { $ne: true },
   status: { $nin: CANCELLED_STATUS_VARIANTS },
+  // Online orders are intentionally held out of KDS until staff accepts them.
+  $and: [
+    ...(base.$and || []),
+    {
+      $or: [
+        { orderSource: { $nin: [ORDER_SOURCES.ONLINE, ORDER_SOURCES.DELIVERY, ORDER_SOURCES.PICKUP] } },
+        { status: { $ne: ORDER_STATUSES.PENDING } },
+      ],
+    },
+  ],
 });
 
 export const normalizeOrderForBoard = (order) => {
@@ -162,6 +190,16 @@ export const normalizeOrderType = (value) => {
   return alias;
 };
 
+export const normalizeOrderSource = (value, orderType) => {
+  if (!value) {
+    const type = normalizeOrderType(orderType);
+    return type === ORDER_TYPES.DELIVERY ? ORDER_SOURCES.DELIVERY : type === ORDER_TYPES.PICKUP ? ORDER_SOURCES.PICKUP : type;
+  }
+  const normalized = String(value).trim().toUpperCase();
+  if (!Object.values(ORDER_SOURCES).includes(normalized)) throw new ApiError(422, "Invalid order source");
+  return normalized;
+};
+
 export const normalizePaymentMethod = (value) => {
   if (!value) return PAYMENT_METHODS.CASH;
   const upper = String(value).trim().toUpperCase();
@@ -182,10 +220,16 @@ export const normalizePaymentStatus = (value) => {
   return alias;
 };
 
-export const canTransitionOrderStatus = (from, to) => {
+export const canTransitionOrderStatus = (from, to, order = null) => {
   const source = normalizeOrderStatus(from);
   const target = normalizeOrderStatus(to);
-  return (statusTransitions[source] || []).includes(target);
+  if (!(statusTransitions[source] || []).includes(target)) return false;
+  if (source !== ORDER_STATUSES.READY) return true;
+  const type = String(order?.orderType || "").toUpperCase();
+  if (target === ORDER_STATUSES.OUT_FOR_DELIVERY) return type === ORDER_TYPES.DELIVERY;
+  if (target === ORDER_STATUSES.COMPLETED) return type === ORDER_TYPES.PICKUP;
+  if (target === ORDER_STATUSES.SERVED) return type !== ORDER_TYPES.PICKUP && type !== ORDER_TYPES.DELIVERY;
+  return true;
 };
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -385,10 +429,27 @@ export const canRoleUpdateStatus = ({ role, nextStatus, order }) => {
   }
 
   if (normalizedRole === "delivery") {
-    return order.orderType === ORDER_TYPES.DELIVERY && nextStatus === ORDER_STATUSES.COMPLETED;
+    return order.orderType === ORDER_TYPES.DELIVERY && nextStatus === ORDER_STATUSES.COMPLETED && order.status === ORDER_STATUSES.OUT_FOR_DELIVERY;
   }
 
   return false;
+};
+
+/** Records lifecycle timestamps without changing pricing, payment, or KOT ownership. */
+export const stampOrderLifecycle = (order, status) => {
+  const nextStatus = normalizeOrderStatus(status);
+  const now = new Date();
+  const timestampFields = {
+    [ORDER_STATUSES.CONFIRMED]: "acceptedAt",
+    [ORDER_STATUSES.PREPARING]: "preparingAt",
+    [ORDER_STATUSES.READY]: "readyAt",
+    [ORDER_STATUSES.OUT_FOR_DELIVERY]: "dispatchedAt",
+    [ORDER_STATUSES.COMPLETED]: "completedAt",
+    [ORDER_STATUSES.CANCELLED]: "cancelledAt",
+    [ORDER_STATUSES.REJECTED]: "rejectedAt",
+  };
+  const field = timestampFields[nextStatus];
+  if (field && !order[field]) order[field] = now;
 };
 
 export const addStatusHistoryEntry = (order, status, userId) => {

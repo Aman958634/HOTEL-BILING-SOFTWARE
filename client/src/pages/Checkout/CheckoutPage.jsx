@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { createOrder } from "../../services/orderService";
@@ -8,16 +8,18 @@ const CheckoutPage = () => {
   const items = useSelector((state) => state.cart.items);
   const dispatch = useDispatch();
   const [address, setAddress] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const idempotencyKey = useRef(typeof globalThis.crypto?.randomUUID === "function" ? globalThis.crypto.randomUUID() : `web-${Date.now()}-${Math.random()}`);
 
   const onPlaceOrder = async () => {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    if (!items.length || !address.trim() || placing) return;
+    setPlacing(true);
     const payload = {
-      restaurant: "66a111111111111111111111",
+      orderType: "DELIVERY",
+      orderSource: "ONLINE",
+      externalOrderId: idempotencyKey.current,
       items: items.map((item) => ({ food: item._id, quantity: item.quantity, price: item.price })),
-      subtotal,
-      tax: subtotal * 0.05,
-      total: subtotal * 1.05,
-      deliveryAddress: address,
+      deliveryAddress: address.trim(),
       paymentMethod: "cash",
     };
 
@@ -27,6 +29,8 @@ const CheckoutPage = () => {
       toast.success("Order placed");
     } catch {
       toast.error("Order failed");
+    } finally {
+      setPlacing(false);
     }
   };
 
@@ -40,7 +44,7 @@ const CheckoutPage = () => {
         value={address}
         onChange={(e) => setAddress(e.target.value)}
       />
-      <button onClick={onPlaceOrder} className="mt-4 rounded-xl bg-brand-700 px-5 py-2 text-white">Place Order</button>
+      <button onClick={onPlaceOrder} disabled={placing || !items.length || !address.trim()} className="mt-4 rounded-xl bg-brand-700 px-5 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60">{placing ? "Placing order..." : "Place Order"}</button>
     </div>
   );
 };

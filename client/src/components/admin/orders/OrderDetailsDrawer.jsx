@@ -35,6 +35,9 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
                 <p><strong>Email:</strong> {order.customer?.email || "-"}</p>
                 <p><strong>Table:</strong> {order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</p>
                 <p><strong>Order Type:</strong> {String(order.orderType || "").replaceAll("_", " ")}</p>
+                <p><strong>Order Source:</strong> {String(order.orderSource || order.orderType || "").replaceAll("_", " ")}</p>
+                {order.deliveryAddress ? <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p> : null}
+                {order.pickupDetails ? <p><strong>Pickup Details:</strong> {order.pickupDetails}</p> : null}
               </div>
               <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(order.paymentMethod)}</p>
@@ -74,6 +77,7 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
             <div className="rounded-xl border border-slate-200 p-4">
               <p className="mb-2 text-sm font-semibold text-slate-900">Timeline</p>
               <OrderTimeline history={order.statusHistory || []} />
+              {order.rejectionReason ? <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-700"><strong>Rejection reason:</strong> {order.rejectionReason}</p> : null}
             </div>
 
             {String(order.paymentStatus || "").toUpperCase() === "PAID" ? (

@@ -11,6 +11,7 @@ const links = [
   { to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout /> },
   { to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee /> },
   { to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag /> },
+  { to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck /> },
   { to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
   { to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox /> },
   { to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },

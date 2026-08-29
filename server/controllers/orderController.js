@@ -25,11 +25,13 @@ import {
   generateOrderNumber,
   getSortCriteria,
   normalizeOrderStatus,
+  normalizeOrderSource,
   normalizeOrderType,
   normalizePaymentMethod,
   normalizePaymentStatus,
   prepareOrderItems,
   searchCustomers,
+  stampOrderLifecycle,
 } from "../services/orderService.js";
 import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
@@ -81,8 +83,11 @@ const buildOrderSearchFilter = async (search) => {
 
 const normalizeOrderOutput = (order) => {
   const data = order.toObject ? order.toObject() : order;
+  const inferredSource = data.orderType === ORDER_TYPES.DELIVERY ? "DELIVERY" : data.orderType === ORDER_TYPES.PICKUP ? "PICKUP" : data.orderType;
   return {
     ...data,
+    // Legacy records predate orderSource; expose a stable value without mutating history.
+    orderSource: data.orderSource || inferredSource,
     items: (data.items || []).map((item) => ({
       ...item,
       menuItem: item.menuItem,
@@ -109,6 +114,18 @@ const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   return restaurant._id;
 };
 
+const ONLINE_ORDER_SOURCES = ["ONLINE", "DELIVERY", "PICKUP"];
+const isOnlineOrder = (order) => ONLINE_ORDER_SOURCES.includes(String(order?.orderSource || "").toUpperCase());
+
+const findExistingExternalOrder = async ({ restaurantId, externalOrderId }) => {
+  const key = String(externalOrderId || "").trim();
+  if (!key) return null;
+  return Order.findOne({ restaurant: restaurantId, externalOrderId: key, isArchived: false })
+    .populate("customer", "fullName email phone")
+    .populate("table", "tableNumber floor section status")
+    .populate("items.menuItem", "name");
+};
+
 const resolveOrderGstType = async (restaurantId, billingState) => {
   const restaurant = restaurantId ? await Restaurant.findById(restaurantId).select("state").lean() : null;
   return resolveGstType({ restaurantState: restaurant?.state, billingState });
@@ -121,6 +138,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const orderType = normalizeOrderType(req.body.orderType);
+  const orderSource = normalizeOrderSource(req.body.orderSource, orderType);
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
@@ -129,11 +147,14 @@ export const createOrder = asyncHandler(async (req, res) => {
     customerId = req.user._id;
   }
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
-
-  const orderNumber = await generateOrderNumber();
-
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
+  if (duplicate) {
+    return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
+  }
+
+  const processedItems = await prepareOrderItems(req.body.items || []);
+  const orderNumber = await generateOrderNumber();
   const billingState = req.body.billingState || req.body.customerState || "";
   const calculated = buildCalculatedOrderPayload({
     orderType,
@@ -151,6 +172,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     table: orderType === ORDER_TYPES.DINE_IN ? req.body.table || null : null,
     restaurant: restaurantId,
     orderType,
+    orderSource,
+    externalOrderId: String(req.body.externalOrderId || "").trim() || undefined,
     items: calculated.items,
     subtotal: calculated.subtotal,
     discount: calculated.discount,
@@ -170,6 +193,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
+    pickupDetails: req.body.pickupDetails || "",
     billingState,
     notes: req.body.notes || "",
   });
@@ -208,24 +232,29 @@ export const createOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
   });
 
-  await syncKotForOrder(populated);
+  // Online orders enter KDS only once a staff member accepts them.
+  if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
-  emitKitchenTicketCreated(populated);
+  if (!isOnlineOrder(populated)) emitKitchenTicketCreated(populated);
 
   res.status(201).json(new ApiResponse(true, "Order created", normalizeOrderOutput(populated)));
 });
 
 export const createGuestOrder = asyncHandler(async (req, res) => {
   const orderType = normalizeOrderType(req.body.orderType);
+  const orderSource = normalizeOrderSource(req.body.orderSource, orderType);
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
-
-  const orderNumber = await generateOrderNumber();
-
   const tableId = req.body.table || null;
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+  const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
+  if (duplicate) {
+    return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
+  }
+
+  const processedItems = await prepareOrderItems(req.body.items || []);
+  const orderNumber = await generateOrderNumber();
   const billingState = req.body.billingState || req.body.customerState || "";
   const calculated = buildCalculatedOrderPayload({
     orderType,
@@ -243,6 +272,8 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     table: orderType === ORDER_TYPES.DINE_IN ? tableId : null,
     restaurant: restaurantId,
     orderType,
+    orderSource,
+    externalOrderId: String(req.body.externalOrderId || "").trim() || undefined,
     items: calculated.items,
     subtotal: calculated.subtotal,
     discount: calculated.discount,
@@ -262,6 +293,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     createdBy: null,
     statusHistory: [{ status: ORDER_STATUSES.PENDING, changedAt: new Date() }],
     deliveryAddress: req.body.deliveryAddress || "",
+    pickupDetails: req.body.pickupDetails || "",
     billingState,
     notes: req.body.notes || "",
   });
@@ -300,9 +332,9 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
   });
 
-  await syncKotForOrder(populated);
+  if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
-  emitKitchenTicketCreated(populated);
+  if (!isOnlineOrder(populated)) emitKitchenTicketCreated(populated);
 
   res.status(201).json(new ApiResponse(true, "Guest order created", normalizeOrderOutput(populated)));
 });
@@ -322,7 +354,21 @@ export const listOrders = asyncHandler(async (req, res) => {
 
   if (req.query.status) filters.status = normalizeOrderStatus(req.query.status);
   if (req.query.orderType) filters.orderType = normalizeOrderType(req.query.orderType);
+  if (req.query.orderSource) filters.orderSource = normalizeOrderSource(req.query.orderSource);
   if (req.query.paymentStatus) filters.paymentStatus = normalizePaymentStatus(req.query.paymentStatus);
+
+  if (String(req.query.onlineOnly || "").toLowerCase() === "true") {
+    filters.$and = [
+      {
+        $or: [
+          { orderSource: { $in: ["ONLINE", "DELIVERY", "PICKUP"] } },
+          // Existing delivery orders predate orderSource and are still operational online orders.
+          { orderSource: { $exists: false }, orderType: ORDER_TYPES.DELIVERY },
+          { orderSource: null, orderType: ORDER_TYPES.DELIVERY },
+        ],
+      },
+    ];
+  }
 
   if (req.query.date) {
     const start = new Date(req.query.date);
@@ -555,7 +601,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   const currentStatus = normalizeOrderStatus(order.status);
   const nextStatus = normalizeOrderStatus(req.body.status);
 
-  if (!canTransitionOrderStatus(currentStatus, nextStatus)) {
+  if (!canTransitionOrderStatus(currentStatus, nextStatus, order)) {
     throw new ApiError(409, `Invalid status transition from ${currentStatus} to ${nextStatus}`);
   }
 
@@ -563,20 +609,28 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not have permission to set this status");
   }
 
+  if (nextStatus === ORDER_STATUSES.REJECTED && !String(req.body.rejectionReason || "").trim()) {
+    throw new ApiError(422, "A rejection reason is required");
+  }
+
   order.status = nextStatus;
+  stampOrderLifecycle(order, nextStatus);
+  if (nextStatus === ORDER_STATUSES.REJECTED) order.rejectionReason = String(req.body.rejectionReason).trim();
   addStatusHistoryEntry(order, nextStatus, req.user._id);
   await order.save();
-  await syncKotForOrder(order);
-  if (nextStatus === ORDER_STATUSES.CANCELLED) await refreshInvoice(order);
+  if (!isOnlineOrder(order) || ![ORDER_STATUSES.REJECTED, ORDER_STATUSES.CANCELLED].includes(nextStatus)) {
+    await syncKotForOrder(order);
+  }
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) await refreshInvoice(order);
 
-  if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(nextStatus)) {
+  if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) {
     await maybeReleaseTableAfterSettlement(order);
   }
 
-  if (nextStatus === ORDER_STATUSES.CANCELLED) {
+  if ([ORDER_STATUSES.CANCELLED, ORDER_STATUSES.REJECTED].includes(nextStatus)) {
     await createOrderNotifications({
-      title: "Order Cancelled",
-      message: `${order.orderNumber} has been cancelled`,
+      title: nextStatus === ORDER_STATUSES.REJECTED ? "Order Rejected" : "Order Cancelled",
+      message: `${order.orderNumber} has been ${nextStatus === ORDER_STATUSES.REJECTED ? "rejected" : "cancelled"}`,
       actorUserId: req.user._id,
       type: "ORDER_CANCELLED",
       restaurantId: order.restaurant,
@@ -778,7 +832,15 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
 
 export const getOrderStats = asyncHandler(async (req, res) => {
   const roleFilter = req.user.role === "customer" ? { customer: req.user._id } : {};
-  const tenantFilter = await buildRestaurantQuery({ isArchived: false, ...roleFilter }, req.user);
+  const statsBase = { isArchived: false, ...roleFilter };
+  if (String(req.query.onlineOnly || "").toLowerCase() === "true") {
+    statsBase.$or = [
+      { orderSource: { $in: ["ONLINE", "DELIVERY", "PICKUP"] } },
+      { orderSource: { $exists: false }, orderType: ORDER_TYPES.DELIVERY },
+      { orderSource: null, orderType: ORDER_TYPES.DELIVERY },
+    ];
+  }
+  const tenantFilter = await buildRestaurantQuery(statsBase, req.user);
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -803,8 +865,11 @@ export const getOrderStats = asyncHandler(async (req, res) => {
   const stats = {
     totalOrders: 0,
     pending: 0,
+    newOrders: 0,
+    accepted: 0,
     preparing: 0,
     ready: 0,
+    outForDelivery: 0,
     completed: 0,
     cancelled: 0,
     todayRevenue: todayRevenueAgg[0]?.total || 0,
@@ -814,8 +879,11 @@ export const getOrderStats = asyncHandler(async (req, res) => {
     const status = normalizeOrderStatus(row._id);
     stats.totalOrders += row.count;
     if (status === ORDER_STATUSES.PENDING || status === ORDER_STATUSES.CONFIRMED) stats.pending += row.count;
+    if (status === ORDER_STATUSES.PENDING) stats.newOrders += row.count;
+    if (status === ORDER_STATUSES.CONFIRMED) stats.accepted += row.count;
     if (status === ORDER_STATUSES.PREPARING) stats.preparing += row.count;
     if (status === ORDER_STATUSES.READY || status === ORDER_STATUSES.SERVED) stats.ready += row.count;
+    if (status === ORDER_STATUSES.OUT_FOR_DELIVERY) stats.outForDelivery += row.count;
     if (status === ORDER_STATUSES.COMPLETED) stats.completed += row.count;
     if (status === ORDER_STATUSES.CANCELLED) stats.cancelled += row.count;
   }

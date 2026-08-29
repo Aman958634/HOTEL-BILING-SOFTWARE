@@ -1,14 +1,16 @@
 import mongoose from "mongoose";
 
-const ORDER_TYPES = ["DINE_IN", "TAKEAWAY", "DELIVERY"];
+const ORDER_TYPES = ["DINE_IN", "TAKEAWAY", "DELIVERY", "PICKUP"];
+const ORDER_SOURCES = ["DINE_IN", "TAKEAWAY", "QR_ORDER", "ONLINE", "DELIVERY", "PICKUP"];
 const PAYMENT_METHODS = ["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "RAZORPAY", "OTHER"];
 const PAYMENT_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
-const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED", "COMPLETED", "CANCELLED"];
+const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "SERVED", "COMPLETED", "CANCELLED", "REJECTED"];
 
 const orderTypeAliases = {
   dine_in: "DINE_IN",
   takeaway: "TAKEAWAY",
   delivery: "DELIVERY",
+  pickup: "PICKUP",
 };
 
 const paymentMethodAliases = {
@@ -44,7 +46,8 @@ const orderStatusAliases = {
   placed: "PENDING",
   accepted: "CONFIRMED",
   delivered: "COMPLETED",
-  out_for_delivery: "READY",
+  out_for_delivery: "OUT_FOR_DELIVERY",
+  rejected: "REJECTED",
 };
 
 const normalizeAlias = (value, aliases, fallback) => {
@@ -130,6 +133,17 @@ const orderSchema = new mongoose.Schema(
       set: (value) => normalizeAlias(value, orderStatusAliases, "PENDING"),
       index: true,
     },
+    // The channel that created the order. It intentionally complements, rather
+    // than replaces, orderType (for example ONLINE + DELIVERY).
+    orderSource: {
+      type: String,
+      enum: ORDER_SOURCES,
+      default: null,
+      index: true,
+    },
+    // Omitted for internally-created orders; sparse unique index applies only
+    // when an integration/client supplied an actual idempotency key.
+    externalOrderId: { type: String, trim: true },
     kitchenStatus: {
       type: String,
       enum: ["PENDING", "PREPARING", "READY", "COMPLETED"],
@@ -141,6 +155,15 @@ const orderSchema = new mongoose.Schema(
     statusHistory: { type: [statusHistorySchema], default: [] },
     isArchived: { type: Boolean, default: false, index: true },
     deliveryAddress: { type: String, default: "" },
+    pickupDetails: { type: String, default: "" },
+    acceptedAt: { type: Date, default: null },
+    preparingAt: { type: Date, default: null },
+    readyAt: { type: Date, default: null },
+    dispatchedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    cancelledAt: { type: Date, default: null },
+    rejectedAt: { type: Date, default: null },
+    rejectionReason: { type: String, default: "", trim: true },
     billingState: { type: String, default: "", trim: true, index: true },
     notes: { type: String, default: "" },
   },
@@ -151,10 +174,16 @@ orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderType: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, orderSource: 1, status: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, sparse: true });
 
 orderSchema.pre("validate", function normalizeLegacyOrder(next) {
   if (!this.orderType) {
     this.orderType = this.table ? "DINE_IN" : "TAKEAWAY";
+  }
+
+  if (!this.orderSource) {
+    this.orderSource = this.orderType === "DELIVERY" ? "DELIVERY" : this.orderType === "PICKUP" ? "PICKUP" : this.orderType;
   }
 
   if (this.items?.length) {

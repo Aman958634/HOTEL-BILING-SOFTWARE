@@ -12,7 +12,7 @@ export const KOT_ITEM_STATUSES = {
 const activeItems = (items) => items.filter((item) => item.status !== KOT_ITEM_STATUSES.CANCELLED);
 
 export const deriveKotStatus = (items, orderStatus = "") => {
-  if (String(orderStatus).toUpperCase() === "CANCELLED") return "CANCELLED";
+  if (["CANCELLED", "REJECTED"].includes(String(orderStatus).toUpperCase())) return "CANCELLED";
   const active = activeItems(items || []);
   if (!active.length) return "CANCELLED";
   const statuses = active.map((item) => String(item.status || "NEW").toUpperCase());

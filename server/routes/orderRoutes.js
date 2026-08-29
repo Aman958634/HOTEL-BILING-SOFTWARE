@@ -51,13 +51,15 @@ router.get(
 	"/",
 	[
 		query("page").optional().isInt({ min: 1 }).withMessage("Page must be at least 1"),
-		query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+	query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+		query("orderSource").optional().isString().withMessage("Order source must be a string"),
+		query("onlineOnly").optional().isBoolean().withMessage("onlineOnly must be a boolean"),
 	],
 	validate,
 	listOrders
 );
 
-router.get("/stats", getOrderStats);
+router.get("/stats", [query("onlineOnly").optional().isBoolean().withMessage("onlineOnly must be a boolean")], validate, getOrderStats);
 router.get("/today", getTodayOrders);
 router.get("/pending", getPendingOrders);
 router.get("/customers", searchOrderCustomers);
@@ -111,6 +113,7 @@ router.patch(
 	[
 		param("id").isMongoId().withMessage("Invalid order id"),
 		body("status").notEmpty().withMessage("Order status is required"),
+		body("rejectionReason").optional().isString().trim().isLength({ max: 500 }).withMessage("Rejection reason is invalid"),
 	],
 	validate,
 	updateOrderStatus
