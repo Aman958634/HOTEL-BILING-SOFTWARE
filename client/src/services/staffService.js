@@ -10,3 +10,6 @@ export const deleteStaff = (id) => api.delete(`/staff/${id}`);
 export const getStaffStats = () => api.get("/staff/stats");
 export const getActiveStaff = () => api.get("/staff/active");
 export const getStaffByRole = (role) => api.get(`/staff/by-role/${role}`);
+export const getStaffCommandCenter = () => api.get("/staff/command-center");
+export const updateStaffDuty = (id, action) => api.patch(`/staff/${id}/duty`, { action });
+export const assignStaffWork = (payload) => api.post("/staff/assignments", payload);

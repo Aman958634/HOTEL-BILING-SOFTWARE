@@ -3,6 +3,9 @@ import User from "../models/User.js";
 import Staff from "../models/Staff.js";
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
+import Table from "../models/Table.js";
+import KotTicket from "../models/KotTicket.js";
+import Delivery from "../models/Delivery.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -26,12 +29,26 @@ import {
 import { emitStaffCreated, emitStaffStatusChanged, emitStaffUpdated } from "../socket/staffSocket.js";
 import { sendEmail } from "../services/emailService.js";
 import { notifyNewStaff } from "../services/notificationService.js";
+import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { createActivity } from "../services/activityService.js";
 
 const getPagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
   return { page, limit, skip: (page - 1) * limit };
 };
+
+const ACTIVE_ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "SERVED"];
+const ACTIVE_KOT_STATUSES = ["NEW", "PREPARING", "READY"];
+const ACTIVE_DELIVERY_STATUSES = ["assigned", "picked", "on_the_way"];
+const canManageCommandCenter = (user) => ["admin", "manager"].includes(String(user?.role || "").toLowerCase());
+const commandStaffQuery = async (filters, user) => buildRestaurantQuery(filters, user);
+const getCommandStaff = async (id, user) => {
+  const staff = await Staff.findOne(await commandStaffQuery({ _id: id }, user)).populate("user", "fullName email phone role isActive");
+  if (!staff) throw new ApiError(404, "Staff member not found");
+  return staff;
+};
+const addDutyActivity = async ({ staff, action, actor }) => createActivity({ action: `Staff ${action}`, description: `${staff.firstName} ${staff.lastName}: ${action}`, performedBy: actor._id, restaurantId: staff.restaurant || actor.restaurant || null, targetId: staff._id, targetType: "Staff", metadata: { dutyStatus: staff.dutyStatus } });
 
 const canAccessRecord = (user, staff) => {
   if (!user || !staff) return false;
@@ -193,6 +210,8 @@ export const createStaff = asyncHandler(async (req, res) => {
       password: req.body.password,
       role: userRole,
       avatar: req.body.profilePhoto || "",
+      restaurant: req.user.restaurant || null,
+      hotelId: req.user.hotelId || null,
     });
   }
 
@@ -216,6 +235,8 @@ export const createStaff = asyncHandler(async (req, res) => {
     emergencyContact: req.body.emergencyContact || {},
     status,
     lastLogin: null,
+    restaurant: req.user.restaurant || null,
+    hotelId: req.user.hotelId || null,
   });
 
   const saved = await Staff.findById(staff._id)
@@ -304,6 +325,67 @@ export const updateStaffStatus = asyncHandler(async (req, res) => {
 
   emitStaffStatusChanged(await serialize(populated));
   res.status(200).json(new ApiResponse(true, "Staff status updated", await serialize(populated)));
+});
+
+export const getStaffCommandCenter = asyncHandler(async (req, res) => {
+  const staffFilter = await commandStaffQuery({ status: "ACTIVE" }, req.user);
+  const staff = await Staff.find(staffFilter).populate("user", "fullName email phone role isActive").sort({ firstName: 1, lastName: 1 }).lean();
+  const ids = staff.map((item) => item._id);
+  const restaurantFilter = await buildRestaurantQuery({}, req.user);
+  const [tables, orders, kots, deliveries, activity, availableTables, availableOrders, availableKots, availableDeliveries] = await Promise.all([
+    ids.length ? Table.find({ ...restaurantFilter, assignedStaff: { $in: ids } }).select("tableNumber floor section status assignedStaff").lean() : [],
+    ids.length ? Order.find({ ...restaurantFilter, assignedWaiter: { $in: ids }, isArchived: { $ne: true }, status: { $in: ACTIVE_ORDER_STATUSES } }).select("orderNumber status table assignedWaiter createdAt").populate("table", "tableNumber").lean() : [],
+    ids.length ? KotTicket.find({ ...restaurantFilter, assignedChef: { $in: ids }, status: { $in: ACTIVE_KOT_STATUSES } }).select("orderNumber status assignedChef items createdAt").lean() : [],
+    Delivery.find({ status: { $in: ACTIVE_DELIVERY_STATUSES } }).select("order rider status assignedAt").populate({ path: "order", match: restaurantFilter, select: "orderNumber restaurant" }).lean(),
+    Log.find({ "context.targetType": "Staff", "context.restaurantId": restaurantFilter.restaurant || undefined }).sort({ createdAt: -1 }).limit(50).lean(),
+    Table.find({ ...restaurantFilter, assignedStaff: null, status: { $ne: "MAINTENANCE" } }).select("tableNumber floor section status").sort({ tableNumber: 1 }).limit(100).lean(),
+    Order.find({ ...restaurantFilter, assignedWaiter: null, isArchived: { $ne: true }, status: { $in: ACTIVE_ORDER_STATUSES } }).select("orderNumber status orderType").sort({ createdAt: -1 }).limit(100).lean(),
+    KotTicket.find({ ...restaurantFilter, assignedChef: null, status: { $in: ACTIVE_KOT_STATUSES } }).select("orderNumber status").sort({ createdAt: -1 }).limit(100).lean(),
+    Order.find({ ...restaurantFilter, orderType: "DELIVERY", status: { $in: ["READY", "OUT_FOR_DELIVERY"] } }).select("orderNumber status").sort({ createdAt: -1 }).limit(100).lean(),
+  ]);
+  const tableMap = new Map(); const orderMap = new Map(); const kotMap = new Map(); const deliveryMap = new Map();
+  tables.forEach((table) => { const key = String(table.assignedStaff); tableMap.set(key, [...(tableMap.get(key) || []), table]); });
+  orders.forEach((order) => { const key = String(order.assignedWaiter); orderMap.set(key, [...(orderMap.get(key) || []), order]); });
+  kots.forEach((kot) => { const key = String(kot.assignedChef); kotMap.set(key, [...(kotMap.get(key) || []), kot]); });
+  deliveries.filter((delivery) => delivery.order).forEach((delivery) => { const key = String(delivery.rider?._id || delivery.rider); deliveryMap.set(key, [...(deliveryMap.get(key) || []), delivery]); });
+  const members = staff.map((member) => {
+    const key = String(member._id); const deliveriesForStaff = deliveryMap.get(String(member.user?._id || member.user)) || [];
+    const waiterOrders = orderMap.get(key) || []; const chefKots = kotMap.get(key) || [];
+    const workload = waiterOrders.length + chefKots.length + deliveriesForStaff.length;
+    return { ...member, assignedTables: tableMap.get(key) || [], activeOrders: waiterOrders, activeKots: chefKots, activeDeliveries: deliveriesForStaff, workload, liveStatus: member.dutyStatus === "ON_DUTY" && workload ? "BUSY" : member.dutyStatus };
+  });
+  res.json(new ApiResponse(true, "Staff command center fetched", { members, activity, available: { tables: availableTables, orders: availableOrders, kots: availableKots, deliveries: availableDeliveries } }));
+});
+
+export const updateDutyStatus = asyncHandler(async (req, res) => {
+  const staff = await getCommandStaff(req.params.id, req.user);
+  const isSelf = String(staff.user?._id || staff.user || "") === String(req.user._id);
+  if (!canManageCommandCenter(req.user) && !isSelf) throw new ApiError(403, "You can only update your own duty status");
+  if (staff.status !== "ACTIVE") throw new ApiError(409, "Inactive staff cannot be put on duty");
+  const action = String(req.body.action || "").toUpperCase(); const now = new Date();
+  if (action === "START_SHIFT") { if (staff.dutyStatus !== "OFF_DUTY") throw new ApiError(409, "Shift is already active"); staff.dutyStatus = "ON_DUTY"; staff.shiftStartedAt = now; staff.breakStartedAt = null; }
+  else if (action === "END_SHIFT") { if (staff.dutyStatus === "OFF_DUTY") throw new ApiError(409, "Staff member is already off duty"); if (staff.breakStartedAt) staff.totalBreakMinutes += Math.max(0, Math.round((now - staff.breakStartedAt) / 60000)); staff.dutyStatus = "OFF_DUTY"; staff.breakStartedAt = null; }
+  else if (action === "START_BREAK") { if (!["ON_DUTY", "BUSY"].includes(staff.dutyStatus)) throw new ApiError(409, "Staff member must be on duty before starting a break"); staff.dutyStatus = "ON_BREAK"; staff.breakStartedAt = now; }
+  else if (action === "END_BREAK") { if (staff.dutyStatus !== "ON_BREAK" || !staff.breakStartedAt) throw new ApiError(409, "No active break to end"); staff.totalBreakMinutes += Math.max(0, Math.round((now - staff.breakStartedAt) / 60000)); staff.breakStartedAt = null; staff.dutyStatus = "ON_DUTY"; }
+  else throw new ApiError(422, "Invalid duty action");
+  staff.lastDutyActivityAt = now; await staff.save(); await addDutyActivity({ staff, action: action.replaceAll("_", " "), actor: req.user });
+  const result = await Staff.findById(staff._id).populate("user", "fullName email phone role isActive"); emitStaffUpdated(await serialize(result));
+  res.json(new ApiResponse(true, "Staff duty status updated", await serialize(result)));
+});
+
+export const assignStaffWork = asyncHandler(async (req, res) => {
+  if (!canManageCommandCenter(req.user)) throw new ApiError(403, "Only admins and managers can assign work");
+  const type = String(req.body.type || "").toUpperCase(); const staff = await getCommandStaff(req.body.staffId, req.user);
+  if (staff.status !== "ACTIVE" || !["ON_DUTY", "BUSY"].includes(staff.dutyStatus)) throw new ApiError(409, "Staff member must be on duty before receiving an assignment");
+  const scoped = await buildRestaurantQuery({ _id: req.body.entityId }, req.user);
+  let target; let message;
+  if (type === "TABLE") { if (staff.role !== "WAITER") throw new ApiError(422, "Tables can only be assigned to waiters"); target = await Table.findOne(scoped); if (!target) throw new ApiError(404, "Table not found"); target.assignedStaff = staff._id; await target.save(); message = "Table assigned"; }
+  else if (type === "ORDER") { if (staff.role !== "WAITER") throw new ApiError(422, "Orders can only be assigned to waiters"); target = await Order.findOne({ ...scoped, isArchived: { $ne: true }, status: { $in: ACTIVE_ORDER_STATUSES } }); if (!target) throw new ApiError(404, "Active order not found"); target.assignedWaiter = staff._id; await target.save(); message = "Order assigned"; }
+  else if (type === "KOT") { if (staff.role !== "CHEF") throw new ApiError(422, "KOT tickets can only be assigned to chefs"); target = await KotTicket.findOne({ ...scoped, status: { $in: ACTIVE_KOT_STATUSES } }); if (!target) throw new ApiError(404, "Active KOT ticket not found"); target.assignedChef = staff._id; await target.save(); message = "KOT assigned"; }
+  else if (type === "DELIVERY") { if (staff.role !== "DELIVERY" || !staff.user) throw new ApiError(422, "Delivery staff need a linked login account"); const order = await Order.findOne({ ...scoped, orderType: "DELIVERY", status: { $in: ["READY", "OUT_FOR_DELIVERY"] } }); if (!order) throw new ApiError(404, "Ready delivery order not found"); target = await Delivery.findOneAndUpdate({ order: order._id }, { $set: { rider: staff.user, status: "assigned", assignedAt: new Date() } }, { new: true, upsert: true, runValidators: true }); message = "Delivery assigned"; }
+  else throw new ApiError(422, "Invalid assignment type");
+  await addDutyActivity({ staff, action: message, actor: req.user });
+  res.json(new ApiResponse(true, message, target));
 });
 
 export const deleteStaff = asyncHandler(async (req, res) => {

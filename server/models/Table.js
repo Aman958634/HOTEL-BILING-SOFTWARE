@@ -52,6 +52,7 @@ const tableSchema = new mongoose.Schema(
       ref: "Reservation",
       default: null,
     },
+    assignedStaff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null, index: true },
   },
   { timestamps: true }
 );

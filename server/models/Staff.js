@@ -39,9 +39,18 @@ const staffSchema = new mongoose.Schema(
       index: true,
     },
     lastLogin: { type: Date, default: null },
+    // Operational presence is distinct from employment status. A deactivated
+    // employee can never be put on duty.
+    dutyStatus: { type: String, enum: ["OFF_DUTY", "ON_DUTY", "BUSY", "ON_BREAK"], default: "OFF_DUTY", index: true },
+    shiftStartedAt: { type: Date, default: null },
+    breakStartedAt: { type: Date, default: null },
+    totalBreakMinutes: { type: Number, default: 0, min: 0 },
+    lastDutyActivityAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );
+
+staffSchema.index({ restaurant: 1, status: 1, dutyStatus: 1 });
 
 const Staff = mongoose.model("Staff", staffSchema);
 export default Staff;

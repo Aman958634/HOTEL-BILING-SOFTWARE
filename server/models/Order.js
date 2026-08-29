@@ -155,6 +155,7 @@ const orderSchema = new mongoose.Schema(
     },
     specialInstructions: { type: String, default: "" },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+    assignedWaiter: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null, index: true },
     statusHistory: { type: [statusHistorySchema], default: [] },
     isArchived: { type: Boolean, default: false, index: true },
     deliveryAddress: { type: String, default: "" },

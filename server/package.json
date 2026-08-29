@@ -11,6 +11,7 @@
     "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
     "migrate:customer-crm": "node scripts/migrateCustomerCrmIndexes.js",
     "migrate:loyalty": "node scripts/migrateLoyaltyIndexes.js",
+    "migrate:staff-command": "node scripts/migrateStaffCommandScope.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "lint": "echo \"Add ESLint config\""
   },

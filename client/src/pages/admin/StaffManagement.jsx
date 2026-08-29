@@ -8,6 +8,7 @@ import { useSelector } from "react-redux";
 import { useSocket } from "../../context/SocketContext";
 import StatCard from "../../components/admin/StatCard";
 import StaffStats from "../../components/admin/staff/StaffStats";
+import StaffCommandCenter from "../../components/admin/staff/StaffCommandCenter";
 import StaffToolbar from "../../components/admin/staff/StaffToolbar";
 import StaffTable from "../../components/admin/staff/StaffTable";
 import StaffCard from "../../components/admin/staff/StaffCard";
@@ -233,12 +234,14 @@ const StaffManagement = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Staff Management</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage restaurant staff, roles, shifts, permissions and employee status.</p>
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Staff Command Center</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage staff records while monitoring live shifts, assignments and operational workload.</p>
         </div>
       </div>
 
       <StaffStats stats={stats} loading={loadingStats} />
+
+      <StaffCommandCenter />
 
       <StaffToolbar filters={filters} onChange={updateFilters} onCreate={openCreate} />
 

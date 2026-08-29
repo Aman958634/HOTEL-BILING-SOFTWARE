@@ -22,6 +22,7 @@ const kotTicketSchema = new mongoose.Schema(
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
     orderNumber: { type: String, required: true, index: true },
     orderType: { type: String, default: "DINE_IN" },
+    assignedChef: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null, index: true },
     items: { type: [kotItemSchema], default: [] },
     status: { type: String, enum: KOT_STATUSES, default: "NEW", index: true },
   },
