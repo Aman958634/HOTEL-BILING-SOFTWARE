@@ -181,6 +181,7 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderType: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderSource: 1, status: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, sparse: true });
 orderSchema.index({ restaurant: 1, customer: 1, createdAt: -1 });
 

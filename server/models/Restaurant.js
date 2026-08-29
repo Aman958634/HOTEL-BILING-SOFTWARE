@@ -18,6 +18,8 @@ const restaurantSchema = new mongoose.Schema(
     reservationsEnabled: { type: Boolean, default: true },
     onlineOrdersEnabled: { type: Boolean, default: true },
     openingHours: { type: String, default: "09:00-23:00" },
+    // IANA timezone used for business-day boundaries in reports and BI.
+    timeZone: { type: String, default: "Asia/Kolkata", trim: true },
   },
   { timestamps: true }
 );

@@ -78,6 +78,7 @@ paymentSchema.index(
   }
 );
 paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
+paymentSchema.index({ restaurant: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index(
   { bill: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }

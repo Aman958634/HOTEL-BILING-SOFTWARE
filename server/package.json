@@ -14,7 +14,9 @@
     "migrate:staff-command": "node scripts/migrateStaffCommandScope.js",
     "migrate:advanced-billing": "node scripts/migrateAdvancedBillingIndexes.js",
     "migrate:payment-reconciliation": "node scripts/migratePaymentReconciliationIndexes.js",
+    "migrate:business-intelligence": "node scripts/migrateBusinessIntelligenceIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
+    "test:bi": "node tests/businessIntelligenceRange.test.js",
     "lint": "echo \"Add ESLint config\""
   },
   "dependencies": {
