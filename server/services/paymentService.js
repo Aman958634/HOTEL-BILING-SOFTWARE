@@ -2,7 +2,6 @@ import Stripe from "stripe";
 import Razorpay from "razorpay";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
-import Bill from "../models/Bill.js";
 import Order from "../models/Order.js";
 import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
@@ -16,11 +15,11 @@ import {
   paymentMethodLabel,
   paymentStatusLabel,
 } from "../utils/paymentUtils.js";
-import { emitPaymentCreated, emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
+import { emitPaymentCreated, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
-import { generateInvoice, refreshInvoice } from "./invoiceService.js";
-import { awardPointsForPaidOrder, reversePointsForFullRefund } from "./loyaltyService.js";
+import { generateInvoice } from "./invoiceService.js";
+import { awardPointsForPaidOrder } from "./loyaltyService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -376,6 +375,7 @@ export const recordVerifiedPayment = async (
     idempotencyKey = "",
     paidAt = new Date(),
     note = "Payment verified successfully",
+    receivedBy = null,
   } = {}
 ) => {
   const orderId = order?._id || order;
@@ -442,6 +442,7 @@ export const recordVerifiedPayment = async (
         serviceCharge: Number(orderDoc.serviceCharge || 0),
         totalAmount: paymentAmount,
         paymentMethod: method,
+        receivedBy,
         gateway: normalizeGateway(gateway),
         paymentStatus: "PAID",
         transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
@@ -565,86 +566,6 @@ export const completeOrderPayment = async (order, options = {}) =>
     ...options,
     paymentStatus: "PAID",
   });
-
-export const applyRefundToPayment = async ({ payment, refundAmount, refundReason, refundedBy }) => {
-  const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);
-  if (!paymentDoc) throw new ApiError(404, "Payment not found");
-
-  const orderDoc = await buildOrderLookup(paymentDoc.orderId);
-  const remaining = Math.max(Number(paymentDoc.totalAmount || paymentDoc.amount || 0) - Number(paymentDoc.refundAmount || 0), 0);
-  const nextRefundAmount = Number(refundAmount || 0);
-
-  if (nextRefundAmount <= 0) {
-    throw new ApiError(422, "Refund amount must be greater than zero");
-  }
-
-  if (nextRefundAmount > remaining) {
-    throw new ApiError(422, "Refund amount cannot exceed the remaining paid amount");
-  }
-
-  const totalRefunded = Number(paymentDoc.refundAmount || 0) + nextRefundAmount;
-  const fullyRefunded = totalRefunded >= Number(paymentDoc.totalAmount || paymentDoc.amount || 0);
-  const nextStatus = fullyRefunded ? "REFUNDED" : "PARTIALLY_REFUNDED";
-
-  paymentDoc.refundAmount = totalRefunded;
-  paymentDoc.refundReason = String(refundReason || "").trim();
-  paymentDoc.refundStatus = nextStatus;
-  paymentDoc.refundedAt = new Date();
-  paymentDoc.refundedBy = refundedBy || null;
-  paymentDoc.paymentStatus = nextStatus;
-  paymentDoc.gateway = normalizeGateway(paymentDoc.gateway || paymentDoc.metadata?.gateway || paymentDoc.paymentMethod);
-  paymentDoc.timeline = buildPaymentTimeline(orderDoc, paymentDoc, paymentDoc.paymentStatus, paymentDoc.refundReason);
-  paymentDoc.metadata = {
-    ...paymentDoc.metadata,
-    lastRefundAmount: nextRefundAmount,
-    lastRefundReason: paymentDoc.refundReason,
-  };
-
-  await paymentDoc.save();
-  await paymentDoc.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
-  await paymentDoc.populate("customerId", "fullName email phone avatar");
-  await paymentDoc.populate("tableId", "tableNumber floor section");
-  await paymentDoc.populate("refundedBy", "fullName email role");
-
-  if (orderDoc) {
-    const refundedPayments = await Payment.find({ orderId: orderDoc._id }).select("refundAmount").lean();
-    const totalRefundedForOrder = refundedPayments.reduce(
-      (sum, item) => sum + Number(item.refundAmount || 0),
-      0
-    );
-    orderDoc.paymentStatus = totalRefundedForOrder + 0.01 >= Number(orderDoc.total || 0)
-      ? "REFUNDED"
-      : "PARTIALLY_REFUNDED";
-    await orderDoc.save();
-    await refreshInvoice(orderDoc);
-  }
-
-  if (paymentDoc.bill) {
-    const bill = await Bill.findOne({ _id: paymentDoc.bill, restaurant: paymentDoc.restaurant });
-    if (bill) {
-      const billPayments = await Payment.find({ bill: bill._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).select("amount totalAmount refundAmount").lean();
-      const paidAmount = billPayments.reduce((sum, item) => sum + Math.max(Number(item.amount || item.totalAmount || 0) - Number(item.refundAmount || 0), 0), 0);
-      bill.paidAmount = Math.round((paidAmount + Number.EPSILON) * 100) / 100;
-      bill.balanceDue = Math.max(Math.round((Number(bill.total || 0) - bill.paidAmount + Number.EPSILON) * 100) / 100, 0);
-      bill.status = bill.balanceDue === 0 ? "PAID" : bill.paidAmount > 0 ? "PARTIALLY_PAID" : "OPEN";
-      await bill.save();
-    }
-  }
-
-  // A partial refund has no reliable universal point ratio. A full refund can
-  // be reversed deterministically without removing the original EARN entry.
-  if (nextStatus === "REFUNDED") await reversePointsForFullRefund({ order: orderDoc, payment: paymentDoc });
-
-  emitPaymentRefunded(serializePayment(paymentDoc));
-  await notifyPaymentAudience({
-    title: "Refund processed",
-    message: `Refund of ${nextRefundAmount} recorded for Order #${orderDoc?.orderNumber || paymentDoc.orderId}`,
-    payment: paymentDoc,
-    order: orderDoc,
-  });
-
-  return paymentDoc;
-};
 
 export const buildPaymentReceipt = async (payment) => {
   const paymentDoc = payment?.populate ? payment : await Payment.findById(payment?._id || payment);

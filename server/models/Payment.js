@@ -14,6 +14,7 @@ const PAYMENT_METHODS = [
 const PAYMENT_STATUSES = ["PENDING", "PROCESSING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
 
 const REFUND_STATUSES = ["PARTIALLY_REFUNDED", "REFUNDED"];
+const RECONCILIATION_STATUSES = ["UNRECONCILED", "MATCHED", "MISMATCHED", "UNDERPAID", "OVERPAID", "REFUND_PENDING", "RECONCILED"];
 
 const paymentTimelineSchema = new mongoose.Schema(
   {
@@ -57,6 +58,10 @@ const paymentSchema = new mongoose.Schema(
     refundedAt: { type: Date, default: null },
     refundedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reconciliationStatus: { type: String, enum: RECONCILIATION_STATUSES, default: "UNRECONCILED", index: true },
+    reconciledAt: { type: Date, default: null },
+    reconciledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reconciliationNote: { type: String, default: "", trim: true, maxlength: 1000 },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     timeline: { type: [paymentTimelineSchema], default: [] },
   },
@@ -72,6 +77,7 @@ paymentSchema.index(
     name: "payment_order_idempotency_key_unique",
   }
 );
+paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
 paymentSchema.index(
   { bill: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }

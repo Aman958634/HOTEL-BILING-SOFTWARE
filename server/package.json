@@ -13,6 +13,7 @@
     "migrate:loyalty": "node scripts/migrateLoyaltyIndexes.js",
     "migrate:staff-command": "node scripts/migrateStaffCommandScope.js",
     "migrate:advanced-billing": "node scripts/migrateAdvancedBillingIndexes.js",
+    "migrate:payment-reconciliation": "node scripts/migratePaymentReconciliationIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "lint": "echo \"Add ESLint config\""
   },

@@ -35,7 +35,7 @@ router.post(
 	[
 		body("refundType").optional().isIn(["full", "partial"]).withMessage("Refund type is invalid"),
 		body("refundAmount").optional().isFloat({ gt: 0 }).withMessage("Refund amount must be greater than 0"),
-		body("refundReason").optional().isString().trim(),
+		body("refundReason").isString().trim().isLength({ min: 1, max: 500 }).withMessage("Refund reason is required"),
 	],
 	validate,
 	refundPayment

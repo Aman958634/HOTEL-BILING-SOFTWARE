@@ -714,6 +714,7 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
         idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
         paidAt: req.body.paidAt || new Date(),
         note: "Payment updated to paid",
+        receivedBy: req.user._id,
       })
     : await updateOrderPaymentState(order, {
         paymentMethod,
@@ -776,6 +777,7 @@ export const payOrder = asyncHandler(async (req, res) => {
     idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
     paidAt: req.body.paidAt || new Date(),
     note: paymentMethod === PAYMENT_METHODS.CASH ? "Cash payment confirmed" : "Gateway payment verified",
+    receivedBy: req.user._id,
   });
 
   await createOrderAuditLog({ user: req.user, action: "Order Paid", order: result.order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } });
@@ -821,6 +823,7 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
         idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
         paidAt: req.body.paidAt || new Date(),
         note: "Payment verified successfully",
+        receivedBy: req.user._id,
       })
     : await updateOrderPaymentState(order, {
         paymentMethod,

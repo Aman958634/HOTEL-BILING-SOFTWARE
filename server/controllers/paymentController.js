@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+import Refund from "../models/Refund.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -18,7 +19,6 @@ import {
 } from "../utils/paymentUtils.js";
 import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import {
-  applyRefundToPayment,
   buildPaymentReceipt,
   recordVerifiedPayment,
   getRazorpayClient,
@@ -27,6 +27,7 @@ import {
   syncPaymentFromOrder,
   updateOrderPaymentState,
 } from "../services/paymentService.js";
+import { refundRecordedPayment } from "../services/reconciliationService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
 
 const providerToMethod = {
@@ -259,7 +260,8 @@ const getPaymentDoc = async (identifier, user) => {
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
-    .populate("refundedBy", "fullName email role");
+    .populate("refundedBy", "fullName email role")
+    .populate("bill", "billNumber total status");
 };
 
 export const createPaymentIntent = asyncHandler(async (req, res) => {
@@ -371,6 +373,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
           idempotencyKey: req.get("Idempotency-Key") || req.body.idempotencyKey || "",
           paidAt: new Date(),
           note: "Payment verified successfully",
+          receivedBy: req.user._id,
         })).payment
       : await syncPaymentFromOrder(order, {
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
@@ -424,6 +427,7 @@ export const getPaymentByOrderId = asyncHandler(async (req, res) => {
   if (!payment) throw new ApiError(404, "Payment not found");
 
   const detail = mapPaymentDetail(payment);
+  detail.refunds = await Refund.find({ payment: payment._id }).select("amount reason status method processedAt createdAt initiatedBy").populate("initiatedBy", "fullName role").sort({ createdAt: -1 }).lean();
   res.status(200).json(new ApiResponse(true, "Payment fetched", detail));
 });
 
@@ -453,6 +457,7 @@ export const getPaymentById = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name price");
 
   const detail = mapPaymentDetail(payment);
+  detail.refunds = await Refund.find({ payment: payment._id }).select("amount reason status method processedAt createdAt initiatedBy").populate("initiatedBy", "fullName role").sort({ createdAt: -1 }).lean();
   detail.order = order
     ? {
         _id: order._id,
@@ -596,14 +601,16 @@ export const refundPayment = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Failed payments cannot be refunded");
   }
 
-  const updated = await applyRefundToPayment({
-    payment,
-    refundAmount: amountToRefund,
-    refundReason,
-    refundedBy: req.user._id,
+  const result = await refundRecordedPayment({
+    paymentId: payment._id,
+    restaurantId: payment.restaurant,
+    amount: amountToRefund,
+    reason: refundReason,
+    initiatedBy: req.user._id,
+    idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim(),
   });
 
-  res.status(200).json(new ApiResponse(true, "Refund processed", serializePayment(updated)));
+  res.status(result.idempotent ? 200 : 201).json(new ApiResponse(true, result.idempotent ? "Refund already processed" : "Cash refund processed", serializePayment(result.payment)));
 });
 
 export const deletePayment = asyncHandler(async (req, res) => {

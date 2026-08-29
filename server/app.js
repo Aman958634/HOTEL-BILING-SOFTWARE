@@ -33,6 +33,7 @@ import inventoryRoutes from "./routes/inventoryRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import loyaltyRoutes from "./routes/loyaltyRoutes.js";
 import billRoutes from "./routes/billRoutes.js";
+import reconciliationRoutes from "./routes/reconciliationRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 
@@ -99,6 +100,7 @@ app.use("/api/v1/inventory", inventoryRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/loyalty", loyaltyRoutes);
 app.use("/api/v1/bills", billRoutes);
+app.use("/api/v1/reconciliation", reconciliationRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/payments", paymentRoutes);

@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import PaymentStats from "../../components/payments/PaymentStats";
 import AdvancedBillingWorkspace from "../../components/payments/AdvancedBillingWorkspace";
+import ReconciliationWorkspace from "../../components/payments/ReconciliationWorkspace";
 import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
-import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, refundPayment } from "../../services/paymentService";
+import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment } from "../../services/paymentService";
 
 const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
 const PaymentDetailsDrawer = lazy(() => import("../../components/payments/PaymentDetailsDrawer"));
@@ -205,7 +206,8 @@ const Payments = () => {
     if (!refundTarget) return;
     setProcessingRefund(true);
     try {
-      await refundPayment(refundTarget._id || refundTarget.paymentId, payload);
+      const key = globalThis.crypto?.randomUUID?.() || `refund-${Date.now()}-${Math.random()}`;
+      await refundPayment(refundTarget._id || refundTarget.paymentId, payload, key);
       toast.success("Refund processed");
       setRefundOpen(false);
       setRefundTarget(null);
@@ -214,6 +216,17 @@ const Payments = () => {
       toast.error(err?.response?.data?.message || "Unable to process refund");
     } finally {
       setProcessingRefund(false);
+    }
+  };
+
+  const submitReconciliation = async (payment) => {
+    try {
+      await reconcilePayment(payment._id || payment.paymentId);
+      toast.success("Payment reconciled");
+      await Promise.all([loadPayments(), loadStats(filtersRef.current.range)]);
+      await openDetails(payment);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to reconcile payment");
     }
   };
 
@@ -309,6 +322,8 @@ const Payments = () => {
 
       <AdvancedBillingWorkspace />
 
+      <ReconciliationWorkspace />
+
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">
           <p className="text-lg font-semibold text-rose-700">Unable to load payments</p>
@@ -350,6 +365,7 @@ const Payments = () => {
           onClose={() => setDetailOpen(false)}
           onReceipt={openReceipt}
           onRefund={openRefund}
+          onReconcile={submitReconciliation}
         />
       </Suspense>
 

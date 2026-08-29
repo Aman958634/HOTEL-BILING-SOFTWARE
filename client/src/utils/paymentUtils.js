@@ -106,5 +106,5 @@ export const paymentBadgeClasses = (value) => {
 export const canRefundPayment = (payment) => {
   if (!payment) return false;
   const status = String(payment.paymentStatus || "").toUpperCase();
-  return ["PAID", "PARTIALLY_REFUNDED"].includes(status) && Number(getPaymentAmount(payment) - Number(payment.refundAmount || 0)) > 0;
+  return String(payment.paymentMethod || "").toUpperCase() === "CASH" && ["PAID", "PARTIALLY_REFUNDED"].includes(status) && Number(getPaymentAmount(payment) - Number(payment.refundAmount || 0)) > 0;
 };

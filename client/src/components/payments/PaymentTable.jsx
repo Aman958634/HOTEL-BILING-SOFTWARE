@@ -71,6 +71,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
       <p><strong>Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
       <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || "-"}</p>
       <p><strong>Refund:</strong> {formatCurrency(payment.refundAmount || 0)}</p>
+      <p><strong>Reconciliation:</strong> {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p>
     </div>
 
     <div className="mt-4 flex flex-wrap gap-2">
@@ -107,6 +108,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
               <th className="px-4 py-3">Method</th>
               <th className="px-4 py-3">Gateway</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Reconciliation</th>
               <th className="px-4 py-3">Date &amp; Time</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -126,6 +128,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
                     {paymentStatusLabel(payment.paymentStatus)}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-xs font-medium text-slate-600">{(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</td>
                 <td className="px-4 py-3">{formatPaymentDate(payment.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">

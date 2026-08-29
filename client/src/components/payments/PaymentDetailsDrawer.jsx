@@ -1,4 +1,4 @@
-import { FiClock, FiDollarSign, FiFileText, FiPhone, FiTable, FiUser } from "react-icons/fi";
+import { FiCheckCircle, FiClock, FiDollarSign, FiFileText, FiPhone, FiTable, FiUser } from "react-icons/fi";
 import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, getPaymentAmount } from "../../utils/paymentUtils";
 import { formatPaymentId } from "../../utils/paymentId";
 
@@ -22,7 +22,7 @@ const TimelineItem = ({ item, last }) => (
   </div>
 );
 
-const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRefund }) => {
+const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRefund, onReconcile }) => {
   if (!open) return null;
 
   const order = payment?.order;
@@ -66,6 +66,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
                 <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</p>
                 <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
+                <p><strong>Reconciliation:</strong> {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p>
               </Section>
 
               <Section title="Customer Information">
@@ -122,6 +123,14 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               </div>
             </Section>
 
+            <Section title="Refund History">
+              {(payment.refunds || []).length ? (payment.refunds || []).map((refund) => (
+                <div key={refund._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <span><strong>{formatCurrency(refund.amount)}</strong> · {refund.status}</span><span className="text-xs text-slate-500">{refund.reason} · {formatPaymentDate(refund.processedAt || refund.createdAt)}</span>
+                </div>
+              )) : <p className="text-sm text-slate-500">No refund entries.</p>}
+            </Section>
+
             <div className="flex flex-wrap justify-end gap-2">
               <button onClick={() => onReceipt(payment)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
                 <FiFileText className="inline-block -translate-y-px" /> View Receipt
@@ -129,6 +138,11 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               {canRefundPayment(payment) ? (
                 <button onClick={() => onRefund(payment)} className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700">
                   Refund
+                </button>
+              ) : null}
+              {payment.bill && payment.paymentStatus === "PAID" && payment.reconciliationStatus !== "RECONCILED" ? (
+                <button onClick={() => onReconcile(payment)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                  <FiCheckCircle className="inline-block -translate-y-px" /> Reconcile payment
                 </button>
               ) : null}
             </div>
