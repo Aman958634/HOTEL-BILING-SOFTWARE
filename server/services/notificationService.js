@@ -31,17 +31,20 @@ const validId = (value) => value && mongoose.isValidObjectId(value);
 const text = (value) => String(value ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 500);
 
 /** Persists one notification per authorized recipient before Socket.IO delivery. */
-export const publishBusinessEvent = async ({ eventType, restaurantId, entityType, entityId, actorUserId = null, payload = {}, recipientUserIds = [] }) => {
+export const publishBusinessEvent = async ({ eventType, restaurantId, outletId = null, entityType, entityId, actorUserId = null, payload = {}, recipientUserIds = [] }) => {
   const template = templates[eventType];
   if (!template || !validId(restaurantId)) return [];
   const [category, severity, roles, title, message, route] = template;
-  const users = await User.find({ restaurant: restaurantId, isActive: true, $or: [{ role: { $in: roles } }, { _id: { $in: recipientUserIds.filter(validId) } }] }).select("_id").lean();
+  const users = await User.find({ restaurant: restaurantId, isActive: true, $or: [{ role: { $in: roles } }, { _id: { $in: recipientUserIds.filter(validId) } }] }).select("_id outletAccess role").lean();
   const output = [];
   for (const user of users) {
     if (actorUserId && String(user._id) === String(actorUserId)) continue;
+    const elevated = ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(String(user.role || "").toLowerCase());
+    const assigned = !outletId || elevated || !(user.outletAccess || []).length || (user.outletAccess || []).some((entry) => entry.isActive !== false && String(entry.outlet) === String(outletId));
+    if (!assigned) continue;
     const dedupeKey = `${eventType}:${validId(entityId) ? entityId : payload.reference || "event"}:${user._id}`;
     try {
-      const notification = await Notification.findOneAndUpdate({ user: user._id, dedupeKey }, { $setOnInsert: { user: user._id, restaurantId, eventType, category, severity, type: eventType, title: text(title), message: text(message(payload)), entityType: entityType || null, entityId: validId(entityId) ? entityId : null, route, dedupeKey, metadata: {} } }, { new: true, upsert: true, setDefaultsOnInsert: true });
+      const notification = await Notification.findOneAndUpdate({ user: user._id, dedupeKey }, { $setOnInsert: { user: user._id, restaurantId, outlet: validId(outletId) ? outletId : null, eventType, category, severity, type: eventType, title: text(title), message: text(message(payload)), entityType: entityType || null, entityId: validId(entityId) ? entityId : null, route, dedupeKey, metadata: {} } }, { new: true, upsert: true, setDefaultsOnInsert: true });
       if (notification.createdAt?.getTime() === notification.updatedAt?.getTime()) { emitNotificationCreated(notification); output.push(notification); }
     } catch (error) { if (error?.code !== 11000) throw error; }
   }

@@ -6,7 +6,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery, buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import {
   TABLE_STATUS,
   activeOrderStatuses,
@@ -164,7 +164,7 @@ export const getTables = asyncHandler(async (req, res) => {
   const sortBy = normalizeSortBy(req.query.sortBy);
   const order = normalizeOrder(req.query.order);
 
-  const filters = await buildRestaurantQuery(buildTableFilters(req.query), req.user);
+  const filters = await buildOutletQuery(buildTableFilters(req.query), req.user);
 
   const [tables, total] = await Promise.all([
     Table.find(filters)
@@ -214,7 +214,7 @@ export const getTableById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user)).populate(tableWithDetailsPopulate);
+  const table = await Table.findOne(await buildOutletQuery({ _id: req.params.id }, req.user)).populate(tableWithDetailsPopulate);
   if (!table) throw new ApiError(404, "Table not found");
 
   const data = await toPresentation(table);
@@ -300,7 +300,7 @@ export const updateTableStatus = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user));
+  const table = await Table.findOne(await buildOutletQuery({ _id: req.params.id }, req.user));
   if (!table) throw new ApiError(404, "Table not found");
 
   const updated = await deriveTableStatus(table._id);

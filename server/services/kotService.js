@@ -65,7 +65,7 @@ export const syncKotForOrder = async (order) => {
   await kot.save();
   if (created) {
     emitKotCreated(kot);
-    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_CREATED, restaurantId: kot.restaurant, entityType: "KotTicket", entityId: kot._id, payload: { kotNumber: kot.kotNumber || kot.orderNumber, orderNumber: kot.orderNumber } });
+    await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_CREATED, restaurantId: kot.restaurant, outletId: kot.outlet || null, entityType: "KotTicket", entityId: kot._id, payload: { kotNumber: kot.kotNumber || kot.orderNumber, orderNumber: kot.orderNumber } });
   }
   else emitKotUpdated(kot);
   return kot;

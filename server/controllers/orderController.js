@@ -38,7 +38,7 @@ import { restoreRedeemedPointsForCancelledOrder } from "../services/loyaltyServi
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
 import { resolveGstType } from "../services/gstService.js";
-import { buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
+import { buildOutletQuery as buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,

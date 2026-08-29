@@ -6,7 +6,7 @@ import Inventory from "../models/Inventory.js";
 import StockMovement from "../models/StockMovement.js";
 import Recipe from "../models/Recipe.js";
 import Food from "../models/Food.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery, buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateRecipeCost, inventoryStatus, recordStockMovement, resolveRestaurantId } from "../services/inventoryService.js";
 
 const toPositive = (value, field) => {
@@ -16,7 +16,7 @@ const toPositive = (value, field) => {
 };
 
 export const listInventory = asyncHandler(async (req, res) => {
-  const filter = await buildRestaurantQuery({ isActive: { $ne: false }, ...(req.query.search ? { itemName: { $regex: String(req.query.search).trim(), $options: "i" } } : {}) }, req.user);
+  const filter = await buildOutletQuery({ isActive: { $ne: false }, ...(req.query.search ? { itemName: { $regex: String(req.query.search).trim(), $options: "i" } } : {}) }, req.user);
   const items = await Inventory.find(filter).populate("supplier", "name phone").sort({ itemName: 1 }).lean();
   res.json(new ApiResponse(true, "Inventory fetched", items.map((item) => ({ ...item, status: inventoryStatus(item), stockValue: Number(item.quantity || 0) * Number(item.costPerUnit || 0) }))));
 });
@@ -50,7 +50,7 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
 });
 
 export const updateInventoryItem = asyncHandler(async (req, res) => {
-  const filter = await buildRestaurantQuery({ _id: req.params.id }, req.user);
+  const filter = await buildOutletQuery({ _id: req.params.id }, req.user);
   
   // Validate and normalize unit fields if provided
   const updateData = { ...req.body, quantity: undefined };
@@ -75,7 +75,7 @@ export const updateInventoryItem = asyncHandler(async (req, res) => {
 });
 
 export const listMovements = asyncHandler(async (req, res) => {
-  const filter = await buildRestaurantQuery({ inventoryItem: req.params.id }, req.user);
+  const filter = await buildOutletQuery({ inventoryItem: req.params.id }, req.user);
   const movements = await StockMovement.find(filter).sort({ createdAt: -1 }).limit(200).populate("user", "fullName email").lean();
   res.json(new ApiResponse(true, "Stock movements fetched", movements));
 });

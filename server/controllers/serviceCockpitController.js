@@ -1,6 +1,6 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import Order from "../models/Order.js";
 import Table from "../models/Table.js";
 import Payment from "../models/Payment.js";

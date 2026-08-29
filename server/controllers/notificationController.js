@@ -35,6 +35,7 @@ export const getNotifications = asyncHandler(async (req, res) => {
     const escaped = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     filters.$and = [...(filters.$and || []), { $or: [{ title: { $regex: escaped, $options: "i" } }, { message: { $regex: escaped, $options: "i" } }] }];
   }
+  if (req.user.activeOutlet && mongoose.isValidObjectId(req.user.activeOutlet)) filters.outlet = req.user.activeOutlet;
   if (req.query.type) {
     filters.type = req.query.type;
   }

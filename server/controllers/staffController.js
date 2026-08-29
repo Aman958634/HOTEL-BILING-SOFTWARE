@@ -29,7 +29,7 @@ import {
 import { emitStaffCreated, emitStaffStatusChanged, emitStaffUpdated } from "../socket/staffSocket.js";
 import { sendEmail } from "../services/emailService.js";
 import { notifyNewStaff } from "../services/notificationService.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { createActivity } from "../services/activityService.js";
 
 const getPagination = (query) => {

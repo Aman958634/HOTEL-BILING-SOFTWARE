@@ -7,7 +7,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import logger from "../utils/logger.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import {
   buildPaymentCsv,
   formatCurrency,

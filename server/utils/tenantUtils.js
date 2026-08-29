@@ -83,7 +83,7 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
 
   if (user.restaurant) {
     const scoped = mergeTenantFilter(filters, { restaurant: user.restaurant });
-    return user.activeOutlet ? mergeTenantFilter(scoped, { outlet: user.activeOutlet }) : scoped;
+    return scoped;
   }
 
   if (!user.hotelId) return filters;
@@ -96,4 +96,15 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
   }
 
   return mergeTenantFilter(filters, { restaurant: { $in: restaurantIds } });
+};
+
+/** Applies a verified active outlet only to operational models with an outlet field. */
+export const buildOutletQuery = async (baseFilters, user, { allowAll = false } = {}) => {
+  const filters = await buildRestaurantQuery(baseFilters, user);
+  if (user?.activeOutlet) return mergeTenantFilter(filters, { outlet: user.activeOutlet });
+  if (allowAll && isAdminRole(user?.role)) return filters;
+  // Legacy clients that have not selected an outlet remain on their default
+  // outlet rather than silently receiving every branch's operational data.
+  if (user?.defaultOutlet) return mergeTenantFilter(filters, { outlet: user.defaultOutlet });
+  return filters;
 };

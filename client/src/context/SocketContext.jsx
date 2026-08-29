@@ -19,7 +19,9 @@ export const SocketProvider = ({ children }) => {
 
     socket.connect();
     socket.emit("join-room", "dashboard");
-    return () => socket.disconnect();
+    const reconnectForOutlet = () => { socket.disconnect(); socket.connect(); };
+    window.addEventListener("restosphere:outlet-changed", reconnectForOutlet);
+    return () => { window.removeEventListener("restosphere:outlet-changed", reconnectForOutlet); socket.disconnect(); };
   }, []);
 
   return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;

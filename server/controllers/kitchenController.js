@@ -5,7 +5,7 @@ import KitchenStation from "../models/KitchenStation.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery, buildRestaurantQuery } from "../utils/tenantUtils.js";
 import {
   ORDER_STATUSES,
   addStatusHistoryEntry,
@@ -82,13 +82,13 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
   if (itemIndex != null) {
     emitKitchenItemStatusChanged(populated, Number(itemIndex), nextItemStatus);
   }
-  if (previousStatus !== nextStatus && nextStatus === ORDER_STATUSES.READY) await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_READY, restaurantId: populated.restaurant, entityType: "KotTicket", entityId: kot?._id, actorUserId: req.user._id, payload: { kotNumber: kot?.kotNumber || populated.orderNumber, orderNumber: populated.orderNumber, tableNumber: populated.table?.tableNumber }, recipientUserIds: populated.assignedWaiter ? [populated.assignedWaiter] : [] });
+  if (previousStatus !== nextStatus && nextStatus === ORDER_STATUSES.READY) await publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.KOT_READY, restaurantId: populated.restaurant, outletId: populated.outlet || null, entityType: "KotTicket", entityId: kot?._id, actorUserId: req.user._id, payload: { kotNumber: kot?.kotNumber || populated.orderNumber, orderNumber: populated.orderNumber, tableNumber: populated.table?.tableNumber }, recipientUserIds: populated.assignedWaiter ? [populated.assignedWaiter] : [] });
 
   return ticket;
 };
 
 export const getKitchenTickets = asyncHandler(async (req, res) => {
-  const base = await buildRestaurantQuery({}, req.user);
+  const base = await buildOutletQuery({}, req.user);
   const filters = buildLiveBoardOrderFilter(base);
 
   if (req.query.status) {
