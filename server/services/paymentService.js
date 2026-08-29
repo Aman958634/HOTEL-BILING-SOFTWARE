@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import Razorpay from "razorpay";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
+import Bill from "../models/Bill.js";
 import Order from "../models/Order.js";
 import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
@@ -616,6 +617,18 @@ export const applyRefundToPayment = async ({ payment, refundAmount, refundReason
       : "PARTIALLY_REFUNDED";
     await orderDoc.save();
     await refreshInvoice(orderDoc);
+  }
+
+  if (paymentDoc.bill) {
+    const bill = await Bill.findOne({ _id: paymentDoc.bill, restaurant: paymentDoc.restaurant });
+    if (bill) {
+      const billPayments = await Payment.find({ bill: bill._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).select("amount totalAmount refundAmount").lean();
+      const paidAmount = billPayments.reduce((sum, item) => sum + Math.max(Number(item.amount || item.totalAmount || 0) - Number(item.refundAmount || 0), 0), 0);
+      bill.paidAmount = Math.round((paidAmount + Number.EPSILON) * 100) / 100;
+      bill.balanceDue = Math.max(Math.round((Number(bill.total || 0) - bill.paidAmount + Number.EPSILON) * 100) / 100, 0);
+      bill.status = bill.balanceDue === 0 ? "PAID" : bill.paidAmount > 0 ? "PARTIALLY_PAID" : "OPEN";
+      await bill.save();
+    }
   }
 
   // A partial refund has no reliable universal point ratio. A full refund can

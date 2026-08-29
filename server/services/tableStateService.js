@@ -35,7 +35,9 @@ export const normalizeTableStatus = (value) => {
 };
 
 // The sole definition of an active order for table occupancy.
-export const activeOrderStatuses = ["PENDING", "CONFIRMED", "PREPARING"];
+// A ready/served dine-in order still represents an occupied table. A served
+// order becomes releasable only after its bill has been settled.
+export const activeOrderStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"];
 export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CONFIRMED"];
 
 export const emitTableStatusChange = (table) => {
@@ -60,12 +62,13 @@ export const updateTableStatus = async (tableId) => {
   const id = toObjectId(tableId, "table id");
   if (!id) throw new ApiError(400, "Table id is required");
 
-  const activeOrders = await Order.countDocuments({
-    table: id,
-    status: { $in: activeOrderStatuses },
-  });
+  const activeFilter = { table: id, $or: [
+    { status: { $in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] } },
+    { status: "SERVED", billingState: { $ne: "SETTLED" } },
+  ] };
+  const activeOrders = await Order.countDocuments(activeFilter);
   const currentOrder = activeOrders > 0
-    ? await Order.findOne({ table: id, status: { $in: activeOrderStatuses } })
+    ? await Order.findOne(activeFilter)
         .sort({ createdAt: -1 })
         .select("_id")
         .lean()

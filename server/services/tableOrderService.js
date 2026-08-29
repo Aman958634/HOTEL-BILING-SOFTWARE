@@ -6,7 +6,10 @@ import { activeOrderStatuses, updateTableStatus } from "./tableStateService.js";
 const resolveId = (value) => (typeof value === "object" && value ? value._id || value.id : value) || null;
 
 const activeOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
-  const filter = { table: tableId, status: { $in: activeOrderStatuses } };
+  const filter = { table: tableId, $or: [
+    { status: { $in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] } },
+    { status: "SERVED", billingState: { $ne: "SETTLED" } },
+  ] };
   if (excludeOrderId) filter._id = { $ne: excludeOrderId };
   return filter;
 };

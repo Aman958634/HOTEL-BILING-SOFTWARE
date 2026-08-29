@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import PaymentStats from "../../components/payments/PaymentStats";
+import AdvancedBillingWorkspace from "../../components/payments/AdvancedBillingWorkspace";
 import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
@@ -305,6 +306,8 @@ const Payments = () => {
       </div>
 
       <PaymentStats stats={stats} loading={loadingStats} />
+
+      <AdvancedBillingWorkspace />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">

@@ -169,6 +169,8 @@ const orderSchema = new mongoose.Schema(
     rejectedAt: { type: Date, default: null },
     rejectionReason: { type: String, default: "", trim: true },
     billingState: { type: String, default: "", trim: true, index: true },
+    // A consolidated bill references original orders; it never replaces them.
+    billingBill: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null, index: true },
     notes: { type: String, default: "" },
   },
   { timestamps: true }

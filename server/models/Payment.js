@@ -27,7 +27,9 @@ const paymentTimelineSchema = new mongoose.Schema(
 const paymentSchema = new mongoose.Schema(
   {
     paymentId: { type: String, required: true, unique: true, index: true, trim: true },
-    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, index: true },
+    // Retained for normal order payments. Consolidated bill payments use bill.
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null, index: true },
+    bill: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     tableId: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
@@ -54,6 +56,7 @@ const paymentSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: [null, ...REFUND_STATUSES], default: null, index: true },
     refundedAt: { type: Date, default: null },
     refundedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     timeline: { type: [paymentTimelineSchema], default: [] },
   },
@@ -68,6 +71,10 @@ paymentSchema.index(
     partialFilterExpression: { idempotencyKey: { $type: "string", $gt: "" } },
     name: "payment_order_idempotency_key_unique",
   }
+);
+paymentSchema.index(
+  { bill: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }
 );
 
 const Payment = mongoose.model("Payment", paymentSchema);
