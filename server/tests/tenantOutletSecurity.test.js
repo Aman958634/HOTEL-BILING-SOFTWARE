@@ -9,6 +9,7 @@ import Outlet from "../models/Outlet.js";
 import Restaurant from "../models/Restaurant.js";
 import Staff from "../models/Staff.js";
 import { dashboardStats } from "../controllers/analyticsController.js";
+import { requireSafeTestDatabase } from "./testDatabase.js";
 import {
   deleteStaff,
   getActiveStaff,
@@ -20,11 +21,7 @@ import {
   updateStaffStatus,
 } from "../controllers/staffController.js";
 
-const uri = process.env.TEST_MONGO_URI;
-if (!uri) {
-  console.log("Tenant/outlet controller security checks skipped: TEST_MONGO_URI is not configured.");
-  process.exit(0);
-}
+const { uri } = requireSafeTestDatabase();
 
 const invoke = (handler, req) => new Promise((resolve) => {
   const res = {

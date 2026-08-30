@@ -9,13 +9,10 @@ import Restaurant from "../models/Restaurant.js";
 import Table from "../models/Table.js";
 import { createPublicMenuContext, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
 import { prepareOrderItems } from "../services/orderService.js";
+import { requireSafeTestDatabase } from "./testDatabase.js";
 
-const uri = process.env.TEST_MONGO_URI;
 await assert.rejects(() => resolvePublicMenuContext(""), (error) => error?.code === "PUBLIC_MENU_CONTEXT_REQUIRED");
-if (!uri) {
-  console.log("Public menu context-required check passed; tenant integration skipped: TEST_MONGO_URI is not configured.");
-  process.exit(0);
-}
+const { uri } = requireSafeTestDatabase();
 
 process.env.PUBLIC_MENU_CONTEXT_SECRET ||= crypto.randomBytes(32).toString("hex");
 const suffix = crypto.randomBytes(6).toString("hex");

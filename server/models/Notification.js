@@ -46,7 +46,10 @@ const notificationSchema = new mongoose.Schema(
     entityType: { type: String, required: false, index: true },
     entityId: { type: mongoose.Schema.Types.ObjectId, required: false, index: true },
     route: { type: String, default: "" },
-    dedupeKey: { type: String, default: null },
+    // Keep this field absent when no deduplication is requested. MongoDB sparse
+    // unique indexes still index explicit null values, which would otherwise
+    // prevent a user from receiving more than one unrelated notification.
+    dedupeKey: { type: String, default: undefined },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     isRead: { type: Boolean, default: false, index: true },
     readAt: { type: Date, default: null },

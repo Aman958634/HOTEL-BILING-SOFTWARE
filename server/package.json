@@ -29,6 +29,8 @@
     "test:security": "node tests/paymentSecurity.test.js",
     "test:tenant-isolation": "node tests/tenantIsolation.test.js",
     "test:tenant-security": "node tests/tenantOutletSecurity.test.js",
+    "test:release-verification": "node tests/releaseVerification.test.js",
+    "test:database-safety": "node tests/testDatabaseSafety.test.js",
     "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check utils/publicMenuContext.js"
   },
   "dependencies": {
