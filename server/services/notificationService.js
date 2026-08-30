@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import Outlet from "../models/Outlet.js";
 import { emitNotificationCreated } from "../socket/notificationSocket.js";
+import { hasAllOutletsAccess } from "../utils/tenantUtils.js";
 
 export const NOTIFICATION_EVENTS = Object.freeze({
   ORDER_CREATED: "ORDER_CREATED", ONLINE_ORDER_RECEIVED: "ONLINE_ORDER_RECEIVED", KOT_CREATED: "KOT_CREATED", KOT_READY: "KOT_READY", CUSTOMER_CREATED: "CUSTOMER_CREATED", STAFF_CREATED: "STAFF_CREATED", BILL_GENERATED: "BILL_GENERATED", PAYMENT_RECEIVED: "PAYMENT_RECEIVED", PARTIAL_PAYMENT_RECEIVED: "PARTIAL_PAYMENT_RECEIVED", BILL_FULLY_PAID: "BILL_FULLY_PAID", REFUND_CREATED: "REFUND_CREATED", REFUND_COMPLETED: "REFUND_COMPLETED", LOYALTY_MEMBER_ENROLLED: "LOYALTY_MEMBER_ENROLLED", INVENTORY_LOW: "INVENTORY_LOW", INVENTORY_OUT_OF_STOCK: "INVENTORY_OUT_OF_STOCK", RECONCILIATION_MISMATCH: "RECONCILIATION_MISMATCH", INTELLIGENCE_ALERT_CREATED: "INTELLIGENCE_ALERT_CREATED", CENTRAL_KITCHEN_REQUISITION_CREATED: "CENTRAL_KITCHEN_REQUISITION_CREATED", CENTRAL_KITCHEN_REQUISITION_APPROVED: "CENTRAL_KITCHEN_REQUISITION_APPROVED", CENTRAL_KITCHEN_REQUISITION_REJECTED: "CENTRAL_KITCHEN_REQUISITION_REJECTED", CENTRAL_KITCHEN_BATCH_COMPLETED: "CENTRAL_KITCHEN_BATCH_COMPLETED", CENTRAL_KITCHEN_TRANSFER_DISPATCHED: "CENTRAL_KITCHEN_TRANSFER_DISPATCHED", CENTRAL_KITCHEN_TRANSFER_RECEIVED: "CENTRAL_KITCHEN_TRANSFER_RECEIVED", CENTRAL_KITCHEN_TRANSFER_DISCREPANCY: "CENTRAL_KITCHEN_TRANSFER_DISCREPANCY",
@@ -42,26 +44,29 @@ export const publishBusinessEvent = async ({ eventType, restaurantId, outletId =
   const template = templates[eventType];
   if (!template || !validId(restaurantId)) return [];
   const [category, severity, roles, title, message, route] = template;
-  const users = await User.find({ restaurant: restaurantId, isActive: true, $or: [{ role: { $in: roles } }, { _id: { $in: recipientUserIds.filter(validId) } }] }).select("_id outletAccess role").lean();
+  const eventOutlet = validId(outletId)
+    ? await Outlet.findOne({ _id: outletId, restaurant: restaurantId, isActive: true }).select("_id").lean()
+    : null;
+  if (outletId && !eventOutlet) return [];
+  const users = await User.find({ restaurant: restaurantId, isActive: true, $or: [{ role: { $in: roles } }, { _id: { $in: recipientUserIds.filter(validId) } }] }).select("_id outletAccess allOutletsAccess role").lean();
   const output = [];
   for (const user of users) {
     if (actorUserId && String(user._id) === String(actorUserId)) continue;
-    const elevated = ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(String(user.role || "").toLowerCase());
-    const assigned = !outletId || elevated || !(user.outletAccess || []).length || (user.outletAccess || []).some((entry) => entry.isActive !== false && String(entry.outlet) === String(outletId));
+    const assigned = !eventOutlet || hasAllOutletsAccess(user) || (user.outletAccess || []).some((entry) => entry.isActive !== false && String(entry.outlet) === String(eventOutlet._id));
     if (!assigned) continue;
     const dedupeKey = `${eventType}:${validId(entityId) ? entityId : payload.reference || "event"}:${user._id}`;
     try {
-      const notification = await Notification.findOneAndUpdate({ user: user._id, dedupeKey }, { $setOnInsert: { user: user._id, restaurantId, outlet: validId(outletId) ? outletId : null, eventType, category, severity, type: eventType, title: text(title), message: text(message(payload)), entityType: entityType || null, entityId: validId(entityId) ? entityId : null, route, dedupeKey, metadata: {} } }, { new: true, upsert: true, setDefaultsOnInsert: true });
+      const notification = await Notification.findOneAndUpdate({ user: user._id, dedupeKey }, { $setOnInsert: { user: user._id, restaurantId, outlet: eventOutlet?._id || null, eventType, category, severity, type: eventType, title: text(title), message: text(message(payload)), entityType: entityType || null, entityId: validId(entityId) ? entityId : null, route, dedupeKey, metadata: {} } }, { new: true, upsert: true, setDefaultsOnInsert: true });
       if (notification.createdAt?.getTime() === notification.updatedAt?.getTime()) { emitNotificationCreated(notification); output.push(notification); }
     } catch (error) { if (error?.code !== 11000) throw error; }
   }
   return output;
 };
 
-export const notifyNewOrder = (p) => publishBusinessEvent({ eventType: p.online ? NOTIFICATION_EVENTS.ONLINE_ORDER_RECEIVED : NOTIFICATION_EVENTS.ORDER_CREATED, restaurantId: p.restaurantId, entityType: "Order", entityId: p.orderId, actorUserId: p.actorUserId, payload: p });
-export const notifyPaymentReceived = (p) => publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.PAYMENT_RECEIVED, restaurantId: p.restaurantId, entityType: "Payment", entityId: p.paymentId || p.orderId, actorUserId: p.actorUserId, payload: p });
-export const notifyNewStaff = (p) => publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.STAFF_CREATED, restaurantId: p.restaurantId, entityType: "Staff", entityId: p.staffId, actorUserId: p.actorUserId, payload: p });
-export const notifyLowStock = (p) => publishBusinessEvent({ eventType: Number(p.quantity) <= 0 ? NOTIFICATION_EVENTS.INVENTORY_OUT_OF_STOCK : NOTIFICATION_EVENTS.INVENTORY_LOW, restaurantId: p.restaurantId, entityType: "Inventory", entityId: p.inventoryId, payload: p });
+export const notifyNewOrder = (p) => publishBusinessEvent({ eventType: p.online ? NOTIFICATION_EVENTS.ONLINE_ORDER_RECEIVED : NOTIFICATION_EVENTS.ORDER_CREATED, restaurantId: p.restaurantId, outletId: p.outletId, entityType: "Order", entityId: p.orderId, actorUserId: p.actorUserId, payload: p });
+export const notifyPaymentReceived = (p) => publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.PAYMENT_RECEIVED, restaurantId: p.restaurantId, outletId: p.outletId, entityType: "Payment", entityId: p.paymentId || p.orderId, actorUserId: p.actorUserId, payload: p });
+export const notifyNewStaff = (p) => publishBusinessEvent({ eventType: NOTIFICATION_EVENTS.STAFF_CREATED, restaurantId: p.restaurantId, outletId: p.outletId, entityType: "Staff", entityId: p.staffId, actorUserId: p.actorUserId, payload: p });
+export const notifyLowStock = (p) => publishBusinessEvent({ eventType: Number(p.quantity) <= 0 ? NOTIFICATION_EVENTS.INVENTORY_OUT_OF_STOCK : NOTIFICATION_EVENTS.INVENTORY_LOW, restaurantId: p.restaurantId, outletId: p.outletId, entityType: "Inventory", entityId: p.inventoryId, payload: p });
 
 const createLegacyNotification = async ({ userId, restaurantId, type = "system", title, message, entityType = null, entityId = null }) => {
   if (!validId(userId) || !text(title) || !text(message)) return null;

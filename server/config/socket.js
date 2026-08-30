@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Outlet from "../models/Outlet.js";
 import { getAllowedOrigins, isOriginAllowed } from "../utils/allowedOrigins.js";
+import { hasAllOutletsAccess } from "../utils/tenantUtils.js";
 
 let io;
 
@@ -25,14 +26,13 @@ export const initSocketServer = (httpServer) => {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error("Unauthorized"));
       const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-      const user = await User.findById(decoded.id).select("_id role restaurant outletAccess isActive").lean();
+      const user = await User.findById(decoded.id).select("_id role restaurant outletAccess allOutletsAccess isActive").lean();
       if (!user?.isActive) return next(new Error("Unauthorized"));
       const requestedOutletId = socket.handshake.auth?.outletId;
       let outlet = null;
       if (requestedOutletId) {
-        const elevated = ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(user.role);
         const assigned = (user.outletAccess || []).some((entry) => entry.isActive !== false && String(entry.outlet) === String(requestedOutletId));
-        if (!elevated && !assigned) return next(new Error("Forbidden outlet"));
+        if (!hasAllOutletsAccess(user) && !assigned) return next(new Error("Forbidden outlet"));
         outlet = await Outlet.findOne({ _id: requestedOutletId, restaurant: user.restaurant, isActive: true }).select("_id").lean();
         if (!outlet) return next(new Error("Forbidden outlet"));
       }

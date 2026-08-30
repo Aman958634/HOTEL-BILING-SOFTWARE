@@ -25,7 +25,7 @@ export const expandRoles = (roles = []) => [
 
 export const isAdminRole = (role) => expandRoles([role]).includes("admin");
 
-const canAccessEveryOutlet = (user) =>
+export const hasAllOutletsAccess = (user) =>
   user?.allOutletsAccess === true ||
   ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(normalizeRole(user?.role));
 
@@ -111,6 +111,12 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
 /** Applies a verified active outlet only to operational models with an outlet field. */
 export const buildOutletQuery = async (baseFilters, user, { allowAll = false } = {}) => {
   const filters = await buildRestaurantQuery(baseFilters, user);
+
+  // An all-outlets aggregation is server-authorized, never an ObjectId-like
+  // client value such as "all". It deliberately takes precedence over a
+  // remembered default outlet only when auth has approved this request scope.
+  if (allowAll && user?.allOutletsScope === true && hasAllOutletsAccess(user)) return filters;
+
   const selectedOutletId = user?.activeOutlet || user?.defaultOutlet;
 
   if (selectedOutletId) {
@@ -125,7 +131,7 @@ export const buildOutletQuery = async (baseFilters, user, { allowAll = false } =
       .select("_id")
       .lean();
 
-    if (outlet && (canAccessEveryOutlet(user) || hasExplicitOutletAccess(user, outlet._id))) {
+    if (outlet && (hasAllOutletsAccess(user) || hasExplicitOutletAccess(user, outlet._id))) {
       return mergeTenantFilter(filters, { outlet: outlet._id });
     }
 
@@ -133,10 +139,6 @@ export const buildOutletQuery = async (baseFilters, user, { allowAll = false } =
     // outlet selection. The impossible condition safely returns no records.
     return mergeTenantFilter(filters, { outlet: null });
   }
-
-  // An all-outlets aggregation is server-authorized, never an ObjectId-like
-  // client value such as "all".
-  if (allowAll && canAccessEveryOutlet(user)) return filters;
 
   // An unassigned user has no operational outlet scope.
   return mergeTenantFilter(filters, { outlet: null });

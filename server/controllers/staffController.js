@@ -254,6 +254,7 @@ export const createStaff = asyncHandler(async (req, res) => {
   const staffName = `${saved.firstName} ${saved.lastName}`;
   await notifyNewStaff({
     restaurantId: req.user?.restaurant || null,
+    outletId: saved.outlet || null,
     staffId: saved._id,
     staffName,
     role: saved.role,

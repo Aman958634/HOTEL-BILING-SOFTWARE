@@ -7,7 +7,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { normalizePaymentMethod, normalizePaymentStatus } from "../utils/paymentUtils.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
@@ -156,12 +156,18 @@ const toInvoiceMatch = (rangeContext, restaurantFilter = {}) => ({
 
 const getRestaurantFilter = async (user) => {
   if (!user) return {};
-  return buildRestaurantQuery({}, user);
+  return buildOutletQuery({}, user, { allowAll: true });
 };
 
-const buildSummaryForRange = async (rangeContext, restaurantFilter = {}) => {
+const getInvoiceFilter = async (user) => {
+  const orderFilter = await getRestaurantFilter(user);
+  const orderIds = await Order.distinct("_id", orderFilter);
+  return { order: { $in: orderIds } };
+};
+
+const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoiceFilter = restaurantFilter) => {
   const orderMatch = toOrderMatch(rangeContext, restaurantFilter);
-  const invoiceMatch = toInvoiceMatch(rangeContext, restaurantFilter);
+  const invoiceMatch = toInvoiceMatch(rangeContext, invoiceFilter);
 
   const [
     orderStatusRows,
@@ -229,11 +235,11 @@ export const getReportSummary = asyncHandler(async (req, res) => {
     end: current.previousEnd,
   };
 
-  const restaurantFilter = await getRestaurantFilter(req.user);
+  const [restaurantFilter, invoiceFilter] = await Promise.all([getRestaurantFilter(req.user), getInvoiceFilter(req.user)]);
 
   const [currentSummary, previousSummary] = await Promise.all([
-    buildSummaryForRange(current, restaurantFilter),
-    buildSummaryForRange(previous, restaurantFilter),
+    buildSummaryForRange(current, restaurantFilter, invoiceFilter),
+    buildSummaryForRange(previous, restaurantFilter, invoiceFilter),
   ]);
 
   const data = {
@@ -254,7 +260,7 @@ export const getReportSummary = asyncHandler(async (req, res) => {
 
 export const getRevenueReport = asyncHandler(async (req, res) => {
   const rangeContext = parseDateRange(req.query);
-  const restaurantFilter = await getRestaurantFilter(req.user);
+  const invoiceFilter = await getInvoiceFilter(req.user);
   const format =
     rangeContext.granularity === "hour"
       ? "%Y-%m-%d %H:00"
@@ -265,7 +271,7 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
   const rows = await Invoice.aggregate([
     {
       $match: {
-        ...toInvoiceMatch(rangeContext, restaurantFilter),
+        ...toInvoiceMatch(rangeContext, invoiceFilter),
       },
     },
     {

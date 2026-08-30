@@ -1,8 +1,10 @@
 import http from "http";
 import dotenv from "dotenv";
 import logger from "./utils/logger.js";
+import { validateProductionEnvironment } from "./config/envValidation.js";
 
 dotenv.config();
+validateProductionEnvironment();
 
 const bootstrap = async () => {
   const [{ default: app }, { default: connectDB }, { initSocketServer }] = await Promise.all([

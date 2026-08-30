@@ -8,7 +8,7 @@ import Inventory from "../models/Inventory.js";
 import Subscription from "../models/Subscription.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { buildRestaurantQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
@@ -37,6 +37,14 @@ const sumInvoiceSales = async (match) => {
   return Number(result?.total || 0);
 };
 
+// Legacy Invoice records predate outletId. Scope them through their immutable
+// source order instead of treating restaurant-wide invoice totals as outlet data.
+const invoiceOrderScope = async (user, filters = {}) => {
+  const orderScope = await buildOutletQuery({}, user, { allowAll: true });
+  const orderIds = await Order.distinct("_id", orderScope);
+  return { ...filters, order: { $in: orderIds } };
+};
+
 const normalizeStatus = (status) => {
   const map = {
     PENDING: "Pending",
@@ -63,8 +71,9 @@ export const dashboardStats = asyncHandler(async (req, res) => {
   const yesterdayStart = new Date(todayStart);
   yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
-  const baseOrderMatch = await buildRestaurantQuery({ isArchived: { $ne: true } }, req.user);
-  const invoiceMatch = await buildRestaurantQuery({}, req.user);
+  const baseOrderMatch = await buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true });
+  const invoiceMatch = await invoiceOrderScope(req.user);
+  const operationalScope = await buildOutletQuery({}, req.user, { allowAll: true });
 
   const [
     totalRevenue,
@@ -85,9 +94,9 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID" }),
     Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: todayStart } }),
     Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: yesterdayStart, $lt: todayStart } }),
-    Reservation.countDocuments({ status: { $in: ["pending", "confirmed"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
-    Table.countDocuments({ status: { $in: ["AVAILABLE", "available"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
-    Inventory.countDocuments({ $expr: { $lte: ["$quantity", "$reorderLevel"] }, ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
+    Reservation.countDocuments({ ...operationalScope, status: { $in: ["pending", "confirmed"] } }),
+    Table.countDocuments({ ...operationalScope, status: { $in: ["AVAILABLE", "available"] } }),
+    Inventory.countDocuments({ ...operationalScope, $expr: { $lte: ["$quantity", "$reorderLevel"] } }),
     Food.countDocuments({ ...(req.user?.restaurant ? { restaurant: req.user.restaurant } : {}) }),
   ]);
 
@@ -176,12 +185,11 @@ export const salesOverview = asyncHandler(async (req, res) => {
     groupFormat = "%Y-%m";
   }
 
-  const invoiceMatch = await buildRestaurantQuery(
+  const invoiceMatch = await invoiceOrderScope(req.user,
     {
       issuedAt: { $gte: startDate },
       status: { $ne: "VOID" },
-    },
-    req.user
+    }
   );
 
   const data = await Invoice.aggregate([
@@ -200,7 +208,7 @@ export const salesOverview = asyncHandler(async (req, res) => {
 });
 
 export const recentOrders = asyncHandler(async (req, res) => {
-  const orderMatch = await buildRestaurantQuery({ isArchived: { $ne: true } }, req.user);
+  const orderMatch = await buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true });
 
   const orders = await Order.find(orderMatch)
     .populate("customer", "fullName email")

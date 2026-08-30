@@ -6,13 +6,18 @@ services:
       dockerfile: Dockerfile.server
     env_file:
       - server/.env
+    environment:
+      PORT: 5002
     ports:
-      - "5000:5000"
+      - "5002:5002"
 
   web:
     build:
       context: .
       dockerfile: Dockerfile.client
+      args:
+        VITE_API_URL: ${VITE_API_URL:?Set VITE_API_URL before building the production web image}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:?Set VITE_SOCKET_URL before building the production web image}
     ports:
       - "8080:80"
     depends_on:

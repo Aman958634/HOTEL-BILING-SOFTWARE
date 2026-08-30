@@ -150,6 +150,7 @@ const notifyPaymentAudience = async ({ title, message, payment, order }) => {
     if (title === "Payment received" || title === "Refund processed") {
       await notifyPaymentReceived({
         restaurantId,
+        outletId: payment?.outlet || order?.outlet || null,
         paymentId,
         orderId,
         orderNumber,

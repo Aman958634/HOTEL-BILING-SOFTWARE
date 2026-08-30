@@ -422,6 +422,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (nextStatus === "PAID") {
     await notifyPaymentReceived({
       restaurantId: order.restaurant,
+      outletId: order.outlet || null,
       paymentId: payment._id,
       orderId: order._id,
       orderNumber: order.orderNumber,

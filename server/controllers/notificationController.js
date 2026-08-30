@@ -4,6 +4,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
+import { buildOutletQuery } from "../utils/tenantUtils.js";
 
 const parseBoolean = (value) => {
   if (value === undefined) return undefined;
@@ -11,7 +12,7 @@ const parseBoolean = (value) => {
   return ["true", "1", "yes"].includes(String(value).toLowerCase());
 };
 
-const buildBaseFilters = (req) => {
+const buildBaseFilters = async (req) => {
   const filters = { user: req.user._id };
 
   if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
@@ -19,6 +20,16 @@ const buildBaseFilters = (req) => {
       { restaurantId: req.user.restaurant },
       { restaurantId: null },
     ];
+  }
+
+  const outletScope = await buildOutletQuery({}, req.user, { allowAll: true });
+  if (outletScope.outlet) {
+    // Tenant-wide/user-targeted notifications (outlet: null) remain visible,
+    // while operational messages are restricted to the active outlet.
+    filters.$and = [...(filters.$and || []), { $or: [{ outlet: outletScope.outlet }, { outlet: null }] }];
+  } else if (!req.user.allOutletsScope) {
+    // A user without a valid outlet may only see their non-operational notices.
+    filters.outlet = null;
   }
 
   return filters;
@@ -31,13 +42,12 @@ export const getNotifications = asyncHandler(async (req, res) => {
   const sortBy = allowedSortFields.has(requestedSort) ? requestedSort : "createdAt";
   const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
-  const filters = buildBaseFilters(req);
+  const filters = await buildBaseFilters(req);
 
   if (req.query.search) {
     const escaped = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     filters.$and = [...(filters.$and || []), { $or: [{ title: { $regex: escaped, $options: "i" } }, { message: { $regex: escaped, $options: "i" } }] }];
   }
-  if (req.user.activeOutlet && mongoose.isValidObjectId(req.user.activeOutlet)) filters.outlet = req.user.activeOutlet;
   if (req.query.type) {
     filters.type = req.query.type;
   }
@@ -69,7 +79,7 @@ export const getNotifications = asyncHandler(async (req, res) => {
 });
 
 export const getNotificationSummary = asyncHandler(async (req, res) => {
-  const baseFilters = buildBaseFilters(req);
+  const baseFilters = await buildBaseFilters(req);
   const [total, unread, typeCounts] = await Promise.all([
     Notification.countDocuments(baseFilters),
     Notification.countDocuments({ ...baseFilters, isRead: false }),
@@ -108,13 +118,7 @@ export const updateNotificationStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, "isRead must be a boolean");
   }
 
-  const filters = { _id: req.params.id, user: req.user._id };
-  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
-    filters.$or = [
-      { restaurantId: req.user.restaurant },
-      { restaurantId: null },
-    ];
-  }
+  const filters = { ...(await buildBaseFilters(req)), _id: req.params.id };
 
   const notification = await Notification.findOneAndUpdate(
     filters,
@@ -130,26 +134,14 @@ export const updateNotificationStatus = asyncHandler(async (req, res) => {
 });
 
 export const markAllNotificationsRead = asyncHandler(async (req, res) => {
-  const filters = { user: req.user._id, isRead: false };
-  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
-    filters.$or = [
-      { restaurantId: req.user.restaurant },
-      { restaurantId: null },
-    ];
-  }
+  const filters = { ...(await buildBaseFilters(req)), isRead: false };
 
   const result = await Notification.updateMany(filters, { isRead: true, readAt: new Date() });
   res.status(200).json(new ApiResponse(true, "All notifications marked as read", { modifiedCount: result.modifiedCount }));
 });
 
 export const deleteNotification = asyncHandler(async (req, res) => {
-  const filters = { _id: req.params.id, user: req.user._id };
-  if (req.user.role !== "super_admin" && req.user.restaurant && mongoose.isValidObjectId(req.user.restaurant)) {
-    filters.$or = [
-      { restaurantId: req.user.restaurant },
-      { restaurantId: null },
-    ];
-  }
+  const filters = { ...(await buildBaseFilters(req)), _id: req.params.id };
 
   const notification = await Notification.findOneAndDelete(filters);
   if (!notification) {

@@ -89,6 +89,7 @@ export const createOne = asyncHandler(async (req, res) => {
     if (quantity <= reorderLevel) {
       await notifyLowStock({
         restaurantId: doc.restaurant,
+        outletId: doc.outlet || null,
         inventoryId: doc._id,
         itemName: doc.itemName,
         quantity,
@@ -144,6 +145,7 @@ export const updateOne = asyncHandler(async (req, res) => {
     if (quantity <= reorderLevel) {
       await notifyLowStock({
         restaurantId: doc.restaurant,
+        outletId: doc.outlet || null,
         inventoryId: doc._id,
         itemName: doc.itemName,
         quantity,
