@@ -1,23 +1,23 @@
 import { Link } from "react-router-dom";
 
 const HomePage = () => (
-  <div className="space-y-16">
-    <section className="mx-auto flex max-w-4xl flex-col items-center gap-10 text-center">
-      <div className="space-y-8 animate-fade-in-up">
-        <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-teal-800 shadow-sm shadow-teal-100/80">
+  <div className="landing-page space-y-16">
+    <section className="landing-hero mx-auto flex max-w-4xl flex-col items-center gap-10 text-center">
+      <div className="landing-hero-content animate-fade-in-up">
+        <div className="hero-badge inline-flex items-center gap-2 rounded-full border border-teal-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-teal-800 shadow-sm shadow-teal-100/80">
           ⭐ ALL-IN-ONE RESTAURANT MANAGEMENT
         </div>
 
-        <div className="space-y-5">
-          <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-6xl">
+        <div className="hero-copy">
+          <h1 className="hero-title text-5xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-6xl">
             Enterprise Restaurant <span className="text-brand-700">Management</span> for Modern Teams
           </h1>
-          <p className="mx-auto max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="hero-description mx-auto max-w-2xl text-lg leading-8 text-slate-600">
             Manage orders, tables, kitchen, inventory, staff and delivery through one powerful SaaS platform.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="hero-ctas flex flex-wrap items-center justify-center gap-4">
           <Link
             to="/pricing"
             className="inline-flex items-center justify-center rounded-full bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-700/20 transition duration-200 hover:bg-brand-800"
@@ -32,16 +32,16 @@ const HomePage = () => (
           </Link>
         </div>
 
-        <div className="grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+        <div className="hero-feature-grid grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
             <p className="text-sm font-semibold text-slate-900">Easy to Use</p>
             <p className="mt-2 text-sm text-slate-500">Intuitive Interface</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
             <p className="text-sm font-semibold text-slate-900">Real-time Updates</p>
             <p className="mt-2 text-sm text-slate-500">Live Synchronization</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
             <p className="text-sm font-semibold text-slate-900">Secure & Reliable</p>
             <p className="mt-2 text-sm text-slate-500">99.9% Uptime</p>
           </div>
