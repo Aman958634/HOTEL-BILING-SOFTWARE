@@ -1,22 +1,51 @@
 import { FiCalendar, FiChevronDown } from "react-icons/fi";
+import { useLocation } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
 import GlobalSearch from "../common/GlobalSearch";
 import OutletSwitcher from "./OutletSwitcher";
 
-const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" }) => {
+const pageMeta = [
+  ["/online-orders", "Online Orders", "Track and fulfill orders from every sales channel."],
+  ["/central-kitchen", "Central Kitchen", "Coordinate requisitions, production, and transfers."],
+  ["/business-intelligence", "Business Intelligence", "Understand performance with clear operational metrics."],
+  ["/my-subscription", "My Subscription", "Review your plan and billing information."],
+  ["/intelligence", "RestoSphere Intelligence", "Review restaurant insights and actionable alerts."],
+  ["/notifications", "Notifications", "Stay on top of important restaurant activity."],
+  ["/customers", "Customer CRM", "Build lasting relationships with your customers."],
+  ["/inventory", "Inventory", "Keep stock levels and availability under control."],
+  ["/settings", "Settings", "Manage your restaurant preferences and access."],
+  ["/payments", "Payments", "Review payments, refunds, and reconciliation."],
+  ["/reports", "Reports", "View your restaurant’s operational performance."],
+  ["/billing", "Billing & Plans", "Manage billing and your RestoSphere plan."],
+  ["/outlets", "Outlets", "Manage your authorized restaurant outlets."],
+  ["/orders", "Orders", "Manage restaurant orders and their service status."],
+  ["/tables", "Tables", "See table availability and active service."],
+  ["/staff", "Staff", "Manage team members and service assignments."],
+  ["/kitchen", "Kitchen Display", "Keep kitchen tickets moving in real time."],
+  ["/menu", "Menu Management", "Maintain your menu, prices, and availability."],
+  ["/categories", "Categories", "Organize your menu for faster service."],
+  ["/cockpit", "Service Cockpit", "Monitor live service and urgent activity."],
+  ["/loyalty", "Loyalty & Rewards", "Manage customer rewards and activity."],
+];
+
+const AdminHeader = ({ title, subtitle }) => {
+  const { pathname } = useLocation();
+  const matchedMeta = pageMeta.find(([path]) => pathname.includes(path));
+  const resolvedTitle = title || matchedMeta?.[1] || "Dashboard";
+  const resolvedSubtitle = subtitle || matchedMeta?.[2] || "Today’s restaurant performance at a glance.";
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="hidden md:block">
-          <h1 className="text-xl font-bold text-slate-900">{title}</h1>
-          <p className="text-sm text-slate-500">{subtitle}</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
+          <p className="text-sm text-slate-500">{resolvedSubtitle}</p>
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
           <GlobalSearch className="hidden sm:block" />
           <OutletSwitcher />
 
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+          <button type="button" aria-label="Reporting period: Today" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
             <FiCalendar className="h-4 w-4 text-slate-500" />
             <span className="hidden md:inline">Today</span>
             <FiChevronDown className="h-3.5 w-3.5 text-slate-400" />
@@ -26,7 +55,7 @@ const AdminHeader = ({ title = "Dashboard", subtitle = "Welcome back, Admin!" })
             <NotificationBell />
           </div>
 
-          <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50">
+          <button type="button" aria-label="Open profile menu" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white">
               A
             </div>

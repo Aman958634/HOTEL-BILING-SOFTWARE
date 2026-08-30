@@ -4,11 +4,28 @@
 
 :root {
   font-family: "Sora", sans-serif;
+  color-scheme: light;
 }
+
+html { min-width: 320px; background: #f1f5f9; }
 
 body {
   @apply bg-slate-100 text-slate-900;
+  min-width: 320px;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
 }
+
+button, input, select, textarea { font: inherit; }
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+
+::selection { background: #d1fae5; color: #064e3b; }
 
 .glass {
   @apply bg-white/60 backdrop-blur-xl border border-white/30 shadow-glass;
@@ -27,4 +44,25 @@ body {
 
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease-out;
+}
+
+@layer components {
+  .ui-page { @apply space-y-5 pb-20; }
+  .ui-page-header { @apply flex flex-wrap items-start justify-between gap-4; }
+  .ui-page-title { @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl; }
+  .ui-page-description { @apply mt-1 max-w-3xl text-sm leading-6 text-slate-500; }
+  .ui-card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+  .ui-card-interactive { @apply ui-card transition-shadow hover:shadow-md; }
+  .ui-input { @apply min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500; }
+  .ui-label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
+  .ui-table-wrap { @apply overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm; }
+  .ui-table { @apply min-w-full text-left text-sm; }
+  .ui-table thead { @apply border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .ui-table th { @apply whitespace-nowrap px-4 py-3; }
+  .ui-table td { @apply px-4 py-3.5 align-middle text-slate-700; }
+  .ui-table tbody tr { @apply border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }

@@ -14,6 +14,14 @@ class ErrorBoundary extends Component {
     if (import.meta.env.DEV) {
       console.error("RestoSphere render error:", error, info);
     }
+
+    const message = String(error?.message || "").toLowerCase();
+    const isChunkError = message.includes("loading chunk") || message.includes("failed to fetch dynamically imported module");
+    const recoveryKey = "restosphere:chunk-recovery";
+    if (isChunkError && !sessionStorage.getItem(recoveryKey)) {
+      sessionStorage.setItem(recoveryKey, "1");
+      window.location.reload();
+    }
   }
 
   handleReset = () => {
@@ -30,9 +38,11 @@ class ErrorBoundary extends Component {
             <p className="mt-2 text-sm text-slate-600">
               An unexpected error occurred while rendering this page.
             </p>
-            <pre className="mt-4 max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
-              {error?.message ? String(error.message) : String(error)}
-            </pre>
+            {import.meta.env.DEV ? (
+              <pre className="mt-4 max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+                {error?.message ? String(error.message) : String(error)}
+              </pre>
+            ) : null}
             <button
               type="button"
               onClick={this.handleReset}

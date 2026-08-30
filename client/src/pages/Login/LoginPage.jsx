@@ -33,7 +33,7 @@ const resolvePostLoginPath = (role, location) => {
 };
 
 const LoginPage = ({ superAdminOnly = false }) => {
-  const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
+  const { register, handleSubmit, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +66,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
   }, [accessToken, user, navigate, superAdminOnly]);
 
   const onSubmit = async (values) => {
+    clearErrors("root");
     try {
       const result = await dispatch(
         loginThunk({
@@ -85,6 +86,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
       navigate(resolvePostLoginPath(role, location), { replace: true });
     } catch (error) {
       const message = typeof error === "string" ? error : error?.message || "Invalid credentials";
+      setError("root", { message: message === "Invalid credentials" ? "Your email or password is incorrect. Please try again." : message });
       toast.error(message);
     }
   };
@@ -125,9 +127,12 @@ const LoginPage = ({ superAdminOnly = false }) => {
                     type="email"
                     placeholder="Enter your email address"
                     className="h-[56px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#EF1B1B] focus:ring-[3px] focus:ring-[#EF1B1B]/10"
-                    {...register("email", { required: true })}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? "email-error" : undefined}
+                    {...register("email", { required: "Email address is required.", pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email address." } })}
                   />
                 </div>
+                {errors.email ? <p id="email-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.email.message}</p> : null}
               </div>
 
               <div>
@@ -144,9 +149,12 @@ const LoginPage = ({ superAdminOnly = false }) => {
                     id="password"
                     placeholder="Enter your password"
                     className="h-[56px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#EF1B1B] focus:ring-[3px] focus:ring-[#EF1B1B]/10"
-                    {...register("password", { required: true })}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? "password-error" : undefined}
+                    {...register("password", { required: "Password is required." })}
                   />
                 </div>
+                {errors.password ? <p id="password-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.password.message}</p> : null}
               </div>
 
               <div className="flex items-center justify-between">
@@ -157,14 +165,10 @@ const LoginPage = ({ superAdminOnly = false }) => {
                   />
                   <span className="text-sm text-[#475569]">Remember me</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-sm font-medium text-[#EF1B1B] transition-colors hover:text-[#C90000]"
-                >
-                  Forgot password?
-                </button>
+                <span className="text-right text-xs text-[#64748B]">Contact your administrator to reset your password.</span>
               </div>
+
+              {errors.root ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{errors.root.message}</p> : null}
 
               <button
                 type="submit"

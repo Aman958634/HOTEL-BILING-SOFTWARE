@@ -454,11 +454,11 @@ const OrderManagement = () => {
   };
 
   return (
-    <div className="space-y-4 pb-20">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="ui-page">
+      <div className="ui-page-header">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Order Management</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage restaurant orders, payments, tables and order status in real time.</p>
+          <h2 className="ui-page-title">Order Management</h2>
+          <p className="ui-page-description">Manage restaurant orders, payments, tables and order status in real time.</p>
         </div>
       </div>
 
@@ -482,21 +482,21 @@ const OrderManagement = () => {
       />
       {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm shadow-sm">
+      <div className="ui-card flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
         <p>
           Showing {(meta.page - 1) * meta.limit + (orders.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + orders.length} of {meta.total} orders
         </p>
         <div className="flex items-center gap-2">
-          <button onClick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1} className="rounded border border-slate-300 px-3 py-2 min-h-[44px] disabled:opacity-60">Previous</button>
+          <button onClick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:opacity-60">Previous</button>
           {Array.from({ length: Math.min(meta.totalPages || 1, 5) }).map((_, idx) => {
             const page = idx + 1;
             return (
-              <button key={page} onClick={() => goToPage(page)} className={`rounded border px-3 py-2 min-h-[44px] ${meta.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300"}`}>
+              <button key={page} onClick={() => goToPage(page)} aria-current={meta.page === page ? "page" : undefined} className={`min-h-11 rounded-xl border px-3 py-2 font-medium transition ${meta.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 hover:bg-slate-50"}`}>
                 {page}
               </button>
             );
           })}
-          <button onClick={() => goToPage(meta.page + 1)} disabled={meta.page >= (meta.totalPages || 1)} className="rounded border border-slate-300 px-3 py-2 min-h-[44px] disabled:opacity-60">Next</button>
+          <button onClick={() => goToPage(meta.page + 1)} disabled={meta.page >= (meta.totalPages || 1)} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:opacity-60">Next</button>
         </div>
       </div>
 

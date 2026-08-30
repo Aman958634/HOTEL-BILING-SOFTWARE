@@ -4,28 +4,28 @@ import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
 
 const links = [
-  { to: "/dashboard/admin", label: "Dashboard", icon: <FiHome /> },
-  { to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen /> },
-  { to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag /> },
-  { to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid /> },
-  { to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout /> },
-  { to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee /> },
-  { to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag /> },
-  { to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck /> },
-  { to: "/dashboard/admin/customers", label: "Customer CRM", icon: <FiUsers /> },
-  { to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward /> },
-  { to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
-  { to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox /> },
-  { to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee /> },
-  { to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },
-  { to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText /> },
-  { to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign /> },
-  { to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 /> },
-  { to: "/dashboard/admin/business-intelligence", label: "Business Intelligence", icon: <FiBarChart2 /> },
-  { to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward /> },
-  { to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell /> },
-  { to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
-  { to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin /> },
+  { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome /> },
+  { group: "Operations", to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout /> },
+  { group: "Operations", to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid /> },
+  { group: "Operations", to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag /> },
+  { group: "Operations", to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck /> },
+  { group: "Operations", to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee /> },
+  { group: "Menu & Customers", to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen /> },
+  { group: "Menu & Customers", to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag /> },
+  { group: "Menu & Customers", to: "/dashboard/admin/customers", label: "Customer CRM", icon: <FiUsers /> },
+  { group: "Menu & Customers", to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward /> },
+  { group: "Management", to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
+  { group: "Management", to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox /> },
+  { group: "Management", to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/business-intelligence", label: "Business Intelligence", icon: <FiBarChart2 /> },
+  { group: "Finance & Insights", to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward /> },
+  { group: "Administration", to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell /> },
+  { group: "Administration", to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin /> },
+  { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
 ];
 
 const AdminSidebar = ({ open, setOpen }) => {
@@ -60,8 +60,12 @@ const AdminSidebar = ({ open, setOpen }) => {
           </button>
         </div>
 
-        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 py-2">
-          {links.map((link) => (
+        <nav aria-label="Restaurant administration" className="flex-1 min-h-0 space-y-4 overflow-y-auto px-3 py-2">
+          {Object.entries(links.reduce((groups, link) => ({ ...groups, [link.group]: [...(groups[link.group] || []), link] }), {})).map(([group, groupLinks]) => (
+            <div key={group}>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group}</p>
+              <div className="space-y-1">
+              {groupLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
@@ -76,8 +80,11 @@ const AdminSidebar = ({ open, setOpen }) => {
               onClick={() => setOpen(false)}
             >
               <span className="text-base">{link.icon}</span>
-              <span>{link.label}</span>
+              <span className="truncate">{link.label}</span>
             </NavLink>
+              ))}
+              </div>
+            </div>
           ))}
         </nav>
 
