@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { addToCart, setCartTableNumber } from "../../redux/slices/cartSlice";
-import { getCategories, getFoods } from "../../services/menuService";
+import { addToCart, setPublicMenuContext } from "../../redux/slices/cartSlice";
+import { getPublicMenu } from "../../services/menuService";
 import { currency } from "../../utils/format";
 
 const MenuPage = () => {
@@ -16,50 +16,47 @@ const MenuPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const tableFromUrl = searchParams.get("table");
+  const qrToken = searchParams.get("qr");
 
-  const fetchCategories = useCallback(async () => {
-    try {
-      const { data } = await getCategories();
-      setCategories(data.data || []);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
-  const fetchFoods = useCallback(async () => {
+  const fetchMenu = useCallback(async () => {
     setLoading(true);
     setError("");
+    if (!qrToken) {
+      setFoods([]);
+      setCategories([]);
+      setError("This menu requires a valid table QR code.");
+      setLoading(false);
+      return;
+    }
     try {
       const params = { limit: 100, search: search.trim() || undefined };
       if (selectedCategory) params.category = selectedCategory;
-      const { data } = await getFoods(params);
-      setFoods(data.data || []);
+      const { data } = await getPublicMenu(qrToken, params);
+      const menu = data.data || {};
+      setFoods(menu.items || []);
+      setCategories(menu.categories || []);
+      dispatch(setPublicMenuContext({
+        qrToken,
+        tableNumber: menu.table?.tableNumber || "",
+        restaurantName: menu.restaurant?.name || "",
+        outletName: menu.outlet?.name || "",
+      }));
     } catch (err) {
-      setError("Unable to load menu.");
+      setError(err.response?.data?.message || "Unable to load this menu.");
       setFoods([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, search]);
-
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  useEffect(() => {
-    if (tableFromUrl) {
-      dispatch(setCartTableNumber(tableFromUrl));
-    }
-  }, [tableFromUrl, dispatch]);
+  }, [dispatch, qrToken, selectedCategory, search]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchFoods();
+      fetchMenu();
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [fetchFoods]);
+  }, [fetchMenu]);
 
   const availableFoods = useMemo(() => foods || [], [foods]);
 
@@ -70,9 +67,9 @@ const MenuPage = () => {
 
   return (
     <div className="space-y-6">
-      {tableFromUrl && (
+      {qrToken && (
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm font-medium text-brand-800">
-          You are ordering for <span className="font-bold">Table {tableFromUrl}</span> (Dine-In)
+          You are ordering through a verified table QR code (Dine-In).
         </div>
       )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -127,7 +124,7 @@ const MenuPage = () => {
           <p className="mt-2 text-sm text-rose-700">Please try again or check back soon.</p>
           <button
             type="button"
-            onClick={fetchFoods}
+            onClick={fetchMenu}
             className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
           >
             Retry

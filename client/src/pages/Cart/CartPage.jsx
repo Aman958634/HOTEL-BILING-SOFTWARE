@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { removeFromCart } from "../../redux/slices/cartSlice";
 import { currency } from "../../utils/format";
 
@@ -7,10 +7,9 @@ const CartPage = () => {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.cart.items);
   const tableNumber = useSelector((state) => state.cart.tableNumber);
+  const publicMenuContext = useSelector((state) => state.cart.publicMenuContext);
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const [searchParams] = useSearchParams();
-
-  const checkoutPath = tableNumber ? `/guest-checkout?table=${encodeURIComponent(tableNumber)}` : "/checkout";
+  const checkoutPath = publicMenuContext?.qrToken ? `/guest-checkout?qr=${encodeURIComponent(publicMenuContext.qrToken)}` : "/checkout";
 
   return (
     <div>

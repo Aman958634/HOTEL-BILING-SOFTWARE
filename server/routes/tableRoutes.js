@@ -9,6 +9,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { buildRestaurantQuery } from "../utils/tenantUtils.js";
 import Table from "../models/Table.js";
+import { createPublicMenuContext } from "../utils/publicMenuContext.js";
 import {
   createTable,
   deleteTable,
@@ -122,7 +123,8 @@ router.get(
     if (!table) throw new ApiError(404, "Table not found");
 
     const frontendUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
-    const qrData = `${frontendUrl}/menu?table=${encodeURIComponent(table.tableNumber)}`;
+    const qrToken = createPublicMenuContext(table);
+    const qrData = `${frontendUrl}/menu?qr=${encodeURIComponent(qrToken)}`;
 
     try {
       const qrCode = await QRCode.toDataURL(qrData, {
@@ -132,7 +134,7 @@ router.get(
       });
 
       res.setHeader("Cache-Control", "no-store");
-      res.status(200).json({ qrCode });
+      res.status(200).json({ qrCode, qrData });
     } catch (qrError) {
       throw new ApiError(500, "Failed to generate QR code");
     }

@@ -32,7 +32,6 @@ const hotelSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-hotelSchema.index({ slug: 1 });
 
 const Hotel = mongoose.model("Hotel", hotelSchema);
 export default Hotel;

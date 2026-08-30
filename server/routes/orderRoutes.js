@@ -35,10 +35,7 @@ router.post(
     body("items.*.menuItem").optional().isMongoId().withMessage("Invalid menu item id"),
     body("items.*.food").optional().isMongoId().withMessage("Invalid menu item id"),
     body("items.*.quantity").isInt({ min: 1 }).withMessage("Item quantity must be at least 1"),
-    body("table")
-      .notEmpty().withMessage("Table is required for guest orders")
-      .isMongoId()
-      .withMessage("Table id is invalid"),
+    body("qrToken").isString().trim().notEmpty().withMessage("A valid table QR context is required"),
   ],
   validate,
   asyncHandler(async (req, res) => {

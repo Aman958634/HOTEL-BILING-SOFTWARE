@@ -2,16 +2,17 @@ import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { clearCart, setCartTableNumber } from "../../redux/slices/cartSlice";
+import { clearCart } from "../../redux/slices/cartSlice";
 import { createGuestOrder } from "../../services/orderService";
-import { getTableByNumber } from "../../services/tableService";
 import { currency } from "../../utils/format";
 
 const GuestCheckoutPage = () => {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.cart.items);
   const [searchParams] = useSearchParams();
-  const tableNumber = searchParams.get("table") || useSelector((state) => state.cart.tableNumber);
+  const publicMenuContext = useSelector((state) => state.cart.publicMenuContext);
+  const qrToken = searchParams.get("qr") || publicMenuContext?.qrToken;
+  const tableNumber = publicMenuContext?.tableNumber || "";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -21,24 +22,16 @@ const GuestCheckoutPage = () => {
   const total = subtotal + tax;
 
   const onPlaceOrder = async () => {
-    if (!tableNumber) {
-      toast.error("Table number is missing");
+    if (!qrToken) {
+      toast.error("A valid table QR code is required");
       return;
     }
 
     setPlacing(true);
     try {
-      const tableRes = await getTableByNumber(tableNumber);
-      const table = tableRes.data?.data;
-      if (!table || !table._id) {
-        toast.error("Invalid table");
-        return;
-      }
-
       const payload = {
         orderType: "DINE_IN",
-        table: table._id,
-        restaurant: table.restaurant?._id || table.restaurant,
+        qrToken,
         items: items.map((item) => ({
           menuItem: item._id,
           name: item.name,
@@ -55,7 +48,6 @@ const GuestCheckoutPage = () => {
 
       await createGuestOrder(payload);
       dispatch(clearCart());
-      dispatch(setCartTableNumber(null));
       toast.success("Order placed successfully");
     } catch {
       toast.error("Order failed. Please try again.");

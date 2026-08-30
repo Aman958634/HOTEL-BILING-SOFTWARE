@@ -10,17 +10,17 @@ const fmtDate = (value) => {
 };
 
 const TableDetails = ({ open, loading, table, onClose }) => {
-  if (!open) return null;
-
   const navigate = useNavigate();
-  const status = String(table?.status || "").toUpperCase();
-  const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
-  const activeOrderCount = Number(table?.activeOrderCount || 0);
-  const activeOrders = table?.activeOrders || [];
   const [qrOpen, setQrOpen] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState("");
   const [qrCode, setQrCode] = useState("");
+  const status = String(table?.status || "").toUpperCase();
+  const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
+  const activeOrderCount = Number(table?.activeOrderCount || 0);
+  const activeOrders = table?.activeOrders || [];
+
+  if (!open) return null;
 
   const handleCreateOrder = () => {
     navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });

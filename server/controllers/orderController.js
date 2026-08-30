@@ -41,6 +41,7 @@ import { syncKotForOrder } from "../services/kotService.js";
 import { resolveGstType } from "../services/gstService.js";
 import { buildOutletQuery as buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
+import { resolvePublicMenuContext } from "../utils/publicMenuContext.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -182,7 +183,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     await linkCustomerToRestaurant(existingCustomer._id, restaurantId);
   }
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
+  const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
   const orderNumber = await generateOrderNumber();
   const billingState = req.body.billingState || req.body.customerState || "";
   const calculated = buildCalculatedOrderPayload({
@@ -273,18 +274,20 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 export const createGuestOrder = asyncHandler(async (req, res) => {
   const orderType = normalizeOrderType(req.body.orderType);
+  if (orderType !== ORDER_TYPES.DINE_IN) throw new ApiError(422, "Guest QR orders must be dine-in orders");
   const orderSource = normalizeOrderSource(req.body.orderSource, orderType);
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || PAYMENT_METHODS.CASH);
   const paymentStatus = PAYMENT_STATUSES.PENDING;
 
-  const tableId = req.body.table || null;
-  const restaurantId = await resolveOrderRestaurant({ orderType, tableId, user: null });
+  const publicContext = await resolvePublicMenuContext(req.body.qrToken);
+  const tableId = publicContext.table._id;
+  const restaurantId = publicContext.restaurant._id;
   const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
   if (duplicate) {
     return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
   }
 
-  const processedItems = await prepareOrderItems(req.body.items || []);
+  const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
   const orderNumber = await generateOrderNumber();
   const billingState = req.body.billingState || req.body.customerState || "";
   const calculated = buildCalculatedOrderPayload({
@@ -302,7 +305,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     customer: null,
     table: orderType === ORDER_TYPES.DINE_IN ? tableId : null,
     restaurant: restaurantId,
-    outlet: req.user.activeOutlet || null,
+    outlet: publicContext.outlet._id,
     orderType,
     orderSource,
     externalOrderId: String(req.body.externalOrderId || "").trim() || undefined,
@@ -475,7 +478,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
   ensureOrderEditAllowed(order);
 
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
-  const nextItems = req.body.items ? await prepareOrderItems(req.body.items) : order.items;
+  const nextItems = req.body.items ? await prepareOrderItems(req.body.items, { restaurantId: order.restaurant }) : order.items;
 
   // Retain kitchen progress only for an exactly matching pre-existing item.
   // Extra copies of an item are new kitchen work and must start as NEW.

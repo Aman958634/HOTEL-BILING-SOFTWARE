@@ -20,13 +20,15 @@
     "migrate:notifications": "node scripts/migrateNotificationIndexes.js",
     "migrate:multi-outlet": "node scripts/migrateMultiOutlet.js",
     "migrate:central-kitchen": "node scripts/migrateCentralKitchenIndexes.js",
+    "migrate:tenant-categories": "node scripts/migrateTenantCategories.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",
     "test:intelligence": "node tests/intelligenceSignals.test.js",
     "test:global-search": "node tests/globalSearch.test.js",
     "test:notifications": "node tests/notificationEvents.test.js",
     "test:security": "node tests/paymentSecurity.test.js",
-    "lint": "echo \"Add ESLint config\""
+    "test:tenant-isolation": "node tests/tenantIsolation.test.js",
+    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check utils/publicMenuContext.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

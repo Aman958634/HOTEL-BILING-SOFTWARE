@@ -253,9 +253,9 @@ export const generateOrderNumber = async () => {
   return `ORD-${Date.now()}${crypto.randomInt(100, 999)}`;
 };
 
-const selectMenuItemFields = "name price isAvailable available";
+const selectMenuItemFields = "name price isAvailable available restaurant";
 
-export const prepareOrderItems = async (items) => {
+export const prepareOrderItems = async (items, { restaurantId = null } = {}) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ApiError(422, "An order must contain at least one item.");
   }
@@ -264,7 +264,7 @@ export const prepareOrderItems = async (items) => {
   if (!menuIds.length) throw new ApiError(422, "Menu item is required for each order item.");
 
   const uniqueMenuIds = [...new Set(menuIds.map((id) => String(id)))];
-  const foods = await Food.find({ _id: { $in: uniqueMenuIds } }).select(selectMenuItemFields).lean();
+  const foods = await Food.find({ _id: { $in: uniqueMenuIds }, ...(restaurantId ? { restaurant: restaurantId } : {}) }).select(selectMenuItemFields).lean();
   const foodMap = new Map(foods.map((food) => [String(food._id), food]));
 
   const normalizedItems = items.map((item) => {

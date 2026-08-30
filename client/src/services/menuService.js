@@ -1,7 +1,6 @@
 import api from "./api";
 
-export const getFoods = (params = {}) => api.get("/public/foods", { params });
-export const getCategories = () => api.get("/public/categories");
+export const getPublicMenu = (qrToken, params = {}) => api.get(`/public/menu/${encodeURIComponent(qrToken)}`, { params });
 
 export const getAdminMenu = (params = {}) => api.get("/menu", { params });
 export const getAdminMenuItem = (id) => api.get(`/menu/${id}`);

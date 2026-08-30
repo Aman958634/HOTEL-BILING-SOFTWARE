@@ -2,12 +2,11 @@ import { Router } from "express";
 import Food from "../models/Food.js";
 import Category from "../models/Category.js";
 import User from "../models/User.js";
-import Restaurant from "../models/Restaurant.js";
-import Table from "../models/Table.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
+import { getPublicMenuContextToken, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
 import {
   listPublicPlans,
   publicSubscribeSignup,
@@ -18,59 +17,55 @@ const router = Router();
 router.get("/plans", listPublicPlans);
 router.post("/subscribe/signup", publicSubscribeSignup);
 
-router.get(
-  "/foods",
-  asyncHandler(async (req, res) => {
-    const { page, limit, skip } = getPagination(req.query);
-    const sort = req.query.sortBy
-      ? { [req.query.sortBy]: req.query.order === "asc" ? 1 : -1 }
-      : { createdAt: -1 };
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const getPublicMenu = async (req) => {
+  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
+  const { page, limit, skip } = getPagination(req.query);
+  const sortFields = new Set(["createdAt", "price", "name"]);
+  const sortBy = sortFields.has(req.query.sortBy) ? req.query.sortBy : "createdAt";
+  const sort = { [sortBy]: req.query.order === "asc" ? 1 : -1 };
+  const filters = { restaurant: context.restaurant._id, isAvailable: true };
 
-    const filters = { isAvailable: true };
+  if (req.query.search) {
+    const search = escapeRegex(req.query.search);
+    filters.$or = [{ name: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }];
+  }
+  if (req.query.category) {
+    const category = await Category.findOne({ _id: req.query.category, restaurant: context.restaurant._id, isActive: true }).select("_id").lean();
+    if (!category) throw new ApiError(404, "Menu category not found");
+    filters.category = category._id;
+  }
+  if (req.query.isVeg !== undefined) filters.isVeg = req.query.isVeg === "true";
 
-    if (req.query.search) {
-      filters.$or = [
-        { name: { $regex: req.query.search, $options: "i" } },
-        { description: { $regex: req.query.search, $options: "i" } },
-      ];
-    }
+  const [items, total, categories] = await Promise.all([
+    Food.find(filters).populate("category", "name slug").sort(sort).skip(skip).limit(limit).lean(),
+    Food.countDocuments(filters),
+    Category.find({ restaurant: context.restaurant._id, isActive: true }).sort({ name: 1 }).lean(),
+  ]);
+  return {
+    table: { _id: context.table._id, tableNumber: context.table.tableNumber, floor: context.table.floor, section: context.table.section },
+    restaurant: { _id: context.restaurant._id, name: context.restaurant.name, branchCode: context.restaurant.branchCode },
+    outlet: { _id: context.outlet._id, name: context.outlet.name, code: context.outlet.code },
+    categories,
+    items,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+};
 
-    if (req.query.category) {
-      filters.category = req.query.category;
-    }
+router.get("/menu/:qrToken", asyncHandler(async (req, res) => {
+  const menu = await getPublicMenu(req);
+  res.status(200).json(new ApiResponse(true, "Public menu fetched", menu, menu.meta));
+}));
 
-    if (req.query.isVeg !== undefined) {
-      filters.isVeg = req.query.isVeg === "true";
-    }
+router.get("/foods", asyncHandler(async (req, res) => {
+  const menu = await getPublicMenu(req);
+  res.status(200).json(new ApiResponse(true, "Public foods fetched", menu.items, menu.meta));
+}));
 
-    const [items, total] = await Promise.all([
-      Food.find(filters)
-        .populate("category", "name slug")
-        .populate("restaurant", "name branchCode")
-        .sort(sort)
-        .skip(skip)
-        .limit(limit),
-      Food.countDocuments(filters),
-    ]);
-
-    res.status(200).json(
-      new ApiResponse(true, "Public foods fetched", items, {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      })
-    );
-  })
-);
-
-router.get(
-  "/categories",
-  asyncHandler(async (_req, res) => {
-    const categories = await Category.find({ isActive: true }).sort({ name: 1 });
-    res.status(200).json(new ApiResponse(true, "Public categories fetched", categories));
-  })
-);
+router.get("/categories", asyncHandler(async (req, res) => {
+  const menu = await getPublicMenu(req);
+  res.status(200).json(new ApiResponse(true, "Public categories fetched", menu.categories));
+}));
 
 router.get(
   "/seed-status",
@@ -102,26 +97,6 @@ router.post(
 
     const user = await User.create({ fullName: fullName || "Super Admin", email, password, role: "super_admin" });
     return res.status(201).json(new ApiResponse(true, "Super admin created", { email: user.email, id: user._id }));
-  })
-);
-
-router.get(
-  "/tables/:tableNumber",
-  asyncHandler(async (req, res) => {
-    const tableNumber = String(req.params.tableNumber || "").trim();
-    if (!tableNumber) {
-      return res.status(400).json(new ApiResponse(false, "Table number is required"));
-    }
-
-    const table = await Table.findOne({ tableNumber, restaurant: { $ne: null } })
-      .populate("restaurant", "name branchCode address city")
-      .lean();
-
-    if (!table) {
-      return res.status(404).json(new ApiResponse(false, "Table not found"));
-    }
-
-    res.status(200).json(new ApiResponse(true, "Public table fetched", table));
   })
 );
 

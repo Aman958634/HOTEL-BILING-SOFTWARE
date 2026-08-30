@@ -106,16 +106,16 @@ export const createMenuItem = asyncHandler(async (req, res) => {
     restaurant,
   } = req.body;
 
+  const foundRestaurant = await resolveRestaurant(restaurant, req.user);
+
   if (!mongoose.isValidObjectId(category)) {
     throw new ApiError(400, "Invalid category id");
   }
 
-  const foundCategory = await Category.findById(category);
+  const foundCategory = await Category.findOne({ _id: category, restaurant: foundRestaurant._id });
   if (!foundCategory || (!foundCategory.active && !foundCategory.isActive)) {
     throw new ApiError(400, "Category is inactive or not found");
   }
-
-  const foundRestaurant = await resolveRestaurant(restaurant, req.user);
 
   const item = await Food.create({
     name: String(name).trim(),
@@ -144,21 +144,27 @@ export const createMenuItem = asyncHandler(async (req, res) => {
 
 export const updateMenuItem = asyncHandler(async (req, res) => {
   const update = { ...req.body };
+  const filter = await buildRestaurantQuery({ _id: req.params.id }, req.user);
+  const currentItem = await Food.findOne(filter).select("restaurant hotelId").lean();
+  if (!currentItem) throw new ApiError(404, "Menu item not found");
+
+  let targetRestaurant = currentItem.restaurant;
+  if (update.restaurant) {
+    const foundRestaurant = await resolveRestaurant(update.restaurant, req.user);
+    targetRestaurant = foundRestaurant._id;
+    update.restaurant = foundRestaurant._id;
+    update.hotelId = foundRestaurant.hotelId || currentItem.hotelId || null;
+  }
 
   if (update.category && !mongoose.isValidObjectId(update.category)) {
     throw new ApiError(400, "Invalid category id");
   }
 
   if (update.category) {
-    const foundCategory = await Category.findById(update.category);
+    const foundCategory = await Category.findOne({ _id: update.category, restaurant: targetRestaurant });
     if (!foundCategory || (!foundCategory.active && !foundCategory.isActive)) {
       throw new ApiError(400, "Category is inactive or not found");
     }
-  }
-
-  if (update.restaurant) {
-    const foundRestaurant = await resolveRestaurant(update.restaurant, req.user);
-    update.restaurant = foundRestaurant._id;
   }
 
   if (update.preparationTime !== undefined) {
@@ -189,8 +195,6 @@ export const updateMenuItem = asyncHandler(async (req, res) => {
 
   if (update.price !== undefined) update.price = Number(update.price);
   if (update.discountPrice !== undefined) update.discountPrice = Number(update.discountPrice || 0);
-
-  const filter = await buildRestaurantQuery({ _id: req.params.id }, req.user);
 
   const item = await Food.findOneAndUpdate(filter, update, {
     new: true,

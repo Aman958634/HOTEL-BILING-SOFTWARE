@@ -3,6 +3,7 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
   items: [],
   tableNumber: null,
+  publicMenuContext: null,
 };
 
 const cartSlice = createSlice({
@@ -23,12 +24,17 @@ const cartSlice = createSlice({
     clearCart: (state) => {
       state.items = [];
       state.tableNumber = null;
+      state.publicMenuContext = null;
     },
     setCartTableNumber: (state, action) => {
       state.tableNumber = action.payload;
     },
+    setPublicMenuContext: (state, action) => {
+      state.publicMenuContext = action.payload || null;
+      state.tableNumber = action.payload?.tableNumber || null;
+    },
   },
 });
 
-export const { addToCart, removeFromCart, clearCart, setCartTableNumber } = cartSlice.actions;
+export const { addToCart, removeFromCart, clearCart, setCartTableNumber, setPublicMenuContext } = cartSlice.actions;
 export default cartSlice.reducer;
