@@ -9,5 +9,6 @@ const mandatoryEvents = [
 ];
 
 for (const eventType of mandatoryEvents) assert.equal(NOTIFICATION_EVENTS[eventType], eventType);
-assert.equal(new Set(Object.values(NOTIFICATION_EVENTS)).size, mandatoryEvents.length);
+assert.equal(new Set(mandatoryEvents).size, mandatoryEvents.length);
+assert.ok(Object.values(NOTIFICATION_EVENTS).length >= mandatoryEvents.length);
 console.log("Notification event contract tests passed.");

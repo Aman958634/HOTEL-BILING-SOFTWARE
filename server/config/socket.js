@@ -51,10 +51,6 @@ export const initSocketServer = (httpServer) => {
       // Client-selected rooms are intentionally ignored. Room membership is server-derived.
     });
 
-    socket.on("order-status:update", (payload) => {
-      if (socket.user.restaurant) io.to(`restaurant:${socket.user.restaurant}`).emit("order-status:changed", payload);
-    });
-
     socket.on("disconnect", () => {});
   });
 

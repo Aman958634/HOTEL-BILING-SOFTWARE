@@ -38,7 +38,9 @@ const connectDB = async () => {
   logger.info(`Connecting to MongoDB: ${maskMongoUri(mongoUri)}`);
 
   const conn = await mongoose.connect(mongoUri, {
-    autoIndex: true,
+    // Index creation belongs to explicit migrations in production; doing it
+    // on every process start can block a busy database.
+    autoIndex: process.env.NODE_ENV !== "production",
     serverSelectionTimeoutMS: 10000,
   });
 

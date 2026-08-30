@@ -25,6 +25,7 @@
     "test:intelligence": "node tests/intelligenceSignals.test.js",
     "test:global-search": "node tests/globalSearch.test.js",
     "test:notifications": "node tests/notificationEvents.test.js",
+    "test:security": "node tests/paymentSecurity.test.js",
     "lint": "echo \"Add ESLint config\""
   },
   "dependencies": {

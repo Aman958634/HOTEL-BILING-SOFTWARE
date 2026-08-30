@@ -1,13 +1,16 @@
 import User from "../models/User.js";
 
-/** Project-default super admin credentials (see server/.env.example). */
+const isProduction = () => process.env.NODE_ENV === "production";
+
+/** Development may use a convenience account; production must opt in with real secrets. */
 export const getSuperAdminConfig = () => ({
-  email: String(process.env.SUPER_ADMIN_EMAIL || "superadmin@restosphere.com").trim().toLowerCase(),
-  password: process.env.SUPER_ADMIN_PASSWORD || "SuperAdmin@12345",
+  email: String(process.env.SUPER_ADMIN_EMAIL || (isProduction() ? "" : "superadmin@restosphere.com")).trim().toLowerCase(),
+  password: process.env.SUPER_ADMIN_PASSWORD || (isProduction() ? "" : "SuperAdmin@12345"),
   fullName: process.env.SUPER_ADMIN_NAME || "Super Admin",
 });
 
-export const shouldSeedSuperAdmin = () => process.env.SUPER_ADMIN_SEED !== "false";
+export const shouldSeedSuperAdmin = () =>
+  isProduction() ? process.env.SUPER_ADMIN_SEED === "true" : process.env.SUPER_ADMIN_SEED !== "false";
 
 /**
  * Idempotent super admin bootstrap:
@@ -17,6 +20,9 @@ export const shouldSeedSuperAdmin = () => process.env.SUPER_ADMIN_SEED !== "fals
  */
 export const ensureSuperAdmin = async (log = console) => {
   const { email, password, fullName } = getSuperAdminConfig();
+  if (!email || !password) {
+    throw new Error("SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD must be set before seeding a super admin");
+  }
 
   const existingSuperAdmin = await User.findOne({ role: "super_admin" });
   if (existingSuperAdmin) {

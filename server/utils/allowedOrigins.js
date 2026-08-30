@@ -5,7 +5,7 @@ export const getAllowedOrigins = () => {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const devDefaults = ["http://localhost:5173", "http://localhost:5174"];
+  const devDefaults = process.env.NODE_ENV === "production" ? [] : ["http://localhost:5173", "http://localhost:5174"];
 
   return [...new Set([...configured, ...devDefaults])];
 };

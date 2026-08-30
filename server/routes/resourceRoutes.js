@@ -5,11 +5,15 @@ import { createOne, deleteOne, findAll, findOne, updateOne } from "../controller
 
 const router = Router();
 
-router.get("/:resource", protect, requireActiveSubscription, findAll);
-router.get("/:resource/:id", protect, requireActiveSubscription, findOne);
-router.post("/:resource", protect, requireActiveSubscription, authorize("admin", "manager"), createOne);
-router.put("/:resource/:id", protect, requireActiveSubscription, authorize("admin", "manager"), updateOne);
-router.patch("/:resource/:id", protect, requireActiveSubscription, authorize("admin", "manager"), updateOne);
-router.delete("/:resource/:id", protect, requireActiveSubscription, authorize("admin", "manager"), deleteOne);
+// This legacy generic API can address multiple models and accepts model-shaped
+// JSON. It is intentionally platform-admin-only; restaurant roles use the
+// dedicated, field-allowlisted APIs for operational records.
+router.use(protect, requireActiveSubscription, authorize("super_admin"));
+router.get("/:resource", findAll);
+router.get("/:resource/:id", findOne);
+router.post("/:resource", createOne);
+router.put("/:resource/:id", updateOne);
+router.patch("/:resource/:id", updateOne);
+router.delete("/:resource/:id", deleteOne);
 
 export default router;

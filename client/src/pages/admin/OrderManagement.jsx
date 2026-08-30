@@ -260,13 +260,14 @@ const OrderManagement = () => {
       const { paymentStatus, ...orderPayload } = payload;
       const { data } = await createOrder(orderPayload);
       let order = data.data;
+      const isCashSettlement = paymentStatus === "PAID" && String(orderPayload.paymentMethod || "CASH").toUpperCase() === "CASH";
 
-      if (paymentStatus === "PAID") {
+      if (isCashSettlement) {
         await payOrder(order._id, {
-          paymentMethod: orderPayload.paymentMethod || "CASH",
+          paymentMethod: "CASH",
           paymentStatus: "PAID",
-          gateway: orderPayload.paymentMethod || "CASH",
-          transactionId: `PAY-${order.orderNumber}-${Date.now()}`,
+          gateway: "CASH",
+          transactionId: `CASH-${order.orderNumber}-${Date.now()}`,
           paidAt: new Date().toISOString(),
         });
         const refreshed = await getOrderById(order._id);
@@ -276,7 +277,7 @@ const OrderManagement = () => {
       toast.success("Order created successfully");
       setCreateOpen(false);
 
-      if (paymentStatus === "PAID") {
+      if (isCashSettlement) {
         await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
         return;
       }
@@ -407,7 +408,6 @@ const OrderManagement = () => {
               orderId: createdOrder._id,
               provider: "razorpay",
               paymentMethod,
-              gatewayVerified: true,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,

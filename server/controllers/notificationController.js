@@ -26,7 +26,9 @@ const buildBaseFilters = (req) => {
 
 export const getNotifications = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
-  const sortBy = req.query.sortBy || "createdAt";
+  const allowedSortFields = new Set(["createdAt", "readAt", "severity", "category", "type"]);
+  const requestedSort = String(req.query.sortBy || "createdAt");
+  const sortBy = allowedSortFields.has(requestedSort) ? requestedSort : "createdAt";
   const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
   const filters = buildBaseFilters(req);

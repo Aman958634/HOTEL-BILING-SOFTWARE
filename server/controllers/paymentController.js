@@ -130,7 +130,9 @@ const buildListPipeline = async (query, user) => {
   if (query.method) baseMatch.paymentMethod = normalizePaymentMethod(query.method);
   if (query.paymentMethod) baseMatch.paymentMethod = normalizePaymentMethod(query.paymentMethod);
 
-  const sortBy = String(query.sortBy || "createdAt");
+  const allowedSortFields = new Set(["createdAt", "paidAt", "amount", "totalAmount", "paymentStatus", "paymentMethod"]);
+  const requestedSort = String(query.sortBy || "createdAt");
+  const sortBy = allowedSortFields.has(requestedSort) ? requestedSort : "createdAt";
   const sortOrder = String(query.sortOrder || query.order || "desc").toLowerCase() === "asc" ? 1 : -1;
   const sort = { [sortBy]: sortOrder };
 
@@ -296,7 +298,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (provider === "razorpay") {
     const razorpayClient = getRazorpayClient();
     if (!razorpayClient) {
-      throw new ApiError(500, "Razorpay not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env");
+      throw new ApiError(503, "Razorpay payment service is unavailable. Please try another method or contact support.");
     }
 
     logger.info(`Razorpay create-order requested for order=${order.orderNumber} amount=${order.total} method=${resolvedMethod}`);
@@ -347,16 +349,31 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const nextStatus = normalizePaymentStatus(status === "success" ? "PAID" : status);
+  const gateway = normalizeGateway(provider || meta.provider);
 
-  if (normalizeGateway(provider || meta.provider) === "razorpay") {
+  if (nextStatus === "PAID" && gateway !== "razorpay") {
+    // Browser-supplied success values are never proof of payment. Other
+    // gateways require their own authenticated webhook integration.
+    throw new ApiError(422, "This payment provider cannot be settled from the client.");
+  }
+
+  if (gateway === "razorpay") {
     logger.info(`Razorpay verify requested for orderId=${orderId} razorpayOrderId=${razorpay_order_id || ""} razorpayPaymentId=${razorpay_payment_id || ""}`);
+
+    const pendingPayment = await Payment.findOne({ orderId: order._id })
+      .select("razorpayOrderId transactionId metadata paymentStatus")
+      .lean();
+    const expectedOrderId = pendingPayment?.razorpayOrderId || pendingPayment?.metadata?.razorpayOrderId || "";
+    if (!expectedOrderId || String(expectedOrderId) !== String(razorpay_order_id || "")) {
+      throw new ApiError(422, "Payment verification failed");
+    }
 
     const generatedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || generatedSignature !== razorpay_signature) {
+    if (!razorpay_payment_id || !razorpay_signature || generatedSignature !== razorpay_signature) {
       throw new ApiError(422, "Payment verification failed");
     }
   }

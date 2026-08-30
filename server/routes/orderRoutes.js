@@ -22,11 +22,13 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { publicOrderLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
 router.post(
-  "/guest",
+	"/guest",
+	publicOrderLimiter,
   [
     body("orderType").notEmpty().withMessage("Order type is required"),
     body("items").isArray({ min: 1 }).withMessage("At least one order item is required"),

@@ -40,6 +40,7 @@ import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrd
 import { syncKotForOrder } from "../services/kotService.js";
 import { resolveGstType } from "../services/gstService.js";
 import { buildOutletQuery as buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
+import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -709,9 +710,7 @@ export const updateOrderPayment = asyncHandler(async (req, res) => {
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
   const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
 
-  if (paymentStatus === PAYMENT_STATUSES.PAID && paymentMethod !== PAYMENT_METHODS.CASH && !req.body.gatewayVerified) {
-    throw new ApiError(422, "Payment cannot be marked as PAID without gateway verification");
-  }
+  if (paymentStatus === PAYMENT_STATUSES.PAID) assertDirectCashSettlement(paymentMethod);
 
   const result = paymentStatus === PAYMENT_STATUSES.PAID
     ? await recordVerifiedPayment(order, {
@@ -776,6 +775,7 @@ export const payOrder = asyncHandler(async (req, res) => {
   if (paymentStatus !== PAYMENT_STATUSES.PAID) {
     throw new ApiError(422, "Pay endpoint only supports completed payments");
   }
+  assertDirectCashSettlement(paymentMethod);
 
   const result = await recordVerifiedPayment(order, {
     amount: req.body.amount,
@@ -821,6 +821,8 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res) => {
 
   const paymentStatus = normalizePaymentStatus(req.body.paymentStatus || order.paymentStatus);
   const paymentMethod = normalizePaymentMethod(req.body.paymentMethod || order.paymentMethod);
+
+  if (paymentStatus === PAYMENT_STATUSES.PAID) assertDirectCashSettlement(paymentMethod);
 
   const result = paymentStatus === PAYMENT_STATUSES.PAID
     ? await recordVerifiedPayment(order, {

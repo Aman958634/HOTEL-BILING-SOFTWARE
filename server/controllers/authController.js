@@ -11,6 +11,7 @@ import logger from "../utils/logger.js";
 import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
 
 const resetTokenStore = new Map();
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
 
 const buildSessionPayload = async (user) => {
@@ -43,20 +44,15 @@ export const login = asyncHandler(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = req.body.password;
 
-  logger.info(`Login attempt email: ${email}`);
-
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
-    logger.warn(`Login failed: user not found (${email})`);
     throw new ApiError(401, "Invalid credentials");
   }
 
-  logger.info(`Login user found: true, role: ${user.role}, active: ${user.isActive}`);
-
-  if (!user.isActive) throw new ApiError(403, "Account is inactive");
+  // Keep login failures indistinguishable to callers to avoid account enumeration.
+  if (!user.isActive) throw new ApiError(401, "Invalid credentials");
 
   const isMatch = await user.comparePassword(password);
-  logger.info(`Login password match: ${isMatch}`);
 
   if (!isMatch) throw new ApiError(401, "Invalid credentials");
 
@@ -76,7 +72,7 @@ export const login = asyncHandler(async (req, res) => {
   await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
 
   const session = await buildSessionPayload(user);
-  logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
+  logger.info(`Login succeeded for user=${user._id}`);
   res.status(200).json(new ApiResponse(true, "Logged in", { ...session, accessToken, refreshToken }));
 });
 
@@ -113,12 +109,16 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  const email = String(req.body.email || "").trim().toLowerCase();
   const user = await User.findOne({ email });
-  if (!user) throw new ApiError(404, "User not found");
+
+  // Return the same response whether or not an account exists.
+  if (!user) {
+    return res.status(200).json(new ApiResponse(true, "If an account exists, a reset email has been sent."));
+  }
 
   const token = crypto.randomBytes(20).toString("hex");
-  resetTokenStore.set(token, user._id.toString());
+  resetTokenStore.set(token, { userId: user._id.toString(), expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
 
   const resetLink = `${process.env.CLIENT_URL}/reset-password/${token}`;
   await sendEmail({
@@ -127,17 +127,24 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     html: `<p>Click to reset password: <a href=\"${resetLink}\">Reset</a></p>`,
   });
 
-  res.status(200).json(new ApiResponse(true, "Reset email sent"));
+  res.status(200).json(new ApiResponse(true, "If an account exists, a reset email has been sent."));
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
-  const userId = resetTokenStore.get(token);
-  if (!userId) throw new ApiError(400, "Invalid or expired token");
+  const record = resetTokenStore.get(token);
+  if (!record || record.expiresAt <= Date.now()) {
+    resetTokenStore.delete(token);
+    throw new ApiError(400, "Invalid or expired token");
+  }
 
-  const user = await User.findById(userId).select("+password");
+  const user = await User.findById(record.userId).select("+password");
+  if (!user || !user.isActive) {
+    resetTokenStore.delete(token);
+    throw new ApiError(400, "Invalid or expired token");
+  }
   user.password = password;
   user.refreshToken = "";
   await user.save();
