@@ -126,10 +126,15 @@ export const buildStaffResponse = async (staff) => {
   return normalizeStaffDocument(populated);
 };
 
-export const getStaffActivity = async (userId) => {
+export const getStaffActivity = async (userId, { restaurant = null, outlet = null } = {}) => {
   if (!userId) return [];
 
-  const logs = await Log.find({ "context.userId": userId })
+  const filters = {
+    "context.userId": userId,
+    ...(restaurant ? { "context.restaurantId": restaurant } : {}),
+    ...(outlet ? { "context.metadata.outletId": outlet } : {}),
+  };
+  const logs = await Log.find(filters)
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();

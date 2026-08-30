@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Restaurant from "../models/Restaurant.js";
+import Outlet from "../models/Outlet.js";
 import ApiError from "./ApiError.js";
 
 const ROLE_ALIASES = {
@@ -23,6 +24,15 @@ export const expandRoles = (roles = []) => [
 ];
 
 export const isAdminRole = (role) => expandRoles([role]).includes("admin");
+
+const canAccessEveryOutlet = (user) =>
+  user?.allOutletsAccess === true ||
+  ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(normalizeRole(user?.role));
+
+const hasExplicitOutletAccess = (user, outletId) =>
+  (user?.outletAccess || []).some(
+    (entry) => entry.isActive !== false && String(entry.outlet || entry) === String(outletId)
+  );
 
 const mergeTenantFilter = (filters, tenantCondition) => {
   if (filters.$or) {
@@ -101,10 +111,33 @@ export const buildRestaurantQuery = async (baseFilters, user) => {
 /** Applies a verified active outlet only to operational models with an outlet field. */
 export const buildOutletQuery = async (baseFilters, user, { allowAll = false } = {}) => {
   const filters = await buildRestaurantQuery(baseFilters, user);
-  if (user?.activeOutlet) return mergeTenantFilter(filters, { outlet: user.activeOutlet });
-  if (allowAll && isAdminRole(user?.role)) return filters;
-  // Legacy clients that have not selected an outlet remain on their default
-  // outlet rather than silently receiving every branch's operational data.
-  if (user?.defaultOutlet) return mergeTenantFilter(filters, { outlet: user.defaultOutlet });
-  return filters;
+  const selectedOutletId = user?.activeOutlet || user?.defaultOutlet;
+
+  if (selectedOutletId) {
+    // A persisted default outlet is still untrusted context. Confirm it is an
+    // active outlet of this tenant and is authorized for this user before it
+    // can constrain a database query.
+    const outlet = await Outlet.findOne({
+      _id: selectedOutletId,
+      restaurant: user?.restaurant,
+      isActive: true,
+    })
+      .select("_id")
+      .lean();
+
+    if (outlet && (canAccessEveryOutlet(user) || hasExplicitOutletAccess(user, outlet._id))) {
+      return mergeTenantFilter(filters, { outlet: outlet._id });
+    }
+
+    // Never fall back to a restaurant-wide query after a stale or unauthorized
+    // outlet selection. The impossible condition safely returns no records.
+    return mergeTenantFilter(filters, { outlet: null });
+  }
+
+  // An all-outlets aggregation is server-authorized, never an ObjectId-like
+  // client value such as "all".
+  if (allowAll && canAccessEveryOutlet(user)) return filters;
+
+  // An unassigned user has no operational outlet scope.
+  return mergeTenantFilter(filters, { outlet: null });
 };
