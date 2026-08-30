@@ -26,6 +26,9 @@ const userSchema = new mongoose.Schema(
     },
     defaultOutlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     outletAccess: [{ outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", required: true }, role: { type: String, default: "" }, isActive: { type: Boolean, default: true } }],
+    // This is an authorization flag, never a client-selected outlet. Admins
+    // remain scoped to their own restaurant by the auth middleware.
+    allOutletsAccess: { type: Boolean, default: false },
     role: {
       type: String,
       enum: ["super_admin", "hotel_admin", "restaurant_admin", "manager", "staff", "cashier", "admin", "chef", "waiter", "delivery", "receptionist", "inventory_manager", "customer"],

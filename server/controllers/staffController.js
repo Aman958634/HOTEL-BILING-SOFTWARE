@@ -6,6 +6,7 @@ import Payment from "../models/Payment.js";
 import Table from "../models/Table.js";
 import KotTicket from "../models/KotTicket.js";
 import Delivery from "../models/Delivery.js";
+import Outlet from "../models/Outlet.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -196,6 +197,10 @@ export const createStaff = asyncHandler(async (req, res) => {
   if (existingByPhone) throw new ApiError(409, "Staff phone already exists");
 
   let user = null;
+  const activeOutlets = req.user.restaurant
+    ? await Outlet.find({ restaurant: req.user.restaurant, isActive: true }).select("_id isDefault").sort({ isDefault: -1, createdAt: 1 }).lean()
+    : [];
+  const assignedOutletId = req.user.activeOutlet || (activeOutlets.length === 1 ? activeOutlets[0]._id : null);
   if (req.body.password) {
     const userRole = getUserRoleFromStaffRole(role);
     if (!userRole) throw new ApiError(422, "Invalid user role mapping");
@@ -212,6 +217,9 @@ export const createStaff = asyncHandler(async (req, res) => {
       avatar: req.body.profilePhoto || "",
       restaurant: req.user.restaurant || null,
       hotelId: req.user.hotelId || null,
+      defaultOutlet: assignedOutletId,
+      outletAccess: assignedOutletId ? [{ outlet: assignedOutletId, role: userRole, isActive: true }] : [],
+      allOutletsAccess: userRole === "admin",
     });
   }
 
@@ -236,7 +244,7 @@ export const createStaff = asyncHandler(async (req, res) => {
     status,
     lastLogin: null,
     restaurant: req.user.restaurant || null,
-    outlet: req.user.activeOutlet || null,
+    outlet: assignedOutletId,
     hotelId: req.user.hotelId || null,
   });
 

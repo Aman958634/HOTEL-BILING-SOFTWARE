@@ -21,7 +21,7 @@ const MobileServiceMode = () => {
   const { id: tableId } = useParams(); const navigate = useNavigate(); const user = useSelector((state) => state.auth?.user); const socket = useSocket();
   const [summary, setSummary] = useState(null); const [table, setTable] = useState(null); const [menu, setMenu] = useState([]); const [tab, setTab] = useState("tables"); const [filter, setFilter] = useState("ALL"); const [search, setSearch] = useState(""); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [connected, setConnected] = useState(false); const [orderOpen, setOrderOpen] = useState(false); const [cart, setCart] = useState([]); const [menuSearch, setMenuSearch] = useState(""); const [category, setCategory] = useState("ALL"); const [notes, setNotes] = useState(""); const [savingOrder, setSavingOrder] = useState(false); const [dutySaving, setDutySaving] = useState(false);
   const inFlight = useRef(false); const lastRefresh = useRef(0); const submissionKey = useRef("");
-  const activeOutlet = localStorage.getItem("activeOutletId") || "";
+  const activeOutlet = localStorage.getItem("selectedOutletId") || "";
   const cartKey = tableId ? `restosphere:mobile-cart:${activeOutlet}:${tableId}` : "";
   const role = String(user?.role || "").toLowerCase();
   // Existing Billing UI is currently guarded by the admin route. Service mode

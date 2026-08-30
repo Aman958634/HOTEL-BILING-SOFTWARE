@@ -8,8 +8,26 @@ import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { sendEmail } from "../services/emailService.js";
 import Staff from "../models/Staff.js";
 import logger from "../utils/logger.js";
+import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
 
 const resetTokenStore = new Map();
+const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
+
+const buildSessionPayload = async (user) => {
+  if (user?.restaurant) await ensureDefaultOutlet({ _id: user.restaurant });
+  const safeUser = await User.findById(user._id).select("-password -refreshToken").lean();
+  const authorizedOutlets = await getAllowedOutlets(safeUser);
+  return {
+    user: {
+      ...safeUser,
+      id: safeUser._id,
+      outlets: (safeUser.outletAccess || []).filter((entry) => entry.isActive !== false).map((entry) => entry.outlet),
+      allOutletsAccess: safeUser.allOutletsAccess === true || restaurantWideRoles.has(String(safeUser.role || "").toLowerCase()),
+      permissions: safeUser.permissions || [],
+    },
+    authorizedOutlets,
+  };
+};
 
 export const register = asyncHandler(async (req, res) => {
   const { fullName, email, password, phone } = req.body;
@@ -57,9 +75,9 @@ export const login = asyncHandler(async (req, res) => {
 
   await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
 
-  const safeUser = await User.findById(user._id).select("-password -refreshToken");
+  const session = await buildSessionPayload(user);
   logger.info(`Login success: ${email}, role: ${user.role}, jwt: true`);
-  res.status(200).json(new ApiResponse(true, "Logged in", { user: safeUser, accessToken, refreshToken }));
+  res.status(200).json(new ApiResponse(true, "Logged in", { ...session, accessToken, refreshToken }));
 });
 
 export const refresh = asyncHandler(async (req, res) => {
@@ -129,5 +147,6 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const me = asyncHandler(async (req, res) => {
-  res.status(200).json(new ApiResponse(true, "User profile", req.user));
+  const session = await buildSessionPayload({ _id: req.user._id, restaurant: req.user.restaurant });
+  res.status(200).json(new ApiResponse(true, "User profile", session));
 });

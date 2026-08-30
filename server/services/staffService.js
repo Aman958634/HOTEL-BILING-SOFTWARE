@@ -171,6 +171,7 @@ export const syncUserForStaff = async (staff, changes, actorRole) => {
       throw new ApiError(403, "Only admin can change login role for linked staff");
     }
     update.role = getUserRoleFromStaffRole(changes.role);
+    update.allOutletsAccess = update.role === "admin";
   }
 
   if (Object.keys(update).length) {

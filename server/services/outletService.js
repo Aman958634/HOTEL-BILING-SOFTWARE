@@ -6,11 +6,9 @@ const validAccessRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "s
 export const getAllowedOutlets = async (user, { includeInactive = false } = {}) => {
   if (!user?.restaurant) return [];
   const filter = { restaurant: user.restaurant, ...(includeInactive ? {} : { isActive: true }) };
-  if (validAccessRoles.has(String(user.role || "").toLowerCase())) return Outlet.find(filter).sort({ isDefault: -1, name: 1 }).lean();
+  if (validAccessRoles.has(String(user.role || "").toLowerCase()) || user.allOutletsAccess === true) return Outlet.find(filter).sort({ isDefault: -1, name: 1 }).lean();
   const allowedIds = (user.outletAccess || []).filter((entry) => entry.isActive !== false).map((entry) => entry.outlet || entry).filter(Boolean);
-  // Legacy staff records had no outlet assignments. They remain safely scoped
-  // to the tenant's default outlet until an administrator assigns explicit access.
-  if (!allowedIds.length) return Outlet.find({ ...filter, isDefault: true }).sort({ name: 1 }).lean();
+  if (!allowedIds.length) return [];
   return Outlet.find({ ...filter, _id: { $in: allowedIds } }).sort({ isDefault: -1, name: 1 }).lean();
 };
 

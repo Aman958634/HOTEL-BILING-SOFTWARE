@@ -1,9 +1,11 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { getMyProfile, loginUser, logoutUser, registerUser } from "../../services/authService";
+import { clearOutletSession, persistAuthorizedOutlet } from "../../utils/outletSession";
 
 const clearStoredTokens = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+  clearOutletSession();
 };
 
 const persistTokens = (accessToken, refreshToken) => {
@@ -22,6 +24,28 @@ const initialState = {
   loading: false,
   profileLoading: false,
   profileError: "",
+  outletStatus: "loading",
+  authorizedOutlets: [],
+  activeOutletId: "",
+};
+
+const needsOutletContext = (user) => Boolean(user?.restaurant) && !["customer", "super_admin"].includes(String(user?.role || "").toLowerCase());
+
+const applyOutletSession = (state, payload) => {
+  const user = payload?.user || payload || null;
+  const outlets = Array.isArray(payload?.authorizedOutlets) ? payload.authorizedOutlets : [];
+  state.authorizedOutlets = outlets;
+
+  if (!needsOutletContext(user)) {
+    clearOutletSession();
+    state.activeOutletId = "";
+    state.outletStatus = "ready";
+    return;
+  }
+
+  const activeOutletId = persistAuthorizedOutlet(outlets, user?.defaultOutlet);
+  state.activeOutletId = activeOutletId;
+  state.outletStatus = activeOutletId ? "ready" : "no-access";
 };
 
 export const registerThunk = createAsyncThunk("auth/register", async (payload, { rejectWithValue }) => {
@@ -68,6 +92,9 @@ const authSlice = createSlice({
       state.accessToken = "";
       state.refreshToken = "";
       clearStoredTokens();
+      state.authorizedOutlets = [];
+      state.activeOutletId = "";
+      state.outletStatus = "loading";
     },
     setAccessToken: (state, action) => {
       state.accessToken = action.payload || "";
@@ -81,6 +108,19 @@ const authSlice = createSlice({
       state.refreshToken = action.payload?.refreshToken || state.refreshToken;
       state.profileError = "";
       persistTokens(action.payload?.accessToken, action.payload?.refreshToken);
+      applyOutletSession(state, action.payload);
+    },
+    outletRecoveryStarted: (state) => {
+      state.outletStatus = "loading";
+    },
+    resolveAuthorizedOutlets: (state, action) => {
+      applyOutletSession(state, { user: state.user, authorizedOutlets: action.payload });
+    },
+    selectAuthorizedOutlet: (state, action) => {
+      const selected = state.authorizedOutlets.find((outlet) => String(outlet?._id) === String(action.payload));
+      if (!selected) return;
+      state.activeOutletId = persistAuthorizedOutlet([selected], selected._id);
+      state.outletStatus = "ready";
     },
   },
   extraReducers: (builder) => {
@@ -95,6 +135,7 @@ const authSlice = createSlice({
         state.refreshToken = action.payload.refreshToken || "";
         state.profileError = "";
         persistTokens(action.payload.accessToken, action.payload.refreshToken);
+        applyOutletSession(state, action.payload);
       })
       .addCase(loginThunk.rejected, (state) => {
         state.loading = false;
@@ -105,7 +146,8 @@ const authSlice = createSlice({
       })
       .addCase(profileThunk.fulfilled, (state, action) => {
         state.profileLoading = false;
-        state.user = action.payload;
+        state.user = action.payload?.user || action.payload;
+        applyOutletSession(state, action.payload);
       })
       .addCase(profileThunk.rejected, (state, action) => {
         state.profileLoading = false;
@@ -114,15 +156,21 @@ const authSlice = createSlice({
         state.refreshToken = "";
         state.profileError = action.payload || "Profile fetch failed";
         clearStoredTokens();
+        state.authorizedOutlets = [];
+        state.activeOutletId = "";
+        state.outletStatus = "loading";
       })
       .addCase(logoutThunk.fulfilled, (state) => {
         state.user = null;
         state.accessToken = "";
         state.refreshToken = "";
         clearStoredTokens();
+        state.authorizedOutlets = [];
+        state.activeOutletId = "";
+        state.outletStatus = "loading";
       });
   },
 });
 
-export const { logout, setAccessToken, setAuthSession } = authSlice.actions;
+export const { logout, setAccessToken, setAuthSession, outletRecoveryStarted, resolveAuthorizedOutlets, selectAuthorizedOutlet } = authSlice.actions;
 export default authSlice.reducer;
