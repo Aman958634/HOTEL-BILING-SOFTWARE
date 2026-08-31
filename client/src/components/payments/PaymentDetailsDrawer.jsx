@@ -26,9 +26,6 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
   if (!open) return null;
 
   const order = payment?.order;
-  const bill = payment?.bill;
-  const referenceLabel = order?.orderNumber || payment?.orderIdValue || bill?.billNumber || payment?.billNumber || "—";
-  const isBillPayment = !order && Boolean(bill?.billNumber || payment?.billNumber || payment?.referenceType === "BILL");
   const timeline = payment?.timeline || [];
 
   return (
@@ -51,7 +48,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <div>
                   <p className="text-sm text-slate-500">Payment ID</p>
                   <p className="text-2xl font-bold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-                  <p className="mt-1 text-sm text-slate-500">{isBillPayment ? "Consolidated Bill" : "Order"} #{referenceLabel}</p>
+                  <p className="mt-1 text-sm text-slate-500">Order #{order?.orderNumber || payment.orderIdValue}</p>
                 </div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${paymentBadgeClasses(payment.paymentStatus)}`}>
                   {paymentStatusLabel(payment.paymentStatus)}
@@ -63,7 +60,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               <Section title="Payment Information">
                 <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
                 <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
-                <p><strong>{isBillPayment ? "Bill" : "Order"} ID:</strong> {referenceLabel}</p>
+                <p><strong>Order ID:</strong> {order?.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Payment Date:</strong> {formatPaymentDate(payment.createdAt)}</p>
                 <p><strong>Payment Status:</strong> {paymentStatusLabel(payment.paymentStatus)}</p>
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
@@ -80,7 +77,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               </Section>
             </div>
 
-            <Section title={isBillPayment ? "Consolidated Bill Information" : "Order Information"}>
+            <Section title="Order Information">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <p><strong>Subtotal:</strong> {formatCurrency(order?.subtotal ?? payment.subtotal)}</p>
                 <p><strong>Discount:</strong> {formatCurrency(order?.discount ?? payment.discount)}</p>
@@ -105,7 +102,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">{isBillPayment ? "This payment is linked to a consolidated bill; use the bill receipt for allocated order items." : "No order items available."}</p>
+                  <p className="text-sm text-slate-500">No order items available.</p>
                 )}
               </div>
             </Section>

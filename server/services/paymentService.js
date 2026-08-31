@@ -301,10 +301,6 @@ export const updateOrderPaymentState = async (
   const nextPaymentMethod = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
   const nextPaymentStatus = normalizePaymentStatus(paymentStatus || orderDoc.paymentStatus || "PENDING");
 
-  if (nextPaymentStatus === "PARTIALLY_PAID") {
-    throw new ApiError(422, "Partial payment status is derived from verified payment amounts");
-  }
-
   // Settlement is intentionally delegated to the transactional write path.
   // This prevents internal callers from bypassing idempotency/invoice safety.
   if (nextPaymentStatus === "PAID") {
@@ -420,10 +416,6 @@ export const recordVerifiedPayment = async (
         return;
       }
 
-      if (orderDoc.billingBill) {
-        throw new ApiError(409, "This order is part of a consolidated bill; record payment against that bill instead");
-      }
-
       if (normalizePaymentStatus(orderDoc.paymentStatus) === "PAID") {
         throw new ApiError(409, "Payment already completed.");
       }
@@ -455,11 +447,9 @@ export const recordVerifiedPayment = async (
         receivedBy,
         gateway: normalizeGateway(gateway),
         paymentStatus: "PAID",
-        // Cash uses its own idempotency key and authoritative paymentId; it
-        // must not be given a fabricated provider transaction identifier.
-        transactionId: transactionId || undefined,
-        razorpayOrderId: razorpayOrderId || undefined,
-        razorpayPaymentId: razorpayPaymentId || undefined,
+        transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
+        razorpayOrderId: razorpayOrderId || "",
+        razorpayPaymentId: razorpayPaymentId || "",
         idempotencyKey: stableIdempotencyKey,
         paidAt: paidAt ? new Date(paidAt) : new Date(),
         metadata: { verified: true },
@@ -470,9 +460,7 @@ export const recordVerifiedPayment = async (
       const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
       const fullyPaid = totalPaid + 0.01 >= billTotal;
       orderDoc.paymentMethod = method;
-      orderDoc.paymentId = payment.paymentId;
-      orderDoc.transactionId = payment.transactionId || "";
-      orderDoc.paymentStatus = fullyPaid ? "PAID" : "PARTIALLY_PAID";
+      orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
       orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
       if (fullyPaid) orderDoc.status = "COMPLETED";
       await orderDoc.save({ session });
@@ -534,7 +522,7 @@ export const reconcilePaymentSettlements = async () => {
   const orders = await Order.find({
     isArchived: false,
     status: { $ne: "CANCELLED" },
-    paymentStatus: { $in: ["PENDING", "PARTIALLY_PAID", "PAID", "FAILED"] },
+    paymentStatus: { $in: ["PENDING", "PAID", "FAILED"] },
   }).select("_id").lean();
 
   let reconciled = 0;
@@ -548,7 +536,7 @@ export const reconcilePaymentSettlements = async () => {
 
         const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
         const shouldBePaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
-        const nextStatus = shouldBePaid ? "PAID" : totalPaid > 0 ? "PARTIALLY_PAID" : "PENDING";
+        const nextStatus = shouldBePaid ? "PAID" : "PENDING";
         const changed = orderDoc.paymentStatus !== nextStatus || (shouldBePaid && orderDoc.status !== "COMPLETED");
 
         if (changed) {

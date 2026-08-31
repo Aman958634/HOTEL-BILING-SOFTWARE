@@ -14,7 +14,6 @@ export const PAYMENT_METHOD_LABELS = {
 
 export const PAYMENT_STATUS_LABELS = {
   PENDING: "Pending",
-  PARTIALLY_PAID: "Partially Paid",
   PROCESSING: "Processing",
   PAID: "Paid",
   FAILED: "Failed",
@@ -52,8 +51,6 @@ const paymentMethodAliases = {
 
 const paymentStatusAliases = {
   pending: "PENDING",
-  partial_paid: "PARTIALLY_PAID",
-  partially_paid: "PARTIALLY_PAID",
   processing: "PROCESSING",
   paid: "PAID",
   success: "PAID",
@@ -124,7 +121,7 @@ export const paymentStatusTone = (value) => {
   const status = normalizePaymentStatus(value);
   if (status === "PAID") return "success";
   if (status === "PROCESSING") return "processing";
-  if (status === "PENDING" || status === "PARTIALLY_PAID") return "pending";
+  if (status === "PENDING") return "pending";
   if (status === "FAILED") return "failed";
   if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED") return "refunded";
   return "pending";

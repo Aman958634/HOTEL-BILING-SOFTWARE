@@ -35,24 +35,6 @@ const allocationFromOrder = (order) => ({ order: order._id, orderNumber: order.o
 
 const activeBillForOrders = (orderIds, session) => Bill.findOne({ "allocations.order": { $in: orderIds }, status: { $in: OPEN_STATUSES } }).session(session);
 
-// An order is settled through exactly one financial path. Consolidated bill
-// payments are linked to Bill rather than to every allocated order, so mixing
-// them with direct order payments would collect the same balance twice.
-const assertOrdersHaveNoDirectPaymentActivity = async (orders, session) => {
-  if (orders.some((order) => String(order.paymentStatus || "").toUpperCase() === "PAID")) {
-    throw new ApiError(409, "Paid orders cannot be added to a consolidated bill");
-  }
-
-  const directPayment = await Payment.findOne({
-    orderId: { $in: orders.map((order) => order._id) },
-    paymentStatus: { $in: ["PENDING", "PROCESSING", "PAID", "PARTIALLY_REFUNDED"] },
-  }).session(session).select("_id").lean();
-
-  if (directPayment) {
-    throw new ApiError(409, "Orders with an active direct payment cannot be added to a consolidated bill");
-  }
-};
-
 export const createConsolidatedBill = async ({ orderIds, restaurantId, user, idempotencyKey = "" }) => {
   const uniqueOrderIds = [...new Set((orderIds || []).map(String))];
   if (!uniqueOrderIds.length) throw new ApiError(422, "Select at least one order");
@@ -65,7 +47,6 @@ export const createConsolidatedBill = async ({ orderIds, restaurantId, user, ide
       }
       const orders = await Order.find({ _id: { $in: uniqueOrderIds }, restaurant: restaurantId, isArchived: { $ne: true }, status: { $nin: ["CANCELLED", "REJECTED"] } }).session(session);
       if (orders.length !== uniqueOrderIds.length) throw new ApiError(404, "One or more eligible orders were not found");
-      await assertOrdersHaveNoDirectPaymentActivity(orders, session);
       const tableIds = [...new Set(orders.map((order) => String(order.table || "")))].filter(Boolean);
       if (tableIds.length > 1) throw new ApiError(422, "Consolidated orders must belong to the same table/session");
       const existing = await activeBillForOrders(orders.map((order) => order._id), session);
@@ -102,7 +83,7 @@ export const recordBillPayment = async ({ billId, restaurantId, amount, paymentM
       const due = toPaise(bill.balanceDue);
       if (requested > due) throw new ApiError(422, "Payment amount exceeds the remaining balance");
       const now = new Date();
-      const payment = new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, outlet: bill.outlet || null, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || undefined, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
+      const payment = new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, outlet: bill.outlet || null, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
       await payment.save({ session });
       const paidAmount = fromPaise(toPaise(bill.paidAmount) + requested); const balanceDue = fromPaise(Math.max(toPaise(bill.total) - toPaise(paidAmount), 0));
       bill.paidAmount = paidAmount; bill.balanceDue = balanceDue; bill.status = balanceDue === 0 ? "PAID" : "PARTIALLY_PAID";

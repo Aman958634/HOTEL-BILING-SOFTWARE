@@ -18,12 +18,6 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
   );
 };
 
-const paymentReference = (payment) => {
-  const value = payment.referenceLabel || payment.orderIdValue || payment.billNumber || "";
-  if (!value) return "—";
-  return payment.referenceType === "BILL" || payment.billNumber ? `Bill ${value}` : `Order ${value}`;
-};
-
 const Pagination = ({ meta, onPageChange }) => {
   const totalPages = meta.totalPages || 1;
   const page = meta.page || 1;
@@ -70,7 +64,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
     </div>
 
     <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-700">
-      <p><strong>Order / Bill:</strong> {paymentReference(payment)}</p>
+      <p><strong>Order:</strong> {payment.orderIdValue}</p>
       <p><strong>Customer:</strong> {payment.customerName || "Guest"}</p>
       <p><strong>Table:</strong> {payment.tableNumber || "-"}</p>
       <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
@@ -107,7 +101,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <th className="px-4 py-3">Payment ID</th>
-              <th className="px-4 py-3">Order / Bill</th>
+              <th className="px-4 py-3">Order ID</th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Table</th>
               <th className="px-4 py-3">Amount</th>
@@ -123,7 +117,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
             {payments.map((payment) => (
               <tr key={payment._id || payment.paymentId} className="border-b border-slate-100 text-slate-700 last:border-0">
                 <td className="px-4 py-3 font-medium text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</td>
-                <td className="px-4 py-3">{paymentReference(payment)}</td>
+                <td className="px-4 py-3">{payment.orderIdValue}</td>
                 <td className="px-4 py-3">{payment.customerName || "Guest"}</td>
                 <td className="px-4 py-3">{payment.tableNumber ? `Table ${payment.tableNumber}` : "-"}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(getPaymentAmount(payment))}</td>

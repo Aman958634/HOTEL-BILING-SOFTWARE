@@ -10,7 +10,6 @@ export const paymentRangeOptions = [
 export const paymentStatusOptions = [
   { label: "All Statuses", value: "" },
   { label: "Pending", value: "PENDING" },
-  { label: "Partially Paid", value: "PARTIALLY_PAID" },
   { label: "Processing", value: "PROCESSING" },
   { label: "Paid", value: "PAID" },
   { label: "Failed", value: "FAILED" },
@@ -43,7 +42,6 @@ const methodLabels = {
 
 const statusLabels = {
   PENDING: "Pending",
-  PARTIALLY_PAID: "Partially Paid",
   PROCESSING: "Processing",
   PAID: "Paid",
   FAILED: "Failed",
@@ -99,7 +97,7 @@ export const paymentBadgeClasses = (value) => {
   const status = String(value || "PENDING").toUpperCase();
   if (status === "PAID") return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (status === "PROCESSING") return "bg-sky-50 text-sky-700 border-sky-200";
-  if (status === "PENDING" || status === "PARTIALLY_PAID") return "bg-amber-50 text-amber-700 border-amber-200";
+  if (status === "PENDING") return "bg-amber-50 text-amber-700 border-amber-200";
   if (status === "FAILED") return "bg-rose-50 text-rose-700 border-rose-200";
   if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED") return "bg-violet-50 text-violet-700 border-violet-200";
   return "bg-slate-50 text-slate-700 border-slate-200";
