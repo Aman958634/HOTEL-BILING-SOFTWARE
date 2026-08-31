@@ -52,6 +52,7 @@ export const PAYMENT_METHODS = {
 
 export const PAYMENT_STATUSES = {
   PENDING: "PENDING",
+  PARTIALLY_PAID: "PARTIALLY_PAID",
   PAID: "PAID",
   FAILED: "FAILED",
   REFUNDED: "REFUNDED",
@@ -75,6 +76,7 @@ const statusAliases = {
 
 const paymentStatusAliases = {
   pending: PAYMENT_STATUSES.PENDING,
+  partially_paid: PAYMENT_STATUSES.PARTIALLY_PAID,
   paid: PAYMENT_STATUSES.PAID,
   success: PAYMENT_STATUSES.PAID,
   failed: PAYMENT_STATUSES.FAILED,

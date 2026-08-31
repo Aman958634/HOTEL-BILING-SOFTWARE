@@ -109,6 +109,7 @@ const buildSearchMatch = (search) => {
       { paymentId: regex },
       { transactionId: regex },
       { "order.orderNumber": regex },
+      { "billRecord.billNumber": regex },
       { "customer.fullName": regex },
       { "customer.phone": regex },
       { "table.tableNumber": regex },
@@ -149,6 +150,15 @@ const buildListPipeline = async (query, user) => {
     { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
+        from: "bills",
+        localField: "bill",
+        foreignField: "_id",
+        as: "billRecord",
+      },
+    },
+    { $unwind: { path: "$billRecord", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
         from: "users",
         localField: "customerId",
         foreignField: "_id",
@@ -168,6 +178,7 @@ const buildListPipeline = async (query, user) => {
     {
       $addFields: {
         orderNumber: { $ifNull: ["$order.orderNumber", ""] },
+        billNumber: { $ifNull: ["$billRecord.billNumber", ""] },
         customerName: { $ifNull: ["$customer.fullName", "Guest"] },
         customerPhone: { $ifNull: ["$customer.phone", ""] },
         tableNumber: { $ifNull: ["$table.tableNumber", ""] },
@@ -208,7 +219,9 @@ const mapPaymentRow = (payment) => {
     paymentStatusLabel: paymentStatusLabel(paymentObject?.paymentStatus),
     gatewayLabel: gatewayLabel(paymentObject || {}),
     dateTimeLabel: paymentObject?.createdAt,
-    orderIdValue: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId,
+    billNumber: paymentObject?.billNumber || paymentObject?.bill?.billNumber || "",
+    referenceType: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId ? "ORDER" : "BILL",
+    orderIdValue: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId || paymentObject?.billNumber || paymentObject?.bill?.billNumber || "",
     customerName: paymentObject?.customerName || paymentObject?.customerId?.fullName || "Guest",
     customerPhone: paymentObject?.customerPhone || paymentObject?.customerId?.phone || "",
     tableNumber: paymentObject?.tableNumber || paymentObject?.tableId?.tableNumber || "",
@@ -272,6 +285,9 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     .populate("customer", "fullName email phone")
     .populate("table", "tableNumber floor section");
   if (!order) throw new ApiError(404, "Order not found");
+  if (order.billingBill) {
+    throw new ApiError(409, "This order is part of a consolidated bill; collect payment against that bill instead");
+  }
 
   const resolvedMethod = normalizePaymentMethod(paymentMethod || providerToMethod[provider] || provider || order.paymentMethod);
   const existing = await Payment.findOne({ orderId: order._id });

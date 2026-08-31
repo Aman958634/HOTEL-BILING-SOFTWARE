@@ -6,6 +6,9 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   if (!open) return null;
 
   const order = payment?.order || {};
+  const bill = payment?.bill || {};
+  const isBillPayment = !order?.orderNumber && Boolean(bill?.billNumber || payment?.billNumber || payment?.referenceType === "BILL");
+  const referenceLabel = order.orderNumber || payment?.orderIdValue || bill.billNumber || payment?.billNumber || "—";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50">
@@ -31,7 +34,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
             <div className="mt-4 grid gap-4 sm:grid-cols-2 text-sm text-slate-700">
               <div>
                 <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-                <p><strong>Order ID:</strong> {order.orderNumber || payment.orderIdValue}</p>
+                <p><strong>{isBillPayment ? "Bill" : "Order"} ID:</strong> {referenceLabel}</p>
                 <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
                 <p><strong>Date & Time:</strong> {formatPaymentDate(payment.createdAt)}</p>
               </div>
@@ -45,9 +48,9 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
             </div>
 
             <div className="mt-5 rounded-2xl border border-slate-200 p-4">
-              <p className="mb-3 text-sm font-semibold text-slate-900">Items</p>
+              <p className="mb-3 text-sm font-semibold text-slate-900">{isBillPayment ? "Consolidated Bill Items" : "Items"}</p>
               <div className="space-y-2 text-sm">
-                {(order.items || []).map((item, index) => (
+                {(order.items || []).length ? (order.items || []).map((item, index) => (
                   <div key={index} className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-medium text-slate-800">{item.menuItem?.name || item.name || "Item"}</p>
@@ -55,7 +58,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
                     </div>
                     <p className="font-semibold text-slate-900">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</p>
                   </div>
-                ))}
+                )) : <p className="text-slate-500">{isBillPayment ? "See the consolidated bill receipt for allocated order items." : "No items available."}</p>}
               </div>
             </div>
 
