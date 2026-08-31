@@ -22,6 +22,7 @@ import {
   buildPaymentReceipt,
   recordVerifiedPayment,
   getRazorpayClient,
+  getSuccessfulPaymentTotal,
   serializePayment,
   stripe,
   syncPaymentFromOrder,
@@ -281,15 +282,17 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const resolvedMethod = normalizePaymentMethod(paymentMethod || providerToMethod[provider] || provider || order.paymentMethod);
-  const existing = await Payment.findOne({ orderId: order._id });
-  if (normalizePaymentStatus(existing?.paymentStatus || order.paymentStatus) === "PAID") {
+  if (normalizePaymentStatus(order.paymentStatus) === "PAID") {
     throw new ApiError(409, "Payment already completed.");
   }
+  const successfulPaidAmount = await getSuccessfulPaymentTotal(order);
+  const amountDue = Math.max(Number(order.total || 0) - successfulPaidAmount, 0);
+  if (amountDue <= 0.01) throw new ApiError(409, "Payment already completed.");
 
   if (provider === "stripe") {
     if (!stripe) throw new ApiError(500, "Stripe not configured");
     const intent = await stripe.paymentIntents.create({
-      amount: Math.round(order.total * 100),
+      amount: Math.round(amountDue * 100),
       currency: "inr",
       metadata: { orderId: String(order._id) },
     });
@@ -311,7 +314,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     logger.info(`Razorpay create-order requested for order=${order.orderNumber} amount=${order.total} method=${resolvedMethod}`);
 
     const razorOrder = await razorpayClient.orders.create({
-      amount: Math.round(order.total * 100),
+      amount: Math.round(amountDue * 100),
       currency: "INR",
       receipt: String(order.orderNumber),
     });
@@ -357,6 +360,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
   const nextStatus = normalizePaymentStatus(status === "success" ? "PAID" : status);
   const gateway = normalizeGateway(provider || meta.provider);
+  let verifiedAmount = null;
 
   if (nextStatus === "PAID" && gateway !== "razorpay") {
     // Browser-supplied success values are never proof of payment. Other
@@ -367,8 +371,12 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (gateway === "razorpay") {
     logger.info(`Razorpay verify requested for orderId=${orderId} razorpayOrderId=${razorpay_order_id || ""} razorpayPaymentId=${razorpay_payment_id || ""}`);
 
-    const pendingPayment = await Payment.findOne({ orderId: order._id })
-      .select("razorpayOrderId transactionId metadata paymentStatus")
+    const pendingPayment = await Payment.findOne({
+      orderId: order._id,
+      restaurant: order.restaurant || null,
+      outlet: order.outlet || null,
+    })
+      .select("razorpayOrderId transactionId metadata paymentStatus amount totalAmount")
       .lean();
     const expectedOrderId = pendingPayment?.razorpayOrderId || pendingPayment?.metadata?.razorpayOrderId || "";
     if (!expectedOrderId || String(expectedOrderId) !== String(razorpay_order_id || "")) {
@@ -383,12 +391,28 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     if (!razorpay_payment_id || !razorpay_signature || generatedSignature !== razorpay_signature) {
       throw new ApiError(422, "Payment verification failed");
     }
+
+    // A valid HMAC proves the callback was signed, but the server still
+    // verifies the provider-side order, amount, currency and captured state
+    // before any local financial record is marked paid.
+    const razorpayClient = getRazorpayClient();
+    if (!razorpayClient) throw new ApiError(503, "Razorpay payment service is unavailable");
+    const gatewayPayment = await razorpayClient.payments.fetch(razorpay_payment_id);
+    if (
+      String(gatewayPayment?.order_id || "") !== String(expectedOrderId) ||
+      String(gatewayPayment?.status || "").toLowerCase() !== "captured" ||
+      String(gatewayPayment?.currency || "").toUpperCase() !== "INR" ||
+      Number(gatewayPayment?.amount || 0) !== Math.round(Number(pendingPayment.amount || pendingPayment.totalAmount || 0) * 100)
+    ) {
+      throw new ApiError(422, "Payment verification failed");
+    }
+    verifiedAmount = Number(gatewayPayment.amount) / 100;
   }
 
   const payment =
     nextStatus === "PAID"
         ? (await recordVerifiedPayment(order, {
-          amount: req.body.amount,
+          amount: verifiedAmount ?? req.body.amount,
           paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
           gateway: provider || meta.provider || "Razorpay",
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",

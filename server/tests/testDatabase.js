@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 mongoose.set("autoIndex", false);
 mongoose.set("autoCreate", false);
 
-const SAFE_DATABASE_NAME = /(?:^|[-_])(test|tests|testing|stage|staging|ci)(?:[-_]|$)/i;
+const SAFE_DATABASE_NAME = /(?:^|[-_])(test|tests|testing|stage|staging|ci|verification|verify)(?:[-_]|$)/i;
 const UNSAFE_DATABASE_NAME = /(?:production|prod|live)/i;
 
 const redactHost = (uri) => {
@@ -50,8 +50,12 @@ export const requireSafeTestDatabase = () => {
   }
 
   const databaseName = databaseNameFromUri(testUri);
+  const primaryDatabaseName = databaseNameFromUri(primaryUri);
   if (!databaseName || UNSAFE_DATABASE_NAME.test(databaseName) || !SAFE_DATABASE_NAME.test(databaseName)) {
     throw new Error("TEST_MONGO_URI must use an explicitly named test or staging database.");
+  }
+  if (primaryDatabaseName && databaseName === primaryDatabaseName) {
+    throw new Error("TEST_MONGO_URI must not use the application database name.");
   }
 
   return {

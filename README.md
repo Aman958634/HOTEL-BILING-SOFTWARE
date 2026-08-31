@@ -73,6 +73,14 @@ Production-ready full-stack restaurant management platform with role-based acces
 ### Database
 - Create MongoDB Atlas cluster
 - Add connection string in `MONGO_URI`
+- Production startup rejects missing or localhost MongoDB URIs. Atlas/another
+  replica-set-compatible deployment is required because payment settlement uses
+  MongoDB transactions.
+- Destructive verification tests require `TEST_MONGO_URI` for an isolated
+  `*-test`, `*-staging`, or `*-verification` database. It must not use the
+  application database name.
+- The read-only payment audit requires an explicitly supplied
+  `PAYMENT_AUDIT_MONGO_URI`; it never falls back to `MONGO_URI`.
 
 ## Security Controls
 - JWT access/refresh token flow

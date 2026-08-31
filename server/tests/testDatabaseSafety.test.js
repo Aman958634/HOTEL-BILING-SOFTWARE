@@ -22,6 +22,14 @@ try {
   process.env.TEST_MONGO_URI = "mongodb://127.0.0.1:27027/production";
   assert.throws(() => requireSafeTestDatabase(), /test or staging database/i);
 
+  process.env.MONGO_URI = "mongodb://127.0.0.1:27017/restosphere_verification";
+  process.env.TEST_MONGO_URI = "mongodb://127.0.0.1:27027/restosphere_verification";
+  assert.throws(() => requireSafeTestDatabase(), /must not use the application database name/i);
+
+  process.env.MONGO_URI = "mongodb://127.0.0.1:27017/application_dev";
+  process.env.TEST_MONGO_URI = "mongodb://127.0.0.1:27027/restosphere_verification";
+  assert.doesNotThrow(() => requireSafeTestDatabase());
+
   process.env.TEST_MONGO_URI = safeUri;
   process.env.NODE_ENV = "production";
   assert.throws(() => requireSafeTestDatabase(), /NODE_ENV=production/i);

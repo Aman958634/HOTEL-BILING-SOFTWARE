@@ -42,6 +42,7 @@ const methodLabels = {
 
 const statusLabels = {
   PENDING: "Pending",
+  PARTIAL: "Partially Paid",
   PROCESSING: "Processing",
   PAID: "Paid",
   FAILED: "Failed",
@@ -96,6 +97,7 @@ export const formatPaymentDay = (value) =>
 export const paymentBadgeClasses = (value) => {
   const status = String(value || "PENDING").toUpperCase();
   if (status === "PAID") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (status === "PARTIAL") return "bg-amber-50 text-amber-700 border-amber-200";
   if (status === "PROCESSING") return "bg-sky-50 text-sky-700 border-sky-200";
   if (status === "PENDING") return "bg-amber-50 text-amber-700 border-amber-200";
   if (status === "FAILED") return "bg-rose-50 text-rose-700 border-rose-200";

@@ -37,6 +37,7 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
         <select className="rounded-xl border border-slate-300 px-3 py-2 text-sm" value={filters.paymentStatus} onChange={(e) => setField("paymentStatus", e.target.value)}>
           <option value="">Payment: All</option>
           <option value="PENDING">Pending</option>
+          <option value="PARTIAL">Partially Paid</option>
           <option value="PAID">Paid</option>
           <option value="FAILED">Failed</option>
           <option value="REFUNDED">Refunded</option>

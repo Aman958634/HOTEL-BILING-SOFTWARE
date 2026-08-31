@@ -3,6 +3,16 @@ const present = (name) => {
   return Boolean(value) && !/^replace_with|^your_/i.test(value);
 };
 
+const isLocalMongoUri = (uri) => {
+  try {
+    const normalized = String(uri || "").replace(/^mongodb(\+srv)?:\/\//i, "http://");
+    const host = new URL(normalized).hostname.toLowerCase();
+    return ["localhost", "127.0.0.1", "::1"].includes(host);
+  } catch {
+    return false;
+  }
+};
+
 export const validateProductionEnvironment = () => {
   if (process.env.NODE_ENV !== "production") return;
 
@@ -20,5 +30,9 @@ export const validateProductionEnvironment = () => {
   const missing = required.filter((name) => name === "live payment provider credentials" || !present(name));
   if (missing.length) {
     throw new Error(`Production configuration is missing: ${missing.join(", ")}`);
+  }
+
+  if (isLocalMongoUri(process.env.MONGO_URI || process.env.MONGODB_URI)) {
+    throw new Error("Production MONGO_URI must not target localhost.");
   }
 };
