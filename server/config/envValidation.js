@@ -1,6 +1,7 @@
 const present = (name) => {
   const value = String(process.env[name] || "").trim();
-  return Boolean(value) && !/^replace_with|^your_/i.test(value);
+  const mongoPlaceholder = ["MONGO_URI", "MONGODB_URI"].includes(name) && /username:password@|test_cluster/i.test(value);
+  return Boolean(value) && !/^replace_with|^your_/i.test(value) && !mongoPlaceholder;
 };
 
 const isLocalMongoUri = (uri) => {

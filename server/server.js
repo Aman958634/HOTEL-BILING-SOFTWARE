@@ -7,7 +7,7 @@ dotenv.config();
 validateProductionEnvironment();
 
 const bootstrap = async () => {
-  const [{ default: app }, { default: connectDB }, { initSocketServer }] = await Promise.all([
+  const [{ default: app }, { default: connectDB, assertProductionDatabaseReadiness }, { initSocketServer }] = await Promise.all([
     import("./app.js"),
     import("./config/db.js"),
     import("./config/socket.js"),
@@ -17,6 +17,8 @@ const bootstrap = async () => {
 
   try {
     await connectDB();
+    await assertProductionDatabaseReadiness();
+    if (process.env.NODE_ENV === "production") logger.info("Production MongoDB transaction and payment-index readiness confirmed");
   } catch (error) {
     logger.error(`MongoDB connection failed: ${error.message}`);
     process.exit(1);

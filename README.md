@@ -76,11 +76,11 @@ Production-ready full-stack restaurant management platform with role-based acces
 - Production startup rejects missing or localhost MongoDB URIs. Atlas/another
   replica-set-compatible deployment is required because payment settlement uses
   MongoDB transactions.
-- Destructive verification tests require `TEST_MONGO_URI` for an isolated
-  `*-test`, `*-staging`, or `*-verification` database. It must not use the
-  application database name.
+- `TEST_MONGO_URI` is optional and used only by development/CI integration
+  tests; normal production startup never reads or requires it.
 - The read-only payment audit requires an explicitly supplied
-  `PAYMENT_AUDIT_MONGO_URI`; it never falls back to `MONGO_URI`.
+  `PAYMENT_AUDIT_MONGO_URI`; it never falls back to `MONGO_URI` and is never
+  required for normal application startup.
 
 ## Security Controls
 - JWT access/refresh token flow
