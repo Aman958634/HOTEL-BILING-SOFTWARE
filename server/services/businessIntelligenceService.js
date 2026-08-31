@@ -9,6 +9,10 @@ import Staff from "../models/Staff.js";
 import Restaurant from "../models/Restaurant.js";
 import ApiError from "../utils/ApiError.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
+import { resolveBusinessRange } from "../utils/businessDateRange.js";
+import { buildValidCollectedPaymentStages } from "./financialMetricsService.js";
+
+export { resolveBusinessRange } from "../utils/businessDateRange.js";
 
 export const BI_METRIC_DEFINITIONS = Object.freeze({
   grossSales: { formula: "Sum of completed, non-cancelled order subtotals", source: ["Order.subtotal"], dateField: "Order.createdAt", excludes: ["CANCELLED", "REJECTED"] },
@@ -30,16 +34,19 @@ const localToUtc = (parts, timeZone) => { const guess = Date.UTC(parts.year, par
 const addLocalDays = (parts, days) => { const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days)); return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: 0, minute: 0, second: 0 }; };
 const dateParts = (value, name) => { const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!match) throw new ApiError(422, `${name} must use YYYY-MM-DD`); const result = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: 0, minute: 0, second: 0 }; const check = new Date(Date.UTC(result.year, result.month - 1, result.day)); if (check.getUTCFullYear() !== result.year || check.getUTCMonth() + 1 !== result.month || check.getUTCDate() !== result.day) throw new ApiError(422, `${name} is invalid`); return result; };
 
-export const resolveBusinessRange = ({ range = "last_30_days", startDate, endDate, timeZone = "Asia/Kolkata" } = {}) => {
+const legacyResolveBusinessRange = ({ range = "last_30_days", startDate, endDate, timeZone = "Asia/Kolkata" } = {}) => {
   const now = new Date(); const today = zoneParts(now, timeZone); const dayStart = { ...today, hour: 0, minute: 0, second: 0 };
-  let startParts; let endParts; let granularity = "day"; const key = String(range || "last_30_days").toLowerCase();
+  let startParts; let endParts; let granularity = "day"; const aliases = { "7d": "last_7_days", "30d": "last_30_days", year: "this_year" }; const key = aliases[String(range || "last_30_days").toLowerCase()] || String(range || "last_30_days").toLowerCase();
   if (key === "custom") { startParts = dateParts(startDate, "startDate"); endParts = addLocalDays(dateParts(endDate, "endDate"), 1); }
   else if (key === "today") { startParts = dayStart; endParts = addLocalDays(dayStart, 1); granularity = "hour"; }
   else if (key === "yesterday") { endParts = dayStart; startParts = addLocalDays(dayStart, -1); granularity = "hour"; }
   else if (key === "last_7_days") { startParts = addLocalDays(dayStart, -6); endParts = addLocalDays(dayStart, 1); }
   else if (key === "last_30_days") { startParts = addLocalDays(dayStart, -29); endParts = addLocalDays(dayStart, 1); }
+  else if (key === "this_week") { const localDay = new Date(Date.UTC(today.year, today.month - 1, today.day)); const mondayOffset = (localDay.getUTCDay() + 6) % 7; startParts = addLocalDays(dayStart, -mondayOffset); endParts = addLocalDays(dayStart, 1); }
+  else if (key === "last_week") { const localDay = new Date(Date.UTC(today.year, today.month - 1, today.day)); const mondayOffset = (localDay.getUTCDay() + 6) % 7; endParts = addLocalDays(dayStart, -mondayOffset); startParts = addLocalDays(endParts, -7); }
   else if (key === "this_month") { startParts = { year: today.year, month: today.month, day: 1, hour: 0, minute: 0, second: 0 }; endParts = addLocalDays(dayStart, 1); }
   else if (key === "last_month") { const first = new Date(Date.UTC(today.year, today.month - 1, 1)); const prior = new Date(Date.UTC(today.year, today.month - 2, 1)); startParts = { year: prior.getUTCFullYear(), month: prior.getUTCMonth() + 1, day: 1, hour: 0, minute: 0, second: 0 }; endParts = { year: first.getUTCFullYear(), month: first.getUTCMonth() + 1, day: 1, hour: 0, minute: 0, second: 0 }; }
+  else if (key === "this_year") { startParts = { year: today.year, month: 1, day: 1, hour: 0, minute: 0, second: 0 }; endParts = addLocalDays(dayStart, 1); granularity = "month"; }
   else throw new ApiError(422, "Invalid business intelligence range");
   const start = localToUtc(startParts, timeZone); const end = localToUtc(endParts, timeZone); const days = Math.ceil((end - start) / DAY); if (days < 1 || days > 366) throw new ApiError(422, "Date range must be between 1 and 366 business days"); if (days > 90) granularity = "week"; if (days > 180) granularity = "month";
   const previousEnd = start; const previousStart = new Date(start.getTime() - (end.getTime() - start.getTime()));
@@ -65,14 +72,13 @@ const salesForRange = async (scope, range) => {
 };
 
 const paymentsForRange = async (scope, range) => {
-  const match = successfulPaymentMatch(scope, range);
   const paymentIds = await Payment.distinct("_id", scope);
   const staffIds = scope.outlet ? await Staff.distinct("_id", scope) : [];
   const refundScope = paymentIds.length ? { payment: { $in: paymentIds } } : { _id: null };
   const cashScope = scope.outlet ? { restaurant: scope.restaurant, staff: { $in: staffIds } } : scope;
   const [totals, methods, refundRows, reconciliationRows] = await Promise.all([
-    Promise.all([Payment.aggregate([{ $match: match }, { $group: { _id: null, received: { $sum: "$amount" }, transactions: { $sum: 1 } } }]), Payment.aggregate([{ $match: { ...scope, refundAmount: { $gt: 0 }, refundedAt: { $gte: range.start, $lt: range.end } } }, { $group: { _id: null, refunded: { $sum: "$refundAmount" } } }])]),
-    Payment.aggregate([{ $match: match }, { $group: { _id: "$paymentMethod", amount: { $sum: "$amount" }, transactions: { $sum: 1 } } }, { $sort: { amount: -1 } }]),
+    Promise.all([Payment.aggregate([...buildValidCollectedPaymentStages(scope, range), { $group: { _id: null, received: { $sum: "$amount" }, transactions: { $sum: 1 } } }]), Payment.aggregate([{ $match: { ...scope, refundAmount: { $gt: 0 }, refundedAt: { $gte: range.start, $lt: range.end } } }, { $group: { _id: null, refunded: { $sum: "$refundAmount" } } }])]),
+    Payment.aggregate([...buildValidCollectedPaymentStages(scope, range), { $group: { _id: "$paymentMethod", amount: { $sum: "$amount" }, transactions: { $sum: 1 } } }, { $sort: { amount: -1 } }]),
     Payment.aggregate([{ $match: { ...scope, refundAmount: { $gt: 0 }, refundedAt: { $gte: range.start, $lt: range.end } } }, { $group: { _id: "$refundStatus", amount: { $sum: "$refundAmount" }, count: { $sum: 1 } } }]),
     Promise.all([Payment.countDocuments({ ...scope, reconciliationStatus: { $in: ["UNRECONCILED", "MISMATCHED", "UNDERPAID", "OVERPAID"] } }), CashReconciliation.aggregate([{ $match: { ...cashScope, closedAt: { $gte: range.start, $lt: range.end }, status: "MISMATCHED" } }, { $group: { _id: null, variance: { $sum: "$difference" }, count: { $sum: 1 } } }]), Refund.countDocuments({ ...refundScope, status: "PENDING" })]),
   ]);

@@ -80,6 +80,7 @@ paymentSchema.index(
 );
 paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentStatus: 1, paidAt: -1 });
+paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentId: 1 });
 paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, createdAt: -1 });
 paymentSchema.index(

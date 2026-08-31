@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
+import Bill from "../models/Bill.js";
 import Food from "../models/Food.js";
 import Invoice from "../models/Invoice.js";
 import Notification from "../models/Notification.js";
@@ -14,6 +15,8 @@ import User from "../models/User.js";
 import { dashboardStats as analyticsDashboardStats } from "../controllers/analyticsController.js";
 import { dashboardStats as adminDashboardStats } from "../controllers/adminController.js";
 import { getBusinessIntelligence } from "../controllers/businessIntelligenceController.js";
+import { getFinancialMetrics, resolveFinancialRange } from "../services/financialMetricsService.js";
+import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { deleteNotification, getNotificationSummary, getNotifications, markAllNotificationsRead } from "../controllers/notificationController.js";
 import { getPaymentById, refundPayment, verifyPayment } from "../controllers/paymentController.js";
 import { getRevenueReport, getTopItemsReport } from "../controllers/reportController.js";
@@ -26,7 +29,7 @@ process.env.JWT_ACCESS_SECRET ||= crypto.randomBytes(32).toString("hex");
 
 const suffix = crypto.randomBytes(6).toString("hex");
 const created = {
-  restaurants: [], outlets: [], categories: [], foods: [], orders: [], invoices: [], payments: [], users: [], notifications: [],
+  restaurants: [], outlets: [], categories: [], foods: [], orders: [], invoices: [], payments: [], bills: [], users: [], notifications: [],
 };
 
 const invoke = (handler, req) => new Promise((resolve) => {
@@ -204,39 +207,112 @@ try {
   const allA = userContext(managerA, outletA1._id, true);
   const currentB1 = userContext(userB, outletB1._id);
 
+  // Dashboard financial metrics must use the verified payment ledger. These
+  // fixtures cover split settlement, cancelled orders, and a settled
+  // consolidated bill without relying on invoice totals or order-item joins.
+  const splitOrder = await Order.create({
+    orderNumber: `RV-SPLIT-${suffix}`,
+    restaurant: restaurantA._id,
+    outlet: outletA1._id,
+    orderType: "TAKEAWAY",
+    items: [{ menuItem: foodA._id, name: foodA.name, price: 1000, quantity: 1, subtotal: 1000 }],
+    subtotal: 1000,
+    total: 1000,
+    paymentStatus: "PAID",
+    paymentMethod: "UPI",
+    paidAt: new Date(),
+    status: "COMPLETED",
+  });
+  const cancelledOrder = await Order.create({
+    orderNumber: `RV-CANCELLED-${suffix}`,
+    restaurant: restaurantA._id,
+    outlet: outletA1._id,
+    orderType: "TAKEAWAY",
+    items: [{ menuItem: foodA._id, name: foodA.name, price: 500, quantity: 1, subtotal: 500 }],
+    subtotal: 500,
+    total: 500,
+    paymentStatus: "PAID",
+    paymentMethod: "CASH",
+    paidAt: new Date(),
+    status: "CANCELLED",
+  });
+  const billedOrder = await Order.create({
+    orderNumber: `RV-BILL-${suffix}`,
+    restaurant: restaurantA._id,
+    outlet: outletA1._id,
+    orderType: "TAKEAWAY",
+    items: [{ menuItem: foodA._id, name: foodA.name, price: 300, quantity: 1, subtotal: 300 }],
+    subtotal: 300,
+    total: 300,
+    paymentStatus: "PENDING",
+    paymentMethod: "CASH",
+    status: "PENDING",
+  });
+  created.orders.push(splitOrder._id, cancelledOrder._id, billedOrder._id);
+  const settledBill = await Bill.create({
+    billNumber: `RV-BILL-${suffix}`,
+    restaurant: restaurantA._id,
+    outlet: outletA1._id,
+    allocations: [{ order: billedOrder._id, orderNumber: billedOrder.orderNumber, subtotal: 300, total: 300 }],
+    subtotal: 300,
+    total: 300,
+    paidAmount: 300,
+    balanceDue: 0,
+    status: "PAID",
+    settledBy: managerA._id,
+    settledAt: new Date(),
+    createdBy: managerA._id,
+  });
+  created.bills.push(settledBill._id);
+  const metricPayments = await Payment.create([
+    { paymentId: `RV-SPLIT-CASH-${suffix}`, orderId: splitOrder._id, restaurant: restaurantA._id, outlet: outletA1._id, amount: 400, totalAmount: 400, paymentMethod: "CASH", paymentStatus: "PAID", transactionId: `rv-split-cash-${suffix}`, paidAt: new Date() },
+    { paymentId: `RV-SPLIT-UPI-${suffix}`, orderId: splitOrder._id, restaurant: restaurantA._id, outlet: outletA1._id, amount: 600, totalAmount: 600, paymentMethod: "UPI", paymentStatus: "PAID", transactionId: `rv-split-upi-${suffix}`, paidAt: new Date() },
+    { paymentId: `RV-CANCELLED-${suffix}`, orderId: cancelledOrder._id, restaurant: restaurantA._id, outlet: outletA1._id, amount: 500, totalAmount: 500, paymentMethod: "CASH", paymentStatus: "PAID", transactionId: `rv-cancelled-${suffix}`, paidAt: new Date() },
+    { paymentId: `RV-BILL-PAY-${suffix}`, bill: settledBill._id, restaurant: restaurantA._id, outlet: outletA1._id, amount: 300, totalAmount: 300, paymentMethod: "CASH", paymentStatus: "PAID", transactionId: `rv-bill-${suffix}`, paidAt: new Date() },
+  ]);
+  created.payments.push(...metricPayments.map((payment) => payment._id));
+  const metricScopeA1 = await buildOutletQuery({}, currentA1, { allowAll: true });
+  const todayMetricsA1 = await getFinancialMetrics({ scope: metricScopeA1, range: await resolveFinancialRange({ scope: metricScopeA1, range: "today" }) });
+  assert.equal(todayMetricsA1.revenue, 1400);
+  assert.equal(todayMetricsA1.orders, 3);
+
   const analyticsA1 = await invoke(analyticsDashboardStats, request(currentA1));
   const analyticsA2 = await invoke(analyticsDashboardStats, request(currentA2));
   assert.equal(analyticsA1.statusCode, 200);
-  assert.equal(analyticsA1.body.data.cards.revenue, 100);
+  assert.equal(analyticsA1.body.data.cards.revenue, 1400);
+  assert.equal(analyticsA1.body.data.cards.orders, 3);
   assert.equal(analyticsA2.body.data.cards.revenue, 300);
   console.log("Release verification: active-outlet dashboard checked.");
 
   const biA1 = await invoke(getBusinessIntelligence, request(currentA1, { query: { range: "this_month" } }));
   const biAll = await invoke(getBusinessIntelligence, request(allA, { query: { range: "this_month" } }));
   assert.equal(biA1.statusCode, 200);
-  assert.equal(biA1.body.data.overview.netSales.current, 100);
+  assert.equal(biA1.body.data.overview.netSales.current, 1100);
   assert.equal(biAll.statusCode, 200);
-  assert.equal(biAll.body.data.overview.netSales.current, 400);
-  assert.notEqual(biAll.body.data.overview.netSales.current, 1300);
+  assert.equal(biAll.body.data.overview.netSales.current, 1400);
+  assert.notEqual(biAll.body.data.overview.netSales.current, 1900);
+  assert.equal(biAll.body.data.overview.netCollected.current, 1700);
   console.log("Release verification: BI outlet scopes checked.");
 
   const adminA1 = await invoke(adminDashboardStats, request(currentA1));
   const adminAll = await invoke(adminDashboardStats, request(allA));
   assert.equal(adminA1.statusCode, 200);
-  assert.equal(adminA1.body.data.totalRevenue.value, 100);
+  assert.equal(adminA1.body.data.totalRevenue.value, 1400);
+  assert.equal(adminA1.body.data.totalOrders.value, 3);
   assert.equal(adminAll.statusCode, 200);
-  assert.equal(adminAll.body.data.totalRevenue.value, 400);
+  assert.equal(adminAll.body.data.totalRevenue.value, 1700);
+  assert.equal(adminAll.body.data.totalOrders.value, 4);
 
   const reportA1 = await invoke(getRevenueReport, request(currentA1, { query: { range: "this_month" } }));
   const reportAll = await invoke(getRevenueReport, request(allA, { query: { range: "this_month" } }));
   const topItemsA1 = await invoke(getTopItemsReport, request(currentA1, { query: { range: "this_month" } }));
   assert.equal(reportA1.statusCode, 200);
-  assert.equal(reportA1.body.data.totalRevenue, 100);
+  assert.equal(reportA1.body.data.totalRevenue, 1400);
   assert.equal(reportAll.statusCode, 200);
-  assert.equal(reportAll.body.data.totalRevenue, 400);
+  assert.equal(reportAll.body.data.totalRevenue, 1700);
   assert.equal(topItemsA1.statusCode, 200);
   assert.equal(topItemsA1.body.data.length, 1);
-  assert.equal(topItemsA1.body.data[0].revenue, 100);
+  assert.equal(topItemsA1.body.data[0].revenue, 1100);
   console.log("Release verification: report outlet scopes checked.");
 
   const [notificationA1, notificationA2, notificationNeutral, notificationB1, notificationManagerA1, notificationManagerA2, notificationManagerB1] = await Promise.all([
@@ -312,6 +388,7 @@ try {
     await Promise.all([
       Notification.deleteMany({ _id: { $in: created.notifications } }),
       Payment.deleteMany({ _id: { $in: created.payments } }),
+      Bill.deleteMany({ _id: { $in: created.bills } }),
       Invoice.deleteMany({ _id: { $in: created.invoices } }),
       Order.deleteMany({ _id: { $in: created.orders } }),
       Food.deleteMany({ _id: { $in: created.foods } }),

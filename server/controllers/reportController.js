@@ -9,6 +9,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { normalizePaymentMethod, normalizePaymentStatus } from "../utils/paymentUtils.js";
 import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
+import { getCollectedRevenueSeries, getFinancialMetrics, resolveFinancialRange } from "../services/financialMetricsService.js";
 
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
 const SUCCESS_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
@@ -172,8 +173,8 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
   const [
     orderStatusRows,
     uniqueCustomers,
-    revenueAgg,
-    paidOrders,
+    invoiceAgg,
+    financialMetrics,
   ] = await Promise.all([
     Order.aggregate([
       { $match: orderMatch },
@@ -195,13 +196,7 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
         },
       },
     ]),
-    Order.countDocuments({
-      ...restaurantFilter,
-      isArchived: { $ne: true },
-      status: { $ne: "CANCELLED" },
-      paymentStatus: "PAID",
-      paidAt: { $gte: rangeContext.start, $lt: rangeContext.end },
-    }),
+    getFinancialMetrics({ scope: restaurantFilter, range: rangeContext }),
   ]);
 
   const statusMap = orderStatusRows.reduce((acc, row) => {
@@ -211,8 +206,9 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
 
   const completedOrders = statusMap.COMPLETED || 0;
   const cancelledOrders = statusMap.CANCELLED || 0;
-  const revenue = Number(revenueAgg[0]?.totalSales || 0);
-  const totalTax = Number(revenueAgg[0]?.totalTax || 0);
+  const revenue = Number(financialMetrics.revenue || 0);
+  const paidOrders = Number(financialMetrics.orders || 0);
+  const totalTax = Number(invoiceAgg[0]?.totalTax || 0);
   const averageOrderValue = paidOrders ? revenue / paidOrders : 0;
 
   return {
@@ -228,14 +224,9 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
 };
 
 export const getReportSummary = asyncHandler(async (req, res) => {
-  const current = parseDateRange(req.query);
-  const previous = {
-    ...current,
-    start: current.previousStart,
-    end: current.previousEnd,
-  };
-
   const [restaurantFilter, invoiceFilter] = await Promise.all([getRestaurantFilter(req.user), getInvoiceFilter(req.user)]);
+  const current = await resolveFinancialRange({ scope: restaurantFilter, ...req.query });
+  const previous = { ...current, start: current.previousStart, end: current.previousEnd };
 
   const [currentSummary, previousSummary] = await Promise.all([
     buildSummaryForRange(current, restaurantFilter, invoiceFilter),
@@ -259,38 +250,16 @@ export const getReportSummary = asyncHandler(async (req, res) => {
 });
 
 export const getRevenueReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
-  const invoiceFilter = await getInvoiceFilter(req.user);
-  const format =
-    rangeContext.granularity === "hour"
-      ? "%Y-%m-%d %H:00"
-      : rangeContext.granularity === "month"
-        ? "%Y-%m"
-        : "%Y-%m-%d";
-
-  const rows = await Invoice.aggregate([
-    {
-      $match: {
-        ...toInvoiceMatch(rangeContext, invoiceFilter),
-      },
-    },
-    {
-      $group: {
-        _id: { $dateToString: { format, date: "$issuedAt" } },
-        revenue: { $sum: "$netTotal" },
-        payments: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-
+  const restaurantFilter = await getRestaurantFilter(req.user);
+  const rangeContext = await resolveFinancialRange({ scope: restaurantFilter, ...req.query });
+  const rows = await getCollectedRevenueSeries({ scope: restaurantFilter, range: rangeContext });
   const totalRevenue = rows.reduce((sum, row) => sum + Number(row.revenue || 0), 0);
 
   res.status(200).json(
     new ApiResponse(true, "Revenue report fetched", {
       granularity: rangeContext.granularity,
       totalRevenue,
-      points: rows.map((row) => ({ label: row._id, revenue: Number(row.revenue || 0), payments: row.payments })),
+      points: rows.map((row) => ({ label: row.label, revenue: Number(row.revenue || 0), payments: row.payments })),
     })
   );
 });
@@ -341,6 +310,7 @@ export const getTopItemsReport = asyncHandler(async (req, res) => {
     {
       $match: {
         ...toOrderMatch(rangeContext, restaurantFilter),
+        status: { $nin: ["CANCELLED", "REJECTED"] },
         paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
       },
     },
@@ -669,8 +639,8 @@ export const getSalesReport = asyncHandler(async (req, res) => {
 });
 
 const buildExportPayload = async (query, user) => {
-  const rangeContext = parseDateRange(query);
   const restaurantFilter = await getRestaurantFilter(user);
+  const rangeContext = await resolveFinancialRange({ scope: restaurantFilter, ...query });
   const [summaryRes, revenueRes, topItemsRes, paymentRes, salesRes] = await Promise.all([
     (async () => {
       const current = await buildSummaryForRange(rangeContext, restaurantFilter);
@@ -688,29 +658,7 @@ const buildExportPayload = async (query, user) => {
         },
       };
     })(),
-    (async () => {
-      const format =
-        rangeContext.granularity === "hour"
-          ? "%Y-%m-%d %H:00"
-          : rangeContext.granularity === "month"
-            ? "%Y-%m"
-            : "%Y-%m-%d";
-      return Payment.aggregate([
-        {
-          $match: {
-            ...toPaymentMatch(rangeContext, restaurantFilter),
-            paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES },
-          },
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format, date: "$createdAt" } },
-            revenue: { $sum: { $subtract: ["$totalAmount", { $ifNull: ["$refundAmount", 0] }] } },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]);
-    })(),
+    getCollectedRevenueSeries({ scope: restaurantFilter, range: rangeContext }),
     (async () => {
       return Order.aggregate([
         {
