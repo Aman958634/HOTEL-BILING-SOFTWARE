@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import logger from "../utils/logger.js";
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
+import { hasRequiredPaymentUniqueIndexes } from "../utils/paymentIndexDefinitions.js";
 import { ensureDefaultPlans } from "../services/planService.js";
 import { ensureRestaurantSubscriptions } from "../services/subscriptionBootstrapService.js";
 import { ensureSuperAdmin, shouldSeedSuperAdmin } from "../services/superAdminSeedService.js";
@@ -20,12 +21,6 @@ export const isDbConnected = () => mongoose.connection.readyState === 1;
 export const hasTransactionSupport = (hello = {}) =>
   Boolean(hello?.setName || hello?.msg === "isdbgrid") && hello?.logicalSessionTimeoutMinutes !== null && hello?.logicalSessionTimeoutMinutes !== undefined;
 
-const hasUniqueIndex = (indexes, expectedKey) =>
-  indexes.some((index) =>
-    index.unique === true &&
-    Object.entries(expectedKey).every(([field, direction]) => index.key?.[field] === direction)
-  );
-
 /**
  * Production-only, read-only startup checks. They verify that the configured
  * Mongo deployment can honour transactional payment settlement and that the
@@ -41,13 +36,7 @@ export const assertProductionDatabaseReadiness = async () => {
   }
 
   const indexes = await Payment.collection.indexes();
-  const requiredIndexes = [
-    { paymentId: 1 },
-    { transactionId: 1 },
-    { razorpayPaymentId: 1 },
-    { orderId: 1, idempotencyKey: 1 },
-  ];
-  if (!requiredIndexes.every((key) => hasUniqueIndex(indexes, key))) {
+  if (!hasRequiredPaymentUniqueIndexes(indexes)) {
     throw new Error("Required payment uniqueness indexes are missing; run the payment index migration before production startup");
   }
 };

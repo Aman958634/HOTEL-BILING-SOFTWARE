@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { paymentUniqueIndexDefinitions } from "../utils/paymentIndexDefinitions.js";
 
 const PAYMENT_METHODS = [
   "CASH",
@@ -27,7 +28,7 @@ const paymentTimelineSchema = new mongoose.Schema(
 
 const paymentSchema = new mongoose.Schema(
   {
-    paymentId: { type: String, required: true, unique: true, index: true, trim: true },
+    paymentId: { type: String, required: true, trim: true },
     // Retained for normal order payments. Consolidated bill payments use bill.
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null, index: true },
     bill: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null, index: true },
@@ -45,13 +46,13 @@ const paymentSchema = new mongoose.Schema(
     paymentMethod: { type: String, enum: PAYMENT_METHODS, required: true, index: true },
     gateway: { type: String, default: "", trim: true, index: true },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: "PENDING", index: true },
-    transactionId: { type: String, default: "", trim: true, index: true, sparse: true, unique: true },
+    transactionId: { type: String, default: "", trim: true },
     razorpayOrderId: { type: String, default: "", trim: true, index: true, sparse: true },
-    razorpayPaymentId: { type: String, default: "", trim: true, index: true, sparse: true },
+    razorpayPaymentId: { type: String, default: "", trim: true },
     // Supplied by the caller (Idempotency-Key header) or derived from a
     // provider payment id. It makes a retry return the original payment
     // rather than recording money twice.
-    idempotencyKey: { type: String, default: "", trim: true, index: true },
+    idempotencyKey: { type: String, default: "", trim: true },
     paidAt: { type: Date, default: null, index: true },
     refundAmount: { type: Number, default: 0, min: 0 },
     refundReason: { type: String, default: "", trim: true },
@@ -70,23 +71,12 @@ const paymentSchema = new mongoose.Schema(
 );
 
 paymentSchema.index({ createdAt: -1 });
-paymentSchema.index(
-  { orderId: 1, idempotencyKey: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { idempotencyKey: { $type: "string", $gt: "" } },
-    name: "payment_order_idempotency_key_unique",
-  }
-);
+paymentUniqueIndexDefinitions.forEach(({ key, name, options }) => paymentSchema.index(key, { ...options, name }));
 paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentId: 1 });
 paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, createdAt: -1 });
-paymentSchema.index(
-  { bill: 1, idempotencyKey: 1 },
-  { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }
-);
 
 const Payment = mongoose.model("Payment", paymentSchema);
 export default Payment;

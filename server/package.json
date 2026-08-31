@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "kill-port 5002 && nodemon server.js",
-    "start": "node server.js",
+    "start": "node scripts/migratePaymentIndexes.js && node server.js",
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
     "migrate:customer-crm": "node scripts/migrateCustomerCrmIndexes.js",
@@ -35,7 +35,7 @@
     "test:database-safety": "node tests/testDatabaseSafety.test.js",
     "test:env-validation": "node tests/envValidation.test.js",
     "test:production-db-readiness": "node tests/productionDatabaseReadiness.test.js",
-    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check utils/publicMenuContext.js && node --check config/db.js && node --check config/envValidation.js && node --check controllers/paymentController.js && node --check services/orderService.js && node --check services/paymentService.js && node --check services/loyaltyService.js && node --check scripts/auditPaymentConsistency.js"
+    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check utils/publicMenuContext.js && node --check utils/paymentIndexDefinitions.js && node --check config/db.js && node --check config/envValidation.js && node --check controllers/paymentController.js && node --check services/orderService.js && node --check services/paymentService.js && node --check services/loyaltyService.js && node --check scripts/auditPaymentConsistency.js && node --check scripts/migratePaymentIndexes.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
