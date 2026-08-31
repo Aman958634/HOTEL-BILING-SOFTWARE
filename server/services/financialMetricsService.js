@@ -167,36 +167,7 @@ export const getSettledOrderCount = async ({ scope, range = null }) => {
     $lookup: {
       from: Bill.collection.name,
       let: { orderId: "$_id" },
-      pipeline: [
-        {
-          $match: {
-            ...scope,
-            status: "PAID",
-            ...(range ? { settledAt: { $gte: range.start, $lt: range.end } } : []),
-            $expr: { $in: ["$$orderId", "$allocations.order"] },
-          },
-        },
-        {
-          $lookup: {
-            from: Payment.collection.name,
-            let: { billId: "$_id" },
-            pipeline: [
-              {
-                $match: {
-                  ...scope,
-                  bill: "$$billId",
-                  paymentStatus: { $in: COLLECTED_PAYMENT_STATUSES },
-                  $expr: { $gt: [netPaymentAmount, 0] },
-                },
-              },
-              { $limit: 1 },
-            ],
-            as: "verifiedBillPayments",
-          },
-        },
-        { $match: { "verifiedBillPayments.0": { $exists: true } } },
-        { $limit: 1 },
-      ],
+      pipeline: [{ $match: billMatch }, { $limit: 1 }],
       as: "settledBills",
     },
   };
@@ -236,106 +207,6 @@ export const getCollectedRevenueSeries = async ({ scope, range }) => {
     payments: Number(row.payments || 0),
   }));
 };
-
-export const getSettledOrderCountSeries = async ({ scope, range }) => {
-  const format = range.granularity === "hour" ? "%Y-%m-%d %H:00" : range.granularity === "month" ? "%Y-%m" : "%Y-%m-%d";
-  const rows = await Order.aggregate([
-    { $match: validOrderMatch(scope) },
-    directPaymentLookup(),
-    settledBillLookup(range),
-    {
-      $match: {
-        $or: [
-          directOrderSettlement(range),
-          { "settledBills.0": { $exists: true } },
-        ],
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format,
-            date: { $ifNull: ["$paidAt", "$createdAt"] },
-            timezone: range.timeZone,
-          },
-        },
-        orders: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-  return rows.map((row) => ({
-    label: row._id,
-    orders: Number(row.orders || 0),
-  }));
-};
-
-const directPaymentLookup = () => ({
-  $lookup: {
-    from: Payment.collection.name,
-    let: { orderId: "$_id" },
-    pipeline: [
-      {
-        $match: {
-          paymentStatus: { $in: COLLECTED_PAYMENT_STATUSES },
-          $expr: {
-            $and: [
-              { $eq: ["$orderId", "$$orderId"] },
-              { $gt: [netPaymentAmount, 0] },
-            ],
-          },
-        },
-      },
-      { $limit: 1 },
-    ],
-    as: "verifiedOrderPayments",
-  },
-});
-
-const directOrderSettlement = (range) => ({
-  $and: [
-    { paymentStatus: "PAID" },
-    ...(range ? [{ paidAt: { $gte: range.start, $lt: range.end } }] : []),
-    { "verifiedOrderPayments.0": { $exists: true } },
-  ],
-});
-
-const settledBillLookup = (range) => ({
-  $lookup: {
-    from: Bill.collection.name,
-    let: { orderId: "$_id" },
-    pipeline: [
-      {
-        $match: {
-          status: "PAID",
-          ...(range ? { settledAt: { $gte: range.start, $lt: range.end } } : {}),
-          $expr: { $in: ["$$orderId", "$allocations.order"] },
-        },
-      },
-      {
-        $lookup: {
-          from: Payment.collection.name,
-          let: { billId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                bill: "$$billId",
-                paymentStatus: { $in: COLLECTED_PAYMENT_STATUSES },
-                $expr: { $gt: [netPaymentAmount, 0] },
-              },
-            },
-            { $limit: 1 },
-          ],
-          as: "verifiedBillPayments",
-        },
-      },
-      { $match: { "verifiedBillPayments.0": { $exists: true } } },
-      { $limit: 1 },
-    ],
-    as: "settledBills",
-  },
-});
 
 export const getFinancialMetrics = async ({ scope, range = null }) => {
   const [{ revenue, payments }, orders] = await Promise.all([
