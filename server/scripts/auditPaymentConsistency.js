@@ -38,6 +38,7 @@ try {
   }
 
   const inconsistencies = [];
+  const reviewWarnings = [];
   const orderIds = new Set(orders.map((order) => id(order._id)));
   for (const order of orders) {
     const related = paymentsByOrder.get(id(order._id)) || [];
@@ -49,7 +50,16 @@ try {
     const pending = related.filter((payment) => ["PENDING", "PROCESSING"].includes(String(payment.paymentStatus || "").toUpperCase()));
     const context = { orderId: id(order._id), orderPaymentStatus: orderState, paid, total };
 
-    if (orderState === "PAID" && pending.length) add(inconsistencies, "PAID_ORDER_HAS_PENDING_PAYMENT", { ...context, paymentIds: pending.map((payment) => id(payment._id)) });
+    // A completed order can legitimately retain an abandoned provider intent.
+    // It is review-worthy but not an accounting mismatch if a verified ledger
+    // entry covers the order total. A PAID order with only pending rows is a
+    // real mismatch and remains blocking below.
+    if (orderState === "PAID" && pending.length && successful.length) {
+      add(reviewWarnings, "STALE_PAYMENT_INTENT_ON_PAID_ORDER", { ...context, paymentIds: pending.map((payment) => id(payment._id)) });
+    }
+    if (orderState === "PAID" && pending.length && !successful.length) {
+      add(inconsistencies, "PAID_ORDER_HAS_ONLY_PENDING_PAYMENTS", { ...context, paymentIds: pending.map((payment) => id(payment._id)) });
+    }
     if (orderState === "PAID" && !successful.length) add(inconsistencies, "PAID_ORDER_HAS_NO_SUCCESSFUL_PAYMENT", context);
     if (orderState === "PAID" && paid + EPSILON < total) add(inconsistencies, "PAID_ORDER_IS_UNDERPAID", context);
     if (orderState !== "PAID" && paid + EPSILON >= total && total > 0) add(inconsistencies, "FULLY_PAID_ORDER_NOT_MARKED_PAID", context);
@@ -89,11 +99,17 @@ try {
   console.log(`Payments checked: ${payments.length}`);
   console.log(`Consistent: ${Math.max(orders.length - mismatchedOrderIds.size, 0)}`);
   console.log(`Mismatches: ${inconsistencies.length}`);
+  console.log(`Manual-review warnings: ${reviewWarnings.length}`);
   console.log(`Duplicate gateway references: ${duplicateGatewayReferences.length}`);
   if (inconsistencies.length) {
     console.log("\nFindings:");
     for (const finding of inconsistencies.slice(0, 100)) console.log(JSON.stringify(finding));
     if (inconsistencies.length > 100) console.log(`... ${inconsistencies.length - 100} additional findings omitted`);
+  }
+  if (reviewWarnings.length) {
+    console.log("\nManual-review warnings:");
+    for (const warning of reviewWarnings.slice(0, 100)) console.log(JSON.stringify(warning));
+    if (reviewWarnings.length > 100) console.log(`... ${reviewWarnings.length - 100} additional warnings omitted`);
   }
   console.log(`\nSTATUS: ${status}`);
   process.exitCode = status === "PASS" ? 0 : 2;

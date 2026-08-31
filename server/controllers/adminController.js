@@ -10,7 +10,7 @@ import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
-import { getCollectedRevenueSeries, getFinancialMetrics, resolveFinancialRange } from "../services/financialMetricsService.js";
+import { getCollectedRevenueSeries, getFinancialMetrics, getSettledOrderCountSeries, resolveFinancialRange } from "../services/financialMetricsService.js";
 
 const normalizeStatus = (status) => {
   const map = {
@@ -126,8 +126,14 @@ export const dashboardStats = asyncHandler(async (req, res) => {
 export const salesOverview = asyncHandler(async (req, res) => {
   const scope = await buildOutletQuery({}, req.user, { allowAll: true });
   const range = await resolveFinancialRange({ scope, range: req.query.range || "7d" });
-  const rows = await getCollectedRevenueSeries({ scope, range });
-  const data = rows.map((row) => ({ _id: row.label, revenue: row.revenue, orders: row.payments }));
+  const [revenueRows, orderRows] = await Promise.all([
+    getCollectedRevenueSeries({ scope, range }),
+    getSettledOrderCountSeries({ scope, range }),
+  ]);
+  const data = revenueRows.map((row) => {
+    const orderRow = orderRows.find((o) => o.label === row.label);
+    return { _id: row.label, amount: row.revenue, orders: orderRow?.orders ?? 0 };
+  });
 
   res.status(200).json(new ApiResponse(true, "Sales overview fetched", data));
 });

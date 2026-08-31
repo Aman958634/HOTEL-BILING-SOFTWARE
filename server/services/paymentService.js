@@ -526,8 +526,13 @@ export const recordVerifiedPayment = async (
       const totalPaid = await getSuccessfulPaymentTotal(orderDoc, session);
       const orderPaymentStatus = deriveOrderPaymentStatus({ total: billTotal, paid: totalPaid });
       const fullyPaid = orderPaymentStatus === "PAID";
+      // Store the exact ledger entry that performed the latest settlement.
+      // This prevents consumers that follow Order.paymentId from resolving an
+      // older PENDING payment intent after a verified payment has committed.
+      orderDoc.paymentId = payment.paymentId;
       orderDoc.paymentMethod = method;
       orderDoc.paymentStatus = orderPaymentStatus;
+      orderDoc.transactionId = payment.transactionId || orderDoc.transactionId || "";
       orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
       if (fullyPaid) orderDoc.status = "COMPLETED";
       await orderDoc.save({ session });

@@ -409,9 +409,9 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     verifiedAmount = Number(gatewayPayment.amount) / 100;
   }
 
-  const payment =
+  const settlement =
     nextStatus === "PAID"
-        ? (await recordVerifiedPayment(order, {
+      ? await recordVerifiedPayment(order, {
           amount: verifiedAmount ?? req.body.amount,
           paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
           gateway: provider || meta.provider || "Razorpay",
@@ -422,7 +422,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
           paidAt: new Date(),
           note: "Payment verified successfully",
           receivedBy: req.user._id,
-        })).payment
+        })
       : await syncPaymentFromOrder(order, {
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
           metadata: {
@@ -437,6 +437,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
           status: nextStatus,
           note: nextStatus === "PAID" ? "Payment verified successfully" : "Payment verification failed",
         });
+  const payment = nextStatus === "PAID" ? settlement.payment : settlement;
 
   if (nextStatus !== "PAID") {
     await updateOrderPaymentState(order, {
@@ -463,19 +464,63 @@ export const verifyPayment = asyncHandler(async (req, res) => {
     }).catch(() => {});
   }
 
-  res.status(200).json(new ApiResponse(true, "Payment verified", serializePayment(payment)));
+  res.status(200).json(
+    new ApiResponse(true, "Payment verified", {
+      ...serializePayment(payment),
+      // Additive data lets a client replace stale order state immediately
+      // after a verified settlement, including a split payment.
+      settlement: nextStatus === "PAID"
+        ? {
+            orderId: String(settlement.order._id),
+            paymentStatus: settlement.order.paymentStatus,
+            orderStatus: settlement.order.status,
+            paidAmount: settlement.paidTotal,
+            remainingAmount: settlement.remaining,
+            fullyPaid: settlement.fullyPaid,
+          }
+        : null,
+    })
+  );
 });
 
 export const getPaymentByOrderId = asyncHandler(async (req, res) => {
-  const payment = await Payment.findOne(await buildRestaurantQuery({ orderId: req.params.orderId }, req.user))
+  const paymentScope = await buildRestaurantQuery({ orderId: req.params.orderId }, req.user);
+  // An order can retain prior PENDING gateway intents and can have multiple
+  // successful rows for split payments. Prefer the most recent settled row
+  // for a receipt/status view; never mutate or hide the individual attempts.
+  const payment = await Payment.findOne({
+    ...paymentScope,
+    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
+  })
+    .sort({ paidAt: -1, createdAt: -1 })
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
-    .populate("refundedBy", "fullName email role");
+    .populate("refundedBy", "fullName email role")
+    || await Payment.findOne(paymentScope)
+      .sort({ createdAt: -1 })
+      .populate("orderId")
+      .populate("customerId", "fullName email phone avatar")
+      .populate("tableId", "tableNumber floor section")
+      .populate("refundedBy", "fullName email role");
 
   if (!payment) throw new ApiError(404, "Payment not found");
 
   const detail = mapPaymentDetail(payment);
+  const successfulPayments = await Payment.find({
+    ...paymentScope,
+    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED"] },
+  }).select("amount totalAmount refundAmount").lean();
+  const paidAmount = successfulPayments.reduce(
+    (total, item) => total + Math.max(Number(item.amount || item.totalAmount || 0) - Number(item.refundAmount || 0), 0),
+    0
+  );
+  const orderTotal = Number(detail.order?.total || 0);
+  detail.settlement = {
+    paidAmount,
+    remainingAmount: Math.max(orderTotal - paidAmount, 0),
+    paymentStatus: detail.order?.paymentStatus || "PENDING",
+  };
   detail.refunds = await Refund.find({ payment: payment._id }).select("amount reason status method processedAt createdAt initiatedBy").populate("initiatedBy", "fullName role").sort({ createdAt: -1 }).lean();
   res.status(200).json(new ApiResponse(true, "Payment fetched", detail));
 });
