@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, param } from "express-validator";
 import {
 	createPaymentIntent,
+	createPayment,
 	deletePayment,
 	exportPayments,
 	getPaymentById,
@@ -31,6 +32,19 @@ const verifyPaymentValidation = [
   body("razorpay_signature").optional().isString().isLength({ max: 200 }).withMessage("Razorpay signature is invalid"),
 ];
 
+router.post(
+	"/",
+	protect,
+	requirePaymentAdminAccess,
+	[
+		body("orderId").isMongoId().withMessage("Invalid order id"),
+		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
+		body("paymentMethod").isString().isLength({ min: 1, max: 40 }).withMessage("Payment method is required"),
+		body("paymentStatus").optional().isIn(["PAID", "PENDING", "FAILED"]).withMessage("Payment status is invalid"),
+	],
+	validate,
+	createPayment
+);
 router.post("/intent", protect, paymentIntentValidation, validate, createPaymentIntent);
 router.post("/create-order", protect, paymentIntentValidation, validate, createPaymentIntent);
 router.post("/verify", protect, verifyPaymentValidation, validate, verifyPayment);

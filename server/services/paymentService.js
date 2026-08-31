@@ -514,6 +514,68 @@ export const recordVerifiedPayment = async (
 };
 
 /**
+ * Canonical API write for an order payment. Payment is written first inside
+ * the transaction and Order.paymentStatus is only its denormalized mirror.
+ */
+export const recordOrderPayment = async (order, options = {}) => {
+  const status = normalizePaymentStatus(options.paymentStatus || "PENDING");
+  if (status === "PAID") return recordVerifiedPayment(order, options);
+
+  const orderId = order?._id || order;
+  const idempotencyKey = String(options.idempotencyKey || options.transactionId || "").trim();
+  if (!orderId) throw new ApiError(404, "Order not found");
+  if (!idempotencyKey) throw new ApiError(422, "Idempotency-Key is required for a payment");
+
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const orderDoc = await buildOrderLookup(orderId, session);
+      if (!orderDoc) throw new ApiError(404, "Order not found");
+      const prior = await Payment.findOne({ orderId: orderDoc._id, idempotencyKey }).session(session);
+      if (prior) {
+        result = { order: orderDoc, payment: prior, idempotent: true };
+        return;
+      }
+
+      const method = normalizePaymentMethod(options.paymentMethod || orderDoc.paymentMethod || "OTHER");
+      const amount = Number(options.amount ?? orderDoc.total ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
+      const orderStatus = status === "FAILED" ? "FAILED" : "PENDING";
+      const payment = new Payment({
+        paymentId: await nextPaymentSequence(session), orderId: orderDoc._id,
+        customerId: orderDoc.customer?._id || orderDoc.customer || null, tableId: orderDoc.table?._id || orderDoc.table || null,
+        restaurant: orderDoc.restaurant || null, outlet: orderDoc.outlet || null, amount, totalAmount: amount,
+        subtotal: Number(orderDoc.subtotal || 0), tax: Number(orderDoc.tax || 0), discount: Number(orderDoc.discount || 0), serviceCharge: Number(orderDoc.serviceCharge || 0),
+        paymentMethod: method, gateway: normalizeGateway(options.gateway), paymentStatus: status, receivedBy: options.receivedBy || null,
+        transactionId: options.transactionId || `PAY-${idempotencyKey}`, idempotencyKey, metadata: { ...(options.metadata || {}) },
+      });
+      payment.timeline = buildPaymentTimeline(orderDoc, payment, status, options.note || "Payment recorded");
+      await payment.save({ session });
+
+      orderDoc.paymentMethod = method;
+      orderDoc.paymentStatus = orderStatus;
+      orderDoc.paymentId = payment.paymentId;
+      orderDoc.transactionId = payment.transactionId;
+      orderDoc.paidAt = null;
+      await orderDoc.save({ session });
+      result = { order: orderDoc, payment, idempotent: false };
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      const prior = await Payment.findOne({ orderId, idempotencyKey });
+      if (prior) return { order: await buildOrderLookup(orderId), payment: prior, idempotent: true };
+    }
+    if (String(error?.message || "").includes("Transaction numbers are only allowed")) throw new ApiError(503, "Payments require MongoDB replica-set transactions.");
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+  if (!result.idempotent) emitPaymentCreated(serializePayment(result.payment));
+  return result;
+};
+
+/**
  * Repairs a crash window such as a committed gateway payment followed by a
  * process exit before settlement/invoice work completed. It is safe to run on
  * every boot because all decisions are derived from successful payments.

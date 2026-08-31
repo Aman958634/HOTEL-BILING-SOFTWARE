@@ -21,6 +21,7 @@ import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import {
   buildPaymentReceipt,
   recordVerifiedPayment,
+  recordOrderPayment,
   getRazorpayClient,
   serializePayment,
   stripe,
@@ -48,6 +49,24 @@ const getPagination = (query) => {
   const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
   return { page, limit, skip: (page - 1) * limit };
 };
+
+// POST /payments — the payment ledger is authoritative; the service mirrors
+// its committed status to the order in the same MongoDB transaction.
+export const createPayment = asyncHandler(async (req, res) => {
+  const { orderId, amount, paymentMethod, paymentStatus = "PENDING", gateway = "", transactionId = "", metadata = {} } = req.body;
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: orderId }, req.user));
+  if (!order) throw new ApiError(404, "Order not found");
+  const result = await recordOrderPayment(order, {
+    amount, paymentMethod, paymentStatus, gateway, transactionId, metadata,
+    idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim(),
+    receivedBy: req.user._id,
+    note: "Payment created through the payment ledger",
+  });
+  res.status(result.idempotent ? 200 : 201).json(new ApiResponse(true, result.idempotent ? "Payment already recorded" : "Payment recorded", {
+    payment: serializePayment(result.payment),
+    orderPaymentStatus: result.order.paymentStatus,
+  }));
+});
 
 const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
@@ -437,6 +456,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
 export const getPaymentByOrderId = asyncHandler(async (req, res) => {
   const payment = await Payment.findOne(await buildRestaurantQuery({ orderId: req.params.orderId }, req.user))
+    .sort({ paidAt: -1, updatedAt: -1, createdAt: -1 })
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
