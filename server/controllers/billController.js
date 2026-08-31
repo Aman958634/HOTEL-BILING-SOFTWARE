@@ -36,8 +36,8 @@ export const listBills = asyncHandler(async (req, res) => {
 });
 
 export const getBill = asyncHandler(async (req, res) => {
-  const bill = await Bill.findOne(await buildOutletQuery({ _id: req.params.id }, req.user)).populate("restaurant", "name address city state phone email gstNumber").populate("table", "tableNumber").populate("customer", "fullName phone email");
-  if (!bill) throw new ApiError(404, "Bill not found"); res.json(new ApiResponse(true, "Bill fetched", await serializeBill(bill, { includeLegacyItems: true })));
+  const bill = await Bill.findOne(await buildOutletQuery({ _id: req.params.id }, req.user)).populate("table", "tableNumber").populate("customer", "fullName phone email");
+  if (!bill) throw new ApiError(404, "Bill not found"); res.json(new ApiResponse(true, "Bill fetched", await serializeBill(bill)));
 });
 
 export const addBillPayment = asyncHandler(async (req, res) => {

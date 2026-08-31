@@ -6,15 +6,6 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   if (!open) return null;
 
   const order = payment?.order || {};
-  const bill = payment?.bill || {};
-  const restaurant = payment?.restaurant || {};
-  const receiptGroups = (order.items || []).length
-    ? [{ orderNumber: order.orderNumber || payment.orderIdValue, items: order.items }]
-    : (bill.allocations || []).map((allocation) => ({ orderNumber: allocation.orderNumber, items: allocation.items || [] }));
-  const grandTotal = bill.total ?? order.total ?? payment?.totalAmount ?? getPaymentAmount(payment);
-  const paidAmount = bill.paidAmount ?? getPaymentAmount(payment);
-  const balanceDue = bill.balanceDue ?? 0;
-  const address = [restaurant.address, restaurant.city, restaurant.state].filter(Boolean).join(", ");
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50">
@@ -32,17 +23,15 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
         {payment ? (
           <div className="mt-4 rounded-3xl bg-white p-6 shadow-sm print:shadow-none">
             <div className="border-b border-dashed border-slate-300 pb-4 text-center">
-              <p className="text-2xl font-black tracking-wide text-brand-700">{restaurant.name || "Restaurant"}</p>
-              {address ? <p className="mt-1 text-sm text-slate-500">{address}</p> : null}
-              {restaurant.phone || restaurant.email ? <p className="text-xs text-slate-400">{[restaurant.phone, restaurant.email].filter(Boolean).join(" · ")}</p> : null}
-              {restaurant.gstNumber ? <p className="text-xs text-slate-400">GSTIN: {restaurant.gstNumber}</p> : null}
-              <p className="mt-1 text-xs font-medium text-slate-500">{bill.billNumber ? "Final Bill Receipt" : "Payment Receipt"}</p>
+              <p className="text-2xl font-black tracking-wide text-brand-700">RestoSphere</p>
+              <p className="mt-1 text-sm text-slate-500">Restaurant Management System</p>
+              <p className="text-xs text-slate-400">Professional Receipt</p>
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 text-sm text-slate-700">
               <div>
                 <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-                <p><strong>{bill.billNumber ? "Bill ID:" : "Order ID:"}</strong> {bill.billNumber || order.orderNumber || payment.orderIdValue}</p>
+                <p><strong>Order ID:</strong> {order.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
                 <p><strong>Date & Time:</strong> {formatPaymentDate(payment.createdAt)}</p>
               </div>
@@ -58,7 +47,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
             <div className="mt-5 rounded-2xl border border-slate-200 p-4">
               <p className="mb-3 text-sm font-semibold text-slate-900">Items</p>
               <div className="space-y-2 text-sm">
-                {receiptGroups.flatMap((group) => group.items).map((item, index) => (
+                {(order.items || []).map((item, index) => (
                   <div key={index} className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-medium text-slate-800">{item.menuItem?.name || item.name || "Item"}</p>
@@ -71,14 +60,11 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
             </div>
 
             <div className="mt-5 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(bill.subtotal ?? order.subtotal ?? payment.subtotal)}</span></div>
-              <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(bill.discount ?? order.discount ?? payment.discount)}</span></div>
-              <div className="flex justify-between"><span>Loyalty redemption</span><span>-{formatCurrency(bill.loyaltyDiscount ?? order.loyaltyDiscount ?? 0)}</span></div>
-              <div className="flex justify-between"><span>Tax / GST</span><span>{formatCurrency(bill.tax ?? order.tax ?? payment.tax)}</span></div>
-              <div className="flex justify-between"><span>Service Charge</span><span>{formatCurrency(bill.serviceCharge ?? order.serviceCharge ?? payment.serviceCharge)}</span></div>
-              <div className="flex justify-between"><span>Delivery Charge</span><span>{formatCurrency(bill.deliveryCharge ?? order.deliveryCharge ?? 0)}</span></div>
-              <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><span>Grand Total</span><span>{formatCurrency(grandTotal)}</span></div>
-              {bill.billNumber ? <><div className="flex justify-between"><span>Total paid</span><span>{formatCurrency(paidAmount)}</span></div><div className="flex justify-between"><span>Balance due</span><span>{formatCurrency(balanceDue)}</span></div></> : null}
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(order.subtotal ?? payment.subtotal)}</span></div>
+              <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(order.discount ?? payment.discount)}</span></div>
+              <div className="flex justify-between"><span>Tax / GST</span><span>{formatCurrency(order.tax ?? payment.tax)}</span></div>
+              <div className="flex justify-between"><span>Service Charge</span><span>{formatCurrency(order.serviceCharge ?? payment.serviceCharge)}</span></div>
+              <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><span>Grand Total</span><span>{formatCurrency(getPaymentAmount(payment) || order.total)}</span></div>
               <div className="mt-2 flex justify-between"><span>Payment Method</span><span>{paymentMethodLabel(payment.paymentMethod)}</span></div>
               <div className="flex justify-between"><span>Refund Amount</span><span>{formatCurrency(payment.refundAmount || 0)}</span></div>
             </div>

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { FiFileText, FiPlus, FiPrinter, FiRefreshCw } from "react-icons/fi";
-import { addBillPayment, createBill, downloadBillReceipt, getBill, getBills, getEligibleBillOrders } from "../../services/billService";
+import { addBillPayment, createBill, downloadBillReceipt, getBills, getEligibleBillOrders } from "../../services/billService";
 import { currency, dateTime } from "../../utils/format";
-import BillReceiptPreview from "./BillReceiptPreview";
 
 const newKey = (prefix) => globalThis.crypto?.randomUUID?.() || `${prefix}-${Date.now()}-${Math.random()}`;
 const methods = ["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "NET_BANKING", "WALLET", "OTHER"];
@@ -16,7 +15,6 @@ const AdvancedBillingWorkspace = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [payment, setPayment] = useState({ amount: "", paymentMethod: "CASH", transactionId: "" });
-  const [previewBill, setPreviewBill] = useState(null);
   const createKey = useRef("");
   const paymentKey = useRef("");
 
@@ -61,14 +59,6 @@ const AdvancedBillingWorkspace = () => {
       anchor.href = url; anchor.download = `receipt-${bill.billNumber}.pdf`; anchor.click(); URL.revokeObjectURL(url);
     } catch (error) { toast.error(error?.response?.data?.message || "Unable to download receipt"); }
   };
-  const preview = async (bill) => {
-    try {
-      const response = await getBill(bill._id);
-      setPreviewBill(response.data?.data || null);
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Unable to load bill preview");
-    }
-  };
   const paid = Number(active?.paidAmount || 0); const due = Number(active?.balanceDue || 0);
 
   return (
@@ -81,8 +71,6 @@ const AdvancedBillingWorkspace = () => {
         </div>
         {active ? <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{active.billNumber}</p><p className="text-sm text-slate-600">{active.allocations?.length || 0} original order(s) · {active.status.replaceAll("_", " ")}</p></div><button onClick={() => receipt(active)} className="rounded-lg border border-emerald-300 p-2 text-emerald-800" aria-label="Download receipt"><FiPrinter /></button></div><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div><p className="text-xs text-slate-500">Grand total</p><strong>{currency(active.total)}</strong></div><div><p className="text-xs text-slate-500">Paid</p><strong>{currency(paid)}</strong></div><div><p className="text-xs text-slate-500">Balance</p><strong className={due ? "text-amber-700" : "text-emerald-700"}>{currency(due)}</strong></div></div><div className="mt-4 space-y-1 border-t border-emerald-100 pt-3 text-sm text-slate-700"><p>Subtotal {currency(active.subtotal)} · Discount {currency(active.discount)} · Loyalty {currency(active.loyaltyDiscount)} · Tax {currency(active.tax)} · Service {currency(active.serviceCharge)}</p>{(active.payments || []).map((entry) => <p key={entry._id} className="rounded bg-white px-2 py-1">{entry.paymentMethod.replaceAll("_", " ")} · {currency(entry.amount)} · {dateTime(entry.paidAt || entry.createdAt)}</p>)}</div>{due > 0 ? <form onSubmit={submitPayment} className="mt-4 grid gap-2 sm:grid-cols-3"><input required min="0.01" max={due} step="0.01" type="number" value={payment.amount} onChange={(event) => setPayment((current) => ({ ...current, amount: event.target.value }))} placeholder={`Due ${due.toFixed(2)}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" /><select value={payment.paymentMethod} onChange={(event) => setPayment((current) => ({ ...current, paymentMethod: event.target.value }))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">{methods.map((method) => <option key={method} value={method}>{method.replaceAll("_", " ")}</option>)}</select><button disabled={saving} className="rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Add payment</button></form> : <p className="mt-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-800">Fully settled</p>}</div> : <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Select or generate a bill to collect payment.</div>}
       </div>
-      {active ? <button type="button" onClick={() => preview(active)} className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-medium text-emerald-800"><FiPrinter />Preview final bill</button> : null}
-      <BillReceiptPreview open={Boolean(previewBill)} bill={previewBill} onClose={() => setPreviewBill(null)} onDownload={() => previewBill && receipt(previewBill)} onPrint={() => window.print()} />
     </section>
   );
 };

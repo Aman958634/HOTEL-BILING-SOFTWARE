@@ -1,5 +1,5 @@
 import { currency, dateTime } from "../../utils/format";
-import { FiAlertCircle, FiCheckCircle, FiClock, FiDollarSign, FiRefreshCw, FiShoppingBag, FiUser, FiXCircle } from "react-icons/fi";
+import { FiCheckCircle, FiClock, FiDollarSign, FiShoppingBag, FiUser, FiXCircle } from "react-icons/fi";
 
 const statusOptions = [
   { label: "Pending", value: "PENDING" },
@@ -43,13 +43,9 @@ const StatusIcon = ({ status }) => {
   }
 };
 
-const RecentOrders = ({ orders, loading, error, onRetry, onStatusChange, onDelete }) => {
+const RecentOrders = ({ orders, loading, onStatusChange, onDelete }) => {
   if (loading) {
     return <div className="h-72 animate-pulse rounded-2xl bg-slate-100" />;
-  }
-
-  if (error) {
-    return <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/40 p-6 text-center text-sm text-slate-600"><FiAlertCircle className="mb-2 h-8 w-8 text-rose-500" aria-hidden="true" /><p className="font-medium text-slate-900">Recent orders are unavailable</p><p className="mt-1 text-slate-500">{error}</p><button type="button" onClick={onRetry} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 hover:bg-slate-50"><FiRefreshCw />Retry</button></div>;
   }
 
   if (orders.length === 0) {

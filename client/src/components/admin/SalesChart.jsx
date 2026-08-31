@@ -1,7 +1,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { FiAlertCircle, FiBarChart2, FiRefreshCw } from "react-icons/fi";
+import { FiBarChart2 } from "react-icons/fi";
 
-const SalesChart = ({ data, range, onRangeChange, loading, error, onRetry }) => (
+const SalesChart = ({ data, range, onRangeChange, loading }) => (
   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -27,12 +27,6 @@ const SalesChart = ({ data, range, onRangeChange, loading, error, onRetry }) => 
 
     {loading ? (
       <div className="h-64 md:h-80 animate-pulse rounded-xl bg-slate-100" />
-    ) : error ? (
-      <div className="flex h-64 md:h-80 flex-col items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50/40 p-4 text-center text-sm text-slate-600">
-        <FiAlertCircle className="h-8 w-8 text-rose-500" aria-hidden="true" />
-        <div><p className="font-medium text-slate-900">Sales overview is unavailable</p><p className="mt-1 text-slate-500">{error}</p></div>
-        <button type="button" onClick={onRetry} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><FiRefreshCw />Retry</button>
-      </div>
     ) : data.length === 0 ? (
       <div className="flex h-64 md:h-80 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
         <FiBarChart2 className="h-8 w-8 text-slate-300" aria-hidden="true" />
