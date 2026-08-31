@@ -262,28 +262,32 @@ const OrderManagement = () => {
       let order = data.data;
       const isCashSettlement = paymentStatus === "PAID" && String(orderPayload.paymentMethod || "CASH").toUpperCase() === "CASH";
 
-      if (isCashSettlement) {
-        await payOrder(order._id, {
-          paymentMethod: "CASH",
-          paymentStatus: "PAID",
-          gateway: "CASH",
-          transactionId: `CASH-${order.orderNumber}-${Date.now()}`,
-          paidAt: new Date().toISOString(),
-        });
-        const refreshed = await getOrderById(order._id);
-        order = refreshed.data?.data || order;
-      }
-
-      toast.success("Order created successfully");
+      // The order is now committed. Close and reset the create flow before
+      // attempting a separate settlement, so a payment issue cannot invite a
+      // duplicate order submission.
       setCreateOpen(false);
+      toast.success("Order created successfully");
 
       if (isCashSettlement) {
-        await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
-        return;
+        try {
+          await payOrder(order._id, {
+            paymentMethod: "CASH",
+            paymentStatus: "PAID",
+            gateway: "CASH",
+            transactionId: `CASH-${order.orderNumber}-${Date.now()}`,
+            paidAt: new Date().toISOString(),
+          });
+          const refreshed = await getOrderById(order._id);
+          order = refreshed.data?.data || order;
+        } catch (error) {
+          toast.error(error?.response?.data?.message || "Order was created, but the cash payment is still pending.");
+        }
       }
 
-      setCreatedOrder(order);
-      setPaymentPromptOpen(true);
+      if (!isCashSettlement) {
+        setCreatedOrder(order);
+        setPaymentPromptOpen(true);
+      }
       await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to create order");

@@ -34,7 +34,7 @@ import {
   stampOrderLifecycle,
 } from "../services/orderService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, linkCustomerToRestaurant } from "../services/customerService.js";
-import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
+import { recordVerifiedPayment, updateOrderPaymentState } from "../services/paymentService.js";
 import { restoreRedeemedPointsForCancelledOrder } from "../services/loyaltyService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
@@ -258,11 +258,10 @@ export const createOrder = asyncHandler(async (req, res) => {
     online: isOnlineOrder(populated),
   });
 
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
-  });
+  // Payment settlement is a separate verified flow: cash is recorded by the
+  // explicit /pay endpoint and gateway checkout creates its own intent. Do
+  // not create a placeholder payment after committing the order, because a
+  // payment failure would otherwise turn a valid order creation into a 500.
 
   // Online orders enter KDS only once a staff member accepts them.
   if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
@@ -361,11 +360,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     total: populated.total,
   });
 
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
-  });
+  // Guest payment collection also starts only in its dedicated payment flow.
 
   if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
