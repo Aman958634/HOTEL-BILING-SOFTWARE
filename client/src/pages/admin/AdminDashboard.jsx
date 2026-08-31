@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertCircle, FiBookOpen, FiCalendar, FiClipboard, FiDollarSign, FiGrid, FiShoppingBag, FiTrendingUp } from "react-icons/fi";
 import toast from "react-hot-toast";
 import StatCard from "../../components/admin/StatCard";
@@ -15,6 +15,8 @@ const AdminDashboard = () => {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingSales, setLoadingSales] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const initialRangeRef = useRef(range);
+  const initialRangeLoad = useRef(true);
 
   const socket = useSocket();
   const todayLabel = useMemo(
@@ -22,7 +24,7 @@ const AdminDashboard = () => {
     []
   );
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoadingStats(true);
     try {
       const { data } = await getAdminStats();
@@ -32,9 +34,9 @@ const AdminDashboard = () => {
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, []);
 
-  const loadSales = async (selectedRange) => {
+  const loadSales = useCallback(async (selectedRange) => {
     setLoadingSales(true);
     try {
       const { data } = await getAdminSales(selectedRange);
@@ -44,9 +46,9 @@ const AdminDashboard = () => {
     } finally {
       setLoadingSales(false);
     }
-  };
+  }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
     try {
       const { data } = await getAdminRecentOrders();
@@ -56,30 +58,40 @@ const AdminDashboard = () => {
     } finally {
       setLoadingOrders(false);
     }
-  };
-
-  useEffect(() => {
-    loadStats();
-    loadSales(range);
-    loadOrders();
   }, []);
 
   useEffect(() => {
+    Promise.all([loadStats(), loadSales(initialRangeRef.current), loadOrders()]);
+  }, [loadOrders, loadSales, loadStats]);
+
+  useEffect(() => {
+    if (initialRangeLoad.current) {
+      initialRangeLoad.current = false;
+      return;
+    }
     loadSales(range);
-  }, [range]);
+  }, [loadSales, range]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const refreshOrders = () => loadOrders();
+    let refreshTimer = null;
+    const refreshOrders = () => {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        loadOrders();
+      }, 200);
+    };
     socket.on("order:new", refreshOrders);
     socket.on("order:status", refreshOrders);
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       socket.off("order:new", refreshOrders);
       socket.off("order:status", refreshOrders);
     };
-  }, [socket]);
+  }, [loadOrders, socket]);
 
   const cards = useMemo(() => {
     if (!stats) return [];
@@ -100,7 +112,7 @@ const AdminDashboard = () => {
     totalMenuItems: <FiBookOpen />,
   };
 
-  const onStatusChange = async (orderId, status) => {
+  const onStatusChange = useCallback(async (orderId, status) => {
     try {
       await updateAdminOrderStatus(orderId, status);
       toast.success("Order status updated");
@@ -109,9 +121,9 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update order status");
     }
-  };
+  }, [loadOrders, loadStats]);
 
-  const onDeleteOrder = async (order) => {
+  const onDeleteOrder = useCallback(async (order) => {
     const confirmed = window.confirm(`Archive order ${order.orderNumber}?`);
     if (!confirmed) return;
 
@@ -123,7 +135,7 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to delete order");
     }
-  };
+  }, [loadOrders, loadStats]);
 
   return (
     <div className="space-y-4 pb-20">

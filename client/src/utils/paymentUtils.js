@@ -71,26 +71,26 @@ export const getPaymentAmount = (payment) => {
   return Number.isFinite(num) ? num : 0;
 };
 
-export const formatCurrency = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value || 0));
+const currencyFormatter = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+const paymentDateFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const paymentDayFormatter = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
+
+export const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
 
 export const formatPaymentDate = (value) =>
   value
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(value))
+    ? paymentDateFormatter.format(new Date(value))
     : "-";
 
 export const formatPaymentDay = (value) =>
   value
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "2-digit",
-        month: "short",
-      }).format(new Date(value))
+    ? paymentDayFormatter.format(new Date(value))
     : "-";
 
 export const paymentBadgeClasses = (value) => {
