@@ -34,7 +34,7 @@ import {
   stampOrderLifecycle,
 } from "../services/orderService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, linkCustomerToRestaurant } from "../services/customerService.js";
-import { recordVerifiedPayment, syncPaymentFromOrder, updateOrderPaymentState } from "../services/paymentService.js";
+import { recordVerifiedPayment, updateOrderPaymentState } from "../services/paymentService.js";
 import { restoreRedeemedPointsForCancelledOrder } from "../services/loyaltyService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
@@ -258,12 +258,6 @@ export const createOrder = asyncHandler(async (req, res) => {
     online: isOnlineOrder(populated),
   });
 
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during order creation" : "Payment initiated during order creation",
-  });
-
   // Online orders enter KDS only once a staff member accepts them.
   if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
   emitOrderCreated(normalizeOrderOutput(populated));
@@ -359,12 +353,6 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     orderNumber: populated.orderNumber,
     customerName: null,
     total: populated.total,
-  });
-
-  await syncPaymentFromOrder(populated, {
-    status: paymentStatus,
-    metadata: { paymentMethod, paymentStatus, orderType },
-    note: paymentStatus === PAYMENT_STATUSES.PAID ? "Payment received during guest order creation" : "Payment initiated during guest order creation",
   });
 
   if (!isOnlineOrder(populated)) await syncKotForOrder(populated);

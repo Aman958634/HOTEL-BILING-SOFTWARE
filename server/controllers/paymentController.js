@@ -18,15 +18,15 @@ import {
   gatewayLabel,
 } from "../utils/paymentUtils.js";
 import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
+import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
 import {
   buildPaymentReceipt,
   recordVerifiedPayment,
   recordOrderPayment,
+  deleteUnsettledOrderPayment,
   getRazorpayClient,
   serializePayment,
   stripe,
-  syncPaymentFromOrder,
-  updateOrderPaymentState,
 } from "../services/paymentService.js";
 import { refundRecordedPayment } from "../services/reconciliationService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
@@ -56,8 +56,11 @@ export const createPayment = asyncHandler(async (req, res) => {
   const { orderId, amount, paymentMethod, paymentStatus = "PENDING", gateway = "", transactionId = "", metadata = {} } = req.body;
   const order = await Order.findOne(await buildRestaurantQuery({ _id: orderId }, req.user));
   if (!order) throw new ApiError(404, "Order not found");
+  const normalizedStatus = normalizePaymentStatus(paymentStatus);
+  const normalizedMethod = normalizePaymentMethod(paymentMethod);
+  if (normalizedStatus === "PAID") assertDirectCashSettlement(normalizedMethod);
   const result = await recordOrderPayment(order, {
-    amount, paymentMethod, paymentStatus, gateway, transactionId, metadata,
+    amount, paymentMethod: normalizedMethod, paymentStatus: normalizedStatus, gateway, transactionId, metadata,
     idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim(),
     receivedBy: req.user._id,
     note: "Payment created through the payment ledger",
@@ -128,6 +131,7 @@ const buildSearchMatch = (search) => {
       { paymentId: regex },
       { transactionId: regex },
       { "order.orderNumber": regex },
+      { "billRecord.billNumber": regex },
       { "customer.fullName": regex },
       { "customer.phone": regex },
       { "table.tableNumber": regex },
@@ -168,6 +172,15 @@ const buildListPipeline = async (query, user) => {
     { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
+        from: "bills",
+        localField: "bill",
+        foreignField: "_id",
+        as: "billRecord",
+      },
+    },
+    { $unwind: { path: "$billRecord", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
         from: "users",
         localField: "customerId",
         foreignField: "_id",
@@ -187,6 +200,7 @@ const buildListPipeline = async (query, user) => {
     {
       $addFields: {
         orderNumber: { $ifNull: ["$order.orderNumber", ""] },
+        billNumber: { $ifNull: ["$billRecord.billNumber", ""] },
         customerName: { $ifNull: ["$customer.fullName", "Guest"] },
         customerPhone: { $ifNull: ["$customer.phone", ""] },
         tableNumber: { $ifNull: ["$table.tableNumber", ""] },
@@ -228,6 +242,7 @@ const mapPaymentRow = (payment) => {
     gatewayLabel: gatewayLabel(paymentObject || {}),
     dateTimeLabel: paymentObject?.createdAt,
     orderIdValue: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId,
+    billNumber: paymentObject?.billNumber || paymentObject?.billRecord?.billNumber || "",
     customerName: paymentObject?.customerName || paymentObject?.customerId?.fullName || "Guest",
     customerPhone: paymentObject?.customerPhone || paymentObject?.customerId?.phone || "",
     tableNumber: paymentObject?.tableNumber || paymentObject?.tableId?.tableNumber || "",
@@ -293,8 +308,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const resolvedMethod = normalizePaymentMethod(paymentMethod || providerToMethod[provider] || provider || order.paymentMethod);
-  const existing = await Payment.findOne({ orderId: order._id });
-  if (normalizePaymentStatus(existing?.paymentStatus || order.paymentStatus) === "PAID") {
+  if (normalizePaymentStatus(order.paymentStatus) === "PAID") {
     throw new ApiError(409, "Payment already completed.");
   }
 
@@ -305,10 +319,12 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
       currency: "inr",
       metadata: { orderId: String(order._id) },
     });
-    await syncPaymentFromOrder(order, {
+    await recordOrderPayment(order, {
       transactionId: intent.id,
+      idempotencyKey: `stripe-intent:${intent.id}`,
+      paymentStatus: "PROCESSING",
+      paymentMethod: resolvedMethod,
       metadata: { provider: "stripe", gateway: "Stripe", paymentMethod: resolvedMethod, clientSecret: intent.client_secret, currency: "INR" },
-      status: "PROCESSING",
       note: "Stripe intent created",
     });
     return res.status(200).json(new ApiResponse(true, "Stripe intent created", { clientSecret: intent.client_secret, keyId: process.env.STRIPE_PUBLISHABLE_KEY || "" }));
@@ -327,10 +343,13 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
       currency: "INR",
       receipt: String(order.orderNumber),
     });
-    const payment = await syncPaymentFromOrder(order, {
+    const paymentResult = await recordOrderPayment(order, {
       transactionId: razorOrder.id,
+      idempotencyKey: `razorpay-order:${razorOrder.id}`,
+      razorpayOrderId: razorOrder.id,
+      paymentStatus: "PROCESSING",
+      paymentMethod: resolvedMethod,
       metadata: { provider: "razorpay", gateway: "Razorpay", paymentMethod: resolvedMethod, razorpayOrderId: razorOrder.id, currency: "INR" },
-      status: "PROCESSING",
       note: "Razorpay order created",
     });
     return res.status(200).json(
@@ -339,7 +358,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
         razorpayOrderId: razorOrder.id,
         amount: razorOrder.amount,
         currency: razorOrder.currency,
-        paymentId: payment.paymentId,
+        paymentId: paymentResult.payment.paymentId,
         orderId: order.orderNumber,
       })
     );
@@ -349,14 +368,17 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Cash payments do not require a gateway order");
   }
 
-  const payment = await syncPaymentFromOrder(order, {
-    transactionId: `PENDING-${Date.now()}`,
+  const transactionId = `PENDING-${Date.now()}`;
+  const paymentResult = await recordOrderPayment(order, {
+    transactionId,
+    idempotencyKey: String(req.get("Idempotency-Key") || transactionId),
+    paymentStatus: "PENDING",
+    paymentMethod: resolvedMethod,
     metadata: { provider: provider || resolvedMethod.toLowerCase(), gateway: provider || resolvedMethod.toLowerCase(), paymentMethod: resolvedMethod, currency: "INR" },
-    status: "PENDING",
     note: "Payment pending",
   });
 
-  res.status(200).json(new ApiResponse(true, "Payment pending", serializePayment(payment)));
+  res.status(200).json(new ApiResponse(true, "Payment pending", serializePayment(paymentResult.payment)));
 });
 
 export const verifyPayment = asyncHandler(async (req, res) => {
@@ -379,7 +401,7 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   if (gateway === "razorpay") {
     logger.info(`Razorpay verify requested for orderId=${orderId} razorpayOrderId=${razorpay_order_id || ""} razorpayPaymentId=${razorpay_payment_id || ""}`);
 
-    const pendingPayment = await Payment.findOne({ orderId: order._id })
+    const pendingPayment = await Payment.findOne({ orderId: order._id, razorpayOrderId: razorpay_order_id || "" })
       .select("razorpayOrderId transactionId metadata paymentStatus")
       .lean();
     const expectedOrderId = pendingPayment?.razorpayOrderId || pendingPayment?.metadata?.razorpayOrderId || "";
@@ -411,8 +433,13 @@ export const verifyPayment = asyncHandler(async (req, res) => {
           note: "Payment verified successfully",
           receivedBy: req.user._id,
         })).payment
-      : await syncPaymentFromOrder(order, {
+      : (await recordOrderPayment(order, {
           transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
+          idempotencyKey: String(req.get("Idempotency-Key") || req.body.idempotencyKey || razorpay_payment_id || transactionId || "").trim(),
+          paymentStatus: nextStatus,
+          paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
+          razorpayOrderId: razorpay_order_id || meta.razorpayOrderId || "",
+          razorpayPaymentId: razorpay_payment_id || meta.razorpayPaymentId || "",
           metadata: {
             ...meta,
             paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
@@ -422,21 +449,8 @@ export const verifyPayment = asyncHandler(async (req, res) => {
             razorpayPaymentId: razorpay_payment_id || meta.razorpayPaymentId || "",
             currency: meta.currency || "INR",
           },
-          status: nextStatus,
           note: nextStatus === "PAID" ? "Payment verified successfully" : "Payment verification failed",
-        });
-
-  if (nextStatus !== "PAID") {
-    await updateOrderPaymentState(order, {
-      paymentMethod: paymentMethod || meta.paymentMethod || order.paymentMethod,
-      paymentStatus: nextStatus,
-      gateway: provider || meta.provider || "Razorpay",
-      transactionId: transactionId || razorpay_payment_id || meta.transactionId || "",
-      razorpayOrderId: razorpay_order_id || meta.razorpayOrderId || "",
-      razorpayPaymentId: razorpay_payment_id || meta.razorpayPaymentId || "",
-      note: "Payment verification failed",
-    });
-  }
+        })).payment;
 
   if (nextStatus === "PAID") {
     await notifyPaymentReceived({
@@ -654,24 +668,7 @@ export const refundPayment = asyncHandler(async (req, res) => {
 export const deletePayment = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
-
-  const blockedStatuses = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
-  if (blockedStatuses.includes(normalizePaymentStatus(payment.paymentStatus))) {
-    throw new ApiError(409, "Paid or refunded payments cannot be deleted");
-  }
-
-  await Payment.deleteOne({ _id: payment._id });
-
-  if (payment.orderId?._id || payment.orderId) {
-    const order = await Order.findById(payment.orderId?._id || payment.orderId);
-    if (order && normalizePaymentStatus(order.paymentStatus) !== "PAID") {
-      order.paymentStatus = "PENDING";
-      if (String(order.status || "").toUpperCase() === "COMPLETED") {
-        order.status = "PENDING";
-      }
-      await order.save();
-    }
-  }
+  await deleteUnsettledOrderPayment({ paymentId: payment._id, restaurantId: payment.restaurant });
 
   logger.info(`Payment deleted paymentId=${payment.paymentId} by user=${req.user?._id || "unknown"}`);
   res.status(200).json(new ApiResponse(true, "Payment deleted"));

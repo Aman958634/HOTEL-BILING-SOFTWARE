@@ -116,17 +116,64 @@ const buildOrderLookup = async (orderId, session = null) => {
   return query;
 };
 
-const getSuccessfulPaymentTotal = async (orderId, session = null) => {
-  let query = Payment.find({
-    orderId,
-    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED"] },
-  }).select("amount totalAmount refundAmount").lean();
+const toPaise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
+const fromPaise = (value) => Number((Math.round(value) / 100).toFixed(2));
+const collectedPaymentStatuses = new Set(["PAID", "PARTIALLY_REFUNDED", "REFUNDED"]);
+
+const getOrderPaymentLedger = async (orderId, session = null) => {
+  let query = Payment.find({ orderId })
+    .select("amount totalAmount refundAmount paymentStatus paidAt createdAt")
+    .lean();
   if (session) query = query.session(session);
-  const payments = await query;
-  return payments.reduce(
-    (sum, payment) => sum + Math.max(Number(payment.amount || payment.totalAmount || 0) - Number(payment.refundAmount || 0), 0),
-    0
-  );
+  return query;
+};
+
+/**
+ * Payment ledger is the financial authority. The Order value is only the
+ * compatible denormalized status supported by its schema (which has no
+ * PARTIALLY_PAID enum): a partial collection therefore remains PENDING.
+ */
+export const deriveOrderPaymentState = async (order, session = null) => {
+  const orderDoc = order?.total !== undefined ? order : await buildOrderLookup(order?._id || order, session);
+  if (!orderDoc) throw new ApiError(404, "Order not found");
+  const orderId = orderDoc._id;
+  const total = toPaise(orderDoc.total);
+  const payments = await getOrderPaymentLedger(orderId, session);
+  const netCollected = payments.reduce((sum, payment) => {
+    if (!collectedPaymentStatuses.has(normalizePaymentStatus(payment.paymentStatus))) return sum;
+    return sum + Math.max(toPaise(payment.amount ?? payment.totalAmount) - toPaise(payment.refundAmount), 0);
+  }, 0);
+  const hasRefund = payments.some((payment) => ["PARTIALLY_REFUNDED", "REFUNDED"].includes(normalizePaymentStatus(payment.paymentStatus)));
+  const hasPending = payments.some((payment) => ["PENDING", "PROCESSING"].includes(normalizePaymentStatus(payment.paymentStatus)));
+  const hasFailed = payments.some((payment) => normalizePaymentStatus(payment.paymentStatus) === "FAILED");
+
+  let paymentStatus = "PENDING";
+  if (netCollected >= total && total > 0) paymentStatus = "PAID";
+  else if (netCollected === 0 && hasRefund) paymentStatus = "REFUNDED";
+  else if (netCollected > 0 && hasRefund) paymentStatus = "PARTIALLY_REFUNDED";
+  else if (netCollected === 0 && hasFailed && !hasPending) paymentStatus = "FAILED";
+
+  return {
+    paymentStatus,
+    collectedAmount: fromPaise(netCollected),
+    remainingAmount: fromPaise(Math.max(total - netCollected, 0)),
+    fullyPaid: paymentStatus === "PAID",
+  };
+};
+
+const getSuccessfulPaymentTotal = async (orderId, session = null) =>
+  (await deriveOrderPaymentState(orderId, session)).collectedAmount;
+
+const applyOrderPaymentMirror = async (orderDoc, payment, session = null) => {
+  const settlement = await deriveOrderPaymentState(orderDoc, session);
+  orderDoc.paymentMethod = payment?.paymentMethod || orderDoc.paymentMethod;
+  orderDoc.paymentStatus = settlement.paymentStatus;
+  orderDoc.paymentId = payment?.paymentId || orderDoc.paymentId || "";
+  orderDoc.transactionId = payment?.transactionId || orderDoc.transactionId || "";
+  orderDoc.paidAt = settlement.fullyPaid ? payment?.paidAt || orderDoc.paidAt || new Date() : null;
+  if (settlement.fullyPaid) orderDoc.status = "COMPLETED";
+  await orderDoc.save(session ? { session } : undefined);
+  return settlement;
 };
 
 export const serializePayment = (payment) => {
@@ -194,89 +241,21 @@ export const syncPaymentFromOrder = async (
     session = null,
   } = {}
 ) => {
-  const orderDoc = order?.populate ? order : await buildOrderLookup(order?._id || order, session);
-  if (!orderDoc) throw new ApiError(404, "Order not found");
-
-  const nextPaymentStatus = normalizePaymentStatus(status || orderDoc.paymentStatus || "PENDING");
-  const nextPaymentMethod = normalizePaymentMethod(metadata.paymentMethod || orderDoc.paymentMethod || "OTHER");
-  const gateway =
-    nextPaymentMethod === "CASH"
-      ? ""
-      : normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
-
-  let paymentQuery = Payment.findOne({ orderId: orderDoc._id });
-  if (session) paymentQuery = paymentQuery.session(session);
-  let payment = await paymentQuery;
-  const isNew = !payment;
-
-  if (!payment) {
-    payment = new Payment({
-      paymentId: await nextPaymentSequence(session),
-      orderId: orderDoc._id,
-      customerId: orderDoc.customer?._id || orderDoc.customer || null,
-      tableId: orderDoc.table?._id || orderDoc.table || null,
-      restaurant: orderDoc.restaurant || null,
-      outlet: orderDoc.outlet || null,
-      amount: Number(orderDoc.total || 0),
-      currency: metadata.currency || "INR",
-      subtotal: Number(orderDoc.subtotal || 0),
-      tax: Number(orderDoc.tax || 0),
-      discount: Number(orderDoc.discount || 0),
-      serviceCharge: Number(orderDoc.serviceCharge || 0),
-      totalAmount: Number(orderDoc.total || 0),
-      paymentMethod: nextPaymentMethod,
-      gateway,
-      paymentStatus: nextPaymentStatus,
-      transactionId: transactionId || "",
-      razorpayOrderId: metadata.razorpayOrderId || "",
-      razorpayPaymentId: metadata.razorpayPaymentId || "",
-      paidAt: nextPaymentStatus === "PAID" ? metadata.paidAt || new Date() : null,
-      metadata: { ...metadata },
-      timeline: [],
-    });
-  } else {
-    payment.amount = Number(orderDoc.total || payment.amount || 0);
-    payment.subtotal = Number(orderDoc.subtotal || 0);
-    payment.tax = Number(orderDoc.tax || 0);
-    payment.discount = Number(orderDoc.discount || 0);
-    payment.serviceCharge = Number(orderDoc.serviceCharge || 0);
-    payment.totalAmount = Number(orderDoc.total || payment.totalAmount || 0);
-    payment.paymentMethod = nextPaymentMethod;
-    payment.gateway = gateway || payment.gateway;
-    payment.paymentStatus = nextPaymentStatus;
-    payment.customerId = orderDoc.customer?._id || orderDoc.customer || payment.customerId;
-    payment.tableId = orderDoc.table?._id || orderDoc.table || payment.tableId;
-    payment.restaurant = orderDoc.restaurant || payment.restaurant;
-    if (transactionId) payment.transactionId = transactionId;
-    if (metadata.razorpayOrderId) payment.razorpayOrderId = metadata.razorpayOrderId;
-    if (metadata.razorpayPaymentId) payment.razorpayPaymentId = metadata.razorpayPaymentId;
-    payment.metadata = { ...(payment.metadata || {}), ...metadata };
-    if (nextPaymentStatus === "PAID") {
-      payment.paidAt = metadata.paidAt ? new Date(metadata.paidAt) : payment.paidAt || new Date();
-    }
-  }
-
-  payment.timeline = buildPaymentTimeline(orderDoc, payment, payment.paymentStatus, note);
-  await payment.save(session ? { session } : undefined);
-
-  await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
-  await payment.populate("customerId", "fullName email phone avatar");
-  await payment.populate("tableId", "tableNumber floor section");
-
-  if (isNew) {
-    emitPaymentCreated(serializePayment(payment));
-  } else {
-    emitPaymentUpdated(serializePayment(payment));
-  }
-
-  await notifyPaymentAudience({
-    title: payment.paymentStatus === "FAILED" ? "Payment failed" : payment.paymentStatus === "PAID" ? "Payment received" : "Payment updated",
-    message: `${paymentMethodLabel(payment.paymentMethod)} ${payment.paymentStatus === "PAID" ? "payment received" : `payment is ${paymentStatusLabel(payment.paymentStatus).toLowerCase()}`} for Order #${orderDoc.orderNumber}`,
-    payment,
-    order: orderDoc,
+  if (session) throw new ApiError(500, "Nested payment transactions are not supported");
+  const result = await recordOrderPayment(order, {
+    amount: metadata.amount,
+    paymentMethod: metadata.paymentMethod,
+    paymentStatus: status || "PENDING",
+    gateway: metadata.gateway || metadata.provider,
+    transactionId,
+    razorpayOrderId: metadata.razorpayOrderId,
+    razorpayPaymentId: metadata.razorpayPaymentId,
+    paidAt: metadata.paidAt,
+    idempotencyKey: metadata.idempotencyKey || transactionId,
+    metadata,
+    note,
   });
-
-  return payment;
+  return result.payment;
 };
 
 export const updateOrderPaymentState = async (
@@ -318,51 +297,19 @@ export const updateOrderPaymentState = async (
     });
   }
 
-  orderDoc.paymentMethod = nextPaymentMethod;
-  orderDoc.paymentStatus = nextPaymentStatus;
-  orderDoc.paidAt = null;
-  if (orderDoc.status === "COMPLETED") {
-    orderDoc.status = "PENDING";
-  }
-  orderDoc.transactionId = transactionId || orderDoc.transactionId || "";
-
-  await orderDoc.save(session ? { session } : undefined);
-
-  const payment = await syncPaymentFromOrder(orderDoc, {
-    transactionId: orderDoc.transactionId,
-    metadata: {
-      paymentMethod: nextPaymentMethod,
-      gateway,
-      razorpayOrderId,
-      razorpayPaymentId,
-      paidAt: orderDoc.paidAt,
-    },
-    status: nextPaymentStatus,
+  if (session) throw new ApiError(500, "Nested payment transactions are not supported");
+  return recordOrderPayment(orderDoc, {
+    amount,
+    paymentMethod: nextPaymentMethod,
+    paymentStatus: nextPaymentStatus,
+    gateway,
+    transactionId,
+    razorpayOrderId,
+    razorpayPaymentId,
+    paidAt,
     note,
-    session,
+    idempotencyKey,
   });
-
-  orderDoc.paymentId = payment.paymentId;
-  orderDoc.transactionId = payment.transactionId || orderDoc.transactionId || "";
-  orderDoc.paidAt = payment.paidAt || orderDoc.paidAt || null;
-
-  // A payment is settled only when the sum of all successful payments covers
-  // the order total. This also protects aggregate/split-payment flows.
-  const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
-  const fullyPaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
-  orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
-  if (fullyPaid) {
-    orderDoc.status = "COMPLETED";
-    orderDoc.paidAt = payment.paidAt || new Date();
-  }
-  await orderDoc.save(session ? { session } : undefined);
-
-  const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-  await maybeReleaseTableAfterSettlement(orderDoc);
-
-  if (fullyPaid) await generateInvoice(orderDoc);
-
-  return { order: orderDoc, payment };
 };
 
 export const recordVerifiedPayment = async (
@@ -457,16 +404,17 @@ export const recordVerifiedPayment = async (
       });
       await payment.save({ session });
 
-      const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
-      const fullyPaid = totalPaid + 0.01 >= billTotal;
-      orderDoc.paymentMethod = method;
-      orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
-      orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
-      if (fullyPaid) orderDoc.status = "COMPLETED";
-      await orderDoc.save({ session });
-      if (fullyPaid) await generateInvoice(orderDoc, { session });
+      const settlement = await applyOrderPaymentMirror(orderDoc, payment, session);
+      if (settlement.fullyPaid) await generateInvoice(orderDoc, { session });
 
-      result = { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid, idempotent: false };
+      result = {
+        order: orderDoc,
+        payment,
+        paidTotal: settlement.collectedAmount,
+        remaining: settlement.remainingAmount,
+        fullyPaid: settlement.fullyPaid,
+        idempotent: false,
+      };
     });
   } catch (error) {
     // A concurrent retry can lose the unique-index race after its transaction
@@ -534,14 +482,14 @@ export const recordOrderPayment = async (order, options = {}) => {
       if (!orderDoc) throw new ApiError(404, "Order not found");
       const prior = await Payment.findOne({ orderId: orderDoc._id, idempotencyKey }).session(session);
       if (prior) {
-        result = { order: orderDoc, payment: prior, idempotent: true };
+        const settlement = await applyOrderPaymentMirror(orderDoc, prior, session);
+        result = { order: orderDoc, payment: prior, ...settlement, idempotent: true };
         return;
       }
 
       const method = normalizePaymentMethod(options.paymentMethod || orderDoc.paymentMethod || "OTHER");
       const amount = Number(options.amount ?? orderDoc.total ?? 0);
       if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
-      const orderStatus = status === "FAILED" ? "FAILED" : "PENDING";
       const payment = new Payment({
         paymentId: await nextPaymentSequence(session), orderId: orderDoc._id,
         customerId: orderDoc.customer?._id || orderDoc.customer || null, tableId: orderDoc.table?._id || orderDoc.table || null,
@@ -549,17 +497,14 @@ export const recordOrderPayment = async (order, options = {}) => {
         subtotal: Number(orderDoc.subtotal || 0), tax: Number(orderDoc.tax || 0), discount: Number(orderDoc.discount || 0), serviceCharge: Number(orderDoc.serviceCharge || 0),
         paymentMethod: method, gateway: normalizeGateway(options.gateway), paymentStatus: status, receivedBy: options.receivedBy || null,
         transactionId: options.transactionId || `PAY-${idempotencyKey}`, idempotencyKey, metadata: { ...(options.metadata || {}) },
+        razorpayOrderId: options.razorpayOrderId || "", razorpayPaymentId: options.razorpayPaymentId || "",
+        paidAt: status === "PAID" ? new Date(options.paidAt || Date.now()) : null,
       });
       payment.timeline = buildPaymentTimeline(orderDoc, payment, status, options.note || "Payment recorded");
       await payment.save({ session });
 
-      orderDoc.paymentMethod = method;
-      orderDoc.paymentStatus = orderStatus;
-      orderDoc.paymentId = payment.paymentId;
-      orderDoc.transactionId = payment.transactionId;
-      orderDoc.paidAt = null;
-      await orderDoc.save({ session });
-      result = { order: orderDoc, payment, idempotent: false };
+      const settlement = await applyOrderPaymentMirror(orderDoc, payment, session);
+      result = { order: orderDoc, payment, ...settlement, idempotent: false };
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -572,6 +517,40 @@ export const recordOrderPayment = async (order, options = {}) => {
     await session.endSession();
   }
   if (!result.idempotent) emitPaymentCreated(serializePayment(result.payment));
+  return result;
+};
+
+export const deleteUnsettledOrderPayment = async ({ paymentId, restaurantId }) => {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const payment = await Payment.findOne({ _id: paymentId, restaurant: restaurantId }).session(session);
+      if (!payment) throw new ApiError(404, "Payment not found");
+      if (["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(normalizePaymentStatus(payment.paymentStatus))) {
+        throw new ApiError(409, "Paid or refunded payments cannot be deleted");
+      }
+      const orderDoc = payment.orderId ? await buildOrderLookup(payment.orderId, session) : null;
+      await payment.deleteOne({ session });
+      if (orderDoc) {
+        const settlement = await applyOrderPaymentMirror(orderDoc, null, session);
+        if (!settlement.fullyPaid && orderDoc.status === "COMPLETED") {
+          orderDoc.status = "PENDING";
+          await orderDoc.save({ session });
+        }
+        result = { payment, order: orderDoc };
+      } else {
+        result = { payment, order: null };
+      }
+    });
+  } catch (error) {
+    if (String(error?.message || "").includes("Transaction numbers are only allowed")) {
+      throw new ApiError(503, "Payment deletion requires MongoDB replica-set transactions.");
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
   return result;
 };
 
@@ -596,20 +575,19 @@ export const reconcilePaymentSettlements = async () => {
         const orderDoc = await buildOrderLookup(candidate._id, session);
         if (!orderDoc || orderDoc.isArchived || orderDoc.status === "CANCELLED") return;
 
-        const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
-        const shouldBePaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
-        const nextStatus = shouldBePaid ? "PAID" : "PENDING";
-        const changed = orderDoc.paymentStatus !== nextStatus || (shouldBePaid && orderDoc.status !== "COMPLETED");
+        const settlement = await deriveOrderPaymentState(orderDoc, session);
+        const nextStatus = settlement.paymentStatus;
+        const changed = orderDoc.paymentStatus !== nextStatus || (settlement.fullyPaid && orderDoc.status !== "COMPLETED");
 
         if (changed) {
           orderDoc.paymentStatus = nextStatus;
-          orderDoc.paidAt = shouldBePaid ? orderDoc.paidAt || new Date() : null;
-          if (shouldBePaid) orderDoc.status = "COMPLETED";
+          orderDoc.paidAt = settlement.fullyPaid ? orderDoc.paidAt || new Date() : null;
+          if (settlement.fullyPaid) orderDoc.status = "COMPLETED";
           await orderDoc.save({ session });
           needsTableRefresh = true;
           reconciled += 1;
         }
-        if (shouldBePaid) await generateInvoice(orderDoc, { session });
+        if (settlement.fullyPaid) await generateInvoice(orderDoc, { session });
       });
     } finally {
       await session.endSession();

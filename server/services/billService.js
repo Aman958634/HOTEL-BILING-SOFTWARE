@@ -35,6 +35,25 @@ const allocationFromOrder = (order) => ({ order: order._id, orderNumber: order.o
 
 const activeBillForOrders = (orderIds, session) => Bill.findOne({ "allocations.order": { $in: orderIds }, status: { $in: OPEN_STATUSES } }).session(session);
 
+// Consolidated payments remain bill-linked ledger records. This deterministic
+// allocation mirrors the settled bill balance to each order without creating
+// duplicate per-order Payment documents.
+export const syncBillOrderPaymentMirrors = async (bill, session) => {
+  let remaining = toPaise(bill.paidAmount);
+  for (const allocation of bill.allocations || []) {
+    const order = await Order.findById(allocation.order).session(session);
+    if (!order) continue;
+    const allocationTotal = toPaise(allocation.total);
+    const allocated = Math.min(remaining, allocationTotal);
+    const fullySettled = allocated >= allocationTotal && allocationTotal > 0;
+    order.paymentStatus = fullySettled ? "PAID" : "PENDING";
+    order.paidAt = fullySettled ? bill.settledAt || new Date() : null;
+    if (fullySettled) order.status = "COMPLETED";
+    await order.save({ session });
+    remaining = Math.max(remaining - allocationTotal, 0);
+  }
+};
+
 export const createConsolidatedBill = async ({ orderIds, restaurantId, user, idempotencyKey = "" }) => {
   const uniqueOrderIds = [...new Set((orderIds || []).map(String))];
   if (!uniqueOrderIds.length) throw new ApiError(422, "Select at least one order");
@@ -88,7 +107,9 @@ export const recordBillPayment = async ({ billId, restaurantId, amount, paymentM
       const paidAmount = fromPaise(toPaise(bill.paidAmount) + requested); const balanceDue = fromPaise(Math.max(toPaise(bill.total) - toPaise(paidAmount), 0));
       bill.paidAmount = paidAmount; bill.balanceDue = balanceDue; bill.status = balanceDue === 0 ? "PAID" : "PARTIALLY_PAID";
       if (balanceDue === 0) { bill.settledBy = receivedBy; bill.settledAt = now; await Order.updateMany({ billingBill: bill._id }, { $set: { billingState: "SETTLED" } }, { session }); }
-      await bill.save({ session }); result = { payment, bill, idempotent: false };
+      await bill.save({ session });
+      await syncBillOrderPaymentMirrors(bill, session);
+      result = { payment, bill, idempotent: false };
     });
   } catch (error) {
     if (error?.code === 11000) { const prior = await Payment.findOne({ bill: billId, idempotencyKey }); if (prior) return { payment: prior, bill: await Bill.findById(billId), idempotent: true }; }

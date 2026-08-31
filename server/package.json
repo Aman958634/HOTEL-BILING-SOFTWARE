@@ -10,6 +10,8 @@
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
     "sync:payment-statuses": "node scripts/syncOrderPaymentStatuses.js",
+    "audit:payment-consistency": "node scripts/auditPaymentConsistency.js",
+    "repair:payment-consistency": "node scripts/repairPaymentConsistency.js",
     "migrate:customer-crm": "node scripts/migrateCustomerCrmIndexes.js",
     "migrate:loyalty": "node scripts/migrateLoyaltyIndexes.js",
     "migrate:staff-command": "node scripts/migrateStaffCommandScope.js",

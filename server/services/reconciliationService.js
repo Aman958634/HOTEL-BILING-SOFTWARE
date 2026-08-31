@@ -10,6 +10,7 @@ import { createActivity } from "./activityService.js";
 import { reversePointsForFullRefund } from "./loyaltyService.js";
 import { emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { NOTIFICATION_EVENTS, publishBusinessEvent } from "./notificationService.js";
+import { deriveOrderPaymentState } from "./paymentService.js";
 
 const paise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
 const money = (value) => Number((Math.round(value) / 100).toFixed(2));
@@ -51,15 +52,16 @@ export const refundRecordedPayment = async ({ paymentId, restaurantId, amount, r
           const rows = await Payment.find({ bill: bill._id, paymentStatus: validPayment }).session(session).select("amount totalAmount refundAmount").lean();
           const paid = rows.reduce((sum, row) => sum + Math.max(paise(row.amount || row.totalAmount) - paise(row.refundAmount), 0), 0);
           bill.paidAmount = money(paid); bill.balanceDue = money(Math.max(paise(bill.total) - paid, 0)); bill.status = bill.balanceDue === 0 ? "PAID" : bill.paidAmount > 0 ? "PARTIALLY_PAID" : "OPEN"; await bill.save({ session });
+          const { syncBillOrderPaymentMirrors } = await import("./billService.js");
+          await syncBillOrderPaymentMirrors(bill, session);
         }
       }
       if (payment.orderId) {
         const order = await Order.findById(payment.orderId).session(session);
         if (order) {
-          const rows = await Payment.find({ orderId: order._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED"] } }).session(session).select("amount totalAmount refundAmount").lean();
-          const netPaid = rows.reduce((sum, row) => sum + Math.max(paise(row.amount || row.totalAmount) - paise(row.refundAmount), 0), 0);
-          const total = paise(order.total);
-          order.paymentStatus = netPaid === 0 ? "REFUNDED" : netPaid >= total ? "PAID" : "PARTIALLY_REFUNDED";
+          const settlement = await deriveOrderPaymentState(order, session);
+          order.paymentStatus = settlement.paymentStatus;
+          order.paidAt = settlement.fullyPaid ? order.paidAt || new Date() : null;
           await order.save({ session });
         }
       }
