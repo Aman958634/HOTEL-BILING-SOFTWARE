@@ -6,6 +6,8 @@ import NotFoundPage from "../pages/NotFound/NotFoundPage";
 
 const LoginPage = lazy(() => import("../pages/Login/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/Register/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("../pages/Login/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("../pages/Login/ResetPasswordPage"));
 const ProtectedRoute = lazy(() => import("../components/common/ProtectedRoute"));
 const AdminRoute = lazy(() => import("../components/common/AdminRoute"));
 const SuperAdminRoute = lazy(() => import("../components/common/SuperAdminRoute"));
@@ -81,6 +83,16 @@ const AppRouter = () => (
     <Route path="/register" element={
       <Suspense fallback={<PageSkeleton />}>
         <RegisterPage />
+      </Suspense>
+    } />
+    <Route path="/forgot-password" element={
+      <Suspense fallback={<PageSkeleton />}>
+        <ForgotPasswordPage />
+      </Suspense>
+    } />
+    <Route path="/reset-password/:token" element={
+      <Suspense fallback={<PageSkeleton />}>
+        <ResetPasswordPage />
       </Suspense>
     } />
 

@@ -24,9 +24,9 @@ export const inventoryStatus = (item) => {
   return "NORMAL";
 };
 
-export const calculateRecipeCost = async (recipe) => {
+export const calculateRecipeCost = async (recipe, { session = null } = {}) => {
   const ids = (recipe.ingredients || []).map((line) => line.inventoryItem);
-  const items = await Inventory.find({ _id: { $in: ids }, restaurant: recipe.restaurant }).lean();
+  const items = await Inventory.find({ _id: { $in: ids }, restaurant: recipe.restaurant }).session(session).lean();
   const byId = new Map(items.map((item) => [String(item._id), item]));
   const lines = (recipe.ingredients || []).map((line) => {
     const item = byId.get(String(line.inventoryItem));
@@ -50,6 +50,22 @@ export const calculateRecipeCost = async (recipe) => {
 };
 
 export const recordStockMovement = async ({ restaurant, outlet = null, centralKitchen = null, inventoryItem, movementType, quantity, unit, referenceType = "", referenceId = "", idempotencyKey = "", reason = "", user = null, metadata = {}, session = null }) => {
+  // Quantity and its immutable movement must commit together. Callers that
+  // already own a transaction pass its session so a larger business action
+  // (for example, starting kitchen preparation) remains atomic as well.
+  if (!session) {
+    const ownedSession = await mongoose.startSession();
+    try {
+      let movement;
+      await ownedSession.withTransaction(async () => {
+        movement = await recordStockMovement({ restaurant, outlet, centralKitchen, inventoryItem, movementType, quantity, unit, referenceType, referenceId, idempotencyKey, reason, user, metadata, session: ownedSession });
+      });
+      return movement;
+    } finally {
+      await ownedSession.endSession();
+    }
+  }
+
   const locationFilter = centralKitchen ? { centralKitchen, outlet: null } : outlet ? { outlet, centralKitchen: null } : { outlet: null, centralKitchen: null };
   const item = await Inventory.findOne({ _id: inventoryItem, restaurant, ...locationFilter }).session(session);
   if (!item) throw new ApiError(404, "Inventory item not found");
@@ -85,18 +101,18 @@ export const recordStockMovement = async ({ restaurant, outlet = null, centralKi
   }
 };
 
-export const consumeOrderInventory = async ({ order, user = null, itemIndexes = null }) => {
+export const consumeOrderInventory = async ({ order, user = null, itemIndexes = null, session = null }) => {
   if (!order?.restaurant) return { consumed: 0, skipped: true };
   let consumed = 0;
   const selectedIndexes = itemIndexes ? new Set(itemIndexes.map((index) => Number(index))) : null;
   for (const [itemIndex, orderItem] of (order.items || []).entries()) {
     if (selectedIndexes && !selectedIndexes.has(itemIndex)) continue;
-    const recipe = await Recipe.findOne({ restaurant: order.restaurant, centralKitchen: null, food: orderItem.menuItem, status: "ACTIVE" }).sort({ version: -1 });
+    const recipe = await Recipe.findOne({ restaurant: order.restaurant, centralKitchen: null, food: orderItem.menuItem, status: "ACTIVE" }).sort({ version: -1 }).session(session);
     if (!recipe) continue;
-    const costing = await calculateRecipeCost(recipe);
+    const costing = await calculateRecipeCost(recipe, { session });
     const multiplier = Number(orderItem.quantity || 0) / Math.max(1, Number(recipe.yieldQuantity || 1));
     for (const line of costing.lines) {
-      await recordStockMovement({ restaurant: order.restaurant, outlet: order.outlet || null, inventoryItem: line.inventoryItem._id, movementType: "CONSUMPTION", quantity: line.baseQuantity * multiplier, unit: line.inventoryItem.baseUnit || line.inventoryItem.unit, referenceType: "ORDER_ITEM", referenceId: `${order._id}:${itemIndex}`, idempotencyKey: `consumption:${order._id}:${itemIndex}:recipe-${recipe.version}:ingredient-${line.inventoryItem._id}`, reason: `Order ${order.orderNumber}`, user, metadata: { orderId: String(order._id), recipeId: String(recipe._id), recipeVersion: recipe.version } });
+      await recordStockMovement({ restaurant: order.restaurant, outlet: order.outlet || null, inventoryItem: line.inventoryItem._id, movementType: "CONSUMPTION", quantity: line.baseQuantity * multiplier, unit: line.inventoryItem.baseUnit || line.inventoryItem.unit, referenceType: "ORDER_ITEM", referenceId: `${order._id}:${itemIndex}`, idempotencyKey: `consumption:${order._id}:${itemIndex}:recipe-${recipe.version}:ingredient-${line.inventoryItem._id}`, reason: `Order ${order.orderNumber}`, user, metadata: { orderId: String(order._id), recipeId: String(recipe._id), recipeVersion: recipe.version }, session });
       consumed += 1;
     }
   }

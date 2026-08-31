@@ -20,6 +20,9 @@ import {
 const router = Router();
 
 router.use(authMiddleware, requireActiveSubscription);
+// Kitchen queues can change the fulfilment state of an order. They must never
+// be writable by customer accounts merely because they hold a valid session.
+router.use(requireRole("admin", "manager", "chef", "waiter", "cashier"));
 
 router.get(
   "/tickets",

@@ -35,7 +35,7 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Base unit cannot contain numbers. Store quantity separately from unit (e.g., quantity: 10, unit: 'kg')");
   }
   
-  const item = await Inventory.create({ 
+  let item = await Inventory.create({
     ...req.body, 
     restaurant, 
     outlet: req.user.activeOutlet || null,
@@ -45,7 +45,12 @@ export const createInventoryItem = asyncHandler(async (req, res) => {
     baseUnit,
     quantity: 0 
   });
-  if (openingStock > 0) await recordStockMovement({ restaurant, outlet: req.user.activeOutlet || null, inventoryItem: item._id, movementType: "OPENING_STOCK", quantity: openingStock, unit: item.unit, referenceType: "INVENTORY_ITEM", referenceId: item._id, reason: "Opening stock", user: req.user._id });
+  if (openingStock > 0) {
+    await recordStockMovement({ restaurant, outlet: req.user.activeOutlet || null, inventoryItem: item._id, movementType: "OPENING_STOCK", quantity: openingStock, unit: item.unit, referenceType: "INVENTORY_ITEM", referenceId: item._id, reason: "Opening stock", user: req.user._id });
+    // The movement owns the quantity update; return that persisted value
+    // rather than the pre-movement document created above.
+    item = await Inventory.findById(item._id);
+  }
   res.status(201).json(new ApiResponse(true, "Inventory item created", item));
 });
 

@@ -60,6 +60,10 @@ const userSchema = new mongoose.Schema(
     isCrmArchived: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true, index: true },
     refreshToken: { type: String, default: "" },
+    // Password-reset tokens are stored only as a hash so they survive a
+    // process restart without making the emailed token recoverable from DB.
+    passwordResetTokenHash: { type: String, default: undefined, select: false },
+    passwordResetExpiresAt: { type: Date, default: undefined, select: false },
   },
   { timestamps: true }
 );

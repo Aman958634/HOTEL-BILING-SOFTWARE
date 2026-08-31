@@ -17,6 +17,10 @@ const AdminDashboard = () => {
   const [loadingOrders, setLoadingOrders] = useState(true);
 
   const socket = useSocket();
+  const todayLabel = useMemo(
+    () => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date()),
+    []
+  );
 
   const loadStats = async () => {
     setLoadingStats(true);
@@ -131,7 +135,7 @@ const AdminDashboard = () => {
         <button className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
           <FiCalendar className="h-4 w-4" />
           <span className="hidden sm:inline">Today</span>
-          <span className="sm:hidden">May 23, 2025</span>
+          <span className="sm:hidden">{todayLabel}</span>
         </button>
       </div>
 

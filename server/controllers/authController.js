@@ -10,7 +10,6 @@ import Staff from "../models/Staff.js";
 import logger from "../utils/logger.js";
 import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
 
-const resetTokenStore = new Map();
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
 
@@ -118,9 +117,12 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   }
 
   const token = crypto.randomBytes(20).toString("hex");
-  resetTokenStore.set(token, { userId: user._id.toString(), expiresAt: Date.now() + RESET_TOKEN_TTL_MS });
+  user.passwordResetTokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await user.save({ validateBeforeSave: false });
 
-  const resetLink = `${process.env.CLIENT_URL}/reset-password/${token}`;
+  const clientUrl = String(process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim().replace(/\/+$/, "");
+  const resetLink = `${clientUrl}/reset-password/${token}`;
   await sendEmail({
     to: user.email,
     subject: "Password Reset",
@@ -134,22 +136,20 @@ export const resetPassword = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
-  const record = resetTokenStore.get(token);
-  if (!record || record.expiresAt <= Date.now()) {
-    resetTokenStore.delete(token);
-    throw new ApiError(400, "Invalid or expired token");
-  }
-
-  const user = await User.findById(record.userId).select("+password");
+  const tokenHash = crypto.createHash("sha256").update(String(token)).digest("hex");
+  const user = await User.findOne({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpiresAt: { $gt: new Date() },
+  }).select("+password +passwordResetTokenHash +passwordResetExpiresAt");
   if (!user || !user.isActive) {
-    resetTokenStore.delete(token);
     throw new ApiError(400, "Invalid or expired token");
   }
   user.password = password;
   user.refreshToken = "";
+  user.passwordResetTokenHash = undefined;
+  user.passwordResetExpiresAt = undefined;
   await user.save();
 
-  resetTokenStore.delete(token);
   res.status(200).json(new ApiResponse(true, "Password reset successful"));
 });
 

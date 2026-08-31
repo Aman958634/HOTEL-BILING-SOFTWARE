@@ -165,7 +165,13 @@ const LoginPage = ({ superAdminOnly = false }) => {
                   />
                   <span className="text-sm text-[#475569]">Remember me</span>
                 </label>
-                <span className="text-right text-xs text-[#64748B]">Contact your administrator to reset your password.</span>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-right text-xs font-medium text-[#EF1B1B] hover:text-[#C90000]"
+                >
+                  Forgot password?
+                </button>
               </div>
 
               {errors.root ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{errors.root.message}</p> : null}

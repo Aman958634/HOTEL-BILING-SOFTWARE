@@ -3,6 +3,15 @@ const present = (name) => {
   return Boolean(value) && !/^replace_with|^your_/i.test(value);
 };
 
+const isLocalMongoUri = (uri) => {
+  try {
+    const parsed = new URL(String(uri).replace(/^mongodb(\+srv)?:\/\//i, "http://"));
+    return ["localhost", "127.0.0.1", "::1"].includes(String(parsed.hostname || "").toLowerCase());
+  } catch {
+    return false;
+  }
+};
+
 export const validateProductionEnvironment = () => {
   if (process.env.NODE_ENV !== "production") return;
 
@@ -20,5 +29,10 @@ export const validateProductionEnvironment = () => {
   const missing = required.filter((name) => name === "live payment provider credentials" || !present(name));
   if (missing.length) {
     throw new Error(`Production configuration is missing: ${missing.join(", ")}`);
+  }
+
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  if (isLocalMongoUri(mongoUri)) {
+    throw new Error("Production configuration must use a remote MongoDB database");
   }
 };

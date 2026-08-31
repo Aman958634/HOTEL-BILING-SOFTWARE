@@ -22,7 +22,7 @@ const managers = ["admin", "manager", "inventory_manager"];
 const objectId = (name) => param(name).isMongoId().withMessage(`${name} is invalid`);
 
 const router = Router();
-router.use(authMiddleware, requireActiveSubscription);
+router.use(authMiddleware, requireActiveSubscription, requireRole(...managers));
 router.get("/items", listInventory);
 router.post("/items", requireRole(...managers), [body("itemName").trim().notEmpty(), body("sku").trim().notEmpty(), body("unit").trim().notEmpty(), body("quantity").optional().isFloat({ min: 0 })], validate, createInventoryItem);
 router.put("/items/:id", requireRole(...managers), [objectId("id")], validate, updateInventoryItem);

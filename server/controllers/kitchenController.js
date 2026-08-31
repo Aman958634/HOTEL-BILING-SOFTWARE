@@ -55,16 +55,22 @@ const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {
   recalculateOrderStatusFromKitchen(order);
   const nextStatus = String(order.status || "").toUpperCase();
 
-  if (nextItemStatus === KITCHEN_ITEM_STATUSES.PREPARING) {
-    await consumeOrderInventory({ order, user: req.user._id, itemIndexes: itemIndex == null ? order.items.map((_, index) => index) : [itemIndex] });
-  }
-
   if (previousStatus !== nextStatus) {
     addStatusHistoryEntry(order, nextStatus, req.user._id);
     stampOrderLifecycle(order, nextStatus);
   }
 
-  await order.save();
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      if (nextItemStatus === KITCHEN_ITEM_STATUSES.PREPARING) {
+        await consumeOrderInventory({ order, user: req.user._id, itemIndexes: itemIndex == null ? order.items.map((_, index) => index) : [itemIndex], session });
+      }
+      await order.save({ session });
+    });
+  } finally {
+    await session.endSession();
+  }
 
 
   const populated = await Order.findById(order._id)
