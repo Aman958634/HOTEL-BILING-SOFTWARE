@@ -1,4 +1,6 @@
 import Order from "../models/Order.js";
+import Payment from "../models/Payment.js";
+import Invoice from "../models/Invoice.js";
 import Food from "../models/Food.js";
 import Reservation from "../models/Reservation.js";
 import Table from "../models/Table.js";
@@ -10,7 +12,38 @@ import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
-import { getCollectedRevenueSeries, getFinancialMetrics, resolveFinancialRange } from "../services/financialMetricsService.js";
+
+const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const PAID_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
+
+const netRevenueExpr = {
+  $sum: { $subtract: [{ $ifNull: ["$totalAmount", 0] }, { $ifNull: ["$refundAmount", 0] }] },
+};
+
+const sumNetRevenue = async (match) => {
+  const [result] = await Payment.aggregate([
+    { $match: match },
+    { $group: { _id: null, total: netRevenueExpr } },
+  ]);
+  return Number(result?.total || 0);
+};
+
+const sumInvoiceSales = async (match) => {
+  const [result] = await Invoice.aggregate([
+    { $match: { ...match, status: { $ne: "VOID" } } },
+    { $group: { _id: null, total: { $sum: "$netTotal" } } },
+  ]);
+  return Number(result?.total || 0);
+};
+
+// Legacy Invoice records predate outletId. Scope them through their immutable
+// source order instead of treating restaurant-wide invoice totals as outlet data.
+const invoiceOrderScope = async (user, filters = {}) => {
+  const orderScope = await buildOutletQuery({}, user, { allowAll: true });
+  const orderIds = await Order.distinct("_id", orderScope);
+  return { ...filters, order: { $in: orderIds } };
+};
 
 const normalizeStatus = (status) => {
   const map = {
@@ -34,22 +67,33 @@ const normalizeStatus = (status) => {
 };
 
 export const dashboardStats = asyncHandler(async (req, res) => {
+  const todayStart = startOfDay();
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  const baseOrderMatch = await buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true });
+  const invoiceMatch = await invoiceOrderScope(req.user);
   const operationalScope = await buildOutletQuery({}, req.user, { allowAll: true });
-  const todayRange = await resolveFinancialRange({ scope: operationalScope, range: "today" });
-  const yesterdayRange = { ...todayRange, start: todayRange.previousStart, end: todayRange.previousEnd };
 
   const [
-    totalMetrics,
-    todayMetrics,
-    yesterdayMetrics,
+    totalRevenue,
+    todayRevenue,
+    yesterdayRevenue,
+    totalOrders,
+    todayOrders,
+    yesterdayOrders,
     activeReservations,
     availableTables,
     lowStockItems,
     totalMenuItems,
   ] = await Promise.all([
-    getFinancialMetrics({ scope: operationalScope }),
-    getFinancialMetrics({ scope: operationalScope, range: todayRange }),
-    getFinancialMetrics({ scope: operationalScope, range: yesterdayRange }),
+    sumInvoiceSales(invoiceMatch),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: todayStart } }),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    // Revenue is invoice-based; paid-order count is intentionally order-based.
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID" }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: todayStart } }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: yesterdayStart, $lt: todayStart } }),
     Reservation.countDocuments({ ...operationalScope, status: { $in: ["pending", "confirmed"] } }),
     Table.countDocuments({ ...operationalScope, status: { $in: ["AVAILABLE", "available"] } }),
     Inventory.countDocuments({ ...operationalScope, $expr: { $lte: ["$quantity", "$reorderLevel"] } }),
@@ -80,23 +124,23 @@ export const dashboardStats = asyncHandler(async (req, res) => {
   const cards = {
     totalRevenue: {
       label: "Total Revenue",
-      value: totalMetrics.revenue,
-      trend: calculateGrowth(todayMetrics.revenue, yesterdayMetrics.revenue),
+      value: totalRevenue,
+      trend: calculateGrowth(todayRevenue, yesterdayRevenue),
     },
     todayRevenue: {
       label: "Today's Revenue",
-      value: todayMetrics.revenue,
-      trend: calculateGrowth(todayMetrics.revenue, yesterdayMetrics.revenue),
+      value: todayRevenue,
+      trend: calculateGrowth(todayRevenue, yesterdayRevenue),
     },
     totalOrders: {
       label: "Total Orders",
-      value: totalMetrics.orders,
-      trend: calculateGrowth(todayMetrics.orders, yesterdayMetrics.orders),
+      value: totalOrders,
+      trend: calculateGrowth(todayOrders, yesterdayOrders),
     },
     todayOrders: {
       label: "Today's Orders",
-      value: todayMetrics.orders,
-      trend: calculateGrowth(todayMetrics.orders, yesterdayMetrics.orders),
+      value: todayOrders,
+      trend: calculateGrowth(todayOrders, yesterdayOrders),
     },
     activeReservations: {
       label: "Active Reservations",
@@ -124,10 +168,41 @@ export const dashboardStats = asyncHandler(async (req, res) => {
 });
 
 export const salesOverview = asyncHandler(async (req, res) => {
-  const scope = await buildOutletQuery({}, req.user, { allowAll: true });
-  const range = await resolveFinancialRange({ scope, range: req.query.range || "7d" });
-  const rows = await getCollectedRevenueSeries({ scope, range });
-  const data = rows.map((row) => ({ _id: row.label, revenue: row.revenue, orders: row.payments }));
+  const range = req.query.range || "7d";
+  const now = new Date();
+  let startDate = new Date(now);
+  let groupFormat = "%Y-%m-%d";
+
+  if (range === "today") {
+    startDate = startOfDay(now);
+    groupFormat = "%Y-%m-%d %H:00";
+  } else if (range === "7d") {
+    startDate.setDate(now.getDate() - 6);
+  } else if (range === "30d") {
+    startDate.setDate(now.getDate() - 29);
+  } else if (range === "year") {
+    startDate = new Date(now.getFullYear(), 0, 1);
+    groupFormat = "%Y-%m";
+  }
+
+  const invoiceMatch = await invoiceOrderScope(req.user,
+    {
+      issuedAt: { $gte: startDate },
+      status: { $ne: "VOID" },
+    }
+  );
+
+  const data = await Invoice.aggregate([
+    { $match: invoiceMatch },
+    {
+      $group: {
+        _id: { $dateToString: { format: groupFormat, date: "$issuedAt" } },
+        revenue: { $sum: "$netTotal" },
+        orders: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
 
   res.status(200).json(new ApiResponse(true, "Sales overview fetched", data));
 });
