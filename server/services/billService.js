@@ -31,7 +31,25 @@ const buildSnapshot = (orders) => {
   }), { subtotal: 0, discount: 0, loyaltyDiscount: 0, taxableAmount: 0, tax: 0, serviceCharge: 0, deliveryCharge: 0, total: 0 });
   return Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, fromPaise(value)]));
 };
-const allocationFromOrder = (order) => ({ order: order._id, orderNumber: order.orderNumber, subtotal: Number(order.subtotal || 0), discount: Number(order.discount || 0), loyaltyDiscount: Number(order.loyaltyDiscount || 0), tax: Number(order.tax || 0), serviceCharge: Number(order.serviceCharge || 0), deliveryCharge: Number(order.deliveryCharge || 0), total: Number(order.total || 0) });
+const allocationFromOrder = (order) => ({
+  order: order._id,
+  orderNumber: order.orderNumber,
+  subtotal: Number(order.subtotal || 0),
+  discount: Number(order.discount || 0),
+  loyaltyDiscount: Number(order.loyaltyDiscount || 0),
+  tax: Number(order.tax || 0),
+  serviceCharge: Number(order.serviceCharge || 0),
+  deliveryCharge: Number(order.deliveryCharge || 0),
+  total: Number(order.total || 0),
+  items: (order.items || []).map((item) => ({
+    menuItem: item.menuItem || null,
+    name: item.name || "Menu item",
+    quantity: Number(item.quantity || 0),
+    price: Number(item.price || 0),
+    subtotal: Number(item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0)),
+    specialInstructions: item.specialInstructions || "",
+  })),
+});
 
 const activeBillForOrders = (orderIds, session) => Bill.findOne({ "allocations.order": { $in: orderIds }, status: { $in: OPEN_STATUSES } }).session(session);
 
@@ -134,13 +152,90 @@ export const splitOpenBillByOrders = async ({ billId, restaurantId, groups, user
   return children;
 };
 
-export const buildBillReceiptBuffer = async (bill) => {
+const buildLegacyBillReceiptBuffer = async (bill) => {
   const populated = bill?.populate ? await bill.populate([{ path: "restaurant", select: "name address phone email" }, { path: "table", select: "tableNumber" }]) : await Bill.findById(bill).populate("restaurant", "name address phone email").populate("table", "tableNumber");
   if (!populated) throw new ApiError(404, "Bill not found"); const payments = await Payment.find({ bill: populated._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).sort({ paidAt: 1 }).lean();
   return new Promise((resolve) => { const doc = new PDFDocument({ margin: 36 }); const chunks = []; doc.on("data", (chunk) => chunks.push(chunk)); doc.on("end", () => resolve(Buffer.concat(chunks))); doc.fontSize(20).text(populated.restaurant?.name || "RestoSphere", { align: "center" }); doc.fontSize(14).text("Bill Receipt", { align: "center" }); doc.moveDown(); doc.fontSize(10).text(`Bill: ${populated.billNumber}`); doc.text(`Table: ${populated.table?.tableNumber || "-"}`); doc.text(`Status: ${populated.status}`); doc.moveDown(); populated.allocations.forEach((row) => doc.text(`Order #${row.orderNumber}  ₹${Number(row.total).toFixed(2)}`)); doc.moveDown(); [["Subtotal", populated.subtotal], ["Discount", populated.discount], ["Loyalty redemption", populated.loyaltyDiscount], ["Tax", populated.tax], ["Service charge", populated.serviceCharge], ["Delivery charge", populated.deliveryCharge], ["Grand total", populated.total], ["Paid", populated.paidAmount], ["Balance due", populated.balanceDue]].forEach(([label, value]) => doc.text(`${label}: ₹${Number(value || 0).toFixed(2)}`, { align: "right" })); doc.moveDown(); doc.text("Payments"); payments.forEach((payment) => doc.text(`${paymentMethodLabel(payment.paymentMethod)} · ${payment.paymentId} · ₹${Number(payment.amount).toFixed(2)}`)); doc.end(); });
 };
 
-export const serializeBill = async (bill) => {
-  const data = bill.toObject ? bill.toObject() : bill; const payments = await Payment.find({ bill: data._id }).sort({ paidAt: 1, createdAt: 1 }).lean();
-  return { ...data, payments: payments.map(serializePayment) };
+export const buildBillReceiptBuffer = async (bill) => {
+  const populated = bill?.populate
+    ? await bill.populate([{ path: "restaurant", select: "name address city state phone email gstNumber" }, { path: "table", select: "tableNumber" }])
+    : await Bill.findById(bill).populate("restaurant", "name address city state phone email gstNumber").populate("table", "tableNumber");
+  if (!populated) throw new ApiError(404, "Bill not found");
+
+  const needsLegacyItems = populated.allocations.some((allocation) => !(allocation.items || []).length);
+  const [payments, legacyOrders] = await Promise.all([
+    Payment.find({ bill: populated._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).sort({ paidAt: 1 }).lean(),
+    needsLegacyItems
+      ? Order.find({ _id: { $in: populated.allocations.map((allocation) => allocation.order) } }).select("items").lean()
+      : Promise.resolve([]),
+  ]);
+  const legacyItems = new Map(legacyOrders.map((order) => [String(order._id), order.items || []]));
+  const restaurant = populated.restaurant || {};
+  const address = [restaurant.address, restaurant.city, restaurant.state].filter(Boolean).join(", ");
+  const money = (value) => `INR ${Number(value || 0).toFixed(2)}`;
+
+  return new Promise((resolve) => {
+    const doc = new PDFDocument({ margin: 36 });
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+
+    doc.fontSize(20).text(restaurant.name || "Restaurant", { align: "center" });
+    if (address) doc.fontSize(9).text(address, { align: "center" });
+    if (restaurant.phone || restaurant.email) doc.fontSize(9).text([restaurant.phone, restaurant.email].filter(Boolean).join(" | "), { align: "center" });
+    if (restaurant.gstNumber) doc.fontSize(9).text(`GSTIN: ${restaurant.gstNumber}`, { align: "center" });
+    doc.moveDown(0.5).fontSize(14).text("Final Bill Receipt", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(10).text(`Bill: ${populated.billNumber}`);
+    doc.text(`Table: ${populated.table?.tableNumber || "-"}`);
+    doc.text(`Status: ${populated.status}`);
+    doc.text(`Issued: ${new Date(populated.createdAt).toLocaleString("en-IN")}`);
+    doc.moveDown();
+
+    populated.allocations.forEach((allocation) => {
+      doc.font("Helvetica-Bold").text(`Order #${allocation.orderNumber}`);
+      doc.font("Helvetica");
+      const items = (allocation.items || []).length ? allocation.items : legacyItems.get(String(allocation.order)) || [];
+      if (!items.length) {
+        doc.text(`Order total: ${money(allocation.total)}`);
+      } else {
+        items.forEach((item) => {
+          const lineTotal = item.subtotal ?? Number(item.price || 0) * Number(item.quantity || 0);
+          doc.text(`${item.name || "Menu item"} x${Number(item.quantity || 0)} @ ${money(item.price)}  ${money(lineTotal)}`);
+          if (item.specialInstructions) doc.fontSize(8).fillColor("#64748b").text(`  Note: ${item.specialInstructions}`).fillColor("black").fontSize(10);
+        });
+      }
+      doc.moveDown(0.25);
+    });
+
+    doc.moveDown(0.5);
+    [["Subtotal", populated.subtotal], ["Discount", populated.discount], ["Loyalty redemption", populated.loyaltyDiscount], ["Tax", populated.tax], ["Service charge", populated.serviceCharge], ["Delivery charge", populated.deliveryCharge], ["Grand total", populated.total], ["Paid", populated.paidAmount], ["Balance due", populated.balanceDue]].forEach(([label, value]) => doc.text(`${label}: ${money(value)}`, { align: "right" }));
+    doc.moveDown().font("Helvetica-Bold").text("Payments");
+    doc.font("Helvetica");
+    payments.forEach((payment) => doc.text(`${paymentMethodLabel(payment.paymentMethod)} | ${payment.paymentId} | ${money(payment.amount)}`));
+    doc.end();
+  });
+};
+
+export const serializeBill = async (bill, { includeLegacyItems = false } = {}) => {
+  const data = bill.toObject ? bill.toObject() : bill;
+  let allocations = data.allocations || [];
+
+  // Bills created before item snapshots were introduced still retain their
+  // original order links. Resolve those only for a detail/preview request so
+  // list endpoints remain paginated and do not incur an N+1 order lookup.
+  if (includeLegacyItems && allocations.some((allocation) => !(allocation.items || []).length)) {
+    const orders = await Order.find({ _id: { $in: allocations.map((allocation) => allocation.order) } }).select("items").lean();
+    const itemsByOrder = new Map(orders.map((order) => [String(order._id), order.items || []]));
+    allocations = allocations.map((allocation) => (
+      (allocation.items || []).length
+        ? allocation
+        : { ...allocation, items: itemsByOrder.get(String(allocation.order)) || [] }
+    ));
+  }
+
+  const payments = await Payment.find({ bill: data._id }).sort({ paidAt: 1, createdAt: 1 }).lean();
+  return { ...data, allocations, payments: payments.map(serializePayment) };
 };

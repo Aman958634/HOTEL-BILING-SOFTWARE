@@ -28,6 +28,7 @@ import {
   updateOrderPaymentState,
 } from "../services/paymentService.js";
 import { refundRecordedPayment } from "../services/reconciliationService.js";
+import { buildBillReceiptBuffer } from "../services/billService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
 
 const providerToMethod = {
@@ -240,6 +241,11 @@ const mapPaymentDetail = (payment) => {
   return {
     ...mapPaymentRow(paymentObject),
     order,
+    // Receipt previews need the persisted bill snapshot and the restaurant
+    // identity, not a generic product label. Both are populated only after
+    // the normal tenant/outlet-scoped payment lookup above.
+    bill: paymentObject.bill || null,
+    restaurant: paymentObject.restaurant || null,
     customer: paymentObject.customerId || null,
     table: paymentObject.tableId || null,
     refundAmount: paymentObject.refundAmount || 0,
@@ -263,7 +269,8 @@ const getPaymentDoc = async (identifier, user) => {
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
     .populate("refundedBy", "fullName email role")
-    .populate("bill", "billNumber total status");
+    .populate("restaurant", "name address city state phone email gstNumber")
+    .populate("bill", "billNumber subtotal discount loyaltyDiscount tax serviceCharge deliveryCharge total paidAmount balanceDue status allocations restaurant table");
 };
 
 export const createPaymentIntent = asyncHandler(async (req, res) => {
@@ -589,8 +596,12 @@ export const getPaymentReceipt = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
 
-  const buffer = await buildPaymentReceipt(payment);
-  const paymentId = payment.paymentId || req.params.id;
+  // A bill payment belongs to the finalized bill snapshot. Reuse that receipt
+  // so a consolidated settlement always includes the restaurant identity,
+  // item lines, and all applied payments.
+  const bill = payment.bill?._id || payment.bill;
+  const buffer = bill ? await buildBillReceiptBuffer(payment.bill) : await buildPaymentReceipt(payment);
+  const paymentId = bill?.billNumber || payment.bill?.billNumber || payment.paymentId || req.params.id;
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename=receipt-${paymentId}.pdf`);
   res.send(buffer);

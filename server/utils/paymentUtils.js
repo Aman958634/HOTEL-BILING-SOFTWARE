@@ -137,8 +137,8 @@ export const buildReceiptBuffer = async ({ payment, order, restaurant }) =>
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
 
-    const restaurantName = restaurant?.name || "RestoSphere";
-    const restaurantAddress = restaurant?.address || "Restaurant Management System";
+    const restaurantName = restaurant?.name || "Restaurant";
+    const restaurantAddress = restaurant?.address || "Restaurant details unavailable";
     const restaurantContact = [restaurant?.phone, restaurant?.email].filter(Boolean).join(" | ");
 
     doc.rect(0, 0, doc.page.width, 90).fill("#0f766e");

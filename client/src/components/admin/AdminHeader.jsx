@@ -45,11 +45,10 @@ const AdminHeader = ({ title, subtitle }) => {
           <GlobalSearch className="hidden sm:block" />
           <OutletSwitcher />
 
-          <button type="button" aria-label="Reporting period: Today" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+          <div aria-label="Reporting period: Today" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700">
             <FiCalendar className="h-4 w-4 text-slate-500" />
             <span className="hidden md:inline">Today</span>
-            <FiChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </button>
+          </div>
 
           <div className="relative">
             <NotificationBell />

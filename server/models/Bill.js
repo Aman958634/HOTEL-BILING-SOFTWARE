@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+const allocationItemSchema = new mongoose.Schema({
+  menuItem: { type: mongoose.Schema.Types.ObjectId, ref: "Food", default: null },
+  name: { type: String, required: true },
+  quantity: { type: Number, required: true, min: 0 },
+  price: { type: Number, required: true, min: 0 },
+  subtotal: { type: Number, required: true, min: 0 },
+  specialInstructions: { type: String, default: "" },
+}, { _id: false });
+
 const allocationSchema = new mongoose.Schema({
   order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true },
   orderNumber: { type: String, required: true },
@@ -10,6 +19,9 @@ const allocationSchema = new mongoose.Schema({
   serviceCharge: { type: Number, default: 0, min: 0 },
   deliveryCharge: { type: Number, default: 0, min: 0 },
   total: { type: Number, required: true, min: 0 },
+  // New finalized bills retain this immutable item snapshot. Legacy bills can
+  // still use their original order reference when rendering a receipt.
+  items: { type: [allocationItemSchema], default: [] },
 }, { _id: false });
 
 const billSchema = new mongoose.Schema({
