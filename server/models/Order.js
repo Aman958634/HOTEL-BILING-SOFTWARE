@@ -3,9 +3,7 @@ import mongoose from "mongoose";
 const ORDER_TYPES = ["DINE_IN", "TAKEAWAY", "DELIVERY", "PICKUP"];
 const ORDER_SOURCES = ["DINE_IN", "TAKEAWAY", "QR_ORDER", "ONLINE", "DELIVERY", "PICKUP"];
 const PAYMENT_METHODS = ["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "RAZORPAY", "OTHER"];
-// PARTIAL is the current balance state for an order.  Refund states are kept
-// for backward compatibility with existing receipts and reconciliation data.
-const PAYMENT_STATUSES = ["PENDING", "PARTIAL", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
+const PAYMENT_STATUSES = ["PENDING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
 const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "SERVED", "COMPLETED", "CANCELLED", "REJECTED"];
 
 const orderTypeAliases = {
@@ -30,8 +28,6 @@ const paymentMethodAliases = {
 
 const paymentStatusAliases = {
   pending: "PENDING",
-  partial: "PARTIAL",
-  partially_paid: "PARTIAL",
   paid: "PAID",
   failed: "FAILED",
   refunded: "REFUNDED",

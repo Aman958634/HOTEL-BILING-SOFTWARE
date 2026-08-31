@@ -116,24 +116,10 @@ const buildOrderLookup = async (orderId, session = null) => {
   return query;
 };
 
-const SUCCESSFUL_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
-
-export const deriveOrderPaymentStatus = ({ total = 0, paid = 0 } = {}) => {
-  const payable = Number(total || 0);
-  const received = Number(paid || 0);
-  if (received <= 0) return "PENDING";
-  return received + 0.01 >= payable ? "PAID" : "PARTIAL";
-};
-
-export const getSuccessfulPaymentTotal = async (order, session = null) => {
-  const orderId = order?._id || order;
-  const scope = order?.restaurant !== undefined
-    ? { restaurant: order.restaurant || null, outlet: order.outlet || null }
-    : {};
+const getSuccessfulPaymentTotal = async (orderId, session = null) => {
   let query = Payment.find({
     orderId,
-    ...scope,
-    paymentStatus: { $in: SUCCESSFUL_PAYMENT_STATUSES },
+    paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED"] },
   }).select("amount totalAmount refundAmount").lean();
   if (session) query = query.session(session);
   const payments = await query;
@@ -218,16 +204,7 @@ export const syncPaymentFromOrder = async (
       ? ""
       : normalizeGateway(metadata.gateway || metadata.provider || nextPaymentMethod);
 
-  if (nextPaymentStatus === "PAID") {
-    throw new ApiError(500, "Successful payments must be settled through recordVerifiedPayment");
-  }
-
-  let paymentQuery = Payment.findOne({
-    orderId: orderDoc._id,
-    restaurant: orderDoc.restaurant || null,
-    outlet: orderDoc.outlet || null,
-    paymentStatus: { $nin: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] },
-  });
+  let paymentQuery = Payment.findOne({ orderId: orderDoc._id });
   if (session) paymentQuery = paymentQuery.session(session);
   let payment = await paymentQuery;
   const isNew = !payment;
@@ -270,7 +247,6 @@ export const syncPaymentFromOrder = async (
     payment.customerId = orderDoc.customer?._id || orderDoc.customer || payment.customerId;
     payment.tableId = orderDoc.table?._id || orderDoc.table || payment.tableId;
     payment.restaurant = orderDoc.restaurant || payment.restaurant;
-    payment.outlet = orderDoc.outlet || payment.outlet || null;
     if (transactionId) payment.transactionId = transactionId;
     if (metadata.razorpayOrderId) payment.razorpayOrderId = metadata.razorpayOrderId;
     if (metadata.razorpayPaymentId) payment.razorpayPaymentId = metadata.razorpayPaymentId;
@@ -342,14 +318,24 @@ export const updateOrderPaymentState = async (
     });
   }
 
+  orderDoc.paymentMethod = nextPaymentMethod;
+  orderDoc.paymentStatus = nextPaymentStatus;
+  orderDoc.paidAt = null;
+  if (orderDoc.status === "COMPLETED") {
+    orderDoc.status = "PENDING";
+  }
+  orderDoc.transactionId = transactionId || orderDoc.transactionId || "";
+
+  await orderDoc.save(session ? { session } : undefined);
+
   const payment = await syncPaymentFromOrder(orderDoc, {
-    transactionId: transactionId || orderDoc.transactionId || "",
+    transactionId: orderDoc.transactionId,
     metadata: {
       paymentMethod: nextPaymentMethod,
       gateway,
       razorpayOrderId,
       razorpayPaymentId,
-      paidAt,
+      paidAt: orderDoc.paidAt,
     },
     status: nextPaymentStatus,
     note,
@@ -362,18 +348,12 @@ export const updateOrderPaymentState = async (
 
   // A payment is settled only when the sum of all successful payments covers
   // the order total. This also protects aggregate/split-payment flows.
-  const totalPaid = await getSuccessfulPaymentTotal(orderDoc, session);
-  const orderPaymentStatus = deriveOrderPaymentStatus({ total: orderDoc.total, paid: totalPaid });
-  const fullyPaid = orderPaymentStatus === "PAID";
-  orderDoc.paymentMethod = nextPaymentMethod;
-  orderDoc.paymentStatus = orderPaymentStatus;
-  orderDoc.transactionId = payment.transactionId || transactionId || orderDoc.transactionId || "";
+  const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+  const fullyPaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
+  orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
   if (fullyPaid) {
     orderDoc.status = "COMPLETED";
     orderDoc.paidAt = payment.paidAt || new Date();
-  } else if (orderDoc.status === "COMPLETED") {
-    orderDoc.status = "PENDING";
-    orderDoc.paidAt = null;
   }
   await orderDoc.save(session ? { session } : undefined);
 
@@ -420,17 +400,11 @@ export const recordVerifiedPayment = async (
       const orderDoc = await buildOrderLookup(orderId, session);
       if (!orderDoc) throw new ApiError(404, "Order not found");
 
-      const paymentScope = {
-        orderId: orderDoc._id,
-        restaurant: orderDoc.restaurant || null,
-        outlet: orderDoc.outlet || null,
-      };
-
       // Idempotent retries succeed with the original result before the
       // already-paid guard is evaluated.
-      const priorPayment = await Payment.findOne({ ...paymentScope, idempotencyKey: stableIdempotencyKey }).session(session);
+      const priorPayment = await Payment.findOne({ orderId: orderDoc._id, idempotencyKey: stableIdempotencyKey }).session(session);
       if (priorPayment) {
-        const paidTotal = await getSuccessfulPaymentTotal(orderDoc, session);
+        const paidTotal = await getSuccessfulPaymentTotal(orderDoc._id, session);
         result = {
           order: orderDoc,
           payment: priorPayment,
@@ -446,110 +420,62 @@ export const recordVerifiedPayment = async (
         throw new ApiError(409, "Payment already completed.");
       }
 
-      // Gateway checkout first creates an intent row. Verification must settle
-      // that exact row, rather than creating a second PAID record alongside a
-      // stale PENDING/PROCESSING record for the same order.
-      const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
-      const intentReferences = [];
-      if (razorpayOrderId) {
-        intentReferences.push({ razorpayOrderId: String(razorpayOrderId) });
-        intentReferences.push({ "metadata.razorpayOrderId": String(razorpayOrderId) });
-      }
-      if (transactionId) intentReferences.push({ transactionId: String(transactionId) });
-      let pendingIntent = null;
-      if (intentReferences.length) {
-        pendingIntent = await Payment.findOne({
-          ...paymentScope,
-          paymentStatus: { $in: ["PENDING", "PROCESSING"] },
-          $or: intentReferences,
-        }).session(session);
-      }
-
-      // Order creation may create a generic pending Cash row before money is
-      // collected.  The first cash settlement consumes that row; subsequent
-      // split payments create their own rows.  Gateway rows never use this
-      // fallback, so one gateway attempt cannot settle another one.
-      let genericCashIntent = false;
-      if (!pendingIntent && method === "CASH") {
-        pendingIntent = await Payment.findOne({
-          ...paymentScope,
-          paymentMethod: "CASH",
-          paymentStatus: { $in: ["PENDING", "PROCESSING"] },
-          razorpayOrderId: "",
-          razorpayPaymentId: "",
-        }).sort({ createdAt: 1 }).session(session);
-        genericCashIntent = Boolean(pendingIntent);
-      }
-
       const billTotal = Number(orderDoc.total || 0);
-      const paidBefore = await getSuccessfulPaymentTotal(orderDoc, session);
+      const paidBefore = await getSuccessfulPaymentTotal(orderDoc._id, session);
       const remaining = Math.max(billTotal - paidBefore, 0);
-      const intentAmount = pendingIntent ? Number(pendingIntent.amount || pendingIntent.totalAmount || 0) : null;
-      if (!genericCashIntent && intentAmount !== null && requestedAmount !== null && Math.abs(requestedAmount - intentAmount) > 0.01) {
-        throw new ApiError(422, "Verified payment amount does not match the payment intent");
-      }
-      const paymentAmount = genericCashIntent
-        ? (requestedAmount === null ? remaining : requestedAmount)
-        : (intentAmount || (requestedAmount === null ? remaining : requestedAmount));
+      const paymentAmount = requestedAmount === null ? remaining : requestedAmount;
       if (paymentAmount > remaining + 0.01) {
         throw new ApiError(422, "Payment amount exceeds the remaining balance");
       }
       if (paymentAmount <= 0) throw new ApiError(409, "Order balance is already settled");
 
-      const payment = pendingIntent || new Payment({
+      const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
+      const payment = new Payment({
         paymentId: await nextPaymentSequence(session),
-        ...paymentScope,
+        orderId: orderDoc._id,
+        customerId: orderDoc.customer?._id || orderDoc.customer || null,
+        tableId: orderDoc.table?._id || orderDoc.table || null,
+        restaurant: orderDoc.restaurant || null,
+        amount: paymentAmount,
+        currency: "INR",
+        subtotal: Number(orderDoc.subtotal || 0),
+        tax: Number(orderDoc.tax || 0),
+        discount: Number(orderDoc.discount || 0),
+        serviceCharge: Number(orderDoc.serviceCharge || 0),
+        totalAmount: paymentAmount,
+        paymentMethod: method,
+        receivedBy,
+        gateway: normalizeGateway(gateway),
+        paymentStatus: "PAID",
+        transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
+        razorpayOrderId: razorpayOrderId || "",
+        razorpayPaymentId: razorpayPaymentId || "",
+        idempotencyKey: stableIdempotencyKey,
+        paidAt: paidAt ? new Date(paidAt) : new Date(),
+        metadata: { verified: true },
+        timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
       });
-      const wasIntent = Boolean(pendingIntent);
-      payment.customerId = orderDoc.customer?._id || orderDoc.customer || null;
-      payment.tableId = orderDoc.table?._id || orderDoc.table || null;
-      payment.amount = paymentAmount;
-      payment.currency = "INR";
-      payment.subtotal = Number(orderDoc.subtotal || 0);
-      payment.tax = Number(orderDoc.tax || 0);
-      payment.discount = Number(orderDoc.discount || 0);
-      payment.serviceCharge = Number(orderDoc.serviceCharge || 0);
-      payment.totalAmount = paymentAmount;
-      payment.paymentMethod = method;
-      payment.receivedBy = receivedBy || payment.receivedBy || null;
-      payment.gateway = normalizeGateway(gateway) || payment.gateway;
-      payment.paymentStatus = "PAID";
-      payment.transactionId = transactionId || payment.transactionId || `PAY-${stableIdempotencyKey}`;
-      payment.razorpayOrderId = razorpayOrderId || payment.razorpayOrderId || "";
-      payment.razorpayPaymentId = razorpayPaymentId || payment.razorpayPaymentId || "";
-      payment.idempotencyKey = stableIdempotencyKey;
-      payment.paidAt = paidAt ? new Date(paidAt) : new Date();
-      payment.metadata = { ...(payment.metadata || {}), verified: true };
-      payment.timeline = buildPaymentTimeline(orderDoc, payment, "PAID", note);
       await payment.save({ session });
 
-      const totalPaid = await getSuccessfulPaymentTotal(orderDoc, session);
-      const orderPaymentStatus = deriveOrderPaymentStatus({ total: billTotal, paid: totalPaid });
-      const fullyPaid = orderPaymentStatus === "PAID";
+      const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+      const fullyPaid = totalPaid + 0.01 >= billTotal;
       orderDoc.paymentMethod = method;
-      orderDoc.paymentStatus = orderPaymentStatus;
+      orderDoc.paymentStatus = fullyPaid ? "PAID" : "PENDING";
       orderDoc.paidAt = fullyPaid ? payment.paidAt : null;
       if (fullyPaid) orderDoc.status = "COMPLETED";
       await orderDoc.save({ session });
       if (fullyPaid) await generateInvoice(orderDoc, { session });
 
-      result = { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid, idempotent: false, created: !wasIntent };
+      result = { order: orderDoc, payment, paidTotal: totalPaid, remaining: Math.max(billTotal - totalPaid, 0), fullyPaid, idempotent: false };
     });
   } catch (error) {
     // A concurrent retry can lose the unique-index race after its transaction
     // snapshot was taken. Return the committed payment for that same key.
     if (error?.code === 11000) {
-      const currentOrder = await buildOrderLookup(orderId);
-      const priorPayment = currentOrder
-        ? await Payment.findOne({
-            orderId: currentOrder._id,
-            restaurant: currentOrder.restaurant || null,
-            outlet: currentOrder.outlet || null,
-            idempotencyKey: stableIdempotencyKey,
-          })
-        : null;
+      const priorPayment = await Payment.findOne({ orderId, idempotencyKey: stableIdempotencyKey });
       if (priorPayment) {
-        const paidTotal = await getSuccessfulPaymentTotal(currentOrder);
+        const currentOrder = await buildOrderLookup(orderId);
+        const paidTotal = await getSuccessfulPaymentTotal(orderId);
         result = {
           order: currentOrder,
           payment: priorPayment,
@@ -570,7 +496,7 @@ export const recordVerifiedPayment = async (
     await session.endSession();
   }
 
-  const { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent, created = false } = result;
+  const { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent } = result;
 
   // Payment verification also re-derives the table. A partial payment leaves
   // it OCCUPIED; a settled/terminal order can become AVAILABLE only if no
@@ -583,22 +509,7 @@ export const recordVerifiedPayment = async (
   await payment.populate("tableId", "tableNumber floor section");
   // earn:<orderId> makes this safe for gateway retries and recovery runs.
   if (fullyPaid) await awardPointsForPaidOrder({ order: committedOrder, payment });
-  if (!idempotent) {
-    if (created) emitPaymentCreated(serializePayment(payment));
-    else emitPaymentUpdated(serializePayment(payment));
-  }
-  logger.info("Payment settlement committed", {
-    orderId: String(committedOrder._id),
-    paymentId: String(payment._id),
-    restaurantId: String(committedOrder.restaurant || ""),
-    outletId: String(committedOrder.outlet || ""),
-    paymentStatus: payment.paymentStatus,
-    orderPaymentStatus: committedOrder.paymentStatus,
-    amount: Number(payment.amount || payment.totalAmount || 0),
-    paymentMethod: payment.paymentMethod,
-    gatewayPaymentId: payment.razorpayPaymentId || payment.transactionId || "",
-    idempotent,
-  });
+  if (!idempotent) emitPaymentCreated(serializePayment(payment));
   return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
 };
 
@@ -611,7 +522,7 @@ export const reconcilePaymentSettlements = async () => {
   const orders = await Order.find({
     isArchived: false,
     status: { $ne: "CANCELLED" },
-    paymentStatus: { $in: ["PENDING", "PARTIAL", "PAID", "FAILED"] },
+    paymentStatus: { $in: ["PENDING", "PAID", "FAILED"] },
   }).select("_id").lean();
 
   let reconciled = 0;
@@ -623,9 +534,9 @@ export const reconcilePaymentSettlements = async () => {
         const orderDoc = await buildOrderLookup(candidate._id, session);
         if (!orderDoc || orderDoc.isArchived || orderDoc.status === "CANCELLED") return;
 
-        const totalPaid = await getSuccessfulPaymentTotal(orderDoc, session);
-        const nextStatus = deriveOrderPaymentStatus({ total: orderDoc.total, paid: totalPaid });
-        const shouldBePaid = nextStatus === "PAID";
+        const totalPaid = await getSuccessfulPaymentTotal(orderDoc._id, session);
+        const shouldBePaid = totalPaid + 0.01 >= Number(orderDoc.total || 0);
+        const nextStatus = shouldBePaid ? "PAID" : "PENDING";
         const changed = orderDoc.paymentStatus !== nextStatus || (shouldBePaid && orderDoc.status !== "COMPLETED");
 
         if (changed) {

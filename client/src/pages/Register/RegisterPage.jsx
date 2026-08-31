@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { registerThunk } from "../../redux/slices/authSlice";
 import PasswordInput from "../../components/common/PasswordInput";
-import BrandMark from "../../components/common/BrandMark";
 
 const RegisterPage = () => {
   const {
@@ -41,7 +40,12 @@ const RegisterPage = () => {
         <div className="w-full max-w-[480px]">
           <div className="rounded-[20px] bg-white px-8 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.10)] sm:px-10">
             <div className="flex flex-col items-center">
-              <BrandMark />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E31B23]">
+                  <span className="text-xl font-bold text-white">R</span>
+                </div>
+                <span className="text-[24px] font-bold text-[#172033]">RestoSphere</span>
+              </div>
               <p className="mt-1.5 text-[13px] text-[#64748B]">Restaurant Management Simplified</p>
             </div>
 

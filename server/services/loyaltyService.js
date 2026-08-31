@@ -159,7 +159,7 @@ export const redeemLoyaltyPoints = async ({ orderId, customerId, restaurantId, p
       if (!account) throw new ApiError(409, "Customer is not enrolled in loyalty");
       if (!settings?.enabled) throw new ApiError(409, "Loyalty is not enabled for this restaurant");
       if (!settings.eligibleOrderTypes.includes(order.orderType)) throw new ApiError(422, "This order type is not eligible for loyalty redemption");
-      if (["PARTIAL", "PAID", "REFUNDED", "PARTIALLY_REFUNDED"].includes(order.paymentStatus) || ["COMPLETED", "CANCELLED", "REJECTED"].includes(order.status)) throw new ApiError(409, "Loyalty redemption must be applied before payment");
+      if (["PAID", "REFUNDED", "PARTIALLY_REFUNDED"].includes(order.paymentStatus) || ["COMPLETED", "CANCELLED", "REJECTED"].includes(order.status)) throw new ApiError(409, "Loyalty redemption must be applied before payment");
       let reward = null; let redemptionPoints = requestedPoints; let redemptionValue;
       if (rewardId) {
         reward = await LoyaltyReward.findOne({ _id: rewardId, restaurant: restaurantId, active: true }).session(session);

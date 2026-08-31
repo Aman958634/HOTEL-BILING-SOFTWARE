@@ -13,7 +13,7 @@ import { getServiceMenu, getServiceSummary, getServiceTable } from "../../servic
 const currency = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
 const elapsed = (value) => { const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000)); return minutes < 1 ? "just now" : minutes < 60 ? `${minutes}m ago` : `${Math.floor(minutes / 60)}h ago`; };
 const key = () => globalThis.crypto?.randomUUID?.() || `mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const statusTone = (value) => ({ READY: "bg-emerald-50 text-emerald-700", PAID: "bg-emerald-50 text-emerald-700", PARTIAL: "bg-amber-50 text-amber-700", PARTIALLY_PAID: "bg-amber-50 text-amber-700", PREPARING: "bg-violet-50 text-violet-700", PENDING: "bg-sky-50 text-sky-700", OCCUPIED: "bg-rose-50 text-rose-700", AVAILABLE: "bg-slate-100 text-slate-700" }[String(value || "").toUpperCase()] || "bg-slate-100 text-slate-700");
+const statusTone = (value) => ({ READY: "bg-emerald-50 text-emerald-700", PAID: "bg-emerald-50 text-emerald-700", PARTIALLY_PAID: "bg-amber-50 text-amber-700", PREPARING: "bg-violet-50 text-violet-700", PENDING: "bg-sky-50 text-sky-700", OCCUPIED: "bg-rose-50 text-rose-700", AVAILABLE: "bg-slate-100 text-slate-700" }[String(value || "").toUpperCase()] || "bg-slate-100 text-slate-700");
 const badge = (value) => <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-bold ${statusTone(value)}`}>{String(value || "—").replaceAll("_", " ")}</span>;
 const input = "w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-emerald-600";
 

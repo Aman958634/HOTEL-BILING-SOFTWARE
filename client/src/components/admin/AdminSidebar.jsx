@@ -2,7 +2,6 @@ import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDolla
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
-import BrandMark from "../common/BrandMark";
 
 const links = [
   { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome /> },
@@ -46,7 +45,12 @@ const AdminSidebar = ({ open, setOpen }) => {
     >
       <div className="flex h-dvh h-screen flex-col">
         <div className="flex shrink-0 items-center justify-between px-5 py-5 md:py-6">
-          <BrandMark dark className="scale-90 origin-left md:scale-100" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
+              <FiAward className="h-5 w-5" />
+            </div>
+            <span className="text-lg font-bold text-white md:text-xl">RestoSphere</span>
+          </div>
           <button
             onClick={() => setOpen(false)}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 md:hidden"

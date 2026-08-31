@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import { loginThunk, logout } from "../../redux/slices/authSlice";
 import { getSelectedPlan, saveSelectedPlan } from "../../utils/planSelection";
 import PasswordInput from "../../components/common/PasswordInput";
-import BrandMark from "../../components/common/BrandMark";
 
 const roleRedirectMap = {
   super_admin: "/super-admin/dashboard",
@@ -98,7 +97,12 @@ const LoginPage = ({ superAdminOnly = false }) => {
         <div className="w-full max-w-[500px]">
           <div className="rounded-[20px] bg-white px-8 py-10 shadow-[0_25px_60px_-12px_rgba(15,23,42,0.08)] sm:px-10">
             <div className="flex flex-col items-center">
-              <BrandMark />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EF1B1B]">
+                  <span className="text-xl font-bold text-white">R</span>
+                </div>
+                <span className="text-[26px] font-bold text-[#172033]">RestoSphere</span>
+              </div>
               <p className="mt-2 text-sm text-[#64748B]">Restaurant Management Simplified</p>
             </div>
 
