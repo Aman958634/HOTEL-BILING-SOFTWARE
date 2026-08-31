@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { requestPasswordReset } from "../../services/authService";
+import Button from "../../components/ui/Button";
 
 const ForgotPasswordPage = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
@@ -25,9 +26,7 @@ const ForgotPasswordPage = () => {
             <input id="reset-email" type="email" autoComplete="email" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20" {...register("email", { required: "Email address is required." })} />
             {errors.email ? <p className="mt-1 text-sm text-rose-600" role="alert">{errors.email.message}</p> : null}
           </div>
-          <button type="submit" disabled={isSubmitting} className="w-full rounded-xl bg-brand-700 px-4 py-2.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-            {isSubmitting ? "Sending…" : "Send reset link"}
-          </button>
+          <Button type="submit" loading={isSubmitting} loadingText="Sending…" className="w-full">Send reset link</Button>
         </form>
         <Link to="/login" className="mt-5 inline-block text-sm font-medium text-brand-700 hover:underline">Back to login</Link>
       </section>

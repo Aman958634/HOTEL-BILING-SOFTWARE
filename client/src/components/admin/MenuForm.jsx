@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../ui/Button";
 
 const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData }) => {
   const [form, setForm] = useState({
@@ -86,9 +87,9 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <form onSubmit={submit} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <h3 className="text-xl font-bold text-slate-900">{initialData ? "Edit Food" : "Add New Food"}</h3>
+    <div className="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="menu-form-title">
+      <form onSubmit={submit} className="ui-modal max-h-[90vh] max-w-3xl overflow-y-auto">
+        <h3 id="menu-form-title" className="text-xl font-bold text-slate-900">{initialData ? "Edit Food" : "Add New Food"}</h3>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label className="text-sm text-slate-600">Food Name</label>
@@ -164,10 +165,8 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button>
-          <button type="submit" disabled={loading} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-70">
-            {loading ? "Saving..." : "Save Food"}
-          </button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" loading={loading} loadingText="Saving…">Save Food</Button>
         </div>
       </form>
     </div>

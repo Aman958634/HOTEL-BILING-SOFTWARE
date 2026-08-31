@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../../ui/Button";
 
 const roleOptions = ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
 const departmentOptions = ["Management", "Kitchen", "Service", "Delivery", "Billing", "Reception", "Inventory"];
@@ -108,9 +109,9 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <form onSubmit={submit} className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <h3 className="text-xl font-bold text-slate-900">{initialData ? "Edit Staff" : "Add Staff"}</h3>
+    <div className="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="staff-form-title">
+      <form onSubmit={submit} className="ui-modal max-h-[92vh] max-w-4xl overflow-y-auto">
+        <h3 id="staff-form-title" className="text-xl font-bold text-slate-900">{initialData ? "Edit Staff" : "Add Staff"}</h3>
         <p className="mt-1 text-sm text-slate-500">Manage staff identity, access, shift, and contact information.</p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -198,8 +199,8 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button>
-          <button type="submit" disabled={loading} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-70">{loading ? "Saving..." : initialData ? "Update Staff" : "Create Staff"}</button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" loading={loading} loadingText="Saving…">{initialData ? "Update Staff" : "Create Staff"}</Button>
         </div>
       </form>
     </div>

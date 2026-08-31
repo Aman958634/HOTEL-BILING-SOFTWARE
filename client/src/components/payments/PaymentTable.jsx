@@ -85,13 +85,13 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
   </article>
 );
 
-const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, onDelete, onPageChange }) => {
+const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, onDelete, onPageChange, hasFilters = false }) => {
   if (loading) {
     return <SkeletonTable rows={6} columns={7} />;
   }
 
   if (!payments.length) {
-    return <EmptyState icon={<FiFileText className="h-10 w-10" />} title="No payments yet" description="Completed payment transactions will appear here." />;
+    return <EmptyState icon={<FiFileText className="h-10 w-10" />} title={hasFilters ? "No matching payments" : "No payments yet"} description={hasFilters ? "Try changing your search or filters." : "Completed payment transactions will appear here."} />;
   }
 
   return (

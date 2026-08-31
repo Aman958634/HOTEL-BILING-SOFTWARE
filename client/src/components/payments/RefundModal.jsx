@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FiCheckCircle, FiX } from "react-icons/fi";
+import Button from "../ui/Button";
 import { formatCurrency } from "../../utils/paymentUtils";
 import { formatPaymentId } from "../../utils/paymentId";
 import { getPaymentAmount } from "../../utils/paymentUtils";
@@ -91,12 +92,8 @@ const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:justify-end">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
-            Cancel
-          </button>
-          <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-70">
-            <FiCheckCircle /> {loading ? "Processing..." : "Confirm Refund"}
-          </button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" variant="danger" loading={loading} loadingText="Processing…"><FiCheckCircle /> Confirm Refund</Button>
         </div>
       </form>
     </div>

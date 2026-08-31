@@ -209,6 +209,9 @@ button:disabled { cursor: not-allowed; }
   .ui-table th { @apply whitespace-nowrap px-4 py-3; }
   .ui-table td { @apply px-4 py-3.5 align-middle text-slate-700; }
   .ui-table tbody tr { @apply border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70; }
+  .ui-filter-bar { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm; }
+  .ui-modal-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-4; }
+  .ui-modal { @apply my-auto w-full rounded-2xl bg-white p-5 shadow-2xl sm:p-6; }
 }
 
 @media (prefers-reduced-motion: reduce) {

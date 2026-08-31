@@ -19,7 +19,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={null}>
           <SocketProvider>
-            <Toaster position="top-right" />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                ariaProps: { role: "status", "aria-live": "polite" },
+                style: { maxWidth: "calc(100vw - 2rem)", fontSize: "0.875rem" },
+              }}
+            />
             <ErrorBoundary>
               <App />
             </ErrorBoundary>

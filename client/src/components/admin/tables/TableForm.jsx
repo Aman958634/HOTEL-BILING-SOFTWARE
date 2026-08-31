@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../../ui/Button";
 
 const initialForm = {
   tableNumber: "",
@@ -76,9 +77,9 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <form onSubmit={submit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <h3 className="text-xl font-bold text-slate-900">{initialData ? "Edit Table" : "Add Table"}</h3>
+    <div className="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="table-form-title">
+      <form onSubmit={submit} className="ui-modal max-h-[92vh] max-w-2xl overflow-y-auto">
+        <h3 id="table-form-title" className="text-xl font-bold text-slate-900">{initialData ? "Edit Table" : "Add Table"}</h3>
         <p className="mt-1 text-sm text-slate-500">Manage table identity and seating details. Occupancy is derived from active orders.</p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -159,12 +160,8 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
-            Cancel
-          </button>
-          <button type="submit" disabled={loading} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-70">
-            {loading ? "Saving..." : initialData ? "Update Table" : "Create Table"}
-          </button>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" loading={loading} loadingText="Saving…">{initialData ? "Update Table" : "Create Table"}</Button>
         </div>
       </form>
     </div>

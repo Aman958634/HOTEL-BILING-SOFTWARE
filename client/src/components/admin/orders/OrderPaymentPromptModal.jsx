@@ -1,4 +1,5 @@
 import { currency } from "../../../utils/format";
+import Button from "../../ui/Button";
 
 const paymentLabel = (value) => String(value || "CASH").replaceAll("_", " ");
 
@@ -60,11 +61,9 @@ const OrderPaymentPromptModal = ({ open, order, onClose, onPayNow, onPayLater, o
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <button onClick={onPayLater} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">Pay Later</button>
-          <button onClick={onViewOrder} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">View Order</button>
-          <button onClick={onPayNow} disabled={loading} className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-70">
-            {loading ? "Processing Payment..." : `Pay ${currency(total)}`}
-          </button>
+          <Button variant="secondary" onClick={onPayLater} disabled={loading}>Pay Later</Button>
+          <Button variant="secondary" onClick={onViewOrder} disabled={loading}>View Order</Button>
+          <Button onClick={onPayNow} loading={loading} loadingText="Processing…" className="bg-teal-700 hover:bg-teal-800">{`Pay ${currency(total)}`}</Button>
         </div>
       </div>
     </div>

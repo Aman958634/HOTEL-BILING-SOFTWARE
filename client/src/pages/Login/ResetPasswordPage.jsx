@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import PasswordInput from "../../components/common/PasswordInput";
 import { resetPassword } from "../../services/authService";
+import Button from "../../components/ui/Button";
 
 const ResetPasswordPage = () => {
   const { token } = useParams();
@@ -34,9 +35,7 @@ const ResetPasswordPage = () => {
             <PasswordInput id="confirm-password" autoComplete="new-password" className="w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20" {...register("confirmPassword", { required: "Please confirm your password.", validate: (value) => value === watch("password") || "Passwords do not match." })} />
             {errors.confirmPassword ? <p className="mt-1 text-sm text-rose-600" role="alert">{errors.confirmPassword.message}</p> : null}
           </div>
-          <button type="submit" disabled={isSubmitting || !token} className="w-full rounded-xl bg-brand-700 px-4 py-2.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-            {isSubmitting ? "Saving…" : "Reset password"}
-          </button>
+          <Button type="submit" loading={isSubmitting} loadingText="Saving…" disabled={!token} className="w-full">Reset password</Button>
         </form>
       </section>
     </main>

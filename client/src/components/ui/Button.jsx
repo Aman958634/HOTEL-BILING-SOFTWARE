@@ -6,15 +6,16 @@ const variants = {
   danger: "bg-rose-600 text-white shadow-sm shadow-rose-900/10 hover:bg-rose-700",
 };
 
-const Button = ({ children, className = "", variant = "primary", type = "button", loading = false, ...props }) => (
+const Button = ({ children, className = "", variant = "primary", type = "button", loading = false, loadingText, ...props }) => (
   <button
     type={type}
     disabled={loading || props.disabled}
+    aria-busy={loading || undefined}
     className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ${variants[variant] || variants.primary} ${className}`}
     {...props}
   >
     {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" /> : null}
-    {children}
+    {loading && loadingText ? loadingText : children}
   </button>
 );
 

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_URL } from "../utils/constants";
+import { getApiErrorMessage } from "../utils/apiError";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -86,6 +87,11 @@ api.interceptors.response.use(
     const originalRequest = error?.config;
     const payload = error?.response?.data;
     const code = payload?.code;
+    // Existing toast calls can safely read this normalized message.
+    error.userMessage = getApiErrorMessage(error);
+    if (payload && typeof payload === "object" && typeof payload.message === "string") {
+      payload.message = error.userMessage;
+    }
 
     if (isOutletAccessDenied(error) && originalRequest && !originalRequest._outletRetry) {
       originalRequest._outletRetry = true;

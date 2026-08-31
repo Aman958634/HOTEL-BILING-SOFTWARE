@@ -477,6 +477,7 @@ const OrderManagement = () => {
         orders={orders}
         loading={loadingOrders}
         error={ordersError}
+        hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
         onEdit={openEdit}
         onDelete={(order) => setDeleteTarget(order)}
       />

@@ -272,6 +272,7 @@ const TableManagement = () => {
         onView={openDetails}
         onDelete={requestDelete}
         onAddFirst={openCreate}
+        hasFilters={Boolean(filters.search || filters.floor || filters.section || filters.status || filters.capacity)}
         onTableClick={handleTableClick}
         onSelect={handleSelectTable}
         selectedId={selectedId}

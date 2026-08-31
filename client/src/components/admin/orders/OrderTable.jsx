@@ -17,7 +17,7 @@ const deleteBtnClass =
 
 const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 
-const OrderTable = ({ orders, loading, error, onEdit, onDelete }) => {
+const OrderTable = ({ orders, loading, error, onEdit, onDelete, hasFilters = false }) => {
   if (loading) {
     return <SkeletonTable rows={6} columns={6} />;
   }
@@ -25,7 +25,7 @@ const OrderTable = ({ orders, loading, error, onEdit, onDelete }) => {
   if (error) return null;
 
   if (!orders.length) {
-    return <EmptyState icon={<FiShoppingBag className="h-8 w-8" />} title="No orders yet" description="Orders will appear here when customers place them." />;
+    return <EmptyState icon={<FiShoppingBag className="h-8 w-8" />} title={hasFilters ? "No matching orders" : "No orders yet"} description={hasFilters ? "Try changing your search or filters." : "Create your first order to start managing restaurant service."} />;
   }
 
   return (

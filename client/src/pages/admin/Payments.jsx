@@ -338,6 +338,7 @@ const Payments = () => {
             payments={tableContent}
             loading={loadingPayments}
             meta={meta}
+            hasFilters={Boolean(filters.search || filters.range || filters.status || filters.method || filters.startDate || filters.endDate)}
             onView={openDetails}
             onReceipt={openReceipt}
             onRefund={openRefund}

@@ -1,7 +1,7 @@
 import { FiAlertCircle, FiRefreshCw } from "react-icons/fi";
 
 const RequestState = ({ message = "Unable to load this data.", onRetry }) => (
-  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center" role="alert">
+  <section className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center sm:p-8" role="alert">
     <FiAlertCircle className="mx-auto mb-3 h-10 w-10 text-rose-500" aria-hidden="true" />
     <h3 className="text-lg font-semibold text-rose-900">Something went wrong</h3>
     <p className="mt-2 text-sm text-rose-700">{message}</p>
@@ -10,7 +10,7 @@ const RequestState = ({ message = "Unable to load this data.", onRetry }) => (
         <FiRefreshCw aria-hidden="true" /> Retry
       </button>
     ) : null}
-  </div>
+  </section>
 );
 
 export default RequestState;

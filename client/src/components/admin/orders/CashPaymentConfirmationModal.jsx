@@ -10,10 +10,8 @@ const CashPaymentConfirmationModal = ({ open, amount, loading, onClose, onConfir
         <p className="mt-2 text-sm text-slate-600">Confirm that the customer has paid this amount in cash.</p>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">Cancel</button>
-          <button onClick={onConfirm} disabled={loading} className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-70">
-            {loading ? "Processing Payment..." : "Confirm Cash Payment"}
-          </button>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={onConfirm} loading={loading} loadingText="Processing…">Confirm Cash Payment</Button>
         </div>
       </div>
     </div>
@@ -21,3 +19,4 @@ const CashPaymentConfirmationModal = ({ open, amount, loading, onClose, onConfir
 };
 
 export default CashPaymentConfirmationModal;
+import Button from "../../ui/Button";

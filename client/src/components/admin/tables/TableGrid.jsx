@@ -10,6 +10,7 @@ const TableGrid = ({
   onView,
   onDelete,
   onAddFirst,
+  hasFilters = false,
   onTableClick,
   onSelect,
   selectedId,
@@ -26,9 +27,9 @@ const TableGrid = ({
     return (
       <EmptyState
         icon={<FiGrid className="h-10 w-10" />}
-        title="No tables yet"
-        description="Add your restaurant tables to start managing seating."
-        action={<button onClick={onAddFirst} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Table</button>}
+        title={hasFilters ? "No matching tables" : "No tables yet"}
+        description={hasFilters ? "Try changing your search or filters." : "Add tables to start managing dine-in service."}
+        action={!hasFilters ? <button onClick={onAddFirst} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Table</button> : null}
       />
     );
   }
