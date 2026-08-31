@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { FiCalendar, FiX } from "react-icons/fi";
 import { addOrderCustomer, searchOrderCustomers } from "../../../services/orderService";
@@ -91,8 +91,6 @@ const CreateOrderModal = ({
   const [customerForm, setCustomerForm] = useState({ fullName: "", email: "", phone: "" });
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
-  const submitInFlight = useRef(false);
-  const createRequestKey = useRef("");
 
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -305,35 +303,25 @@ const CreateOrderModal = ({
     return true;
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
-    if (loading || submitInFlight.current) return;
     if (!validate()) return;
 
-    submitInFlight.current = true;
-    if (!isEdit && !createRequestKey.current) {
-      createRequestKey.current = globalThis.crypto?.randomUUID?.() || `manual-order-${Date.now()}-${Math.random()}`;
-    }
-    try {
-      await onSubmit({
-        customer: form.customer?._id || null,
-        orderType: form.orderType,
-        table: form.orderType === "DINE_IN" ? form.table : null,
-        items: form.items.map(({ menuItem, name, price, quantity }) => ({ menuItem, name, price, quantity })),
-        specialInstructions: form.specialInstructions.trim(),
-        notes: form.notes.trim(),
-        discount: discountAmount,
-        taxPercent: Number(form.taxPercent) || 0,
-        serviceChargePercent: Number(form.serviceChargePercent) || 0,
-        deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
-        deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
-        paymentMethod: form.paymentMethod,
-        paymentStatus: form.paymentStatus,
-        ...(isEdit ? {} : { externalOrderId: createRequestKey.current }),
-      });
-    } finally {
-      submitInFlight.current = false;
-    }
+    onSubmit({
+      customer: form.customer?._id || null,
+      orderType: form.orderType,
+      table: form.orderType === "DINE_IN" ? form.table : null,
+      items: form.items.map(({ menuItem, name, price, quantity }) => ({ menuItem, name, price, quantity })),
+      specialInstructions: form.specialInstructions.trim(),
+      notes: form.notes.trim(),
+      discount: discountAmount,
+      taxPercent: Number(form.taxPercent) || 0,
+      serviceChargePercent: Number(form.serviceChargePercent) || 0,
+      deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
+      deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
+      paymentMethod: form.paymentMethod,
+      paymentStatus: form.paymentStatus,
+    });
   };
 
   if (!open) return null;
@@ -366,7 +354,6 @@ const CreateOrderModal = ({
           <button
             type="button"
             onClick={onClose}
-            disabled={loading}
             aria-label="Close"
             className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
           >

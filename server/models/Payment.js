@@ -45,13 +45,9 @@ const paymentSchema = new mongoose.Schema(
     paymentMethod: { type: String, enum: PAYMENT_METHODS, required: true, index: true },
     gateway: { type: String, default: "", trim: true, index: true },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: "PENDING", index: true },
-    // Optional provider identifiers must be absent until a provider supplies
-    // them. A sparse unique index still indexes an empty string, so persisting
-    // the old default of "" caused otherwise unrelated pending orders to
-    // collide after their Order document had already been created.
-    transactionId: { type: String, default: undefined, trim: true, index: true, sparse: true, unique: true },
-    razorpayOrderId: { type: String, default: undefined, trim: true, index: true, sparse: true },
-    razorpayPaymentId: { type: String, default: undefined, trim: true, index: true, sparse: true },
+    transactionId: { type: String, default: "", trim: true, index: true, sparse: true, unique: true },
+    razorpayOrderId: { type: String, default: "", trim: true, index: true, sparse: true },
+    razorpayPaymentId: { type: String, default: "", trim: true, index: true, sparse: true },
     // Supplied by the caller (Idempotency-Key header) or derived from a
     // provider payment id. It makes a retry return the original payment
     // rather than recording money twice.
