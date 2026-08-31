@@ -1,7 +1,20 @@
+import { memo, useCallback, useEffect, useState } from "react";
 import { FiCalendar, FiPlus, FiSearch, FiX } from "react-icons/fi";
 
 const OrderToolbar = ({ filters, onChange, onCreate }) => {
-  const setField = (key, value) => onChange({ ...filters, [key]: value, page: 1 });
+  const [search, setSearch] = useState(filters.search);
+
+  useEffect(() => {
+    setSearch(filters.search);
+  }, [filters.search]);
+
+  useEffect(() => {
+    if (search === filters.search) return undefined;
+    const timer = setTimeout(() => onChange({ ...filters, search, page: 1 }), 300);
+    return () => clearTimeout(timer);
+  }, [filters, onChange, search]);
+
+  const setField = useCallback((key, value) => onChange({ ...filters, [key]: value, page: 1 }), [filters, onChange]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -11,8 +24,8 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
           <input
             className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm"
             placeholder="Search Order..."
-            value={filters.search}
-            onChange={(e) => setField("search", e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
@@ -81,4 +94,4 @@ const OrderToolbar = ({ filters, onChange, onCreate }) => {
   );
 };
 
-export default OrderToolbar;
+export default memo(OrderToolbar);

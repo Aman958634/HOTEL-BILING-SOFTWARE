@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -48,4 +49,4 @@ const OrderCard = ({ order, onEdit, onDelete }) => (
   </article>
 );
 
-export default OrderCard;
+export default memo(OrderCard);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
@@ -36,6 +36,12 @@ const STATUS_TRANSITIONS = {
   COMPLETED: [],
   CANCELLED: [],
 };
+
+const formatINR = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
 
 const loadRazorpayScript = () =>
   new Promise((resolve, reject) => {
@@ -97,6 +103,11 @@ const OrderManagement = () => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [cashConfirmOpen, setCashConfirmOpen] = useState(false);
   const [cashConfirmLoading, setCashConfirmLoading] = useState(false);
+  const filtersRef = useRef(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   useEffect(() => {
     const state = location.state;
@@ -121,7 +132,7 @@ const OrderManagement = () => {
     return STATUS_TRANSITIONS[current] || [];
   }, [statusTarget]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoadingStats(true);
     try {
       const { data } = await getOrderStats();
@@ -131,35 +142,35 @@ const OrderManagement = () => {
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async (currentFilters = filtersRef.current) => {
     setLoadingOrders(true);
     setOrdersError("");
     try {
       const params = {
-        page: filters.page,
+        page: currentFilters.page,
         limit: 20,
-        sortBy: filters.sortBy,
+        sortBy: currentFilters.sortBy,
       };
-      if (filters.search) params.search = filters.search;
-      if (filters.status) params.status = filters.status;
-      if (filters.orderType) params.orderType = filters.orderType;
-      if (filters.paymentStatus) params.paymentStatus = filters.paymentStatus;
-      if (filters.date) params.date = filters.date;
+      if (currentFilters.search) params.search = currentFilters.search;
+      if (currentFilters.status) params.status = currentFilters.status;
+      if (currentFilters.orderType) params.orderType = currentFilters.orderType;
+      if (currentFilters.paymentStatus) params.paymentStatus = currentFilters.paymentStatus;
+      if (currentFilters.date) params.date = currentFilters.date;
 
       const { data } = await getOrders(params);
       setOrders(data.data || []);
-      setMeta(data.meta || { page: filters.page, limit: 20, total: 0, totalPages: 1 });
+      setMeta(data.meta || { page: currentFilters.page, limit: 20, total: 0, totalPages: 1 });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load orders");
       setOrdersError(error?.response?.data?.message || "Failed to load orders");
     } finally {
       setLoadingOrders(false);
     }
-  };
+  }, []);
 
-  const loadOrderDependencies = async () => {
+  const loadOrderDependencies = useCallback(async () => {
     setDependenciesLoading(true);
     try {
       const [{ data: foodsData }, { data: categoriesData }, { data: tablesData }] = await Promise.all([
@@ -176,16 +187,16 @@ const OrderManagement = () => {
     } finally {
       setDependenciesLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadStats();
     loadOrderDependencies();
-  }, []);
+  }, [loadStats, loadOrderDependencies]);
 
   useEffect(() => {
-    loadOrders();
-  }, [filters]);
+    loadOrders(filters);
+  }, [filters, loadOrders]);
 
   useEffect(() => {
     if (!socket) return;
@@ -232,7 +243,7 @@ const OrderManagement = () => {
     }
   };
 
-  const openEdit = async (order) => {
+  const openEdit = useCallback(async (order) => {
     try {
       const { data } = await getOrderById(order._id);
       setEditOrder(data.data);
@@ -240,7 +251,7 @@ const OrderManagement = () => {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load order for editing");
     }
-  };
+  }, []);
 
   const openReceipt = async (order) => {
     try {
@@ -448,10 +459,17 @@ const OrderManagement = () => {
     }
   };
 
-  const goToPage = (page) => {
+  const goToPage = useCallback((page) => {
     if (page < 1 || page > (meta.totalPages || 1)) return;
     setFilters((current) => ({ ...current, page }));
-  };
+  }, [meta.totalPages]);
+
+  const openCreate = useCallback(() => {
+    loadOrderDependencies();
+    setCreateOpen(true);
+  }, [loadOrderDependencies]);
+
+  const requestDelete = useCallback((order) => setDeleteTarget(order), []);
 
   return (
     <div className="ui-page">
@@ -467,10 +485,7 @@ const OrderManagement = () => {
       <OrderToolbar
         filters={filters}
         onChange={setFilters}
-        onCreate={() => {
-          loadOrderDependencies();
-          setCreateOpen(true);
-        }}
+        onCreate={openCreate}
       />
 
       <OrderTable
@@ -479,7 +494,7 @@ const OrderManagement = () => {
         error={ordersError}
         hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
         onEdit={openEdit}
-        onDelete={(order) => setDeleteTarget(order)}
+        onDelete={requestDelete}
       />
       {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
 
@@ -546,7 +561,7 @@ const OrderManagement = () => {
 
       <CashPaymentConfirmationModal
         open={cashConfirmOpen}
-        amount={createdOrder ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(createdOrder.total || 0)) : "₹0"}
+        amount={createdOrder ? formatINR.format(Number(createdOrder.total || 0)) : "₹0"}
         loading={cashConfirmLoading}
         onClose={() => setCashConfirmOpen(false)}
         onConfirm={payCashNow}

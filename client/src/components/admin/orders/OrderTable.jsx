@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiEdit2, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { paymentMethodLabel } from "../../../utils/paymentUtils";
@@ -16,6 +17,31 @@ const deleteBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30";
 
 const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
+
+const OrderRow = memo(({ order, onEdit, onDelete }) => (
+  <tr className="border-b border-slate-100 text-slate-700">
+    <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
+    <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
+    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
+    <td className={cellClass}>{order.items?.length || 0} Items</td>
+    <td className={cellClass}>{orderTypeText(order.orderType)}</td>
+    <td className={cellClass}>{paymentMethodLabel(order.paymentMethod)}</td>
+    <td className={cellClass}>{currency(order.total)}</td>
+    <td className={cellClass}>{paymentText(order.paymentStatus)}</td>
+    <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
+    <td className={cellClass}>{dateTime(order.createdAt)}</td>
+    <td className={cellClass}>
+      <div className="flex flex-nowrap gap-2">
+        <button type="button" onClick={() => onEdit(order)} className={editBtnClass} aria-label={`Edit order ${order.orderNumber}`}>
+          <FiEdit2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Edit
+        </button>
+        <button type="button" onClick={() => onDelete(order)} className={deleteBtnClass} aria-label={`Delete order ${order.orderNumber}`}>
+          <FiTrash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Delete
+        </button>
+      </div>
+    </td>
+  </tr>
+));
 
 const OrderTable = ({ orders, loading, error, onEdit, onDelete, hasFilters = false }) => {
   if (loading) {
@@ -48,32 +74,7 @@ const OrderTable = ({ orders, loading, error, onEdit, onDelete, hasFilters = fal
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
-              <tr key={order._id} className="border-b border-slate-100 text-slate-700">
-                <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
-                <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
-                <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
-                <td className={cellClass}>{order.items?.length || 0} Items</td>
-                <td className={cellClass}>{orderTypeText(order.orderType)}</td>
-                <td className={cellClass}>{paymentMethodLabel(order.paymentMethod)}</td>
-                <td className={cellClass}>{currency(order.total)}</td>
-                <td className={cellClass}>{paymentText(order.paymentStatus)}</td>
-                <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
-                <td className={cellClass}>{dateTime(order.createdAt)}</td>
-                <td className={cellClass}>
-                  <div className="flex flex-nowrap gap-2">
-                    <button type="button" onClick={() => onEdit(order)} className={editBtnClass} aria-label={`Edit order ${order.orderNumber}`}>
-                      <FiEdit2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      Edit
-                    </button>
-                    <button type="button" onClick={() => onDelete(order)} className={deleteBtnClass} aria-label={`Delete order ${order.orderNumber}`}>
-                      <FiTrash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {orders.map((order) => <OrderRow key={order._id} order={order} onEdit={onEdit} onDelete={onDelete} />)}
           </tbody>
         </table>
       </div>
@@ -87,4 +88,4 @@ const OrderTable = ({ orders, loading, error, onEdit, onDelete, hasFilters = fal
   );
 };
 
-export default OrderTable;
+export default memo(OrderTable);
