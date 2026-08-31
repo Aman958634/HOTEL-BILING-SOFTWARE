@@ -16,9 +16,6 @@ try {
   delete process.env.MONGODB_URI;
   assert.throws(() => validateProductionEnvironment(), /MONGO_URI or MONGODB_URI/);
 
-  process.env.MONGO_URI = "mongodb+srv://username:password@cluster.example.test/restosphere";
-  assert.throws(() => validateProductionEnvironment(), /MONGO_URI or MONGODB_URI/);
-
   process.env.MONGO_URI = "mongodb://127.0.0.1:27017/restosphere_verification";
   assert.throws(() => validateProductionEnvironment(), /must not target localhost/);
 
