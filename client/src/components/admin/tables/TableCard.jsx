@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiEdit2, FiEye, FiTrash2, FiUsers, FiShoppingBag, FiCheckCircle } from "react-icons/fi";
 import TableStatusBadge from "./TableStatusBadge";
 
@@ -108,4 +109,4 @@ const TableCard = ({ table, onEdit, onView, onDelete, onTableClick, onSelect, se
   );
 };
 
-export default TableCard;
+export default memo(TableCard);

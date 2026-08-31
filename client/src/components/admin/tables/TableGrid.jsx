@@ -1,3 +1,4 @@
+import { memo } from "react";
 import TableCard from "./TableCard";
 import { FiGrid } from "react-icons/fi";
 import EmptyState from "../../common/EmptyState";
@@ -52,4 +53,4 @@ const TableGrid = ({
   );
 };
 
-export default TableGrid;
+export default memo(TableGrid);

@@ -1,7 +1,22 @@
+import { memo, useCallback, useEffect, useState } from "react";
 import { FiPlus, FiSearch } from "react-icons/fi";
 
 const TableToolbar = ({ filters, onChange, onAdd, floors, sections }) => {
-  const update = (key, value) => onChange({ ...filters, [key]: value });
+  const [search, setSearch] = useState(filters.search);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (search !== filters.search) {
+        onChange((previous) => ({ ...previous, search }));
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filters.search, onChange, search]);
+
+  const update = useCallback((key, value) => {
+    onChange((previous) => ({ ...previous, [key]: value }));
+  }, [onChange]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -9,8 +24,8 @@ const TableToolbar = ({ filters, onChange, onAdd, floors, sections }) => {
         <div className="relative min-w-[220px] flex-1">
           <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            value={filters.search}
-            onChange={(e) => update("search", e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tables..."
             className="w-full rounded-xl border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-slate-400 focus:outline-none"
           />
@@ -95,4 +110,4 @@ const TableToolbar = ({ filters, onChange, onAdd, floors, sections }) => {
   );
 };
 
-export default TableToolbar;
+export default memo(TableToolbar);

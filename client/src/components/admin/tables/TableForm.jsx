@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import Button from "../../ui/Button";
 
 const initialForm = {
@@ -168,4 +168,4 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
   );
 };
 
-export default TableForm;
+export default memo(TableForm);

@@ -1,3 +1,6 @@
+import { memo } from "react";
+import Button from "../../ui/Button";
+
 const DeleteTableDialog = ({ open, loading, table, onCancel, onConfirm }) => {
   if (!open) return null;
 
@@ -17,5 +20,4 @@ const DeleteTableDialog = ({ open, loading, table, onCancel, onConfirm }) => {
   );
 };
 
-export default DeleteTableDialog;
-import Button from "../../ui/Button";
+export default memo(DeleteTableDialog);

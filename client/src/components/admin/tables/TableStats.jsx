@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiCheckCircle, FiGrid, FiTool, FiUsers } from "react-icons/fi";
 import { HiOutlineStatusOnline } from "react-icons/hi";
 
@@ -35,4 +36,4 @@ const TableStats = ({ stats, loading }) => {
   );
 };
 
-export default TableStats;
+export default memo(TableStats);

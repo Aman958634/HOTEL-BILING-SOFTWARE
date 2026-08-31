@@ -1,5 +1,5 @@
+import { memo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 import TableStatusBadge from "./TableStatusBadge";
 import { getTableQr } from "../../../services/tableService";
 
@@ -64,7 +64,7 @@ const TableDetails = ({ open, loading, table, onClose }) => {
           </button>
         </div>
 
-        {loading ? (
+        {loading && !table ? (
           <div className="mt-6 space-y-3">
             {Array.from({ length: 5 }).map((_, idx) => (
               <div key={idx} className="h-12 animate-pulse rounded-xl bg-slate-100" />
@@ -211,4 +211,4 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   );
 };
 
-export default TableDetails;
+export default memo(TableDetails);
