@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { currency } from "../../../../utils/format";
 import { NOTE_MAX, cardClass, fieldClass, labelClass } from "./constants";
 
@@ -83,4 +84,4 @@ const SummaryPanel = ({
   </aside>
 );
 
-export default SummaryPanel;
+export default memo(SummaryPanel);

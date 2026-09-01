@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiCalendar, FiClock, FiMinus, FiPlus } from "react-icons/fi";
 import {
   ORDER_TYPES,
@@ -205,4 +206,4 @@ const OrderDetailsSection = ({
   </section>
 );
 
-export default OrderDetailsSection;
+export default memo(OrderDetailsSection);

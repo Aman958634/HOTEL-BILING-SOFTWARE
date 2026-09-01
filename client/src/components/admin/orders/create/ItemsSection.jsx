@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiMinus, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
 import { currency } from "../../../../utils/format";
 import { cardClass, fieldClass, labelClass } from "./constants";
@@ -192,4 +193,4 @@ const ItemsSection = ({
   </>
 );
 
-export default ItemsSection;
+export default memo(ItemsSection);

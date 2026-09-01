@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiEdit2, FiPlus, FiSearch, FiUser, FiX } from "react-icons/fi";
 import { cardClass, fieldClass, labelClass } from "./constants";
 
@@ -170,4 +171,4 @@ const CustomerSection = ({
   </section>
 );
 
-export default CustomerSection;
+export default memo(CustomerSection);

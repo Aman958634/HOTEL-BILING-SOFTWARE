@@ -95,6 +95,7 @@ const CreateOrderModal = ({
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
     setErrors((prev) => {
+      if (!Object.keys(updates).some((key) => prev[key])) return prev;
       const next = { ...prev };
       Object.keys(updates).forEach((key) => {
         if (next[key]) delete next[key];
@@ -184,24 +185,24 @@ const CreateOrderModal = ({
     });
   }, [menuItems, menuSearch, menuCategory]);
 
-  const getCategoryName = (item) => {
+  const getCategoryName = useCallback((item) => {
     if (item.categoryName) return item.categoryName;
     return categories.find((cat) => String(cat._id) === String(item.category))?.name || "—";
-  };
+  }, [categories]);
 
-  const isTableSelectable = (table) => {
+  const isTableSelectable = useCallback((table) => {
     // Only MAINTENANCE tables are invalid for seating. AVAILABLE, OCCUPIED and
     // RESERVED tables can all host (additional) DINE_IN orders.
     const status = String(table.status || "").toUpperCase();
     return status !== "MAINTENANCE";
-  };
+  }, []);
 
   const getOccupiedTableMessage = (table) => {
     const label = table?.tableNumber ? `Table ${table.tableNumber}` : "Selected table";
     return `${label} is under maintenance and cannot be selected.`;
   };
 
-  const addMenuItem = (item) => {
+  const addMenuItem = useCallback((item) => {
     const categoryId = item.category?._id || item.category;
     const categoryName = item.category?.name || categories.find((c) => String(c._id) === String(categoryId))?.name || "";
 
@@ -229,9 +230,9 @@ const CreateOrderModal = ({
       return { ...prev, items };
     });
     setErrors((prev) => ({ ...prev, items: "" }));
-  };
+  }, [categories]);
 
-  const updateItemQty = (menuItemId, delta) => {
+  const updateItemQty = useCallback((menuItemId, delta) => {
     setForm((prev) => ({
       ...prev,
       items: prev.items.map((entry) =>
@@ -240,23 +241,40 @@ const CreateOrderModal = ({
           : entry
       ),
     }));
-  };
+  }, []);
 
-  const removeItem = (menuItemId) => {
+  const removeItem = useCallback((menuItemId) => {
     setForm((prev) => ({
       ...prev,
       items: prev.items.filter((entry) => String(entry.menuItem) !== String(menuItemId)),
     }));
-  };
+  }, []);
 
-  const selectCustomer = (customer) => {
+  const selectCustomer = useCallback((customer) => {
     patchForm({ customer });
     setCustomerSearch("");
     setCustomerResults([]);
     setShowCustomerForm(false);
-  };
+  }, [patchForm]);
 
-  const saveCustomer = async () => {
+  const clearCustomer = useCallback(() => patchForm({ customer: null }), [patchForm]);
+  const openCustomerForm = useCallback(() => setShowCustomerForm(true), []);
+  const closeCustomerForm = useCallback(() => {
+    setShowCustomerForm(false);
+    if (!form.customer) setCustomerForm({ fullName: "", email: "", phone: "" });
+  }, [form.customer]);
+  const openCustomerEditForm = useCallback(() => {
+    if (!form.customer) return;
+    setCustomerForm({ fullName: form.customer.fullName || "", email: form.customer.email || "", phone: form.customer.phone || "" });
+    setShowCustomerForm(true);
+  }, [form.customer]);
+  const patchCustomerForm = useCallback((updates) => setCustomerForm((prev) => ({ ...prev, ...updates })), []);
+  const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: value }), [patchForm]);
+  const patchNotes = useCallback((value) => patchForm({ notes: value }), [patchForm]);
+  const patchTaxPercent = useCallback((value) => patchForm({ taxPercent: value }), [patchForm]);
+  const patchServiceChargePercent = useCallback((value) => patchForm({ serviceChargePercent: value }), [patchForm]);
+
+  const saveCustomer = useCallback(async () => {
     const fullName = customerForm.fullName.trim();
     const email = customerForm.email.trim();
     const phone = customerForm.phone.trim();
@@ -280,7 +298,7 @@ const CreateOrderModal = ({
     } finally {
       setSavingCustomer(false);
     }
-  };
+  }, [customerForm, selectCustomer]);
 
   const validate = () => {
     const next = {};
@@ -375,22 +393,11 @@ const CreateOrderModal = ({
                 errors={errors}
                 onSearchChange={setCustomerSearch}
                 onSelectCustomer={selectCustomer}
-                onClearCustomer={() => patchForm({ customer: null })}
-                onOpenAddForm={() => setShowCustomerForm(true)}
-                onOpenEditForm={() => {
-                  if (!form.customer) return;
-                  setCustomerForm({
-                    fullName: form.customer.fullName || "",
-                    email: form.customer.email || "",
-                    phone: form.customer.phone || "",
-                  });
-                  setShowCustomerForm(true);
-                }}
-                onCloseForm={() => {
-                  setShowCustomerForm(false);
-                  if (!form.customer) setCustomerForm({ fullName: "", email: "", phone: "" });
-                }}
-                onFormChange={(updates) => setCustomerForm((prev) => ({ ...prev, ...updates }))}
+                onClearCustomer={clearCustomer}
+                onOpenAddForm={openCustomerForm}
+                onOpenEditForm={openCustomerEditForm}
+                onCloseForm={closeCustomerForm}
+                onFormChange={patchCustomerForm}
                 onSaveCustomer={saveCustomer}
               />
 
@@ -422,7 +429,7 @@ const CreateOrderModal = ({
                 onAddItem={addMenuItem}
                 onUpdateQty={updateItemQty}
                 onRemoveItem={removeItem}
-                onDiscountPercentChange={(value) => patchForm({ discountPercent: value })}
+                onDiscountPercentChange={patchDiscountPercent}
                 getCategoryName={getCategoryName}
               />
 
@@ -453,9 +460,9 @@ const CreateOrderModal = ({
               serviceChargePercent={form.serviceChargePercent}
               orderType={form.orderType}
               notes={form.notes}
-              onNotesChange={(value) => patchForm({ notes: value })}
-              onTaxPercentChange={(value) => patchForm({ taxPercent: value })}
-              onServiceChargePercentChange={(value) => patchForm({ serviceChargePercent: value })}
+              onNotesChange={patchNotes}
+              onTaxPercentChange={patchTaxPercent}
+              onServiceChargePercentChange={patchServiceChargePercent}
             />
           </div>
 

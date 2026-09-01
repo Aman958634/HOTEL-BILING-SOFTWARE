@@ -7,7 +7,6 @@ import KdsHeader from "../../components/kitchen/KdsHeader";
 import KdsBoard from "../../components/kitchen/KdsBoard";
 import EmptyState from "../../components/common/EmptyState";
 import { SkeletonList } from "../../components/common/Skeletons";
-import { getTicketBoardPhase } from "../../utils/kitchenDisplay";
 
 const DEFAULT_THRESHOLDS = { warning: 15, delayed: 30, critical: 45 };
 
@@ -261,10 +260,10 @@ const KitchenDisplay = () => {
         return stationId && String(stationId) === String(stationFilter);
       }));
     }
-    if (filter === "new") list = list.filter((t) => getTicketBoardPhase(t) === "NEW");
-    else if (filter === "preparing") list = list.filter((t) => getTicketBoardPhase(t) === "PREPARING");
-    else if (filter === "ready") list = list.filter((t) => getTicketBoardPhase(t) === "READY");
-    else if (filter === "completed") list = list.filter((t) => getTicketBoardPhase(t) === "COMPLETED");
+    if (filter === "new") list = list.filter((t) => t.kitchenPhase === "NEW");
+    else if (filter === "preparing") list = list.filter((t) => ["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase));
+    else if (filter === "ready") list = list.filter((t) => t.kitchenPhase === "READY");
+    else if (filter === "completed") list = list.filter((t) => ["SERVED", "COMPLETED"].includes(t.status));
     else if (filter === "delayed") list = list.filter((t) => waitMinutes(t) >= thresholds.delayed);
 
     if (search) {
@@ -281,12 +280,11 @@ const KitchenDisplay = () => {
     const c = { new: 0, preparing: 0, ready: 0, completed: 0, delayed: 0 };
     tickets.forEach((t) => {
       const mins = waitMinutes(t);
-      const phase = getTicketBoardPhase(t);
-      if (phase === "NEW") c.new++;
-      else if (phase === "PREPARING") c.preparing++;
-      else if (phase === "READY") c.ready++;
-      else if (phase === "COMPLETED") c.completed++;
-      if (["NEW", "PREPARING"].includes(phase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
+      if (t.kitchenPhase === "NEW") c.new++;
+      else if (["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.preparing++;
+      else if (t.kitchenPhase === "READY") c.ready++;
+      else if (["SERVED", "COMPLETED"].includes(t.status)) c.completed++;
+      if (["NEW", "PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
     });
     return c;
   }, [tickets, thresholds, waitMinutes]);
