@@ -1,10 +1,10 @@
 import { memo } from "react";
-import { FiCalendar, FiChevronDown } from "react-icons/fi";
 import { useLocation } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
 import GlobalSearch from "../common/GlobalSearch";
 import OutletSwitcher from "./OutletSwitcher";
 import ProfileMenu from "../common/ProfileMenu";
+import TodayControl from "../common/TodayControl";
 
 const pageMeta = [
   ["/online-orders", "Online Orders", "Track and fulfill orders from every sales channel."],
@@ -47,11 +47,7 @@ const AdminHeader = ({ title, subtitle }) => {
           <GlobalSearch className="order-first w-full min-w-0 sm:w-auto sm:flex-[1_1_16rem] sm:max-w-64 xl:order-none" />
           <OutletSwitcher />
 
-          <button type="button" aria-label="Reporting period: Today" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
-            <FiCalendar className="h-4 w-4 text-slate-500" />
-            <span className="hidden md:inline">Today</span>
-            <FiChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </button>
+          <TodayControl />
 
           <div className="relative">
             <NotificationBell />
