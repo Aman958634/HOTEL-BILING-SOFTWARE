@@ -300,7 +300,7 @@ const Notifications = () => {
 
         const content = (
           <article key={item._id} className={`rounded-2xl border p-4 transition-shadow hover:shadow-md ${item.isRead ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"}`}>
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconColor}`}>
                 <Icon className="h-5 w-5" />
               </div>
@@ -313,8 +313,8 @@ const Notifications = () => {
                     <span className="inline-flex h-2 w-2 rounded-full bg-brand-500" title="Unread" />
                   )}
                 </div>
-                <h3 className={`mt-2 truncate ${item.isRead ? "text-base font-medium text-slate-800" : "text-lg font-semibold text-slate-900"}`}>{item.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{item.message}</p>
+                <h3 className={`mt-2 break-words ${item.isRead ? "text-base font-medium text-slate-800" : "text-lg font-semibold text-slate-900"}`}>{item.title}</h3>
+                <p className="mt-1 break-words text-sm leading-6 text-slate-600">{item.message}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {link && actionLabel && (
                     <Link
@@ -343,7 +343,7 @@ const Notifications = () => {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-2 text-xs text-slate-500">
+              <div className="order-first flex items-end gap-2 self-end text-xs text-slate-500 sm:order-none">
                 <span className="whitespace-nowrap">{formatDateTime(item.createdAt)}</span>
               </div>
             </div>
@@ -383,7 +383,7 @@ const Notifications = () => {
             type="button"
             onClick={handleMarkAllRead}
             disabled={summary.unread === 0 || saving}
-            className="inline-flex items-center gap-2 rounded-2xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800 disabled:opacity-60 sm:w-auto"
           >
             <FiCheckCircle /> Mark all read
           </button>
@@ -410,11 +410,11 @@ const Notifications = () => {
                 className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <select
                 value={filters.type}
                 onChange={(event) => updateFilters({ type: event.target.value, page: 1 })}
-                className="rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               >
                 {typeOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -423,7 +423,7 @@ const Notifications = () => {
               <select
                 value={filters.status}
                 onChange={(event) => updateFilters({ status: event.target.value, page: 1 })}
-                className="rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               >
                 {statusOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -491,7 +491,7 @@ const Notifications = () => {
           <p className="text-slate-600">
             Showing {(meta.page - 1) * meta.limit + (notifications.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + notifications.length} of {meta.total} notifications
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
             <button
               type="button"
               onClick={() => updateFilters({ page: Math.max(meta.page - 1, 1) })}
@@ -500,7 +500,8 @@ const Notifications = () => {
             >
               Previous
             </button>
-            {Array.from({ length: pageCount }).map((_, index) => {
+            <span className="text-xs text-slate-600 sm:hidden">Page {meta.page} of {meta.totalPages}</span>
+            <div className="hidden items-center gap-2 sm:flex">{Array.from({ length: pageCount }).map((_, index) => {
               const page = index + 1;
               return (
                 <button
@@ -512,7 +513,7 @@ const Notifications = () => {
                   {page}
                 </button>
               );
-            })}
+            })}</div>
             <button
               type="button"
               onClick={() => updateFilters({ page: Math.min(meta.page + 1, meta.totalPages) })}

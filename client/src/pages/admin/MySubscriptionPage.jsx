@@ -191,7 +191,7 @@ const MySubscriptionPage = () => {
         <div className="border-b border-slate-100 px-4 py-3">
           <h3 className="font-semibold text-slate-900">Payment History</h3>
         </div>
-        <table className="min-w-full text-left text-sm">
+        <table className="subscription-history-table min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-4 py-3">Payment ID</th>

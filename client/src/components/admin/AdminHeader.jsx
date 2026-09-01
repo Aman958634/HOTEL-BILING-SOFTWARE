@@ -36,15 +36,15 @@ const AdminHeader = ({ title, subtitle }) => {
   const resolvedTitle = title || matchedMeta?.[1] || "Dashboard";
   const resolvedSubtitle = subtitle || matchedMeta?.[2] || "Today’s restaurant performance at a glance.";
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="hidden min-w-0 xl:block">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
           <p className="text-sm text-slate-500">{resolvedSubtitle}</p>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 md:gap-3">
-          <GlobalSearch className="hidden min-w-0 flex-[1_1_16rem] sm:block sm:max-w-64" />
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-2 md:justify-end md:gap-3">
+          <GlobalSearch className="order-first w-full min-w-0 sm:w-auto sm:flex-[1_1_16rem] sm:max-w-64 xl:order-none" />
           <OutletSwitcher />
 
           <button type="button" aria-label="Reporting period: Today" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">

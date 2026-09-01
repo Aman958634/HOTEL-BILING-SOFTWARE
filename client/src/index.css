@@ -266,6 +266,47 @@ button:disabled { cursor: not-allowed; }
   .sa-users-table td:nth-child(1)::before { content: "Name"; } .sa-users-table td:nth-child(2)::before { content: "Email"; } .sa-users-table td:nth-child(3)::before { content: "Phone"; } .sa-users-table td:nth-child(4)::before { content: "Role"; } .sa-users-table td:nth-child(5)::before { content: "Status"; } .sa-users-table td:nth-child(6)::before { content: "Created"; } .sa-users-table td:nth-child(7)::before { content: "Actions"; }
   .sa-subscriptions-table td:nth-child(1)::before { content: "Restaurant"; } .sa-subscriptions-table td:nth-child(2)::before { content: "Plan"; } .sa-subscriptions-table td:nth-child(3)::before { content: "Status"; } .sa-subscriptions-table td:nth-child(4)::before { content: "Trial start"; } .sa-subscriptions-table td:nth-child(5)::before { content: "Trial end"; } .sa-subscriptions-table td:nth-child(6)::before { content: "Days remaining"; } .sa-subscriptions-table td:nth-child(7)::before { content: "Renewal"; } .sa-subscriptions-table td:nth-child(8)::before { content: "Actions"; }
   .sa-payments-table td:nth-child(1)::before { content: "Payment ID"; } .sa-payments-table td:nth-child(2)::before { content: "Restaurant"; } .sa-payments-table td:nth-child(3)::before { content: "Customer"; } .sa-payments-table td:nth-child(4)::before { content: "Plan"; } .sa-payments-table td:nth-child(5)::before { content: "Amount"; } .sa-payments-table td:nth-child(6)::before { content: "Currency"; } .sa-payments-table td:nth-child(7)::before { content: "Method"; } .sa-payments-table td:nth-child(8)::before { content: "Status"; } .sa-payments-table td:nth-child(9)::before { content: "Order ID"; } .sa-payments-table td:nth-child(10)::before { content: "Date"; } .sa-payments-table td:nth-child(11)::before { content: "Actions"; }
+
+  .subscription-history-table,
+  .report-top-items-table,
+  .report-category-table,
+  .report-sales-table { min-width: 0 !important; }
+  .subscription-history-table thead,
+  .report-top-items-table thead,
+  .report-category-table thead,
+  .report-sales-table thead { display: none; }
+  .subscription-history-table, .subscription-history-table tbody,
+  .report-top-items-table, .report-top-items-table tbody,
+  .report-category-table, .report-category-table tbody,
+  .report-sales-table, .report-sales-table tbody { display: block; width: 100%; }
+  .subscription-history-table tr,
+  .report-top-items-table tr,
+  .report-category-table tr,
+  .report-sales-table tr { display: block; margin: 0.75rem; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #fff; }
+  .subscription-history-table td,
+  .report-top-items-table td,
+  .report-category-table td,
+  .report-sales-table td { display: grid; grid-template-columns: minmax(6.75rem, 38%) minmax(0, 1fr); gap: 0.5rem; align-items: start; padding: 0.625rem 0.75rem; overflow-wrap: anywhere; }
+  .subscription-history-table td + td,
+  .report-top-items-table td + td,
+  .report-category-table td + td,
+  .report-sales-table td + td { border-top: 1px solid #f1f5f9; }
+  .subscription-history-table td::before,
+  .report-top-items-table td::before,
+  .report-category-table td::before,
+  .report-sales-table td::before { color: #64748b; font-size: 0.6875rem; font-weight: 700; line-height: 1.35; text-transform: uppercase; letter-spacing: 0.04em; }
+  .subscription-history-table td[colspan],
+  .report-top-items-table td[colspan],
+  .report-category-table td[colspan],
+  .report-sales-table td[colspan] { display: block; text-align: center; }
+  .subscription-history-table td[colspan]::before,
+  .report-top-items-table td[colspan]::before,
+  .report-category-table td[colspan]::before,
+  .report-sales-table td[colspan]::before { content: none; }
+  .subscription-history-table td:nth-child(1)::before { content: "Payment ID"; } .subscription-history-table td:nth-child(2)::before { content: "Plan"; } .subscription-history-table td:nth-child(3)::before { content: "Amount"; } .subscription-history-table td:nth-child(4)::before { content: "Method"; } .subscription-history-table td:nth-child(5)::before { content: "Status"; } .subscription-history-table td:nth-child(6)::before { content: "Date"; } .subscription-history-table td:nth-child(7)::before { content: "Actions"; }
+  .report-top-items-table td:nth-child(1)::before { content: "Rank"; } .report-top-items-table td:nth-child(2)::before { content: "Item"; } .report-top-items-table td:nth-child(3)::before { content: "Category"; } .report-top-items-table td:nth-child(4)::before { content: "Quantity sold"; } .report-top-items-table td:nth-child(5)::before { content: "Orders"; } .report-top-items-table td:nth-child(6)::before { content: "Revenue"; }
+  .report-category-table td:nth-child(1)::before { content: "Category"; } .report-category-table td:nth-child(2)::before { content: "Orders"; } .report-category-table td:nth-child(3)::before { content: "Items sold"; } .report-category-table td:nth-child(4)::before { content: "Revenue"; } .report-category-table td:nth-child(5)::before { content: "Sales share"; }
+  .report-sales-table td:nth-child(1)::before { content: "Order ID"; } .report-sales-table td:nth-child(2)::before { content: "Date"; } .report-sales-table td:nth-child(3)::before { content: "Customer"; } .report-sales-table td:nth-child(4)::before { content: "Items"; } .report-sales-table td:nth-child(5)::before { content: "Subtotal"; } .report-sales-table td:nth-child(6)::before { content: "Discount"; } .report-sales-table td:nth-child(7)::before { content: "Tax"; } .report-sales-table td:nth-child(8)::before { content: "Total"; } .report-sales-table td:nth-child(9)::before { content: "Payment"; } .report-sales-table td:nth-child(10)::before { content: "Order status"; }
 }
 
 @layer components {

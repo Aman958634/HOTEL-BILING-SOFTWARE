@@ -510,7 +510,7 @@ const Reports = () => {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">Top Selling Items</h3>
         <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="report-top-items-table min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2">Rank</th>
@@ -554,7 +554,7 @@ const Reports = () => {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">Category Performance</h3>
         <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="report-category-table min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2">Category</th>
@@ -602,7 +602,7 @@ const Reports = () => {
         </div>
 
         <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="report-sales-table min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2">Order ID</th>

@@ -203,7 +203,7 @@ const GlobalSearch = ({ className = "", compact = false }) => {
 
 const SearchInput = ({ inputRef, query, onChange, onFocus, onKeyDown, onClear, onClose, fullWidth = false }) => <div className={`relative ${fullWidth ? "p-3 sm:p-4" : ""}`}>
   <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, customers, payments, and more" aria-autocomplete="list" className={`h-10 rounded-xl border border-slate-200 py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "w-full pr-20" : "w-64 pr-16"}`} placeholder="Search records…" />
+  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, customers, payments, and more" aria-autocomplete="list" className={`h-10 w-full rounded-xl border border-slate-200 py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "pr-20" : "pr-16"}`} placeholder="Search records…" />
   {query ? <button type="button" onClick={onClear} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-700" aria-label="Clear search"><FiX className="h-4 w-4" /></button> : null}
   {fullWidth && onClose ? <button type="button" onClick={onClose} className="absolute right-10 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500">Close</button> : null}
 </div>;
@@ -225,7 +225,7 @@ const SearchPanel = ({ compact, query, loading, error, groupedResults, activeInd
       })}</section>;
     }) : null}
   </>;
-  return compact ? <div role="listbox" aria-label="Global search results" className="min-h-0 flex-1 overflow-y-auto">{content}</div> : <div role="listbox" aria-label="Global search results" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] min-w-[24rem] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">{content}</div>;
+  return compact ? <div role="listbox" aria-label="Global search results" className="min-h-0 flex-1 overflow-y-auto">{content}</div> : <div role="listbox" aria-label="Global search results" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] w-[min(24rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">{content}</div>;
 };
 
 export default memo(GlobalSearch);
