@@ -1,11 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertCircle, FiBookOpen, FiCalendar, FiClipboard, FiDollarSign, FiGrid, FiShoppingBag, FiTrendingUp } from "react-icons/fi";
 import toast from "react-hot-toast";
 import StatCard from "../../components/admin/StatCard";
-import SalesChart from "../../components/admin/SalesChart";
 import RecentOrders from "../../components/admin/RecentOrders";
 import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, updateAdminOrderStatus } from "../../services/adminService";
 import { useSocket } from "../../context/SocketContext";
+
+const SalesChart = lazy(() => import("../../components/admin/SalesChart"));
+const DASHBOARD_ICON_MAP = {
+  totalRevenue: <FiDollarSign />,
+  todayRevenue: <FiTrendingUp />,
+  totalOrders: <FiShoppingBag />,
+  todayOrders: <FiClipboard />,
+  activeReservations: <FiCalendar />,
+  availableTables: <FiGrid />,
+  lowStockItems: <FiAlertCircle />,
+  totalMenuItems: <FiBookOpen />,
+};
+
+const SalesChartSkeleton = () => <div className="h-64 animate-pulse rounded-2xl bg-slate-100 md:h-80" aria-busy="true" />;
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -15,6 +28,7 @@ const AdminDashboard = () => {
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingSales, setLoadingSales] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [chartReady, setChartReady] = useState(false);
   const initialRangeRef = useRef(range);
   const initialRangeLoad = useRef(true);
 
@@ -65,6 +79,10 @@ const AdminDashboard = () => {
   }, [loadOrders, loadSales, loadStats]);
 
   useEffect(() => {
+    setChartReady(true);
+  }, []);
+
+  useEffect(() => {
     if (initialRangeLoad.current) {
       initialRangeLoad.current = false;
       return;
@@ -100,17 +118,6 @@ const AdminDashboard = () => {
       ...value,
     }));
   }, [stats]);
-
-  const iconMap = {
-    totalRevenue: <FiDollarSign />,
-    todayRevenue: <FiTrendingUp />,
-    totalOrders: <FiShoppingBag />,
-    todayOrders: <FiClipboard />,
-    activeReservations: <FiCalendar />,
-    availableTables: <FiGrid />,
-    lowStockItems: <FiAlertCircle />,
-    totalMenuItems: <FiBookOpen />,
-  };
 
   const onStatusChange = useCallback(async (orderId, status) => {
     try {
@@ -163,7 +170,7 @@ const AdminDashboard = () => {
             <StatCard 
               key={card.key} 
               {...card} 
-              icon={iconMap[card.key]}
+              icon={DASHBOARD_ICON_MAP[card.key]}
               range="today"
               comparisonType="dashboard"
             />
@@ -173,7 +180,11 @@ const AdminDashboard = () => {
 
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} />
+          {chartReady ? (
+            <Suspense fallback={<SalesChartSkeleton />}>
+              <SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} />
+            </Suspense>
+          ) : <SalesChartSkeleton />}
         </div>
         <div>
           <RecentOrders orders={orders} loading={loadingOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} />

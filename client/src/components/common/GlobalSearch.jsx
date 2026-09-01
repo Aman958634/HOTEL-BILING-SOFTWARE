@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { globalSearch } from "../../services/searchService";
 import {
@@ -228,4 +228,4 @@ const SearchPanel = ({ compact, query, loading, error, groupedResults, activeInd
   return compact ? <div role="listbox" aria-label="Global search results" className="min-h-0 flex-1 overflow-y-auto">{content}</div> : <div role="listbox" aria-label="Global search results" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] min-w-[24rem] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">{content}</div>;
 };
 
-export default GlobalSearch;
+export default memo(GlobalSearch);

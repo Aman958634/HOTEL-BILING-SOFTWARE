@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiCalendar, FiChevronDown } from "react-icons/fi";
 import { useLocation } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
@@ -71,4 +72,4 @@ const AdminHeader = ({ title, subtitle }) => {
   );
 };
 
-export default AdminHeader;
+export default memo(AdminHeader);

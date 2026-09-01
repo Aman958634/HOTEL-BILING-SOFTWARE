@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { currency, dateTime } from "../../utils/format";
 import { FiCheckCircle, FiClock, FiDollarSign, FiShoppingBag, FiUser, FiXCircle } from "react-icons/fi";
 
@@ -93,4 +94,4 @@ const RecentOrders = ({ orders, loading, onStatusChange, onDelete }) => {
   );
 };
 
-export default RecentOrders;
+export default memo(RecentOrders);

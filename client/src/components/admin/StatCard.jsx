@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { currency } from "../../utils/format";
 import { formatGrowthTrend } from "../../utils/growthUtils";
 import { getComparisonPeriodLabel } from "../../utils/comparisonPeriod";
@@ -45,4 +46,4 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue, range = "today",
   );
 };
 
-export default StatCard;
+export default memo(StatCard);

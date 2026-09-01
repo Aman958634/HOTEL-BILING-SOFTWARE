@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiMenu, FiUser } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import NotificationBell from "../admin/NotificationBell";
@@ -41,4 +42,4 @@ const MobileAppHeader = ({ onMenuClick }) => {
   );
 };
 
-export default MobileAppHeader;
+export default memo(MobileAppHeader);

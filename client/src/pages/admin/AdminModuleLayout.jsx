@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
@@ -9,10 +9,32 @@ import {
   TrialBanner,
 } from "../../components/subscription/SubscriptionWidgets";
 
+const RouteSkeleton = () => (
+  <div className="space-y-4" aria-busy="true" aria-label="Loading page content">
+    <div className="h-8 w-52 animate-pulse rounded-lg bg-slate-200" />
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100" />)}
+    </div>
+  </div>
+);
+
+const useDesktopLayout = () => {
+  const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 768px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => setDesktop(media.matches);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  return desktop;
+};
+
 const AdminModuleLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [blocked, setBlocked] = useState(null);
+  const isDesktop = useDesktopLayout();
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
   const location = useLocation();
   const isBilling =
     location.pathname.includes("/billing") ||
@@ -79,16 +101,13 @@ const AdminModuleLayout = () => {
         <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
         <div className="min-w-0 flex-1 flex flex-col h-full md:ml-72">
-          <div className="hidden md:block">
-            <AdminHeader />
-          </div>
-          <div className="md:hidden">
-            <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} />
-          </div>
+          {isDesktop ? <AdminHeader /> : <MobileAppHeader onMenuClick={openSidebar} />}
           <main className="flex-1 overflow-y-auto overflow-x-hidden pb-0">
             <div className="p-4 md:p-6">
               {!isBilling && <TrialBanner subscription={subscription} />}
-              <Outlet />
+              <Suspense fallback={<RouteSkeleton />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         </div>

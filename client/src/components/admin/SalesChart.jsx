@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FiBarChart2 } from "react-icons/fi";
 
@@ -61,4 +62,4 @@ const SalesChart = ({ data, range, onRangeChange, loading }) => (
   </div>
 );
 
-export default SalesChart;
+export default memo(SalesChart);

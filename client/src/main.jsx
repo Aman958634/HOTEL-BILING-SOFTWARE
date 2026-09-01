@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
@@ -7,18 +7,16 @@ import App from "./App";
 import { store } from "./redux/store";
 import { setupAuthInterceptor } from "./services/api";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { SocketProvider } from "./context/SocketContext";
 import "./index.css";
 
 setupAuthInterceptor(store);
-
-const SocketProvider = lazy(() => import("./context/SocketContext").then((m) => ({ default: m.SocketProvider })));
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Provider store={store}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Suspense fallback={null}>
-          <SocketProvider>
+        <SocketProvider>
             <Toaster
               position="top-right"
               toastOptions={{
@@ -30,8 +28,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <ErrorBoundary>
               <App />
             </ErrorBoundary>
-          </SocketProvider>
-        </Suspense>
+        </SocketProvider>
       </BrowserRouter>
     </Provider>
   </React.StrictMode>

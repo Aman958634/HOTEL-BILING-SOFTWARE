@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiX, FiAward, FiMapPin } from "react-icons/fi";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -28,14 +29,18 @@ const links = [
   { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
 ];
 
+const linkGroups = Object.entries(
+  links.reduce((groups, link) => ({ ...groups, [link.group]: [...(groups[link.group] || []), link] }), {})
+);
+
 const AdminSidebar = ({ open, setOpen }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const onLogout = async () => {
+  const onLogout = useCallback(async () => {
     await dispatch(logoutThunk());
     navigate("/", { replace: true });
-  };
+  }, [dispatch, navigate]);
 
   return (
     <aside
@@ -61,7 +66,7 @@ const AdminSidebar = ({ open, setOpen }) => {
         </div>
 
         <nav aria-label="Restaurant administration" className="flex-1 min-h-0 space-y-4 overflow-y-auto px-3 py-2">
-          {Object.entries(links.reduce((groups, link) => ({ ...groups, [link.group]: [...(groups[link.group] || []), link] }), {})).map(([group, groupLinks]) => (
+          {linkGroups.map(([group, groupLinks]) => (
             <div key={group}>
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group}</p>
               <div className="space-y-1">
@@ -102,4 +107,4 @@ const AdminSidebar = ({ open, setOpen }) => {
   );
 };
 
-export default AdminSidebar;
+export default memo(AdminSidebar);

@@ -3,13 +3,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import HomePage from "../pages/Home/HomePage";
 import NotFoundPage from "../pages/NotFound/NotFoundPage";
+import ProtectedRoute from "../components/common/ProtectedRoute";
+import AdminRoute from "../components/common/AdminRoute";
+import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
 
 const LoginPage = lazy(() => import("../pages/Login/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/Register/RegisterPage"));
 const ForgotPasswordPage = lazy(() => import("../pages/Login/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("../pages/Login/ResetPasswordPage"));
-const ProtectedRoute = lazy(() => import("../components/common/ProtectedRoute"));
-const AdminRoute = lazy(() => import("../components/common/AdminRoute"));
 const SuperAdminRoute = lazy(() => import("../components/common/SuperAdminRoute"));
 const RoleRoute = lazy(() => import("../components/common/RoleRoute"));
 
@@ -43,7 +44,6 @@ const BusinessIntelligence = lazy(() => import("../pages/admin/BusinessIntellige
 const RestoSphereIntelligence = lazy(() => import("../pages/admin/RestoSphereIntelligence"));
 const Notifications = lazy(() => import("../pages/admin/Notifications"));
 const Settings = lazy(() => import("../pages/admin/Settings"));
-const AdminModuleLayout = lazy(() => import("../pages/admin/AdminModuleLayout"));
 const SuperAdminModuleLayout = lazy(() => import("../pages/admin/SuperAdminModuleLayout"));
 const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage"));
 const RestaurantsPage = lazy(() => import("../pages/admin/RestaurantsPage"));
@@ -171,17 +171,11 @@ const AppRouter = () => (
     <Route
       path="/dashboard/admin"
       element={
-        <Suspense fallback={<PageSkeleton />}>
-          <ProtectedRoute>
-            <Suspense fallback={<PageSkeleton />}>
-              <AdminRoute>
-                <Suspense fallback={<PageSkeleton />}>
-                  <AdminModuleLayout />
-                </Suspense>
-              </AdminRoute>
-            </Suspense>
-          </ProtectedRoute>
-        </Suspense>
+        <ProtectedRoute>
+          <AdminRoute>
+            <AdminModuleLayout />
+          </AdminRoute>
+        </ProtectedRoute>
       }
     >
       <Route index element={<AdminDashboard />} />
@@ -223,9 +217,7 @@ const AppRouter = () => (
           <ProtectedRoute>
             <Suspense fallback={<PageSkeleton />}>
               <RoleRoute roles={["admin", "manager", "chef", "waiter", "cashier"]}>
-                <Suspense fallback={<PageSkeleton />}>
-                  <AdminModuleLayout />
-                </Suspense>
+                <AdminModuleLayout />
               </RoleRoute>
             </Suspense>
           </ProtectedRoute>
