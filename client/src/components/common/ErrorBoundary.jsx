@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { clearChunkRecoveryAttempt, isChunkLoadError, markChunkRecoveryAttempt } from "../../utils/chunkRecovery";
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -15,16 +16,17 @@ class ErrorBoundary extends Component {
       console.error("RestoSphere render error:", error, info);
     }
 
-    const message = String(error?.message || "").toLowerCase();
-    const isChunkError = message.includes("loading chunk") || message.includes("failed to fetch dynamically imported module");
-    const recoveryKey = "restosphere:chunk-recovery";
-    if (isChunkError && !sessionStorage.getItem(recoveryKey)) {
-      sessionStorage.setItem(recoveryKey, "1");
+    if (isChunkLoadError(error) && markChunkRecoveryAttempt()) {
       window.location.reload();
     }
   }
 
   handleReset = () => {
+    if (isChunkLoadError(this.state.error)) {
+      clearChunkRecoveryAttempt();
+      window.location.reload();
+      return;
+    }
     this.setState({ error: null });
   };
 

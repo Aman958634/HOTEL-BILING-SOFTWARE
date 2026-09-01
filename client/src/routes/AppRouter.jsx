@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy as reactLazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 import HomePage from "../pages/Home/HomePage";
@@ -6,6 +6,14 @@ import NotFoundPage from "../pages/NotFound/NotFoundPage";
 import ProtectedRoute from "../components/common/ProtectedRoute";
 import AdminRoute from "../components/common/AdminRoute";
 import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
+import { clearChunkRecoveryAttempt } from "../utils/chunkRecovery";
+
+// Every route-level chunk clears the one-shot recovery marker only after it loads.
+// This protects an old tab from a deleted deployment chunk without masking a real error.
+const lazy = (loader) => reactLazy(() => loader().then((module) => {
+  clearChunkRecoveryAttempt();
+  return module;
+}));
 
 const LoginPage = lazy(() => import("../pages/Login/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/Register/RegisterPage"));
