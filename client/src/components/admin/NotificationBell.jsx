@@ -173,23 +173,28 @@ const NotificationBell = () => {
     }
   };
 
+  const unreadLabel = summary.unread > 99 ? "99+" : summary.unread;
+
   return (
     <div ref={wrapperRef} className="relative">
       <button
         type="button"
         onClick={handleToggle}
-        className="relative rounded-xl border border-slate-300 p-2 text-slate-600 transition hover:bg-slate-50"
+        aria-label="Open notifications"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 text-slate-600 transition hover:bg-slate-50"
       >
         <FiBell />
         {summary.unread > 0 && (
-          <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-            {summary.unread}
+          <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+            {unreadLabel}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[320px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+        <div role="menu" aria-label="Notifications" className="fixed left-3 right-3 top-16 z-50 mt-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-80">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>

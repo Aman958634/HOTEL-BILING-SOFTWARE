@@ -19,9 +19,9 @@ const RouteSkeleton = () => (
 );
 
 const useDesktopLayout = () => {
-  const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 768px)").matches);
+  const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
+    const media = window.matchMedia("(min-width: 1024px)");
     const sync = () => setDesktop(media.matches);
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
@@ -96,13 +96,17 @@ const AdminModuleLayout = () => {
     };
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="app-shell">
       <div className="flex min-h-dvh">
         <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-        <div className="min-w-0 flex-1 md:ml-72">
-          {isDesktop ? <AdminHeader /> : <MobileAppHeader onMenuClick={openSidebar} />}
+        <div className="min-w-0 flex-1 lg:ml-72">
+          {isDesktop ? <AdminHeader /> : <MobileAppHeader onMenuClick={openSidebar} sidebarOpen={sidebarOpen} sidebarId="admin-navigation-drawer" />}
           <main className="min-w-0">
             <div className="app-page-container">
               {!isBilling && <TrialBanner subscription={subscription} />}
@@ -116,7 +120,7 @@ const AdminModuleLayout = () => {
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

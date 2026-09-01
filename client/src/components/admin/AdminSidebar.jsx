@@ -44,7 +44,9 @@ const AdminSidebar = ({ open, setOpen }) => {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-[min(280px,85vw)] transform border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 md:fixed md:top-0 md:left-0 md:h-screen md:w-72 md:translate-x-0 ${
+      id="admin-navigation-drawer"
+      aria-label="Restaurant administration"
+      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
@@ -58,14 +60,14 @@ const AdminSidebar = ({ open, setOpen }) => {
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 lg:hidden"
             aria-label="Close menu"
           >
             <FiX className="h-4 w-4" />
           </button>
         </div>
 
-        <nav aria-label="Restaurant administration" className="flex-1 min-h-0 space-y-4 overflow-y-auto px-3 py-2">
+        <nav aria-label="Restaurant administration" className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
           {linkGroups.map(([group, groupLinks]) => (
             <div key={group}>
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group}</p>
@@ -84,8 +86,8 @@ const AdminSidebar = ({ open, setOpen }) => {
               }
               onClick={() => setOpen(false)}
             >
-              <span className="text-base">{link.icon}</span>
-              <span className="truncate">{link.label}</span>
+              <span className="shrink-0 text-base">{link.icon}</span>
+              <span className="min-w-0 truncate">{link.label}</span>
             </NavLink>
               ))}
               </div>

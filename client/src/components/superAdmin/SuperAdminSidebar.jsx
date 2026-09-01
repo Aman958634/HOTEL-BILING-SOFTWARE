@@ -26,7 +26,9 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-[min(300px,88vw)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 md:fixed md:top-0 md:left-0 md:h-screen md:w-72 md:translate-x-0 ${
+      id="super-admin-navigation-drawer"
+      aria-label="Super administration"
+      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
@@ -38,14 +40,14 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800 md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-200 hover:bg-slate-800 lg:hidden"
             aria-label="Close menu"
           >
             ✕
           </button>
         </div>
 
-        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-4">
+        <nav aria-label="Super administration" className="flex-1 min-h-0 space-y-1 overflow-y-auto overscroll-contain px-4">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -58,8 +60,8 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
               }
               onClick={() => setOpen(false)}
             >
-              <span className="text-lg">{link.icon}</span>
-              <span>{link.label}</span>
+              <span className="shrink-0 text-lg">{link.icon}</span>
+              <span className="min-w-0 truncate">{link.label}</span>
             </NavLink>
           ))}
         </nav>

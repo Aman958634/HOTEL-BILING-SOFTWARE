@@ -1,41 +1,37 @@
 import { memo } from "react";
-import { FiMenu, FiUser } from "react-icons/fi";
-import { Link } from "react-router-dom";
+import { FiMenu } from "react-icons/fi";
 import NotificationBell from "../admin/NotificationBell";
 import GlobalSearch from "./GlobalSearch";
 import OutletSwitcher from "../admin/OutletSwitcher";
+import ProfileMenu from "./ProfileMenu";
 
-const MobileAppHeader = ({ onMenuClick }) => {
+const MobileAppHeader = ({ onMenuClick, sidebarOpen = false, sidebarId, title = "RestoSphere", subtitle = "Restaurant Management", settingsPath = "/dashboard/admin/settings" }) => {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur-md">
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-2">
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 lg:hidden"
           aria-label="Open menu"
+          aria-expanded={sidebarOpen}
+          aria-controls={sidebarId}
         >
           <FiMenu className="h-5 w-5" />
         </button>
 
         <div className="min-w-0 flex-1 text-center">
-          <h1 className="truncate text-lg font-bold text-slate-900">RestoSphere</h1>
-          <p className="truncate text-xs text-slate-500">Restaurant Management</p>
+          <h1 className="truncate text-lg font-bold leading-tight text-slate-900">{title}</h1>
+          <p className="truncate text-xs leading-tight text-slate-500">{subtitle}</p>
         </div>
         <div className="hidden sm:block"><OutletSwitcher /></div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <div className="sm:hidden">
+          <div className="hidden min-[360px]:block sm:hidden">
             <GlobalSearch className="block sm:hidden" compact />
           </div>
           <NotificationBell />
-          <Link
-            to="/profile"
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100"
-            aria-label="Profile"
-          >
-            <FiUser className="h-5 w-5" />
-          </Link>
+          <ProfileMenu compact settingsPath={settingsPath} />
         </div>
       </div>
     </header>

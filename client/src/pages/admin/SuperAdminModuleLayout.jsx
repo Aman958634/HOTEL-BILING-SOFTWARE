@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import SuperAdminSidebar from "../../components/superAdmin/SuperAdminSidebar";
 import MobileAppHeader from "../../components/common/MobileAppHeader";
 
 const SuperAdminModuleLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -24,13 +25,23 @@ const SuperAdminModuleLayout = () => {
     };
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="app-shell">
       <div className="flex min-h-dvh">
         <SuperAdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-        <div className="min-w-0 flex-1 md:ml-72">
-          <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} notificationCount={0} />
+        <div className="min-w-0 flex-1 lg:ml-72">
+          <MobileAppHeader
+            onMenuClick={() => setSidebarOpen(true)}
+            sidebarOpen={sidebarOpen}
+            sidebarId="super-admin-navigation-drawer"
+            subtitle="Super Admin"
+            settingsPath="/super-admin/settings"
+          />
           <main className="min-w-0">
             <div className="app-page-container">
               <Outlet />
@@ -41,7 +52,7 @@ const SuperAdminModuleLayout = () => {
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

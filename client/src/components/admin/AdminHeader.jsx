@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
 import GlobalSearch from "../common/GlobalSearch";
 import OutletSwitcher from "./OutletSwitcher";
+import ProfileMenu from "../common/ProfileMenu";
 
 const pageMeta = [
   ["/online-orders", "Online Orders", "Track and fulfill orders from every sales channel."],
@@ -37,7 +38,7 @@ const AdminHeader = ({ title, subtitle }) => {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <div className="hidden min-w-0 lg:block">
+        <div className="hidden min-w-0 xl:block">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
           <p className="text-sm text-slate-500">{resolvedSubtitle}</p>
         </div>
@@ -56,16 +57,7 @@ const AdminHeader = ({ title, subtitle }) => {
             <NotificationBell />
           </div>
 
-          <button type="button" aria-label="Open profile menu" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-2 py-1.5 text-slate-600 transition-colors hover:bg-slate-50">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white">
-              A
-            </div>
-            <div className="hidden md:block text-left">
-              <p className="text-sm font-medium leading-tight text-slate-900">Admin</p>
-              <p className="text-xs leading-tight text-slate-500">Administrator</p>
-            </div>
-            <FiChevronDown className="hidden md:block h-3.5 w-3.5 text-slate-400" />
-          </button>
+          <ProfileMenu profilePath="/profile" settingsPath="/dashboard/admin/settings" />
         </div>
       </div>
     </header>
