@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import PaymentStats from "../../components/payments/PaymentStats";
 import AdvancedBillingWorkspace from "../../components/payments/AdvancedBillingWorkspace";
@@ -45,19 +45,22 @@ const Payments = () => {
   const [processingRefund, setProcessingRefund] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
+  const [reconciliationRefreshVersion, setReconciliationRefreshVersion] = useState(0);
 
   const socket = useSocket();
   const filtersRef = useRef(filters);
+  const paymentRefreshPromise = useRef(null);
+  const socketRefreshTimer = useRef(null);
 
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
 
-  const updateFilters = (patch) => {
+  const updateFilters = useCallback((patch) => {
     setFilters((current) => ({ ...current, ...patch }));
-  };
+  }, []);
 
-  const loadStats = async (range = filtersRef.current.range) => {
+  const loadStats = useCallback(async (range = filtersRef.current.range) => {
     setLoadingStats(true);
     try {
       const { data } = await getPaymentStats(range ? { range } : {});
@@ -67,9 +70,9 @@ const Payments = () => {
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, []);
 
-  const loadPayments = async (currentFilters = filtersRef.current) => {
+  const loadPayments = useCallback(async (currentFilters = filtersRef.current) => {
     setLoadingPayments(true);
     setError("");
     try {
@@ -97,7 +100,31 @@ const Payments = () => {
     } finally {
       setLoadingPayments(false);
     }
-  };
+  }, []);
+
+  // The payment ledger endpoint remains authoritative. Re-fetch instead of
+  // adding a local row because the active filters or page may exclude it.
+  const refreshPaymentData = useCallback(() => {
+    if (paymentRefreshPromise.current) return paymentRefreshPromise.current;
+
+    const request = Promise.all([
+      loadPayments(filtersRef.current),
+      loadStats(filtersRef.current.range),
+    ]).finally(() => {
+      if (paymentRefreshPromise.current === request) paymentRefreshPromise.current = null;
+    });
+    paymentRefreshPromise.current = request;
+    return request;
+  }, [loadPayments, loadStats]);
+
+  const refreshPaymentWorkspace = useCallback(async () => {
+    if (socketRefreshTimer.current) {
+      clearTimeout(socketRefreshTimer.current);
+      socketRefreshTimer.current = null;
+    }
+    setReconciliationRefreshVersion((current) => current + 1);
+    await refreshPaymentData();
+  }, [refreshPaymentData]);
 
   const prevRange = useRef(filters.range);
   const isFirstLoad = useRef(true);
@@ -119,14 +146,19 @@ const Payments = () => {
     }, 250);
 
     return () => clearTimeout(timeoutId);
-  }, [filters]);
+  }, [filters, loadPayments, loadStats]);
 
   useEffect(() => {
     if (!socket) return;
 
     const refresh = () => {
-      loadPayments(filtersRef.current);
-      loadStats(filtersRef.current.range);
+      // Local mutations refresh immediately; this brief delay lets that
+      // request win and combines a burst of socket events into one refresh.
+      if (socketRefreshTimer.current) return;
+      socketRefreshTimer.current = setTimeout(() => {
+        socketRefreshTimer.current = null;
+        void refreshPaymentWorkspace();
+      }, 150);
     };
 
     socket.on("payment:created", refresh);
@@ -138,7 +170,11 @@ const Payments = () => {
       socket.off("payment:updated", refresh);
       socket.off("payment:refunded", refresh);
     };
-  }, [socket]);
+  }, [socket, refreshPaymentWorkspace]);
+
+  useEffect(() => () => {
+    if (socketRefreshTimer.current) clearTimeout(socketRefreshTimer.current);
+  }, []);
 
   const openDetails = async (payment) => {
     setDetailOpen(true);
@@ -211,7 +247,7 @@ const Payments = () => {
       toast.success("Refund processed");
       setRefundOpen(false);
       setRefundTarget(null);
-      await Promise.all([loadPayments(), loadStats(filtersRef.current.range)]);
+      await refreshPaymentWorkspace();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to process refund");
     } finally {
@@ -223,7 +259,7 @@ const Payments = () => {
     try {
       await reconcilePayment(payment._id || payment.paymentId);
       toast.success("Payment reconciled");
-      await Promise.all([loadPayments(), loadStats(filtersRef.current.range)]);
+      await refreshPaymentWorkspace();
       await openDetails(payment);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to reconcile payment");
@@ -238,7 +274,7 @@ const Payments = () => {
       await deletePayment(deleteTarget._id || deleteTarget.paymentId);
       toast.success("Payment deleted");
       setDeleteTarget(null);
-      await Promise.all([loadPayments(), loadStats(filtersRef.current.range)]);
+      await refreshPaymentWorkspace();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to delete payment");
     } finally {
@@ -320,9 +356,9 @@ const Payments = () => {
 
       <PaymentStats stats={stats} loading={loadingStats} />
 
-      <AdvancedBillingWorkspace />
+      <AdvancedBillingWorkspace onPaymentRecorded={refreshPaymentWorkspace} />
 
-      <ReconciliationWorkspace />
+      <ReconciliationWorkspace refreshVersion={reconciliationRefreshVersion} />
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">

@@ -7,7 +7,7 @@ import { currency, dateTime } from "../../utils/format";
 const newKey = (prefix) => globalThis.crypto?.randomUUID?.() || `${prefix}-${Date.now()}-${Math.random()}`;
 const methods = ["CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "NET_BANKING", "WALLET", "OTHER"];
 
-const AdvancedBillingWorkspace = () => {
+const AdvancedBillingWorkspace = ({ onPaymentRecorded }) => {
   const [eligible, setEligible] = useState([]);
   const [selected, setSelected] = useState([]);
   const [bills, setBills] = useState([]);
@@ -50,7 +50,8 @@ const AdvancedBillingWorkspace = () => {
     try {
       const response = await addBillPayment(active._id, { ...payment, amount: Number(payment.amount) }, paymentKey.current);
       setActive(response.data?.data?.bill || active); setPayment({ amount: "", paymentMethod: "CASH", transactionId: "" }); paymentKey.current = "";
-      toast.success(response.data?.message || "Payment recorded"); await load();
+      toast.success(response.data?.message || "Payment recorded");
+      await Promise.all([load(), onPaymentRecorded?.()]);
     } catch (error) { toast.error(error?.response?.data?.message || "Unable to record payment"); } finally { setSaving(false); }
   };
   const receipt = async (bill) => {

@@ -6,7 +6,7 @@ import { formatCurrency } from "../../utils/paymentUtils";
 
 const Metric = ({ label, value, tone = "text-slate-900" }) => <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p><p className={`mt-1 text-xl font-bold ${tone}`}>{value}</p></div>;
 
-const ReconciliationWorkspace = () => {
+const ReconciliationWorkspace = ({ refreshVersion = 0 }) => {
   const [summary, setSummary] = useState(null);
   const [cash, setCash] = useState(null);
   const [bills, setBills] = useState([]);
@@ -27,7 +27,7 @@ const ReconciliationWorkspace = () => {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshVersion]);
   const variance = Number(countedCash || 0) - Number(cash?.expectedCash || 0);
   const submit = async (event) => {
     event.preventDefault();
