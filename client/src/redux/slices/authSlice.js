@@ -71,7 +71,10 @@ export const profileThunk = createAsyncThunk("auth/profile", async (_, { rejectW
     const { data } = await getMyProfile();
     return data.data;
   } catch (error) {
-    return rejectWithValue(error?.response?.data?.message || "Profile fetch failed");
+    return rejectWithValue({
+      message: error?.response?.data?.message || "Profile fetch failed",
+      status: error?.response?.status || 0,
+    });
   }
 });
 
@@ -151,14 +154,18 @@ const authSlice = createSlice({
       })
       .addCase(profileThunk.rejected, (state, action) => {
         state.profileLoading = false;
-        state.user = null;
-        state.accessToken = "";
-        state.refreshToken = "";
-        state.profileError = action.payload || "Profile fetch failed";
-        clearStoredTokens();
-        state.authorizedOutlets = [];
-        state.activeOutletId = "";
-        state.outletStatus = "loading";
+        state.profileError = action.payload?.message || "Profile fetch failed";
+        // The API interceptor owns session expiry. Keep a valid local session for
+        // transient/network failures so the protected route can offer one retry.
+        if ([401, 403].includes(Number(action.payload?.status))) {
+          state.user = null;
+          state.accessToken = "";
+          state.refreshToken = "";
+          clearStoredTokens();
+          state.authorizedOutlets = [];
+          state.activeOutletId = "";
+          state.outletStatus = "loading";
+        }
       })
       .addCase(logoutThunk.fulfilled, (state) => {
         state.user = null;
