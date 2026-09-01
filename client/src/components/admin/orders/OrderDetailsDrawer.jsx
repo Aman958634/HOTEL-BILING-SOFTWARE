@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { currency, dateTime } from "../../../utils/format";
 import OrderStatusBadge from "./OrderStatusBadge";
 import OrderTimeline from "./OrderTimeline";
@@ -5,14 +6,21 @@ import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel } from "../
 import { formatPaymentId } from "../../../utils/paymentId";
 
 const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPrintReceipt }) => {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => { if (event.key === "Escape") onClose?.(); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 p-0 sm:p-3">
-      <div className="h-full w-full max-w-2xl overflow-y-auto bg-white p-4 shadow-2xl sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 p-0 sm:p-3" role="dialog" aria-modal="true" aria-labelledby="order-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <div className="h-full w-full max-w-2xl overflow-y-auto overscroll-contain bg-white p-4 shadow-2xl sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-xl font-bold text-slate-900">Order Details</h3>
+            <h3 id="order-details-title" className="text-xl font-bold text-slate-900">Order Details</h3>
             <p className="text-sm text-slate-500">Detailed order overview and timeline.</p>
           </div>
           <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-lg border border-slate-300 px-3 py-1 text-sm">Close</button>

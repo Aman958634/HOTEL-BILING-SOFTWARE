@@ -13,7 +13,7 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
 
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${className}`}>
+    <button type="button" onClick={onClick} className={`inline-flex min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/25 ${className}`}>
       {children}
     </button>
   );

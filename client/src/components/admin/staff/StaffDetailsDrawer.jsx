@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { FiActivity, FiClock, FiMail, FiPhone, FiUser } from "react-icons/fi";
 import RoleBadge from "./RoleBadge";
 import StaffStatusBadge from "./StaffStatusBadge";
@@ -9,17 +10,24 @@ const formatDate = (value) => {
 };
 
 const StaffDetailsDrawer = ({ open, staff, loading, onClose }) => {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => { if (event.key === "Escape") onClose?.(); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50">
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-slate-900/50" role="dialog" aria-modal="true" aria-labelledby="staff-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto overscroll-contain bg-white p-4 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Staff Profile</h3>
+            <h3 id="staff-details-title" className="text-xl font-bold text-slate-900">Staff Profile</h3>
             <p className="text-sm text-slate-500">Detailed staff record and activity</p>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">Close</button>
+          <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Close</button>
         </div>
 
         {loading ? (

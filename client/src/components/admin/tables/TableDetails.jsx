@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TableStatusBadge from "./TableStatusBadge";
 import { getTableQr } from "../../../services/tableService";
@@ -19,6 +19,17 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
   const activeOrderCount = Number(table?.activeOrderCount || 0);
   const activeOrders = table?.activeOrders || [];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      if (qrOpen) setQrOpen(false);
+      else onClose?.();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose, qrOpen]);
 
   if (!open) return null;
 
@@ -52,11 +63,11 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:max-w-3xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="table-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-2xl sm:max-w-3xl sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-xl font-bold text-slate-900">Table Details</h3>
+            <h3 id="table-details-title" className="text-xl font-bold text-slate-900">Table Details</h3>
             <p className="mt-1 text-sm text-slate-500">Detailed occupancy and reservation context for this table.</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -177,10 +188,10 @@ const TableDetails = ({ open, loading, table, onClose }) => {
             </div>
 
             {qrOpen && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
-                <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:max-w-md sm:p-6">
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="table-qr-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setQrOpen(false); }}>
+                <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-2xl sm:max-w-md sm:p-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-900">Table QR Code</h3>
+                    <h3 id="table-qr-title" className="text-lg font-bold text-slate-900">Table QR Code</h3>
                     <button type="button" onClick={() => setQrOpen(false)} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-3 text-sm font-medium text-slate-700">Close</button>
                   </div>
                   <p className="mt-2 text-sm text-slate-500">Scan this QR to order for Table {table.tableNumber}</p>
