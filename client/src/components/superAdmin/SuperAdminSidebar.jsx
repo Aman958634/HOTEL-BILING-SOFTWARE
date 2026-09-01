@@ -30,7 +30,7 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex h-dvh h-screen flex-col">
+      <div className="flex h-dvh flex-col">
         <div className="flex shrink-0 items-center justify-between px-4 py-4 md:py-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-teal-300 md:text-sm">Super Admin</p>

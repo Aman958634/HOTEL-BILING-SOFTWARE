@@ -30,7 +30,7 @@ const MainLayout = () => {
   }, [mobileMenuOpen]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="app-shell bg-slate-50 text-slate-900">
       <header ref={headerRef} className="site-header sticky top-0 z-30 bg-white/95 shadow-sm backdrop-blur-md">
         <nav className="site-nav mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6 lg:px-8">
           <Link to="/" className="site-logo text-xl font-bold tracking-tight text-slate-900">
@@ -76,7 +76,7 @@ const MainLayout = () => {
         ) : null}
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
+      <main className="app-page-container mx-auto max-w-7xl">
         <Outlet />
       </main>
     </div>

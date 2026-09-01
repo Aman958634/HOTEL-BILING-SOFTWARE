@@ -7,18 +7,35 @@
   color-scheme: light;
 }
 
-html { min-width: 320px; width: 100%; max-width: 100%; background: #f1f5f9; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  background: #f1f5f9;
+}
 
 body {
   @apply bg-slate-100 text-slate-900;
-  min-width: 320px;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
   text-rendering: optimizeLegibility;
 }
 
-#root { min-height: 100%; width: 100%; max-width: 100%; }
+#root {
+  width: 100%;
+  min-height: 100dvh;
+}
+
+img,
+video,
+canvas {
+  max-inline-size: 100%;
+  block-size: auto;
+}
 
 button, input, select, textarea { font: inherit; }
 button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
@@ -138,7 +155,7 @@ button:disabled { cursor: not-allowed; }
   }
   .hero-badge {
     width: auto;
-    max-width: calc(100vw - 36px);
+    max-width: calc(100% - 36px);
     justify-content: center;
     padding: 9px 14px;
     font-size: 11px;
@@ -195,6 +212,13 @@ button:disabled { cursor: not-allowed; }
 }
 
 @layer components {
+  .app-shell { @apply min-h-dvh w-full min-w-0 bg-slate-100; }
+  .app-page-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 1rem;
+  }
   .ui-page { @apply space-y-5 pb-20; }
   .ui-page-header { @apply flex flex-wrap items-start justify-between gap-4; }
   .ui-page-title { @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl; }
@@ -212,6 +236,18 @@ button:disabled { cursor: not-allowed; }
   .ui-filter-bar { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm; }
   .ui-modal-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-4; }
   .ui-modal { @apply my-auto w-full rounded-2xl bg-white p-5 shadow-2xl sm:p-6; }
+}
+
+@media (min-width: 768px) {
+  .app-page-container { padding: 1.25rem; }
+}
+
+@media (min-width: 1024px) {
+  .app-page-container { padding: 1.5rem; }
+}
+
+@media (min-width: 1440px) {
+  .app-page-container { padding: 2rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

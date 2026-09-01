@@ -16,27 +16,23 @@ const SuperAdminModuleLayout = () => {
   }, [sidebarOpen]);
 
   useEffect(() => {
-    if (sidebarOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (!sidebarOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, [sidebarOpen]);
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-100">
-      <div className="flex h-full">
+    <div className="app-shell">
+      <div className="flex min-h-dvh">
         <SuperAdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-        <div className="min-w-0 flex-1 flex flex-col h-full md:ml-72">
-          <div className="hidden md:block">
-            <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} notificationCount={0} />
-          </div>
-          <div className="md:hidden">
-            <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} notificationCount={0} />
-          </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-0">
-            <div className="p-4 md:p-6">
+        <div className="min-w-0 flex-1 md:ml-72">
+          <MobileAppHeader onMenuClick={() => setSidebarOpen(true)} notificationCount={0} />
+          <main className="min-w-0">
+            <div className="app-page-container">
               <Outlet />
             </div>
           </main>
