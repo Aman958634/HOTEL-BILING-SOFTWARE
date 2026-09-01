@@ -78,37 +78,40 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
 
   return (
     <div className="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="table-form-title">
-      <form onSubmit={submit} className="ui-modal max-h-[92vh] max-w-2xl overflow-y-auto">
+      <form onSubmit={submit} className="ui-modal max-h-[90dvh] max-w-[calc(100vw-1.5rem)] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
         <h3 id="table-form-title" className="text-xl font-bold text-slate-900">{initialData ? "Edit Table" : "Add Table"}</h3>
         <p className="mt-1 text-sm text-slate-500">Manage table identity and seating details. Occupancy is derived from active orders.</p>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">
           <div>
-            <label className="text-sm text-slate-600">Table Number</label>
+            <label htmlFor="table-number" className="text-sm font-medium text-slate-600">Table Number</label>
             <input
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+              id="table-number"
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.tableNumber}
               onChange={(e) => setForm({ ...form, tableNumber: e.target.value })}
             />
-            {errors.tableNumber && <p className="mt-1 text-xs text-rose-600">{errors.tableNumber}</p>}
+            {errors.tableNumber && <p className="mt-1 break-words text-xs text-rose-600">{errors.tableNumber}</p>}
           </div>
 
           <div>
-            <label className="text-sm text-slate-600">Capacity</label>
+            <label htmlFor="table-capacity" className="text-sm font-medium text-slate-600">Capacity</label>
             <input
+              id="table-capacity"
               type="number"
               min="1"
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.capacity}
               onChange={(e) => setForm({ ...form, capacity: e.target.value })}
             />
-            {errors.capacity && <p className="mt-1 text-xs text-rose-600">{errors.capacity}</p>}
+            {errors.capacity && <p className="mt-1 break-words text-xs text-rose-600">{errors.capacity}</p>}
           </div>
 
           <div>
-            <label className="text-sm text-slate-600">Floor</label>
+            <label htmlFor="table-floor" className="text-sm font-medium text-slate-600">Floor</label>
             <select
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+              id="table-floor"
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.floor}
               onChange={(e) => setForm({ ...form, floor: e.target.value })}
             >
@@ -116,13 +119,14 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            {errors.floor && <p className="mt-1 text-xs text-rose-600">{errors.floor}</p>}
+            {errors.floor && <p className="mt-1 break-words text-xs text-rose-600">{errors.floor}</p>}
           </div>
 
           <div>
-            <label className="text-sm text-slate-600">Section</label>
+            <label htmlFor="table-section" className="text-sm font-medium text-slate-600">Section</label>
             <select
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+              id="table-section"
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.section}
               onChange={(e) => setForm({ ...form, section: e.target.value })}
             >
@@ -130,13 +134,14 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            {errors.section && <p className="mt-1 text-xs text-rose-600">{errors.section}</p>}
+            {errors.section && <p className="mt-1 break-words text-xs text-rose-600">{errors.section}</p>}
           </div>
 
           <div>
-            <label className="text-sm text-slate-600">Shape</label>
+            <label htmlFor="table-shape" className="text-sm font-medium text-slate-600">Shape</label>
             <select
-              className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+              id="table-shape"
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.shape}
               onChange={(e) => setForm({ ...form, shape: e.target.value })}
             >
@@ -149,17 +154,18 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         </div>
 
         <div className="mt-4">
-          <label className="text-sm text-slate-600">Description</label>
+          <label htmlFor="table-description" className="text-sm font-medium text-slate-600">Description</label>
           <textarea
+            id="table-description"
             rows={3}
-            className="mt-1 w-full rounded-xl border border-slate-300 p-2"
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
             placeholder="Add any specific notes for this table"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-3">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
           <Button type="submit" loading={loading} loadingText="Saving…">{initialData ? "Update Table" : "Create Table"}</Button>
         </div>

@@ -32,10 +32,10 @@ const TableStatusBadge = ({ status }) => {
   return (
     <span
       aria-label={`Table status: ${item.label}`}
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${item.className}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${item.className}`}
     >
       {item.icon}
-      <span>{item.label}</span>
+      <span className="truncate">{item.label}</span>
     </span>
   );
 };

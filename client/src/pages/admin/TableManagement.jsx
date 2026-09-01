@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiPlus } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useSocket } from "../../context/SocketContext";
 import DeleteTableDialog from "../../components/admin/tables/DeleteTableDialog";
@@ -286,14 +287,16 @@ const TableManagement = () => {
   }, [openDetails]);
 
   const retryTables = useCallback(() => loadTables(), [loadTables]);
+  const clearFilters = useCallback(() => setFilters(defaultFilters), []);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Table Management</h2>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Tables</h2>
           <p className="mt-1 text-sm text-slate-500">Manage restaurant tables, availability, reservations and occupancy.</p>
         </div>
+        <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 sm:w-auto"><FiPlus className="h-4 w-4" aria-hidden="true" />Add Table</button>
       </div>
 
       <TableStats stats={stats} loading={loadingStats} />
@@ -301,7 +304,6 @@ const TableManagement = () => {
       <TableToolbar
         filters={filters}
         onChange={setFilters}
-        onAdd={openCreate}
         floors={floorOptions}
         sections={sectionOptions}
       />
@@ -310,10 +312,10 @@ const TableManagement = () => {
         tables={tables}
         loading={loading}
         onEdit={openEdit}
-        onView={openDetails}
         onDelete={requestDelete}
         onAddFirst={openCreate}
         hasFilters={Boolean(filters.search || filters.floor || filters.section || filters.status || filters.capacity)}
+        onClearFilters={clearFilters}
         onTableClick={handleTableClick}
         onSelect={handleSelectTable}
         selectedId={selectedId}
