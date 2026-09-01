@@ -14,7 +14,7 @@ const KdsBoard = ({ groupedTickets, thresholds, onItemStatusChange, onBulkStart,
       <div className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-slate-200 bg-white p-1 md:hidden" role="tablist" aria-label="Kitchen ticket status">
         {COLUMNS.map((column) => {
           const selected = mobileStage === column.key;
-          return <button key={column.key} type="button" role="tab" aria-selected={selected} onClick={() => onMobileStageChange(column.key)} className={`min-h-10 rounded-lg px-1 text-[11px] font-semibold ${selected ? "bg-brand-700 text-white" : "text-slate-600"}`}>{column.label}<span className="ml-1">{(groupedTickets[column.key] || []).length}</span></button>;
+          return <button key={column.key} type="button" role="tab" aria-selected={selected} onClick={() => onMobileStageChange(column.key)} className={`min-h-11 min-w-0 rounded-lg px-0.5 text-[10px] font-semibold sm:px-1 sm:text-[11px] ${selected ? "bg-brand-700 text-white" : "text-slate-600"}`}>{column.label}<span className="ml-1">{(groupedTickets[column.key] || []).length}</span></button>;
         })}
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:h-[calc(100vh-17rem)] xl:grid-cols-4">

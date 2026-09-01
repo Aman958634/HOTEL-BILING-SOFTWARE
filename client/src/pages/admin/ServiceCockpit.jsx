@@ -65,12 +65,12 @@ const Kpi = ({ label, value, sub, icon, tone = "slate" }) => {
     sky: "text-sky-600",
   };
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <span className={tones[tone]}>{icon}</span>
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-lg ${tones[tone]}`}>{icon}</span>
       </div>
-      <p className={`mt-2 text-2xl font-bold ${tones[tone]}`}>{value}</p>
+      <p className={`mt-3 text-2xl font-bold tracking-tight ${tones[tone]}`}>{value}</p>
       {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
     </div>
   );
@@ -257,11 +257,11 @@ const ServiceCockpit = () => {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-20">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Live Service Cockpit</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Live Service Cockpit</h2>
           <p className="mt-1 text-sm text-slate-500">
             {user?.restaurantName || "Restaurant"} · {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} ·{" "}
             {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
@@ -282,7 +282,7 @@ const ServiceCockpit = () => {
           </span>
           <button
             onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
           </button>
@@ -312,13 +312,13 @@ const ServiceCockpit = () => {
       </div>
 
       {/* Filters + search */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {filterChips.map((c) => (
             <button
               key={c.key}
               onClick={() => setFilter(c.key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              className={`min-h-10 rounded-full px-3 py-1 text-xs font-medium transition ${
                 filter === c.key ? "bg-brand-700 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -326,13 +326,13 @@ const ServiceCockpit = () => {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5">
+        <div className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:w-auto">
           <FiSearch className="text-slate-400" />
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search table / order / customer"
-            className="w-48 bg-transparent text-sm outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:w-48 sm:flex-none"
           />
         </div>
       </div>
@@ -372,7 +372,7 @@ const ServiceCockpit = () => {
                   <button
                     key={t._id}
                     onClick={() => setSelectedTable(t)}
-                    className={`rounded-xl border p-3 text-left transition hover:shadow-md ${
+                    className={`min-h-32 rounded-2xl border p-3 text-left transition hover:-translate-y-px hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/25 ${
                       status === "OCCUPIED" ? "border-rose-200 bg-rose-50/40" : status === "RESERVED" ? "border-amber-200 bg-amber-50/40" : "border-slate-200 bg-white"
                     }`}
                   >
@@ -409,9 +409,9 @@ const ServiceCockpit = () => {
           ) : (overview.activity || []).length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-500">No recent activity.</p>
           ) : (
-            <ul className="max-h-[420px] space-y-2 overflow-y-auto">
+            <ul className="max-h-[420px] space-y-2 overflow-y-auto overscroll-contain pr-1">
               {(overview.activity || []).map((a) => (
-                <li key={a.id} className="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs">
+                <li key={a.id} className="flex items-start gap-2 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 text-xs">
                   <span className={a.type === "payment" ? "text-emerald-600" : "text-sky-600"}>
                     {a.type === "payment" ? <FiCreditCard /> : <FiShoppingBag />}
                   </span>

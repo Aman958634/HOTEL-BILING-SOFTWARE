@@ -149,15 +149,15 @@ const AdminDashboard = () => {
   }, [loadOrders, loadSales, loadStats, range]);
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="space-y-5 pb-20 sm:space-y-6">
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Dashboard</h2>
-          <p className="mt-1 truncate text-sm text-slate-500">Overview of today&apos;s restaurant activity.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h2>
+          <p className="mt-1 text-sm text-slate-500">Overview of today&apos;s restaurant activity.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs text-slate-500 sm:inline">{todayLabel}</span>
-          <button type="button" onClick={refreshDashboard} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50" aria-label="Refresh dashboard">
+          <button type="button" onClick={refreshDashboard} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50" aria-label="Refresh dashboard">
             <FiRefreshCw className="h-4 w-4" aria-hidden="true" /> Refresh
           </button>
         </div>

@@ -368,6 +368,13 @@ const KitchenDisplay = () => {
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
+  useEffect(() => {
+    if (!selectedTicket) return undefined;
+    const onKeyDown = (event) => { if (event.key === "Escape") setSelectedTicket(null); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [selectedTicket]);
+
   const filterChips = [
     { key: "all", label: "All" },
     { key: "new", label: "New" },
@@ -391,7 +398,7 @@ const KitchenDisplay = () => {
         onToggleSound={() => setSoundMuted((m) => !m)}
       />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {filterChips.map((c) => (
             <button
@@ -401,7 +408,7 @@ const KitchenDisplay = () => {
                 const stage = { new: "NEW", preparing: "PREPARING", ready: "READY", completed: "COMPLETED" }[c.key];
                 if (stage) setMobileStage(stage);
               }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              className={`min-h-10 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 filter === c.key ? "bg-brand-700 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -414,7 +421,7 @@ const KitchenDisplay = () => {
           <select
             value={stationFilter}
             onChange={(e) => setStationFilter(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700"
+            className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700"
           >
             <option value="">All Stations</option>
             {stations.map((s) => (
@@ -423,19 +430,19 @@ const KitchenDisplay = () => {
           </select>
         )}
 
-        <div className="ml-auto flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5">
+        <div className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:w-auto">
           <FiSearch className="text-slate-400" />
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search order / table / item"
-            className="w-48 bg-transparent text-sm outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:w-48 sm:flex-none"
           />
         </div>
 
         <button
           onClick={refreshAll}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
           <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
         </button>
@@ -471,16 +478,16 @@ const KitchenDisplay = () => {
       )}
 
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setSelectedTicket(null)}>
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="kds-ticket-title" onClick={() => setSelectedTicket(null)}>
+          <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Order #{selectedTicket.orderNumber}</h3>
+                <h3 id="kds-ticket-title" className="text-xl font-bold text-slate-900">Order #{selectedTicket.orderNumber}</h3>
                 <p className="text-sm text-slate-500">
                   {selectedTicket.table?.tableNumber ? `Table ${selectedTicket.table.tableNumber}` : selectedTicket.orderType} · {selectedTicket.status}
                 </p>
               </div>
-              <button onClick={() => setSelectedTicket(null)} className="rounded-lg border border-slate-300 px-3 py-1 text-sm">Close</button>
+              <button type="button" onClick={() => setSelectedTicket(null)} className="min-h-11 shrink-0 rounded-lg border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50">Close</button>
             </div>
             <div className="mt-4 space-y-2">
               {(selectedTicket.items || []).map((item) => (
