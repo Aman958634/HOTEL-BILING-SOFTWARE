@@ -8,6 +8,7 @@ import KdsHeader from "../../components/kitchen/KdsHeader";
 import KdsBoard from "../../components/kitchen/KdsBoard";
 import EmptyState from "../../components/common/EmptyState";
 import { SkeletonList } from "../../components/common/Skeletons";
+import { deriveKitchenTicketStage, getKitchenTicketKey, groupKitchenTickets, isKitchenItemTransitionAllowed, mergeKitchenTicket } from "../../utils/kitchenTicketState";
 
 const DEFAULT_THRESHOLDS = { warning: 15, delayed: 30, critical: 45 };
 
@@ -147,7 +148,7 @@ const KitchenDisplay = () => {
         loadTickets(controller.signal),
         loadStations(controller.signal),
       ]);
-      setTickets(ticketData);
+      setTickets(Object.values(groupKitchenTickets(ticketData)).flat());
       if (stationData) setStations(stationData);
       setLastUpdated(new Date());
     } catch (err) {
@@ -195,13 +196,7 @@ const KitchenDisplay = () => {
     const upsertKot = (payload, alert = false) => {
       const ticket = ticketFromKotSocket(payload);
       if (ticket) {
-        setTickets((previous) => {
-          const index = previous.findIndex((item) => String(item.orderId) === String(ticket.orderId));
-          if (index < 0) return [ticket, ...previous];
-          const next = [...previous];
-          next[index] = { ...next[index], ...ticket };
-          return next;
-        });
+        setTickets((previous) => mergeKitchenTicket(previous, ticket));
       }
       if (alert) playAlert();
       scheduleRefresh();
@@ -263,10 +258,10 @@ const KitchenDisplay = () => {
         return stationId && String(stationId) === String(stationFilter);
       }));
     }
-    if (filter === "new") list = list.filter((t) => t.kitchenPhase === "NEW");
-    else if (filter === "preparing") list = list.filter((t) => ["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase));
-    else if (filter === "ready") list = list.filter((t) => t.kitchenPhase === "READY");
-    else if (filter === "completed") list = list.filter((t) => ["SERVED", "COMPLETED"].includes(t.status));
+    if (filter === "new") list = list.filter((t) => deriveKitchenTicketStage(t) === "NEW");
+    else if (filter === "preparing") list = list.filter((t) => deriveKitchenTicketStage(t) === "PREPARING");
+    else if (filter === "ready") list = list.filter((t) => deriveKitchenTicketStage(t) === "READY");
+    else if (filter === "completed") list = list.filter((t) => deriveKitchenTicketStage(t) === "COMPLETED");
     else if (filter === "delayed") list = list.filter((t) => waitMinutes(t) >= thresholds.delayed);
 
     if (search) {
@@ -279,33 +274,21 @@ const KitchenDisplay = () => {
     return list;
   }, [tickets, filter, search, stationFilter, thresholds, waitMinutes]);
 
+  const groupedVisibleTickets = useMemo(() => groupKitchenTickets(visibleTickets), [visibleTickets]);
+
   const counts = useMemo(() => {
-    const c = { new: 0, preparing: 0, ready: 0, completed: 0, delayed: 0 };
-    tickets.forEach((t) => {
-      const mins = waitMinutes(t);
-      if (t.kitchenPhase === "NEW") c.new++;
-      else if (["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.preparing++;
-      else if (t.kitchenPhase === "READY") c.ready++;
-      else if (["SERVED", "COMPLETED"].includes(t.status)) c.completed++;
-      if (["NEW", "PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
-    });
-    return c;
-  }, [tickets, thresholds, waitMinutes]);
+    const grouped = groupedVisibleTickets;
+    const delayed = visibleTickets.filter((ticket) => ["NEW", "PREPARING"].includes(deriveKitchenTicketStage(ticket)) && waitMinutes(ticket) >= thresholds.delayed).length;
+    return { new: grouped.NEW.length, preparing: grouped.PREPARING.length, ready: grouped.READY.length, completed: grouped.COMPLETED.length, delayed };
+  }, [groupedVisibleTickets, visibleTickets, thresholds, waitMinutes]);
 
   const handleItemStatusChange = useCallback(async (orderId, itemIndex, kitchenStatus) => {
-    const transitionKey = `${orderId}:${itemIndex}`;
-    if (itemTransitionLocksRef.current.has(transitionKey)) return;
-
     const ticket = tickets.find((entry) => String(entry.orderId) === String(orderId));
     const item = ticket?.items?.[itemIndex];
     const previousStatus = String(item?.kitchenStatus || "NEW").toUpperCase();
     const nextStatus = String(kitchenStatus || "").toUpperCase();
-    const validTransitions = {
-      NEW: ["PREPARING", "CANCELLED"],
-      PREPARING: ["READY", "CANCELLED"],
-      READY: ["SERVED", "CANCELLED"],
-    };
-    if (!item || !validTransitions[previousStatus]?.includes(nextStatus)) return;
+    const transitionKey = `${getKitchenTicketKey(ticket)}:${itemIndex}:${nextStatus}`;
+    if (!item || itemTransitionLocksRef.current.has(transitionKey) || !isKitchenItemTransitionAllowed(previousStatus, nextStatus)) return;
 
     itemTransitionLocksRef.current.add(transitionKey);
     setPendingItemTransitions((current) => ({ ...current, [transitionKey]: true }));
@@ -316,12 +299,7 @@ const KitchenDisplay = () => {
     )));
     try {
       const { data } = await updateKitchenItemStatus(orderId, itemIndex, kitchenStatus);
-      setTickets((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((t) => String(t.orderId) === String(orderId));
-        if (idx >= 0) next[idx] = data.data;
-        return next;
-      });
+      setTickets((previous) => mergeKitchenTicket(previous, data.data));
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to update kitchen item";
       setTickets((previous) => previous.map((entry) => (
@@ -344,12 +322,7 @@ const KitchenDisplay = () => {
   const handleBulkStart = useCallback(async (orderId) => {
     try {
       const { data } = await bulkStartKitchenItems(orderId);
-      setTickets((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((t) => String(t.orderId) === String(orderId));
-        if (idx >= 0) next[idx] = data.data;
-        return next;
-      });
+      setTickets((previous) => mergeKitchenTicket(previous, data.data));
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to start kitchen items";
       toast.error(message);
@@ -360,12 +333,7 @@ const KitchenDisplay = () => {
   const handleBulkReady = useCallback(async (orderId) => {
     try {
       const { data } = await bulkReadyKitchenItems(orderId);
-      setTickets((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((t) => String(t.orderId) === String(orderId));
-        if (idx >= 0) next[idx] = data.data;
-        return next;
-      });
+      setTickets((previous) => mergeKitchenTicket(previous, data.data));
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to mark items ready";
       toast.error(message);
@@ -376,12 +344,7 @@ const KitchenDisplay = () => {
   const handleBulkComplete = useCallback(async (orderId) => {
     try {
       const { data } = await bulkServeKitchenItems(orderId);
-      setTickets((prev) => {
-        const next = [...prev];
-        const idx = next.findIndex((t) => String(t.orderId) === String(orderId));
-        if (idx >= 0) next[idx] = data.data;
-        return next;
-      });
+      setTickets((previous) => mergeKitchenTicket(previous, data.data));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to complete kitchen items");
       refreshAll();
@@ -488,7 +451,7 @@ const KitchenDisplay = () => {
         <EmptyState title="No kitchen orders yet" description="New kitchen orders will appear here." />
       ) : (
         <KdsBoard
-          tickets={visibleTickets}
+          groupedTickets={groupedVisibleTickets}
           thresholds={thresholds}
           canUpdate={canUpdate}
           canComplete={canComplete}

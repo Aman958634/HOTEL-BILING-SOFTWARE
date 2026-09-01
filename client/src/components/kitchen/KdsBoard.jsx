@@ -2,17 +2,17 @@ import { memo } from "react";
 import KotCard from "./KotCard";
 
 const COLUMNS = [
-  { key: "NEW", label: "New", emptyLabel: "No new tickets", filter: (ticket) => ticket.kitchenPhase === "NEW" },
-  { key: "PREPARING", label: "Preparing", emptyLabel: "No preparing tickets", filter: (ticket) => ["PREPARING", "PARTIALLY_READY"].includes(ticket.kitchenPhase) },
-  { key: "READY", label: "Ready", emptyLabel: "No ready tickets", filter: (ticket) => ticket.kitchenPhase === "READY" },
-  { key: "COMPLETED", label: "Completed", emptyLabel: "No completed tickets", filter: (ticket) => ticket.kitchenPhase === "COMPLETED" || ["SERVED", "COMPLETED"].includes(ticket.status) },
+  { key: "NEW", label: "New", emptyLabel: "No new tickets" },
+  { key: "PREPARING", label: "Preparing", emptyLabel: "No preparing tickets" },
+  { key: "READY", label: "Ready", emptyLabel: "No ready tickets" },
+  { key: "COMPLETED", label: "Completed", emptyLabel: "No completed tickets" },
 ];
 
-const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulkReady, onBulkComplete, canUpdate, canComplete, pendingItemTransitions }) => {
+const KdsBoard = ({ groupedTickets, thresholds, onItemStatusChange, onBulkStart, onBulkReady, onBulkComplete, canUpdate, canComplete, pendingItemTransitions }) => {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:h-[calc(100vh-17rem)] xl:grid-cols-4">
       {COLUMNS.map((col) => {
-        const colTickets = tickets.filter(col.filter);
+        const colTickets = groupedTickets[col.key] || [];
         return (
           <section key={col.key} className="flex h-[min(28rem,calc(100vh-15rem))] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 shadow-sm md:h-[calc(50vh-8rem)] xl:h-full">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
@@ -27,7 +27,7 @@ const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulk
               ) : (
                 colTickets.map((ticket) => (
                   <KotCard
-                    key={ticket.orderId}
+                    key={ticket.kotId || ticket.orderId}
                     ticket={ticket}
                     thresholds={thresholds}
                     canUpdate={canUpdate}

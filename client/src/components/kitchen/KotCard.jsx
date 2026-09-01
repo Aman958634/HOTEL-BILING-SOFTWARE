@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { FiClock, FiAlertTriangle } from "react-icons/fi";
 import KitchenItem from "./KitchenItem";
+import { deriveKitchenTicketStage, getKitchenTicketKey } from "../../utils/kitchenTicketState";
 
 const ORDER_TYPE_LABEL = {
   DINE_IN: "Dine-in",
@@ -41,7 +42,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
   const readyCount = activeItems.filter((i) => String(i.kitchenStatus || "NEW").toUpperCase() === "READY").length;
   const preparingCount = activeItems.filter((i) => String(i.kitchenStatus || "NEW").toUpperCase() === "PREPARING").length;
   const newCount = activeItems.filter((i) => String(i.kitchenStatus || "NEW").toUpperCase() === "NEW").length;
-  const phase = ticket.kitchenPhase || "NEW";
+  const phase = deriveKitchenTicketStage(ticket);
 
   const canTakeBulkAction = canUpdate && ["NEW", "PREPARING", "READY"].includes(phase);
 
@@ -91,7 +92,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
             key={item.index}
             item={item}
             canUpdate={canUpdate && phase !== "COMPLETED"}
-            pending={Boolean(pendingItemTransitions[`${ticket.orderId}:${item.index}`])}
+            pending={Object.keys(pendingItemTransitions).some((key) => key.startsWith(`${getKitchenTicketKey(ticket)}:${item.index}:`))}
             onStatusChange={(itemIndex, kitchenStatus) =>
               onItemStatusChange?.(ticket.orderId, itemIndex, kitchenStatus)
             }
