@@ -83,7 +83,33 @@ const ItemsSection = ({
 
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+      <div className="mt-4 space-y-2 sm:hidden">
+        {items.length ? items.map((item) => {
+          const lineTotal = item.price * item.quantity;
+          return (
+            <article key={item.menuItem} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-medium text-slate-900">{item.name}</p>
+                  {item.description ? <p className="mt-0.5 break-words text-xs text-slate-500">{item.description}</p> : null}
+                  <p className="mt-1 text-xs text-slate-500">{currency(item.price)} each</p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-slate-900">{currency(lineTotal)}</p>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="inline-flex items-center rounded-lg border border-slate-200">
+                  <button type="button" aria-label={`Decrease ${item.name} quantity`} onClick={() => onUpdateQty(item.menuItem, -1)} className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"><FiMinus className="h-3.5 w-3.5" /></button>
+                  <span className="min-w-9 text-center text-sm font-medium">{item.quantity}</span>
+                  <button type="button" aria-label={`Increase ${item.name} quantity`} onClick={() => onUpdateQty(item.menuItem, 1)} className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"><FiPlus className="h-3.5 w-3.5" /></button>
+                </div>
+                <button type="button" aria-label={`Delete ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30"><FiTrash2 className="h-4 w-4" /></button>
+              </div>
+            </article>
+          );
+        }) : <p className="rounded-xl border border-slate-200 px-3 py-10 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 sm:block">
         <table className="min-w-[640px] w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
@@ -131,16 +157,16 @@ const ItemsSection = ({
                           type="button"
                           aria-label={`Decrease ${item.name} quantity`}
                           onClick={() => onUpdateQty(item.menuItem, -1)}
-                          className="p-1.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
+                          className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
                         >
                           <FiMinus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="min-w-[1.75rem] text-center text-sm font-medium">{item.quantity}</span>
+                        <span className="min-w-9 text-center text-sm font-medium">{item.quantity}</span>
                         <button
                           type="button"
                           aria-label={`Increase ${item.name} quantity`}
                           onClick={() => onUpdateQty(item.menuItem, 1)}
-                          className="p-1.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
+                          className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
                         >
                           <FiPlus className="h-3.5 w-3.5" />
                         </button>
@@ -153,7 +179,7 @@ const ItemsSection = ({
                         type="button"
                         aria-label={`Delete ${item.name}`}
                         onClick={() => onRemoveItem(item.menuItem)}
-                        className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
                       >
                         <FiTrash2 className="h-4 w-4" />
                       </button>

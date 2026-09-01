@@ -8,14 +8,14 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50">
-      <div className="h-full w-full max-w-2xl overflow-y-auto bg-white p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 p-0 sm:p-3">
+      <div className="h-full w-full max-w-2xl overflow-y-auto bg-white p-4 shadow-2xl sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl sm:p-6">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-xl font-bold text-slate-900">Order Details</h3>
             <p className="text-sm text-slate-500">Detailed order overview and timeline.</p>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-slate-300 px-3 py-1 text-sm">Close</button>
+          <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-lg border border-slate-300 px-3 py-1 text-sm">Close</button>
         </div>
 
         {loading ? (
@@ -23,7 +23,7 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
         ) : order ? (
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-sm font-semibold text-slate-900">#{order.orderNumber}</p>
+              <p className="break-words text-sm font-semibold text-slate-900">#{order.orderNumber}</p>
               <div className="mt-2"><OrderStatusBadge status={order.status} /></div>
               <p className="mt-2 text-sm text-slate-600">{dateTime(order.createdAt)}</p>
             </div>
@@ -54,12 +54,12 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
               <p className="text-sm font-semibold text-slate-900">Items</p>
               <div className="mt-2 space-y-2">
                 {(order.items || []).map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-slate-800">{item.name || item.menuItem?.name || "Item"}</p>
+                  <div key={idx} className="flex min-w-0 items-start justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="break-words font-medium text-slate-800">{item.name || item.menuItem?.name || "Item"}</p>
                       <p className="text-xs text-slate-500">{currency(item.price)} x {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-slate-900">{currency(item.subtotal || item.price * item.quantity)}</p>
+                    <p className="shrink-0 font-semibold text-slate-900">{currency(item.subtotal || item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
@@ -81,9 +81,9 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
             </div>
 
             {String(order.paymentStatus || "").toUpperCase() === "PAID" ? (
-              <div className="flex flex-wrap justify-end gap-2">
-                <button onClick={() => onViewReceipt?.(order)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">View Receipt</button>
-                <button onClick={() => onPrintReceipt?.(order)} className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700">Print Receipt</button>
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                <button type="button" onClick={() => onViewReceipt?.(order)} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">View Receipt</button>
+                <button type="button" onClick={() => onPrintReceipt?.(order)} className="min-h-11 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700">Print Receipt</button>
               </div>
             ) : null}
           </div>

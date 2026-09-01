@@ -18,9 +18,9 @@ const OrderStatusBadge = ({ status }) => {
   const cfg = statusConfig[normalize(status)] || statusConfig.PENDING;
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${cfg.className}`}>
+    <span aria-label={`Order status: ${cfg.label}`} className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${cfg.className}`}>
       {cfg.icon}
-      <span>{cfg.label}</span>
+      <span className="truncate">{cfg.label}</span>
     </span>
   );
 };

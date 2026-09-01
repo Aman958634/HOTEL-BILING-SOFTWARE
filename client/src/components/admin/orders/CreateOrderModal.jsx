@@ -353,14 +353,14 @@ const CreateOrderModal = ({
       aria-modal="true"
       aria-labelledby="create-order-title"
     >
-      <div className="my-2 flex w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-2xl">
+      <div className="my-2 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
-          <div className="flex items-start gap-3">
+          <div className="min-w-0 flex items-start gap-3">
             <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
               <FiCalendar className="h-5 w-5" aria-hidden="true" />
             </span>
-            <div>
+            <div className="min-w-0">
               <h2 id="create-order-title" className="text-xl font-bold text-slate-900 sm:text-2xl">
                 {isEdit ? "Edit Order" : "Create New Order"}
               </h2>
@@ -379,8 +379,8 @@ const CreateOrderModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
-          <div className="grid flex-1 gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid flex-1 overflow-y-auto gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-5">
               <CustomerSection
                 customer={form.customer}
@@ -472,14 +472,14 @@ const CreateOrderModal = ({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60"
+              className="min-h-11 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70"
+              className="min-h-11 w-full rounded-xl bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {loading ? (isEdit ? "Updating Order..." : "Creating Order...") : isEdit ? "Update Order" : "Create Order"}
             </button>

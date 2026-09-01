@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { FiPlus } from "react-icons/fi";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import CashPaymentConfirmationModal from "../../components/admin/orders/CashPaymentConfirmationModal";
@@ -475,10 +476,13 @@ const OrderManagement = () => {
   return (
     <div className="ui-page">
       <div className="ui-page-header">
-        <div>
-          <h2 className="ui-page-title">Order Management</h2>
+        <div className="min-w-0">
+          <h2 className="ui-page-title">Orders</h2>
           <p className="ui-page-description">Manage restaurant orders, payments, tables and order status in real time.</p>
         </div>
+        <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 lg:hidden">
+          <FiPlus className="h-4 w-4" aria-hidden="true" /> New Order
+        </button>
       </div>
 
       <OrderStats stats={stats} loading={loadingStats} />
@@ -566,14 +570,14 @@ const OrderManagement = () => {
 
       {statusTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md mx-4 rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:max-w-md sm:p-5">
             <h3 className="text-lg font-semibold text-slate-900">Update Order Status</h3>
             <p className="mt-1 text-sm text-slate-500">{statusTarget.orderNumber}</p>
 
             {!selectedStatusOptions.length ? (
               <p className="mt-3 text-sm text-slate-600">No further status transition is allowed for this order.</p>
             ) : (
-              <select className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" value={statusValue} onChange={(e) => setStatusValue(e.target.value)}>
+              <select className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15" value={statusValue} onChange={(e) => setStatusValue(e.target.value)}>
                 <option value="">Select next status</option>
                 {selectedStatusOptions.map((status) => (
                   <option key={status} value={status}>{status}</option>
@@ -581,9 +585,9 @@ const OrderManagement = () => {
               </select>
             )}
 
-            <div className="mt-4 flex justify-end gap-3">
-              <button onClick={() => setStatusTarget(null)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-              <button onClick={submitStatusUpdate} disabled={saving || !statusValue} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-60">Update</button>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:justify-end sm:gap-3">
+              <button type="button" onClick={() => setStatusTarget(null)} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+              <button type="button" onClick={submitStatusUpdate} disabled={saving || !statusValue} className="min-h-11 rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-60">Update</button>
             </div>
           </div>
         </div>
