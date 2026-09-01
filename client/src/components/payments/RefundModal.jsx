@@ -32,14 +32,14 @@ const RefundModal = ({ open, payment, loading, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <form onSubmit={submit} className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
+    <div className="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="refund-payment-title">
+      <form onSubmit={submit} className="ui-modal max-w-lg">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Refund Payment</h3>
+            <h3 id="refund-payment-title" className="text-xl font-bold text-slate-900">Refund Payment</h3>
             <p className="mt-1 text-sm text-slate-500">Are you sure you want to refund this payment?</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 p-2 text-slate-600">
+          <button type="button" onClick={onClose} aria-label="Close refund dialog" className="min-h-10 min-w-10 rounded-xl border border-slate-300 p-2 text-slate-600">
             <FiX />
           </button>
         </div>

@@ -463,7 +463,7 @@ const SuperAdminPaymentsPage = () => {
 
       {!error && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-left text-sm">
+          <table className="sa-card-table sa-payments-table min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-3">Payment ID</th>

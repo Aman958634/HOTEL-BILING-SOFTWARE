@@ -23,6 +23,7 @@ body {
 body {
   @apply bg-slate-100 text-slate-900;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
 }
 
 #root {
@@ -211,9 +212,65 @@ button:disabled { cursor: not-allowed; }
   .hero-title { font-size: 34px; }
 }
 
+@media (max-width: 767px) {
+  /* These four operational tables retain one data source but present each row as a touch-friendly card. */
+  table[class*="min-w-[900px]"],
+  table[class*="min-w-[820px]"],
+  table[class*="min-w-[700px]"],
+  table[class*="min-w-[960px]"] { min-width: 0 !important; }
+  table[class*="min-w-[900px]"] thead,
+  table[class*="min-w-[820px]"] thead,
+  table[class*="min-w-[700px]"] thead,
+  table[class*="min-w-[960px]"] thead { display: none; }
+  table[class*="min-w-[900px]"], table[class*="min-w-[900px]"] tbody,
+  table[class*="min-w-[820px]"], table[class*="min-w-[820px]"] tbody,
+  table[class*="min-w-[700px]"], table[class*="min-w-[700px]"] tbody,
+  table[class*="min-w-[960px]"], table[class*="min-w-[960px]"] tbody { display: block; width: 100%; }
+  table[class*="min-w-[900px]"] tr, table[class*="min-w-[820px]"] tr,
+  table[class*="min-w-[700px]"] tr, table[class*="min-w-[960px]"] tr {
+    display: block; margin: 0.75rem; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #fff;
+  }
+  table[class*="min-w-[900px]"] td, table[class*="min-w-[820px]"] td,
+  table[class*="min-w-[700px]"] td, table[class*="min-w-[960px]"] td {
+    display: grid; grid-template-columns: minmax(6.75rem, 38%) minmax(0, 1fr); gap: 0.5rem; align-items: start; padding: 0.625rem 0.75rem; overflow-wrap: anywhere;
+  }
+  table[class*="min-w-[900px]"] td + td, table[class*="min-w-[820px]"] td + td,
+  table[class*="min-w-[700px]"] td + td, table[class*="min-w-[960px]"] td + td { border-top: 1px solid #f1f5f9; }
+  table[class*="min-w-[900px]"] td::before, table[class*="min-w-[820px]"] td::before,
+  table[class*="min-w-[700px]"] td::before, table[class*="min-w-[960px]"] td::before {
+    color: #64748b; font-size: 0.6875rem; font-weight: 700; line-height: 1.35; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  table[class*="min-w-[900px]"] td[colspan], table[class*="min-w-[820px]"] td[colspan],
+  table[class*="min-w-[700px]"] td[colspan], table[class*="min-w-[960px]"] td[colspan] { display: block; text-align: center; }
+  table[class*="min-w-[900px]"] td[colspan]::before, table[class*="min-w-[820px]"] td[colspan]::before,
+  table[class*="min-w-[700px]"] td[colspan]::before, table[class*="min-w-[960px]"] td[colspan]::before { content: none; }
+  /* Inventory */
+  table[class*="min-w-[900px]"] td:nth-child(1)::before { content: "Item"; } table[class*="min-w-[900px]"] td:nth-child(2)::before { content: "SKU"; } table[class*="min-w-[900px]"] td:nth-child(3)::before { content: "Stock"; } table[class*="min-w-[900px]"] td:nth-child(4)::before { content: "Unit"; } table[class*="min-w-[900px]"] td:nth-child(5)::before { content: "Minimum"; } table[class*="min-w-[900px]"] td:nth-child(6)::before { content: "Cost"; } table[class*="min-w-[900px]"] td:nth-child(7)::before { content: "Status"; } table[class*="min-w-[900px]"] td:nth-child(8)::before { content: "Adjust"; }
+  /* CRM */
+  table[class*="min-w-[820px]"] td:nth-child(1)::before { content: "Customer"; } table[class*="min-w-[820px]"] td:nth-child(2)::before { content: "Orders"; } table[class*="min-w-[820px]"] td:nth-child(3)::before { content: "Spend"; } table[class*="min-w-[820px]"] td:nth-child(4)::before { content: "Average"; } table[class*="min-w-[820px]"] td:nth-child(5)::before { content: "Last activity"; } table[class*="min-w-[820px]"] td:nth-child(6)::before { content: "Tags"; } table[class*="min-w-[820px]"] td:nth-child(7)::before { content: "Actions"; }
+  /* Loyalty */
+  table[class*="min-w-[700px]"] td:nth-child(1)::before { content: "Customer"; } table[class*="min-w-[700px]"] td:nth-child(2)::before { content: "Points"; } table[class*="min-w-[700px]"] td:nth-child(3)::before { content: "Lifetime earned"; } table[class*="min-w-[700px]"] td:nth-child(4)::before { content: "Redeemed"; } table[class*="min-w-[700px]"] td:nth-child(5)::before { content: "Last activity"; }
+  /* Online orders */
+  table[class*="min-w-[960px]"] td:nth-child(1)::before { content: "Order"; } table[class*="min-w-[960px]"] td:nth-child(2)::before { content: "Customer"; } table[class*="min-w-[960px]"] td:nth-child(3)::before { content: "Source"; } table[class*="min-w-[960px]"] td:nth-child(4)::before { content: "Items"; } table[class*="min-w-[960px]"] td:nth-child(5)::before { content: "Payment"; } table[class*="min-w-[960px]"] td:nth-child(6)::before { content: "Status"; } table[class*="min-w-[960px]"] td:nth-child(7)::before { content: "Time"; } table[class*="min-w-[960px]"] td:nth-child(8)::before { content: "Actions"; }
+
+  .sa-card-table { min-width: 0 !important; }
+  .sa-card-table thead { display: none; }
+  .sa-card-table, .sa-card-table tbody { display: block; width: 100%; }
+  .sa-card-table tr { display: block; margin: 0.75rem; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #fff; }
+  .sa-card-table td { display: grid; grid-template-columns: minmax(6.75rem, 38%) minmax(0, 1fr); gap: 0.5rem; align-items: start; padding: 0.625rem 0.75rem; overflow-wrap: anywhere; }
+  .sa-card-table td + td { border-top: 1px solid #f1f5f9; }
+  .sa-card-table td::before { color: #64748b; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .sa-card-table td[colspan] { display: block; text-align: center; }
+  .sa-card-table td[colspan]::before { content: none; }
+  .sa-restaurants-table td:nth-child(1)::before { content: "Restaurant"; } .sa-restaurants-table td:nth-child(2)::before { content: "Admin"; } .sa-restaurants-table td:nth-child(3)::before { content: "Email"; } .sa-restaurants-table td:nth-child(4)::before { content: "Phone"; } .sa-restaurants-table td:nth-child(5)::before { content: "Plan"; } .sa-restaurants-table td:nth-child(6)::before { content: "Status"; } .sa-restaurants-table td:nth-child(7)::before { content: "Created"; } .sa-restaurants-table td:nth-child(8)::before { content: "Actions"; }
+  .sa-users-table td:nth-child(1)::before { content: "Name"; } .sa-users-table td:nth-child(2)::before { content: "Email"; } .sa-users-table td:nth-child(3)::before { content: "Phone"; } .sa-users-table td:nth-child(4)::before { content: "Role"; } .sa-users-table td:nth-child(5)::before { content: "Status"; } .sa-users-table td:nth-child(6)::before { content: "Created"; } .sa-users-table td:nth-child(7)::before { content: "Actions"; }
+  .sa-subscriptions-table td:nth-child(1)::before { content: "Restaurant"; } .sa-subscriptions-table td:nth-child(2)::before { content: "Plan"; } .sa-subscriptions-table td:nth-child(3)::before { content: "Status"; } .sa-subscriptions-table td:nth-child(4)::before { content: "Trial start"; } .sa-subscriptions-table td:nth-child(5)::before { content: "Trial end"; } .sa-subscriptions-table td:nth-child(6)::before { content: "Days remaining"; } .sa-subscriptions-table td:nth-child(7)::before { content: "Renewal"; } .sa-subscriptions-table td:nth-child(8)::before { content: "Actions"; }
+  .sa-payments-table td:nth-child(1)::before { content: "Payment ID"; } .sa-payments-table td:nth-child(2)::before { content: "Restaurant"; } .sa-payments-table td:nth-child(3)::before { content: "Customer"; } .sa-payments-table td:nth-child(4)::before { content: "Plan"; } .sa-payments-table td:nth-child(5)::before { content: "Amount"; } .sa-payments-table td:nth-child(6)::before { content: "Currency"; } .sa-payments-table td:nth-child(7)::before { content: "Method"; } .sa-payments-table td:nth-child(8)::before { content: "Status"; } .sa-payments-table td:nth-child(9)::before { content: "Order ID"; } .sa-payments-table td:nth-child(10)::before { content: "Date"; } .sa-payments-table td:nth-child(11)::before { content: "Actions"; }
+}
+
 @layer components {
   .app-shell { @apply min-h-dvh w-full min-w-0 bg-slate-100; }
-  .app-page-container {
+.app-page-container {
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -236,6 +293,21 @@ button:disabled { cursor: not-allowed; }
   .ui-filter-bar { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm; }
   .ui-modal-backdrop { @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-4; }
   .ui-modal { @apply my-auto w-full rounded-2xl bg-white p-5 shadow-2xl sm:p-6; }
+}
+
+.app-page-container > *,
+.ui-page > *,
+.ui-card,
+.ui-card-interactive,
+.ui-modal,
+.ui-filter-bar {
+  min-width: 0;
+}
+
+.ui-modal {
+  max-width: calc(100vw - 1.5rem);
+  max-height: 90dvh;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 768px) {

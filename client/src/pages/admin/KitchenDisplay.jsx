@@ -78,6 +78,7 @@ const KitchenDisplay = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundMuted, setSoundMuted] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [mobileStage, setMobileStage] = useState("NEW");
 
   const thresholds = DEFAULT_THRESHOLDS;
   const audioRef = useRef(null);
@@ -395,7 +396,11 @@ const KitchenDisplay = () => {
           {filterChips.map((c) => (
             <button
               key={c.key}
-              onClick={() => setFilter(c.key)}
+              onClick={() => {
+                setFilter(c.key);
+                const stage = { new: "NEW", preparing: "PREPARING", ready: "READY", completed: "COMPLETED" }[c.key];
+                if (stage) setMobileStage(stage);
+              }}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 filter === c.key ? "bg-brand-700 text-white" : "border border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
@@ -460,6 +465,8 @@ const KitchenDisplay = () => {
           onBulkReady={handleBulkReady}
           onBulkComplete={handleBulkComplete}
           pendingItemTransitions={pendingItemTransitions}
+          mobileStage={mobileStage}
+          onMobileStageChange={setMobileStage}
         />
       )}
 

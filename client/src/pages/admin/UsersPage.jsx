@@ -129,7 +129,7 @@ const UsersPage = () => {
         {loading ? (
           <SkeletonTable rows={6} columns={7} />
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="sa-card-table sa-users-table w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100">
                 <th className="p-2 border">Name</th>

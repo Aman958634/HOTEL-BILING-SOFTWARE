@@ -40,7 +40,7 @@ const RestaurantsPage = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">Restaurants</h2>
           <p className="text-sm text-slate-500">Manage all restaurants connected to RestoSphere SaaS.</p>
@@ -51,13 +51,13 @@ const RestaurantsPage = () => {
       </div>
 
       <div className="mb-4">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search restaurants..." className="border rounded p-2 w-80" />
-        <button onClick={load} className="ml-2 btn">Search</button>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search restaurants..." className="w-full rounded border p-2 sm:w-80" />
+        <button onClick={load} className="mt-2 min-h-10 rounded border px-3 text-sm sm:ml-2 sm:mt-0">Search</button>
       </div>
 
       <div className="bg-white rounded shadow p-4">
         {loading ? <SkeletonTable rows={6} columns={8} /> : (
-          <table className="w-full text-left">
+          <table className="sa-card-table sa-restaurants-table w-full text-left">
             <thead>
               <tr>
                 <th>Name</th>

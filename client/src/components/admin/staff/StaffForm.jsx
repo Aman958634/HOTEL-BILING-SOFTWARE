@@ -198,7 +198,7 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
           )}
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
           <Button type="submit" loading={loading} loadingText="Saving…">{initialData ? "Update Staff" : "Create Staff"}</Button>
         </div>

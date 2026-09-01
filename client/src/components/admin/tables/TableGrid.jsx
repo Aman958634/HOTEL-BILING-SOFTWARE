@@ -44,7 +44,6 @@ const TableGrid = ({
         icon={<FiGrid className="h-10 w-10" />}
         title={hasFilters ? "No matching tables" : "No tables yet"}
         description={hasFilters ? "Try changing your search or filters." : "Add tables to start managing dine-in service."}
-        action={hasFilters ? <button type="button" onClick={onClearFilters} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button> : <button type="button" onClick={onAddFirst} className="min-h-11 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800">+ Add Table</button>}
           action={hasFilters ? <button type="button" onClick={onClearFilters} className="min-h-11 w-full rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto">Clear filters</button> : <button type="button" onClick={onAddFirst} className="min-h-11 w-full rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 sm:w-auto">+ Add Table</button>}
       />
     );
