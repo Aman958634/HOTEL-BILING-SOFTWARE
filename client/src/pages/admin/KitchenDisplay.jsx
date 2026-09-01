@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import { FiAlertTriangle, FiCheckCircle, FiClock, FiCoffee, FiLoader, FiMaximize, FiMinimize, FiRefreshCw, FiSearch, FiVolume2, FiVolumeX, FiWifi, FiWifiOff } from "react-icons/fi";
 import { useSocket } from "../../context/SocketContext";
 import { getKitchenTickets, getKitchenStations, updateKitchenItemStatus, bulkStartKitchenItems, bulkReadyKitchenItems, bulkServeKitchenItems } from "../../services/kitchenService";
@@ -67,6 +68,7 @@ const KitchenDisplay = () => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [pendingItemTransitions, setPendingItemTransitions] = useState({});
 
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -79,6 +81,7 @@ const KitchenDisplay = () => {
   const thresholds = DEFAULT_THRESHOLDS;
   const audioRef = useRef(null);
   const socketRefreshRef = useRef(null);
+  const itemTransitionLocksRef = useRef(new Set());
 
   // Guards to prevent overlapping polling requests and honour 429 backoff.
   const inFlightRef = useRef(false);
@@ -290,14 +293,27 @@ const KitchenDisplay = () => {
   }, [tickets, thresholds, waitMinutes]);
 
   const handleItemStatusChange = useCallback(async (orderId, itemIndex, kitchenStatus) => {
-    setTickets((prev) => {
-      const next = [...prev];
-      const ticket = next.find((t) => String(t.orderId) === String(orderId));
-      if (!ticket) return prev;
-      const item = ticket.items[itemIndex];
-      if (item) item.kitchenStatus = kitchenStatus;
-      return next;
-    });
+    const transitionKey = `${orderId}:${itemIndex}`;
+    if (itemTransitionLocksRef.current.has(transitionKey)) return;
+
+    const ticket = tickets.find((entry) => String(entry.orderId) === String(orderId));
+    const item = ticket?.items?.[itemIndex];
+    const previousStatus = String(item?.kitchenStatus || "NEW").toUpperCase();
+    const nextStatus = String(kitchenStatus || "").toUpperCase();
+    const validTransitions = {
+      NEW: ["PREPARING", "CANCELLED"],
+      PREPARING: ["READY", "CANCELLED"],
+      READY: ["SERVED", "CANCELLED"],
+    };
+    if (!item || !validTransitions[previousStatus]?.includes(nextStatus)) return;
+
+    itemTransitionLocksRef.current.add(transitionKey);
+    setPendingItemTransitions((current) => ({ ...current, [transitionKey]: true }));
+    setTickets((previous) => previous.map((entry) => (
+      String(entry.orderId) !== String(orderId)
+        ? entry
+        : { ...entry, items: entry.items.map((row, index) => index === itemIndex ? { ...row, kitchenStatus: nextStatus } : row) }
+    )));
     try {
       const { data } = await updateKitchenItemStatus(orderId, itemIndex, kitchenStatus);
       setTickets((prev) => {
@@ -308,10 +324,22 @@ const KitchenDisplay = () => {
       });
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to update kitchen item";
-      setError(message);
-      refreshAll();
+      setTickets((previous) => previous.map((entry) => (
+        String(entry.orderId) !== String(orderId)
+          ? entry
+          : { ...entry, items: entry.items.map((row, index) => index === itemIndex ? { ...row, kitchenStatus: previousStatus } : row) }
+      )));
+      toast.error(message);
+    } finally {
+      itemTransitionLocksRef.current.delete(transitionKey);
+      setPendingItemTransitions((current) => {
+        if (!current[transitionKey]) return current;
+        const next = { ...current };
+        delete next[transitionKey];
+        return next;
+      });
     }
-  }, [refreshAll]);
+  }, [tickets]);
 
   const handleBulkStart = useCallback(async (orderId) => {
     try {
@@ -324,7 +352,7 @@ const KitchenDisplay = () => {
       });
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to start kitchen items";
-      setError(message);
+      toast.error(message);
       refreshAll();
     }
   }, [refreshAll]);
@@ -340,7 +368,7 @@ const KitchenDisplay = () => {
       });
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to mark items ready";
-      setError(message);
+      toast.error(message);
       refreshAll();
     }
   }, [refreshAll]);
@@ -354,7 +382,8 @@ const KitchenDisplay = () => {
         if (idx >= 0) next[idx] = data.data;
         return next;
       });
-    } catch (_) {
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to complete kitchen items");
       refreshAll();
     }
   }, [refreshAll]);
@@ -467,6 +496,7 @@ const KitchenDisplay = () => {
           onBulkStart={handleBulkStart}
           onBulkReady={handleBulkReady}
           onBulkComplete={handleBulkComplete}
+          pendingItemTransitions={pendingItemTransitions}
         />
       )}
 

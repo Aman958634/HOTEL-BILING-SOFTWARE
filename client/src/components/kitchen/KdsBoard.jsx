@@ -8,7 +8,7 @@ const COLUMNS = [
   { key: "COMPLETED", label: "Completed", emptyLabel: "No completed tickets", filter: (ticket) => ticket.kitchenPhase === "COMPLETED" || ["SERVED", "COMPLETED"].includes(ticket.status) },
 ];
 
-const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulkReady, onBulkComplete, canUpdate, canComplete }) => {
+const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulkReady, onBulkComplete, canUpdate, canComplete, pendingItemTransitions }) => {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:h-[calc(100vh-17rem)] xl:grid-cols-4">
       {COLUMNS.map((col) => {
@@ -36,6 +36,7 @@ const KdsBoard = ({ tickets, thresholds, onItemStatusChange, onBulkStart, onBulk
                     onBulkReady={onBulkReady}
                     onBulkComplete={onBulkComplete}
                     canComplete={canComplete}
+                    pendingItemTransitions={pendingItemTransitions}
                   />
                 ))
               )}

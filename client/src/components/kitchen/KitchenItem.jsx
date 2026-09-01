@@ -8,7 +8,7 @@ const STATUS_CONFIG = {
   CANCELLED: { label: "Cancelled", className: "border-rose-200 bg-rose-50 text-rose-700 line-through" },
 };
 
-const KitchenItem = ({ item, onStatusChange, canUpdate }) => {
+const KitchenItem = ({ item, onStatusChange, canUpdate, pending = false }) => {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const status = String(item.kitchenStatus || "NEW").toUpperCase();
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NEW;
@@ -43,29 +43,33 @@ const KitchenItem = ({ item, onStatusChange, canUpdate }) => {
           {status === "NEW" && (
             <button
               onClick={() => onStatusChange?.(item.index, "PREPARING")}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+              disabled={pending}
+              className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
             >
-              Start
+              {pending ? "Starting…" : "Start"}
             </button>
           )}
           {status === "PREPARING" && (
             <button
               onClick={() => onStatusChange?.(item.index, "READY")}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              disabled={pending}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
             >
-              Ready
+              {pending ? "Updating…" : "Ready"}
             </button>
           )}
           {status === "READY" && (
             <button
               onClick={() => onStatusChange?.(item.index, "SERVED")}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              disabled={pending}
+              className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 disabled:cursor-wait disabled:opacity-60"
             >
-              Serve
+              {pending ? "Completing…" : "Serve"}
             </button>
           )}
           <button
             onClick={handleCancel}
+            disabled={pending}
             className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
               confirmCancel ? "border-rose-300 bg-rose-100 text-rose-800" : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
             }`}

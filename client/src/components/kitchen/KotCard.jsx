@@ -29,7 +29,7 @@ const severityColor = {
   critical: "text-rose-600",
 };
 
-const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUpdate, canComplete, onBulkStart, onBulkReady, onBulkComplete }) => {
+const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUpdate, canComplete, onBulkStart, onBulkReady, onBulkComplete, pendingItemTransitions = {} }) => {
   const createdAt = new Date(ticket.createdAt).getTime();
   const mins = Math.max(0, Math.round((Date.now() - createdAt) / 60000));
   const sev = waitSeverity(mins, thresholds);
@@ -91,6 +91,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
             key={item.index}
             item={item}
             canUpdate={canUpdate && phase !== "COMPLETED"}
+            pending={Boolean(pendingItemTransitions[`${ticket.orderId}:${item.index}`])}
             onStatusChange={(itemIndex, kitchenStatus) =>
               onItemStatusChange?.(ticket.orderId, itemIndex, kitchenStatus)
             }
