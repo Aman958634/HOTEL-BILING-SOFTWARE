@@ -486,7 +486,7 @@ const Notifications = () => {
         )}
       </div>
 
-      {!apiError && notifications.length > 0 && (
+      {!apiError && notifications.length > 0 && (meta.totalPages || 1) > 1 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
           <p className="text-slate-600">
             Showing {(meta.page - 1) * meta.limit + (notifications.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + notifications.length} of {meta.total} notifications

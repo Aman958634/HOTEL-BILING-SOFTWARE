@@ -655,7 +655,7 @@ const Reports = () => {
           </table>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        {(salesMeta.totalPages || 1) > 1 && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
             Page {salesMeta.page || 1} of {salesMeta.totalPages || 1}
           </p>
@@ -675,7 +675,7 @@ const Reports = () => {
               Next
             </button>
           </div>
-        </div>
+        </div>}
       </section>
     </div>
   );

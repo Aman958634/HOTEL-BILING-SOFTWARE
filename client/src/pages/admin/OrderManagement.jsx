@@ -11,6 +11,7 @@ import OrderStats from "../../components/admin/orders/OrderStats";
 import OrderTable from "../../components/admin/orders/OrderTable";
 import OrderToolbar from "../../components/admin/orders/OrderToolbar";
 import RequestState from "../../components/common/RequestState";
+import TablePagination from "../../components/common/TablePagination";
 import { useSocket } from "../../context/SocketContext";
 import { getAdminCategories } from "../../services/categoryService";
 import { getAdminMenu } from "../../services/menuService";
@@ -498,23 +499,7 @@ const OrderManagement = () => {
       />
       {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
 
-      <div className="ui-card flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-        <p>
-          Showing {(meta.page - 1) * meta.limit + (orders.length ? 1 : 0)}-{(meta.page - 1) * meta.limit + orders.length} of {meta.total} orders
-        </p>
-        <div className="flex items-center gap-2">
-          <button onClick={() => goToPage(meta.page - 1)} disabled={meta.page <= 1} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:opacity-60">Previous</button>
-          {Array.from({ length: Math.min(meta.totalPages || 1, 5) }).map((_, idx) => {
-            const page = idx + 1;
-            return (
-              <button key={page} onClick={() => goToPage(page)} aria-current={meta.page === page ? "page" : undefined} className={`min-h-11 rounded-xl border px-3 py-2 font-medium transition ${meta.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 hover:bg-slate-50"}`}>
-                {page}
-              </button>
-            );
-          })}
-          <button onClick={() => goToPage(meta.page + 1)} disabled={meta.page >= (meta.totalPages || 1)} className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:opacity-60">Next</button>
-        </div>
-      </div>
+      <TablePagination meta={meta} onPageChange={goToPage} itemLabel="orders" className="ui-card" />
 
       <CreateOrderModal
         open={createOpen}

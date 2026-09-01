@@ -7,6 +7,7 @@ import KdsHeader from "../../components/kitchen/KdsHeader";
 import KdsBoard from "../../components/kitchen/KdsBoard";
 import EmptyState from "../../components/common/EmptyState";
 import { SkeletonList } from "../../components/common/Skeletons";
+import { getTicketBoardPhase } from "../../utils/kitchenDisplay";
 
 const DEFAULT_THRESHOLDS = { warning: 15, delayed: 30, critical: 45 };
 
@@ -24,18 +25,13 @@ const waitSeverity = (mins, t = DEFAULT_THRESHOLDS) => {
   return "normal";
 };
 
-const toKitchenPhase = (status) => {
-  const normalized = String(status || "NEW").toUpperCase();
-  return normalized === "SERVED" ? "COMPLETED" : normalized;
-};
-
 // `new_kot` / `kot_updated` contain KOT documents, while the board renders
 // kitchen-ticket DTOs. Adapt the socket payload so a new KOT appears instantly
 // before the background refresh enriches its table/customer details.
 const ticketFromKotSocket = (kot) => {
   if (!kot?._id || !kot?.orderId) return null;
   const kotStatus = String(kot.status || "NEW").toUpperCase();
-  const kitchenPhase = toKitchenPhase(kotStatus);
+  const kitchenPhase = kotStatus === "SERVED" ? "COMPLETED" : kotStatus;
   return {
     kotId: kot._id,
     orderId: kot.orderId?._id || kot.orderId,
@@ -248,8 +244,14 @@ const KitchenDisplay = () => {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const now = Date.now();
-  const waitMinutes = (o) => Math.max(0, Math.round((now - new Date(o.createdAt).getTime()) / 60000));
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const waitMinutes = useCallback((ticket) => Math.max(0, Math.round((now - new Date(ticket.createdAt).getTime()) / 60000)), [now]);
 
   const visibleTickets = useMemo(() => {
     let list = tickets;
@@ -259,10 +261,10 @@ const KitchenDisplay = () => {
         return stationId && String(stationId) === String(stationFilter);
       }));
     }
-    if (filter === "new") list = list.filter((t) => t.kitchenPhase === "NEW");
-    else if (filter === "preparing") list = list.filter((t) => ["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase));
-    else if (filter === "ready") list = list.filter((t) => t.kitchenPhase === "READY");
-    else if (filter === "completed") list = list.filter((t) => ["SERVED", "COMPLETED"].includes(t.status));
+    if (filter === "new") list = list.filter((t) => getTicketBoardPhase(t) === "NEW");
+    else if (filter === "preparing") list = list.filter((t) => getTicketBoardPhase(t) === "PREPARING");
+    else if (filter === "ready") list = list.filter((t) => getTicketBoardPhase(t) === "READY");
+    else if (filter === "completed") list = list.filter((t) => getTicketBoardPhase(t) === "COMPLETED");
     else if (filter === "delayed") list = list.filter((t) => waitMinutes(t) >= thresholds.delayed);
 
     if (search) {
@@ -273,20 +275,21 @@ const KitchenDisplay = () => {
       );
     }
     return list;
-  }, [tickets, filter, search, stationFilter, thresholds, now]);
+  }, [tickets, filter, search, stationFilter, thresholds, waitMinutes]);
 
   const counts = useMemo(() => {
     const c = { new: 0, preparing: 0, ready: 0, completed: 0, delayed: 0 };
     tickets.forEach((t) => {
       const mins = waitMinutes(t);
-      if (t.kitchenPhase === "NEW") c.new++;
-      else if (["PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.preparing++;
-      else if (t.kitchenPhase === "READY") c.ready++;
-      else if (["SERVED", "COMPLETED"].includes(t.status)) c.completed++;
-      if (["NEW", "PREPARING", "PARTIALLY_READY"].includes(t.kitchenPhase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
+      const phase = getTicketBoardPhase(t);
+      if (phase === "NEW") c.new++;
+      else if (phase === "PREPARING") c.preparing++;
+      else if (phase === "READY") c.ready++;
+      else if (phase === "COMPLETED") c.completed++;
+      if (["NEW", "PREPARING"].includes(phase)) c.delayed += mins >= thresholds.delayed ? 1 : 0;
     });
     return c;
-  }, [tickets, thresholds, now]);
+  }, [tickets, thresholds, waitMinutes]);
 
   const handleItemStatusChange = useCallback(async (orderId, itemIndex, kitchenStatus) => {
     setTickets((prev) => {
@@ -384,7 +387,7 @@ const KitchenDisplay = () => {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 overflow-x-hidden">
       <KdsHeader
         restaurantName={user?.restaurantName}
         now={new Date()}
@@ -453,7 +456,7 @@ const KitchenDisplay = () => {
           </div>
         </div>
       ) : loading && tickets.length === 0 ? (
-        <div className="grid gap-4 lg:grid-cols-5"><SkeletonList count={5} className="h-96" /></div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><SkeletonList count={4} className="h-80" /></div>
       ) : visibleTickets.length === 0 ? (
         <EmptyState title="No kitchen orders yet" description="New kitchen orders will appear here." />
       ) : (

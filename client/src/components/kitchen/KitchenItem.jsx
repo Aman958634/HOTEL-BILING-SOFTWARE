@@ -26,11 +26,11 @@ const KitchenItem = ({ item, onStatusChange, canUpdate }) => {
     <div className={`rounded-lg border p-2.5 transition ${cfg.className}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="break-words text-sm font-semibold text-slate-900">
             {item.quantity}× {item.name}
           </p>
           {item.specialInstructions ? (
-            <p className="mt-1 text-xs text-slate-600 italic">"{item.specialInstructions}"</p>
+            <p className="mt-1 break-words text-xs italic text-slate-600">"{item.specialInstructions}"</p>
           ) : null}
         </div>
         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${cfg.className}`}>

@@ -4,6 +4,7 @@ import { FiUsers } from "react-icons/fi";
 import EmptyState from "../../components/common/EmptyState";
 import { SkeletonList } from "../../components/common/Skeletons";
 import RequestState from "../../components/common/RequestState";
+import TablePagination from "../../components/common/TablePagination";
 import { useSelector } from "react-redux";
 import { useSocket } from "../../context/SocketContext";
 import StatCard from "../../components/admin/StatCard";
@@ -284,19 +285,7 @@ const StaffManagement = () => {
         />
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm shadow-sm">
-        <p>
-          Showing {(pagination.page - 1) * pagination.limit + (staff.length ? 1 : 0)}-{(pagination.page - 1) * pagination.limit + staff.length} of {pagination.total} staff members
-        </p>
-        <div className="flex items-center gap-2">
-          <button onClick={() => updateFilters({ page: pagination.page - 1 })} disabled={pagination.page <= 1} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-60">Previous</button>
-          {Array.from({ length: Math.min(pagination.totalPages || 1, 5) }).map((_, idx) => {
-            const page = idx + 1;
-            return <button key={page} onClick={() => updateFilters({ page })} className={`rounded border px-2 py-1 ${pagination.page === page ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300"}`}>{page}</button>;
-          })}
-          <button onClick={() => updateFilters({ page: pagination.page + 1 })} disabled={pagination.page >= (pagination.totalPages || 1)} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-60">Next</button>
-        </div>
-      </div>
+      <TablePagination meta={pagination} onPageChange={(page) => updateFilters({ page })} itemLabel="staff members" />
 
       <StaffForm
         open={formOpen}

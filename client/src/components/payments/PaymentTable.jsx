@@ -3,6 +3,7 @@ import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurr
 import EmptyState from "../common/EmptyState";
 import { SkeletonTable } from "../common/Skeletons";
 import { formatPaymentId } from "../../utils/paymentId";
+import TablePagination from "../common/TablePagination";
 
 const ActionButton = ({ children, onClick, tone = "default" }) => {
   const className = tone === "danger"
@@ -15,39 +16,6 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
     <button onClick={onClick} className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${className}`}>
       {children}
     </button>
-  );
-};
-
-const Pagination = ({ meta, onPageChange }) => {
-  const totalPages = meta.totalPages || 1;
-  const page = meta.page || 1;
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
-      <p className="text-slate-600">
-        Showing {(page - 1) * meta.limit + (meta.total ? 1 : 0)}-{Math.min(page * meta.limit, meta.total || 0)} of {meta.total || 0} payments
-      </p>
-      <div className="flex items-center gap-2">
-        <button onClick={() => onPageChange(page - 1)} disabled={page <= 1} className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700 disabled:opacity-60">
-          Previous
-        </button>
-        {Array.from({ length: Math.min(totalPages, 5) }).map((_, index) => {
-          const current = index + 1;
-          return (
-            <button
-              key={current}
-              onClick={() => onPageChange(current)}
-              className={`rounded-lg border px-3 py-1.5 ${page === current ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
-            >
-              {current}
-            </button>
-          );
-        })}
-        <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages} className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700 disabled:opacity-60">
-          Next
-        </button>
-      </div>
-    </div>
   );
 };
 
@@ -150,7 +118,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
         ))}
       </div>
 
-      <Pagination meta={meta} onPageChange={onPageChange} />
+      <TablePagination meta={meta} onPageChange={onPageChange} itemLabel="payments" />
     </div>
   );
 };

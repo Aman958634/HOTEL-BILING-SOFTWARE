@@ -174,7 +174,7 @@ const UsersPage = () => {
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+      {(meta.totalPages || 1) > 1 && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
         <div>
           Showing {users.length} of {meta.total} users
         </div>
@@ -197,7 +197,7 @@ const UsersPage = () => {
             Next
           </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

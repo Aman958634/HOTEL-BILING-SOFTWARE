@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { FiClock, FiAlertTriangle } from "react-icons/fi";
 import KitchenItem from "./KitchenItem";
 
@@ -43,8 +43,10 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
   const newCount = activeItems.filter((i) => String(i.kitchenStatus || "NEW").toUpperCase() === "NEW").length;
   const phase = ticket.kitchenPhase || "NEW";
 
+  const canTakeBulkAction = canUpdate && ["NEW", "PREPARING", "READY"].includes(phase);
+
   return (
-    <div className={`flex h-full flex-col rounded-xl border bg-white shadow-sm ${phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200"}`}>
+    <article className={`rounded-xl border bg-white shadow-sm ${phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200"}`}>
       <div className="border-b border-slate-100 p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -83,12 +85,12 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
         </div>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-3">
+      <div className="space-y-2 p-3">
         {(ticket.items || []).map((item) => (
           <KitchenItem
             key={item.index}
             item={item}
-            canUpdate={canUpdate}
+            canUpdate={canUpdate && phase !== "COMPLETED"}
             onStatusChange={(itemIndex, kitchenStatus) =>
               onItemStatusChange?.(ticket.orderId, itemIndex, kitchenStatus)
             }
@@ -96,11 +98,11 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
         ))}
       </div>
 
-      {canUpdate && (
+      {canTakeBulkAction && (
         <div className="border-t border-slate-100 p-3">
           {phase === "NEW" && (
             <button
-              onClick={onBulkStart}
+              onClick={() => onBulkStart?.(ticket.orderId)}
               className="w-full rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100"
             >
               Start All
@@ -108,7 +110,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
           )}
           {phase === "PREPARING" && (
             <button
-              onClick={onBulkReady}
+              onClick={() => onBulkReady?.(ticket.orderId)}
               className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
             >
               Ready All
@@ -116,7 +118,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
           )}
           {phase === "READY" && canComplete && (
             <button
-              onClick={onBulkComplete}
+              onClick={() => onBulkComplete?.(ticket.orderId)}
               className="w-full rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100"
             >
               Complete
@@ -124,8 +126,8 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 };
 
-export default KotCard;
+export default memo(KotCard);
