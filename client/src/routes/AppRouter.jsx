@@ -217,6 +217,14 @@ const AppRouter = () => (
       path="/dashboard/service/tables/:id"
       element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
     />
+    <Route
+      path="/dashboard/mobile-pos"
+      element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
+    />
+    <Route
+      path="/dashboard/mobile-pos/tables/:id"
+      element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
+    />
 
     <Route
       path="/dashboard/admin/kitchen"
