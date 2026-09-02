@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { FiUsers } from "react-icons/fi";
 import EmptyState from "../../components/common/EmptyState";
@@ -7,9 +7,7 @@ import RequestState from "../../components/common/RequestState";
 import TablePagination from "../../components/common/TablePagination";
 import { useSelector } from "react-redux";
 import { useSocket } from "../../context/SocketContext";
-import StatCard from "../../components/admin/StatCard";
 import StaffStats from "../../components/admin/staff/StaffStats";
-import StaffCommandCenter from "../../components/admin/staff/StaffCommandCenter";
 import StaffToolbar from "../../components/admin/staff/StaffToolbar";
 import StaffTable from "../../components/admin/staff/StaffTable";
 import StaffCard from "../../components/admin/staff/StaffCard";
@@ -216,15 +214,6 @@ const StaffManagement = () => {
     }
   };
 
-  const cards = useMemo(() => [
-    { key: "totalStaff", label: "Total Staff", value: stats?.totalStaff || 0 },
-    { key: "activeStaff", label: "Active Staff", value: stats?.activeStaff || 0 },
-    { key: "inactiveStaff", label: "Inactive Staff", value: stats?.inactiveStaff || 0 },
-    { key: "chefs", label: "Chefs", value: stats?.chefs || 0 },
-    { key: "waiters", label: "Waiters", value: stats?.waiters || 0 },
-    { key: "deliveryStaff", label: "Delivery Staff", value: stats?.deliveryStaff || 0 },
-  ], [stats]);
-
   const canDelete = currentUser?.role === "admin";
   const emptyTitle = filters.search ? "No staff members match your search" : "No staff members yet";
   const emptyDescription = filters.search
@@ -232,17 +221,15 @@ const StaffManagement = () => {
     : "Add chefs, waiters, managers and delivery staff to manage your restaurant.";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 sm:space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Staff Command Center</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage staff records while monitoring live shifts, assignments and operational workload.</p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Staff</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage restaurant team records, roles, current status, and operational departments.</p>
         </div>
       </div>
 
       <StaffStats stats={stats} loading={loadingStats} />
-
-      <StaffCommandCenter />
 
       <StaffToolbar filters={filters} onChange={updateFilters} onCreate={openCreate} />
 
@@ -320,15 +307,15 @@ const StaffManagement = () => {
       />
 
       {statusTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">Update Staff Status</h3>
+        <div className="ui-modal-backdrop" role="presentation">
+          <div className="ui-modal max-w-md" role="dialog" aria-modal="true" aria-labelledby="staff-status-title">
+            <h3 id="staff-status-title" className="text-lg font-semibold text-slate-900">Update Staff Status</h3>
             <p className="mt-1 text-sm text-slate-500">{statusTarget.fullName}</p>
             <p className="mt-2 text-sm text-slate-600">Are you sure you want to {String(statusTarget.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "deactivate" : "reactivate"} this staff member?</p>
 
             <div className="mt-4 flex justify-end gap-3">
-              <button onClick={() => setStatusTarget(null)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm">Cancel</button>
-              <button onClick={submitStatus} disabled={saving} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-70">{saving ? "Saving..." : String(statusTarget.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "Deactivate" : "Reactivate"}</button>
+              <button onClick={() => setStatusTarget(null)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm">Cancel</button>
+              <button onClick={submitStatus} disabled={saving} className="min-h-11 rounded-xl bg-brand-700 px-4 text-sm text-white disabled:opacity-70">{saving ? "Saving..." : String(statusTarget.status || "ACTIVE").toUpperCase() === "ACTIVE" ? "Deactivate" : "Reactivate"}</button>
             </div>
           </div>
         </div>

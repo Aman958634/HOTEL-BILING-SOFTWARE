@@ -4,25 +4,25 @@ import StaffStatusBadge from "./StaffStatusBadge";
 
 const StaffCard = ({ staff, onView, onEdit, onStatus, onDelete, canDelete }) => {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+    <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-lg font-bold text-slate-700">
             {staff.profilePhoto ? <img src={staff.profilePhoto} alt={staff.fullName} className="h-full w-full object-cover" /> : staff.fullName?.slice(0, 1) || "S"}
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">{staff.fullName}</h3>
+          <div className="min-w-0">
+            <h3 className="break-words text-base font-semibold text-slate-900">{staff.fullName}</h3>
             <p className="text-xs text-slate-500">{staff.employeeId}</p>
           </div>
         </div>
         <StaffStatusBadge status={staff.status} />
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-2"><RoleBadge role={staff.role} /><span className="ops-status-badge bg-slate-100 text-slate-700">{staff.department || "No department"}</span></div>
       <div className="mt-3 space-y-1.5 text-sm text-slate-600">
-        <p className="flex items-center gap-2"><FiPhone /> {staff.phone}</p>
-        <p className="flex items-center gap-2"><FiMail /> {staff.email || "Not available"}</p>
+        <p className="flex min-w-0 items-center gap-2"><FiPhone className="shrink-0" /> <span className="break-all">{staff.phone}</span></p>
+        <p className="flex min-w-0 items-center gap-2"><FiMail className="shrink-0" /> <span className="break-all">{staff.email || "Not available"}</span></p>
         <p className="flex items-center gap-2"><FiCalendar /> Joined {staff.joiningDateLabel}</p>
-        <div className="pt-1"><RoleBadge role={staff.role} /></div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
