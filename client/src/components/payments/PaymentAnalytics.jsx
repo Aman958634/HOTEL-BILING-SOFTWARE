@@ -4,15 +4,15 @@ import { formatCurrency, formatPaymentDay, paymentMethodLabel, paymentStatusLabe
 const COLORS = ["#0f766e", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6"];
 
 const Panel = ({ title, children }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
     <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-    <div className="mt-3 h-72">{children}</div>
+    <div className="mt-3 h-52 sm:h-64">{children}</div>
   </div>
 );
 
 const PaymentAnalytics = ({ stats, loading }) => {
   if (loading) {
-    return <div className="h-96 animate-pulse rounded-2xl bg-slate-100" />;
+    return <div className="h-52 animate-pulse rounded-2xl bg-slate-100 sm:h-64" />;
   }
 
   const revenueByDay = (stats?.revenueByDay || []).map((item) => ({ ...item, label: formatPaymentDay(item.label) }));
@@ -20,7 +20,7 @@ const PaymentAnalytics = ({ stats, loading }) => {
   const statusData = (stats?.paymentStatusBreakdown || []).map((item) => ({ ...item, label: paymentStatusLabel(item.status) }));
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-bold text-slate-900">Payment Analytics</h3>

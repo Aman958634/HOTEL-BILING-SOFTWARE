@@ -4,7 +4,7 @@ import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasse
 import { formatPaymentId } from "../../utils/paymentId";
 
 const Section = ({ title, children }) => (
-  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+  <section className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:rounded-2xl sm:p-4">
     <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-600">{title}</h4>
     <div className="mt-3 space-y-2 text-sm text-slate-700">{children}</div>
   </section>
@@ -42,7 +42,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 id="payment-details-title" className="text-xl font-bold text-slate-900">Payment Details</h3>
-            <p className="text-sm text-slate-500">Comprehensive payment, order and refund information.</p>
+            <p className="text-sm text-slate-500">Payment amount, settlement reference, order context, and refund history.</p>
           </div>
           <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Close</button>
         </div>
@@ -51,11 +51,11 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
           <div className="mt-4 h-72 animate-pulse rounded-2xl bg-slate-100" />
         ) : payment ? (
           <div className="mt-4 space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-slate-500">Payment ID</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
+                  <p className="break-all font-mono text-lg font-bold text-slate-900 sm:text-2xl">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
                   <p className="mt-1 text-sm text-slate-500">Order #{order?.orderNumber || payment.orderIdValue}</p>
                 </div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${paymentBadgeClasses(payment.paymentStatus)}`}>
@@ -64,16 +64,18 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               </div>
             </div>
 
+            <section className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Payment</p><strong className="mt-1 block text-sm text-slate-900">{formatCurrency(getPaymentAmount(payment))}</strong></div><div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order total</p><strong className="mt-1 block text-sm text-slate-900">{formatCurrency(order?.total)}</strong></div><div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Refunded</p><strong className="mt-1 block text-sm text-violet-700">{formatCurrency(payment.refundAmount || 0)}</strong></div></section>
+
             <div className="grid gap-4 lg:grid-cols-2">
               <Section title="Payment Information">
                 <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-                <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
+                <p className="break-all"><strong>Transaction ID:</strong> <span className="font-mono text-xs">{payment.transactionId || payment.razorpayPaymentId || "-"}</span></p>
                 <p><strong>Order ID:</strong> {order?.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Payment Date:</strong> {formatPaymentDate(payment.createdAt)}</p>
                 <p><strong>Payment Status:</strong> {paymentStatusLabel(payment.paymentStatus)}</p>
                 <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
                 <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</p>
-                <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
+                <p><strong>Recorded amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
                 <p><strong>Reconciliation:</strong> {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p>
               </Section>
 
@@ -140,16 +142,16 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
             </Section>
 
             <div className="flex flex-wrap justify-end gap-2">
-              <button onClick={() => onReceipt(payment)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
+              <button onClick={() => onReceipt(payment)} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
                 <FiFileText className="inline-block -translate-y-px" /> View Receipt
               </button>
               {canRefundPayment(payment) ? (
-                <button onClick={() => onRefund(payment)} className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700">
+                <button onClick={() => onRefund(payment)} className="min-h-11 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700">
                   Refund
                 </button>
               ) : null}
               {payment.bill && payment.paymentStatus === "PAID" && payment.reconciliationStatus !== "RECONCILED" ? (
-                <button onClick={() => onReconcile(payment)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                <button onClick={() => onReconcile(payment)} className="min-h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700">
                   <FiCheckCircle className="inline-block -translate-y-px" /> Reconcile payment
                 </button>
               ) : null}

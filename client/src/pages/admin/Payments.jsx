@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { FiAlertTriangle, FiFilter, FiRefreshCw } from "react-icons/fi";
 import PaymentStats from "../../components/payments/PaymentStats";
 import AdvancedBillingWorkspace from "../../components/payments/AdvancedBillingWorkspace";
 import ReconciliationWorkspace from "../../components/payments/ReconciliationWorkspace";
@@ -7,6 +8,7 @@ import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
 import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment } from "../../services/paymentService";
+import { formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
 
 const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
 const PaymentDetailsDrawer = lazy(() => import("../../components/payments/PaymentDetailsDrawer"));
@@ -312,6 +314,11 @@ const Payments = () => {
   const retry = () => loadPayments(filtersRef.current);
 
   const tableContent = payments;
+  const attentionPayments = payments.filter((payment) => {
+    const status = String(payment.paymentStatus || "").toUpperCase();
+    const reconciliation = String(payment.reconciliationStatus || "UNRECONCILED").toUpperCase();
+    return ["PENDING", "PROCESSING", "FAILED", "PARTIALLY_REFUNDED"].includes(status) || reconciliation !== "RECONCILED";
+  }).slice(0, 4);
 
   const analyticsRef = useRef(null);
   const [analyticsVisible, setAnalyticsVisible] = useState(false);
@@ -338,27 +345,26 @@ const Payments = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Payments</h2>
-          <p className="mt-1 text-sm text-slate-500">Track transactions, payment status, refunds and revenue.</p>
+          <p className="mt-1 text-sm text-slate-500">Review payment health, exceptions, bills and reconciliation activity.</p>
         </div>
-      </div>
-
-      <div className="hidden lg:block">
-        <PaymentFilters
-          filters={filters}
-          onChange={updateFilters}
-          onExport={exportFilteredPayments}
-          onReset={() => setFilters(defaultFilters)}
-        />
+        <div className="flex w-full gap-2 sm:w-auto">
+          <button type="button" onClick={refreshPaymentWorkspace} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 sm:flex-none"><FiRefreshCw aria-hidden="true" />Refresh</button>
+          <button type="button" onClick={() => setMobileFiltersOpen(true)} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 lg:hidden"><FiFilter aria-hidden="true" />Filters</button>
+        </div>
       </div>
 
       <PaymentStats stats={stats} loading={loadingStats} />
 
-      <AdvancedBillingWorkspace onPaymentRecorded={refreshPaymentWorkspace} />
+      {!loadingPayments && attentionPayments.length ? <section className="ops-card p-3 sm:p-4" aria-labelledby="payment-attention-title">
+        <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 id="payment-attention-title" className="flex items-center gap-2 text-base font-bold text-slate-900"><FiAlertTriangle className="text-amber-500" aria-hidden="true" />Needs attention</h3><p className="mt-0.5 text-xs text-slate-500">Current ledger entries with an unresolved payment or reconciliation status.</p></div><span className="text-xs font-semibold text-slate-500">{attentionPayments.length} shown</span></div>
+        <div className="mt-3 grid gap-2 lg:grid-cols-2">{attentionPayments.map((payment) => <button type="button" key={payment._id || payment.paymentId} onClick={() => openDetails(payment)} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:bg-slate-100"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{payment.paymentIdDisplay || payment.paymentId}</p><p className="mt-0.5 truncate text-xs text-slate-600">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "No bill reference")} · {paymentMethodLabel(payment.paymentMethod)}</p><p className="mt-1 text-xs font-medium text-slate-600">{paymentStatusLabel(payment.paymentStatus)} · {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p></div><strong className="shrink-0 text-base text-slate-900">{formatCurrency(getPaymentAmount(payment))}</strong></button>)}</div>
+      </section> : null}
 
-      <ReconciliationWorkspace refreshVersion={reconciliationRefreshVersion} />
+      <div className="hidden lg:block"><PaymentFilters filters={filters} onChange={updateFilters} onExport={exportFilteredPayments} onReset={() => setFilters(defaultFilters)} /></div>
+
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">
@@ -369,7 +375,7 @@ const Payments = () => {
           </button>
         </div>
       ) : (
-        <div>
+        <section aria-labelledby="payment-ledger-title"><div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h3 id="payment-ledger-title" className="text-base font-bold text-slate-900">Payment ledger</h3><p className="mt-0.5 text-xs text-slate-500">Status, method, reference, and reconciliation are retained for each transaction.</p></div><span className="text-xs text-slate-500">{meta.total || 0} transaction{meta.total === 1 ? "" : "s"}</span></div>
           <PaymentTable
             payments={tableContent}
             loading={loadingPayments}
@@ -381,8 +387,12 @@ const Payments = () => {
             onDelete={setDeleteTarget}
             onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
           />
-        </div>
+        </section>
       )}
+
+      <AdvancedBillingWorkspace onPaymentRecorded={refreshPaymentWorkspace} />
+
+      <ReconciliationWorkspace refreshVersion={reconciliationRefreshVersion} />
 
       <div ref={analyticsRef} className="min-h-[13rem] sm:min-h-[24rem]">
         {analyticsVisible ? (

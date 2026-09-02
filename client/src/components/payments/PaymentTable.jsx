@@ -19,16 +19,16 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
   );
 };
 
+const StatusBadge = ({ payment }) => <span className={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentBadgeClasses(payment.paymentStatus)}`}>{paymentStatusLabel(payment.paymentStatus)}</span>;
+
 const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
-  <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+  <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-        <p className="mt-1 text-xs text-slate-500">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "No bill reference")}</p>
+        <p className="break-all font-mono text-sm font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
+        <p className="mt-1 break-words text-xs text-slate-500">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "No bill reference")}</p>
       </div>
-      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClasses(payment.paymentStatus)}`}>
-        {paymentStatusLabel(payment.paymentStatus)}
-      </span>
+      <StatusBadge payment={payment} />
     </div>
 
     <div className="mt-3 flex items-end justify-between gap-3">
@@ -38,6 +38,8 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
       </div>
       <p className="shrink-0 text-lg font-bold tracking-tight text-slate-900">{formatCurrency(getPaymentAmount(payment))}</p>
     </div>
+
+    <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs"><span className="min-w-0 text-slate-500">Reconciliation<br /><strong className="break-words text-slate-800">{(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</strong></span><span className="min-w-0 text-right text-slate-500">Reference<br /><strong className="break-all font-mono text-slate-800">{payment.transactionId || payment.razorpayPaymentId || "—"}</strong></span></div>
 
     <div className="mt-3 flex flex-wrap gap-2">
       <ActionButton onClick={() => onView(payment)} tone="primary"><FiEye /> View</ActionButton>
@@ -62,18 +64,16 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
   return (
     <div className="space-y-4">
       <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
-        <table className="min-w-full text-sm">
+        <table className="min-w-[820px] w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <th className="px-4 py-3">Payment ID</th>
               <th className="px-4 py-3">Order / Bill</th>
-              <th className="px-4 py-3">Customer</th>
-              <th className="px-4 py-3">Table</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Method</th>
-              <th className="px-4 py-3">Gateway</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Reconciliation</th>
+              <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Date &amp; Time</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -81,19 +81,13 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
           <tbody>
             {payments.map((payment) => (
               <tr key={payment._id || payment.paymentId} className="border-b border-slate-100 text-slate-700 last:border-0">
-                <td className="px-4 py-3 font-medium text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</td>
+                <td className="max-w-[10rem] break-all px-4 py-3 font-mono text-xs font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</td>
                 <td className="px-4 py-3">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "-")}</td>
-                <td className="px-4 py-3">{payment.customerName || "Guest"}</td>
-                <td className="px-4 py-3">{payment.tableNumber ? `Table ${payment.tableNumber}` : "-"}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(getPaymentAmount(payment))}</td>
                 <td className="px-4 py-3">{paymentMethodLabel(payment.paymentMethod)}</td>
-                <td className="px-4 py-3">{payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClasses(payment.paymentStatus)}`}>
-                    {paymentStatusLabel(payment.paymentStatus)}
-                  </span>
-                </td>
+                <td className="px-4 py-3"><StatusBadge payment={payment} /></td>
                 <td className="px-4 py-3 text-xs font-medium text-slate-600">{(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</td>
+                <td className="max-w-[12rem] break-all px-4 py-3 font-mono text-xs text-slate-600">{payment.transactionId || payment.razorpayPaymentId || "—"}</td>
                 <td className="px-4 py-3">{formatPaymentDate(payment.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
