@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { addToCart, setPublicMenuContext } from "../../redux/slices/cartSlice";
 import { getPublicMenu } from "../../services/menuService";
 import { currency } from "../../utils/format";
 
 const MenuPage = () => {
   const dispatch = useDispatch();
+  const cartItems = useSelector((state) => state.cart.items);
+  const publicMenuContext = useSelector((state) => state.cart.publicMenuContext);
   const [searchParams] = useSearchParams();
   const [foods, setFoods] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -59,6 +61,8 @@ const MenuPage = () => {
   }, [fetchMenu]);
 
   const availableFoods = useMemo(() => foods || [], [foods]);
+  const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const cartTotal = cartItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
 
   const handleAddToCart = (food) => {
     dispatch(addToCart(food));
@@ -68,8 +72,9 @@ const MenuPage = () => {
   return (
     <div className="space-y-6">
       {qrToken && (
-        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4 text-sm font-medium text-brand-800">
-          You are ordering through a verified table QR code (Dine-In).
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800 sm:p-4">
+          <p className="font-semibold">Verified table ordering</p>
+          <p className="mt-1">{publicMenuContext?.restaurantName || "Restaurant menu"}{publicMenuContext?.outletName ? ` · ${publicMenuContext.outletName}` : ""}{publicMenuContext?.tableNumber ? ` · Table ${publicMenuContext.tableNumber}` : ""}</p>
         </div>
       )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -136,15 +141,15 @@ const MenuPage = () => {
           <p className="mt-2 text-sm text-slate-500">Please check back soon for our latest dishes.</p>
         </div>
       ) : (
-        <div className="grid justify-center gap-1 sm:grid-cols-3 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {availableFoods.map((food) => {
             const statusLabel = food.status || "Popular";
             const isVeg = food.isVeg !== false;
 
             return (
-              <article key={food._id} className="group flex h-full min-h-[400px] w-full max-w-[300px] flex-col overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md">
+              <article key={food._id} className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
                 <div className="relative overflow-hidden rounded-t-[18px] bg-slate-100">
-                  <div className="relative h-[240px] overflow-hidden">
+                  <div className="relative h-40 overflow-hidden sm:h-44">
                     {food.image ? (
                       <img
                         src={food.image}
@@ -161,21 +166,12 @@ const MenuPage = () => {
                   <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-[#E8F7F1] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#087F70] shadow-sm shadow-slate-200">
                     {isVeg ? "Veg" : "Non-Veg"}
                   </div>
-                  <button
-                    type="button"
-                    className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-sm shadow-slate-200 transition duration-200 hover:bg-white"
-                    aria-label="Favorite"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                    </svg>
-                  </button>
                 </div>
 
-                <div className="flex flex-1 flex-col gap-3 p-5">
+                <div className="flex flex-1 flex-col gap-3 p-4">
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-[20px] font-bold tracking-tight text-[#14213D]">{food.name}</h3>
+                      <h3 className="break-words text-lg font-bold tracking-tight text-[#14213D]">{food.name}</h3>
                       <span className="inline-flex items-center rounded-full bg-[#E8F7F1] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#087F70] shadow-sm">
                         {statusLabel}
                       </span>
@@ -192,7 +188,7 @@ const MenuPage = () => {
                       type="button"
                       disabled={!food.isAvailable}
                       onClick={() => handleAddToCart(food)}
-                      className="inline-flex h-11 w-[140px] items-center justify-center gap-2 rounded-[12px] bg-[#087F70] px-4 text-sm font-semibold text-white transition duration-200 hover:bg-[#066359] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#087F70] px-3 text-sm font-semibold text-white transition duration-200 hover:bg-[#066359] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                     >
                       <svg viewBox="0 0 24 24" className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M6 6h15l-1.5 9h-12z" />
@@ -208,6 +204,7 @@ const MenuPage = () => {
           })}
         </div>
       )}
+      {cartCount > 0 ? <div className="sticky bottom-3 z-20"><Link to={`/cart${qrToken ? `?qr=${encodeURIComponent(qrToken)}` : ""}`} className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-lg shadow-brand-900/20"><span>{cartCount} {cartCount === 1 ? "item" : "items"} in cart</span><span>{currency(cartTotal)} · View cart</span></Link></div> : null}
     </div>
   );
 };

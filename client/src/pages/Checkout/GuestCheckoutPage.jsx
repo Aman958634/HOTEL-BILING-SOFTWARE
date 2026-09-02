@@ -16,6 +16,7 @@ const GuestCheckoutPage = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState(null);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = Math.round(subtotal * 0.05);
@@ -46,15 +47,29 @@ const GuestCheckoutPage = () => {
         specialInstructions: name ? `Guest: ${name}${phone ? `, Phone: ${phone}` : ""}` : "",
       };
 
-      await createGuestOrder(payload);
+      const { data } = await createGuestOrder(payload);
+      setPlacedOrder(data?.data || null);
       dispatch(clearCart());
       toast.success("Order placed successfully");
-    } catch {
-      toast.error("Order failed. Please try again.");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Order failed. Please try again.");
     } finally {
       setPlacing(false);
     }
   };
+
+  if (placedOrder) {
+    return (
+      <div className="mx-auto max-w-xl space-y-4">
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900 shadow-sm">
+          <p className="text-lg font-bold">Order received</p>
+          <p className="mt-1 text-sm text-emerald-800">Your order has been submitted for Table {tableNumber || "your table"}.</p>
+          {placedOrder.orderNumber ? <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-sm font-semibold">Order #{placedOrder.orderNumber}</p> : null}
+          {placedOrder.status ? <p className="mt-2 text-sm">Current status: {String(placedOrder.status).replaceAll("_", " ")}</p> : null}
+        </section>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -66,9 +81,9 @@ const GuestCheckoutPage = () => {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Checkout</h2>
+    <div className="mx-auto max-w-xl space-y-4 pb-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Review order</h2>
         {tableNumber && (
           <p className="mt-1 text-sm text-brand-700">
             Table: <span className="font-bold">{tableNumber}</span> (Dine-In)
@@ -77,6 +92,7 @@ const GuestCheckoutPage = () => {
       </div>
 
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between text-sm text-slate-600"><span>Items</span><span>{items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</span></div>
         <div className="flex items-center justify-between text-sm text-slate-600">
           <span>Subtotal</span>
           <span>{currency(subtotal)}</span>
@@ -92,7 +108,7 @@ const GuestCheckoutPage = () => {
       </div>
 
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-900">Your Details (Optional)</h3>
+        <h3 className="text-lg font-semibold text-slate-900">Your details (optional)</h3>
         <input
           type="text"
           value={name}
@@ -112,7 +128,7 @@ const GuestCheckoutPage = () => {
       <button
         onClick={onPlaceOrder}
         disabled={placing}
-        className="w-full rounded-xl bg-brand-700 px-5 py-3 text-base font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="min-h-12 w-full rounded-xl bg-brand-700 px-5 py-3 text-base font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {placing ? "Placing Order..." : `Place Order — ${currency(total)}`}
       </button>
