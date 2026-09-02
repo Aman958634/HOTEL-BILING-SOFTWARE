@@ -70,6 +70,7 @@ const KitchenDisplay = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [connected, setConnected] = useState(false);
   const [pendingItemTransitions, setPendingItemTransitions] = useState({});
+  const [pendingTicketActions, setPendingTicketActions] = useState({});
 
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -84,6 +85,7 @@ const KitchenDisplay = () => {
   const audioRef = useRef(null);
   const socketRefreshRef = useRef(null);
   const itemTransitionLocksRef = useRef(new Set());
+  const ticketActionLocksRef = useRef(new Set());
 
   // Guards to prevent overlapping polling requests and honour 429 backoff.
   const inFlightRef = useRef(false);
@@ -320,7 +322,28 @@ const KitchenDisplay = () => {
     }
   }, [tickets]);
 
+  const beginTicketAction = useCallback((orderId, action) => {
+    const key = `${orderId}:${action}`;
+    if (ticketActionLocksRef.current.has(key)) return null;
+    ticketActionLocksRef.current.add(key);
+    setPendingTicketActions((current) => ({ ...current, [String(orderId)]: action }));
+    return key;
+  }, []);
+
+  const endTicketAction = useCallback((orderId, key) => {
+    if (!key) return;
+    ticketActionLocksRef.current.delete(key);
+    setPendingTicketActions((current) => {
+      if (!current[String(orderId)]) return current;
+      const next = { ...current };
+      delete next[String(orderId)];
+      return next;
+    });
+  }, []);
+
   const handleBulkStart = useCallback(async (orderId) => {
+    const key = beginTicketAction(orderId, "start");
+    if (!key) return;
     try {
       const { data } = await bulkStartKitchenItems(orderId);
       setTickets((previous) => mergeKitchenTicket(previous, data.data));
@@ -328,10 +351,12 @@ const KitchenDisplay = () => {
       const message = err?.response?.data?.message || "Unable to start kitchen items";
       toast.error(message);
       refreshAll();
-    }
-  }, [refreshAll]);
+    } finally { endTicketAction(orderId, key); }
+  }, [beginTicketAction, endTicketAction, refreshAll]);
 
   const handleBulkReady = useCallback(async (orderId) => {
+    const key = beginTicketAction(orderId, "ready");
+    if (!key) return;
     try {
       const { data } = await bulkReadyKitchenItems(orderId);
       setTickets((previous) => mergeKitchenTicket(previous, data.data));
@@ -339,18 +364,20 @@ const KitchenDisplay = () => {
       const message = err?.response?.data?.message || "Unable to mark items ready";
       toast.error(message);
       refreshAll();
-    }
-  }, [refreshAll]);
+    } finally { endTicketAction(orderId, key); }
+  }, [beginTicketAction, endTicketAction, refreshAll]);
 
   const handleBulkComplete = useCallback(async (orderId) => {
+    const key = beginTicketAction(orderId, "complete");
+    if (!key) return;
     try {
       const { data } = await bulkServeKitchenItems(orderId);
       setTickets((previous) => mergeKitchenTicket(previous, data.data));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to complete kitchen items");
       refreshAll();
-    }
-  }, [refreshAll]);
+    } finally { endTicketAction(orderId, key); }
+  }, [beginTicketAction, endTicketAction, refreshAll]);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -398,8 +425,8 @@ const KitchenDisplay = () => {
         onToggleSound={() => setSoundMuted((m) => !m)}
       />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
-        <div className="flex flex-wrap gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-3.5">
+        <div className="ops-scroll-tabs" aria-label="Kitchen filters">
           {filterChips.map((c) => (
             <button
               key={c.key}
@@ -430,7 +457,7 @@ const KitchenDisplay = () => {
           </select>
         )}
 
-        <div className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:w-auto">
+        <div className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:mt-0 sm:w-auto">
           <FiSearch className="text-slate-400" />
           <input
             value={searchInput}
@@ -442,7 +469,7 @@ const KitchenDisplay = () => {
 
         <button
           onClick={refreshAll}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:mt-0"
         >
           <FiRefreshCw className={loading ? "animate-spin" : ""} /> Refresh
         </button>
@@ -472,6 +499,7 @@ const KitchenDisplay = () => {
           onBulkReady={handleBulkReady}
           onBulkComplete={handleBulkComplete}
           pendingItemTransitions={pendingItemTransitions}
+          pendingTicketActions={pendingTicketActions}
           mobileStage={mobileStage}
           onMobileStageChange={setMobileStage}
         />

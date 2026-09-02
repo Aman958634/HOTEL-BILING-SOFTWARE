@@ -23,14 +23,7 @@ const waitSeverity = (mins, thresholds) => {
   return "normal";
 };
 
-const severityColor = {
-  normal: "text-slate-500",
-  warning: "text-amber-600",
-  delayed: "text-orange-600",
-  critical: "text-rose-600",
-};
-
-const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUpdate, canComplete, onBulkStart, onBulkReady, onBulkComplete, pendingItemTransitions = {} }) => {
+const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUpdate, canComplete, onBulkStart, onBulkReady, onBulkComplete, pendingItemTransitions = {}, pendingAction = "" }) => {
   const createdAt = new Date(ticket.createdAt).getTime();
   const mins = Math.max(0, Math.round((Date.now() - createdAt) / 60000));
   const sev = waitSeverity(mins, thresholds);
@@ -47,17 +40,17 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
   const canTakeBulkAction = canUpdate && ["NEW", "PREPARING", "READY"].includes(phase);
 
   return (
-    <article className={`rounded-xl border bg-white shadow-sm ${phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200"}`}>
+    <article className={`rounded-xl border bg-white shadow-sm ${sev === "critical" ? "border-rose-400 ring-2 ring-rose-100" : sev === "delayed" ? "border-orange-300 ring-1 ring-orange-100" : phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : phase === "COMPLETED" ? "border-slate-200 opacity-80" : "border-slate-200"}`}>
       <div className="border-b border-slate-100 p-2.5 sm:p-3">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-bold text-slate-900">#{ticket.orderNumber}</p>
-            <p className="text-xs text-slate-500">
-              {ticket.table?.tableNumber ? `Table ${ticket.table.tableNumber}` : ORDER_TYPE_LABEL[ticket.orderType] || ticket.orderType}
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">KOT #{ticket.orderNumber}</p>
+            <p className="mt-0.5 text-sm font-bold text-slate-900">
+              {ticket.table?.tableNumber ? `Table ${ticket.table.tableNumber}` : ORDER_TYPE_LABEL[ticket.orderType] || ticket.orderType || "Order"}
             </p>
           </div>
           <div className="text-right">
-            <span className={`inline-flex items-center gap-1 text-xs font-medium ${severityColor[sev]}`}>
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-bold ${sev === "critical" ? "border-rose-200 bg-rose-50 text-rose-700" : sev === "delayed" ? "border-orange-200 bg-orange-50 text-orange-700" : sev === "warning" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
               <FiClock /> {fmtDuration(mins)}
             </span>
             {sev === "delayed" || sev === "critical" ? (
@@ -86,7 +79,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
         </div>
       </div>
 
-      <div className="space-y-2 p-2.5 sm:p-3">
+      <div className="space-y-1.5 p-2.5 sm:p-3">
         {(ticket.items || []).map((item) => (
           <KitchenItem
             key={item.index}
@@ -105,25 +98,28 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
           {phase === "NEW" && (
             <button
               onClick={() => onBulkStart?.(ticket.orderId)}
-              className="w-full rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100"
+              disabled={Boolean(pendingAction)}
+              className="min-h-11 w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-wait disabled:opacity-60"
             >
-              Start All
+              {pendingAction ? "Starting…" : "Start"}
             </button>
           )}
           {phase === "PREPARING" && (
             <button
               onClick={() => onBulkReady?.(ticket.orderId)}
-              className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+              disabled={Boolean(pendingAction)}
+              className="min-h-11 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
             >
-              Ready All
+              {pendingAction ? "Marking ready…" : "Mark Ready"}
             </button>
           )}
           {phase === "READY" && canComplete && (
             <button
               onClick={() => onBulkComplete?.(ticket.orderId)}
-              className="w-full rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100"
+              disabled={Boolean(pendingAction)}
+              className="min-h-11 w-full rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-wait disabled:opacity-60"
             >
-              Complete
+              {pendingAction ? "Completing…" : "Complete"}
             </button>
           )}
         </div>
