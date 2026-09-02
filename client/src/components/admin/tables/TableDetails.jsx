@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TableStatusBadge from "./TableStatusBadge";
 import { getTableQr } from "../../../services/tableService";
+import { currency } from "../../../utils/format";
 
 const fmtDate = (value) => {
   if (!value) return "-";
@@ -19,6 +20,9 @@ const TableDetails = ({ open, loading, table, onClose }) => {
   const hasActiveOrder = table?.currentOrder && status === "OCCUPIED";
   const activeOrderCount = Number(table?.activeOrderCount || 0);
   const activeOrders = table?.activeOrders || [];
+  const visibleActiveOrders = activeOrders.length
+    ? activeOrders
+    : (typeof table?.currentOrder === "object" && table.currentOrder ? [table.currentOrder] : []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -37,8 +41,8 @@ const TableDetails = ({ open, loading, table, onClose }) => {
     navigate("/dashboard/admin/orders", { state: { tableId: table._id, fromTable: true } });
   };
 
-  const handleViewOrder = () => {
-    const orderId = table?.currentOrder?._id || table?.currentOrder;
+  const handleViewOrder = (order = table?.currentOrder) => {
+    const orderId = order?._id || order;
     if (orderId) {
       navigate("/dashboard/admin/orders", { state: { orderId, fromTable: true } });
     }
@@ -112,10 +116,11 @@ const TableDetails = ({ open, loading, table, onClose }) => {
             <div className="min-w-0 rounded-xl border border-slate-200 p-3 sm:p-4 md:col-span-2">
               <p className="text-xs uppercase tracking-wide text-slate-500">Current Order</p>
               {table.currentOrder ? (
-                <div className="mt-2 grid gap-2 text-sm text-slate-800 md:grid-cols-3">
-                  <p className="break-words"><strong>Order:</strong> {table.currentOrder.orderNumber || "-"}</p>
-                  <p><strong>Status:</strong> {table.currentOrder.status || "-"}</p>
-                  <p><strong>Total:</strong> {typeof table.currentOrder.total === "number" ? `Rs ${table.currentOrder.total}` : "-"}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-800">
+                  <p className="break-words font-semibold">{table.currentOrder.orderNumber ? `#${table.currentOrder.orderNumber}` : "Active order"}</p>
+                  {table.currentOrder.status ? <p>Order: {String(table.currentOrder.status).replaceAll("_", " ")}</p> : null}
+                  {typeof table.currentOrder.total === "number" ? <p className="font-semibold">{currency(table.currentOrder.total)}</p> : null}
+                  {(table.currentOrder.kitchenStatus || table.currentOrder.kotStatus) ? <p>Kitchen: {String(table.currentOrder.kitchenStatus || table.currentOrder.kotStatus).replaceAll("_", " ")}</p> : null}
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-slate-500">No active order.</p>
@@ -124,9 +129,9 @@ const TableDetails = ({ open, loading, table, onClose }) => {
 
             <div className="min-w-0 rounded-xl border border-slate-200 p-3 sm:p-4 md:col-span-2">
               <p className="text-xs uppercase tracking-wide text-slate-500">Active Orders ({activeOrderCount})</p>
-              {activeOrderCount > 0 ? (
+              {visibleActiveOrders.length ? (
                 <ul className="mt-2 space-y-1 text-sm text-slate-800">
-                  {activeOrders.map((order) => (
+                  {visibleActiveOrders.map((order) => (
                     <li key={order._id}>
                       <strong>{order.orderNumber || "-"}</strong> · {order.status || "-"}
                       {typeof order.total === "number" ? ` · Rs ${order.total}` : ""}

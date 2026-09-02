@@ -294,7 +294,7 @@ const TableManagement = () => {
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Tables</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage restaurant tables, availability, reservations and occupancy.</p>
+          <p className="mt-1 text-sm text-slate-500">Scan availability, occupied tables and their active order context.</p>
         </div>
         <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 sm:w-auto"><FiPlus className="h-4 w-4" aria-hidden="true" />Add Table</button>
       </div>

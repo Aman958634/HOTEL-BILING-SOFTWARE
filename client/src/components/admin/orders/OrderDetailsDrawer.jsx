@@ -5,6 +5,15 @@ import OrderTimeline from "./OrderTimeline";
 import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel } from "../../../utils/paymentUtils";
 import { formatPaymentId } from "../../../utils/paymentId";
 
+const elapsedTime = (value) => {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+};
+
 const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPrintReceipt }) => {
   useEffect(() => {
     if (!open) return undefined;
@@ -31,9 +40,19 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
         ) : order ? (
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border border-slate-200 p-4">
-              <p className="break-words text-sm font-semibold text-slate-900">#{order.orderNumber}</p>
-              <div className="mt-2"><OrderStatusBadge status={order.status} /></div>
-              <p className="mt-2 text-sm text-slate-600">{dateTime(order.createdAt)}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-lg font-semibold text-slate-900">#{order.orderNumber}</p>
+                  <p className="mt-1 text-sm text-slate-600">{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : order.customer?.fullName || "Guest"}</p>
+                </div>
+                <div className="shrink-0"><OrderStatusBadge status={order.status} /></div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                <span className="font-semibold text-slate-900">{currency(order.total)}</span>
+                {order.kitchenStatus ? <span>Kitchen: {String(order.kitchenStatus).replaceAll("_", " ")}</span> : null}
+                {elapsedTime(order.createdAt) ? <span>Open: {elapsedTime(order.createdAt)}</span> : null}
+                <span>{dateTime(order.createdAt)}</span>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -66,6 +85,7 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
                     <div className="min-w-0">
                       <p className="break-words font-medium text-slate-800">{item.name || item.menuItem?.name || "Item"}</p>
                       <p className="text-xs text-slate-500">{currency(item.price)} x {item.quantity}</p>
+                      {item.specialInstructions || item.notes ? <p className="mt-0.5 break-words text-xs text-slate-500">{item.specialInstructions || item.notes}</p> : null}
                     </div>
                     <p className="shrink-0 font-semibold text-slate-900">{currency(item.subtotal || item.price * item.quantity)}</p>
                   </div>

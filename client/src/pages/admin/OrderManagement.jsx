@@ -478,7 +478,7 @@ const OrderManagement = () => {
       <div className="ui-page-header">
         <div className="min-w-0">
           <h2 className="ui-page-title">Orders</h2>
-          <p className="ui-page-description">Manage restaurant orders, payments, tables and order status in real time.</p>
+          <p className="ui-page-description">Review live order status, table context, kitchen progress and payment state.</p>
         </div>
         <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 lg:hidden">
           <FiPlus className="h-4 w-4" aria-hidden="true" /> New Order
@@ -498,6 +498,7 @@ const OrderManagement = () => {
         loading={loadingOrders}
         error={ordersError}
         hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
+        onOpen={openDetails}
         onEdit={openEdit}
         onDelete={requestDelete}
       />
