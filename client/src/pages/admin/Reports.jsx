@@ -273,7 +273,8 @@ const Reports = () => {
         </div>
       </div>
 
-        <div className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="ops-filter-bar mt-4" aria-label="Report filters">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Range</label>
             <div className="relative">
@@ -327,7 +328,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Order Status</label>
             <select
@@ -379,6 +380,7 @@ const Reports = () => {
             </select>
           </div>
         </div>
+        </section>
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm">
@@ -416,7 +418,7 @@ const Reports = () => {
             <h3 className="text-lg font-semibold text-slate-900">Revenue Trend</h3>
             <p className="text-sm text-slate-500">{currency(revenue.totalRevenue || 0)}</p>
           </div>
-          <div className="mt-4 h-72">
+          <div className="mt-4 h-52 sm:h-64">
             {loading ? (
               <div className="h-full animate-pulse rounded-xl bg-slate-100" />
             ) : (
@@ -434,7 +436,7 @@ const Reports = () => {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Order Status Mix</h3>
-          <div className="mt-4 h-72">
+          <div className="mt-4 h-52 sm:h-64">
             {loading ? (
               <div className="h-full animate-pulse rounded-xl bg-slate-100" />
             ) : (
@@ -456,7 +458,7 @@ const Reports = () => {
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Payment Methods</h3>
-          <div className="mt-4 h-72">
+          <div className="mt-4 h-52 sm:h-64">
             {loading ? (
               <div className="h-full animate-pulse rounded-xl bg-slate-100" />
             ) : (
@@ -483,7 +485,7 @@ const Reports = () => {
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Customer Analytics</h3>
           {loading ? (
-            <div className="mt-4 h-72 animate-pulse rounded-xl bg-slate-100" />
+            <div className="mt-4 h-52 animate-pulse rounded-xl bg-slate-100 sm:h-64" />
           ) : (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

@@ -9,7 +9,7 @@ const SalesChart = ({ data, range, onRangeChange, loading, error, onRetry }) => 
         <FiBarChart2 className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
         <h3 id="sales-overview-title" className="truncate text-lg font-semibold text-slate-900">Sales Overview</h3>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2" aria-label="Sales range">
+      <div className="ops-scroll-tabs max-w-full" aria-label="Sales range">
         {["today", "7d", "30d", "year"].map((item) => (
           <button key={item} type="button" onClick={() => onRangeChange(item)} className={`min-h-10 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 ${range === item ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
             {item === "7d" ? "7 Days" : item === "30d" ? "30 Days" : item === "year" ? "This Year" : "Today"}
