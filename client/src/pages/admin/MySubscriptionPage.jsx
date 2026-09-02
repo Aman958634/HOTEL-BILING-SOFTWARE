@@ -35,10 +35,12 @@ const MySubscriptionPage = () => {
   const [subscription, setSubscription] = useState(null);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [pdfBusyId, setPdfBusyId] = useState("");
 
   const load = async () => {
     setLoading(true);
+    setError("");
     try {
       const [subRes, payRes] = await Promise.all([
         fetchMySubscription(),
@@ -47,7 +49,9 @@ const MySubscriptionPage = () => {
       setSubscription(subRes.data?.data || null);
       setPayments(payRes.data?.data || []);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Unable to load subscription");
+      const message = err?.response?.data?.message || "Unable to load subscription";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -59,8 +63,9 @@ const MySubscriptionPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+      <div className="space-y-4" aria-busy="true">
+        <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />
+        <div className="h-52 animate-pulse rounded-2xl bg-slate-100" />
       </div>
     );
   }
@@ -98,30 +103,32 @@ const MySubscriptionPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">My Subscription</h2>
           <p className="mt-1 text-sm text-slate-500">Your current plan, renewal, and payment history.</p>
         </div>
         <button
           type="button"
           onClick={load}
-          className="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+          className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-medium hover:bg-slate-50"
         >
           Refresh
         </button>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><p className="font-semibold">Unable to load subscription</p><p className="mt-1">{error}</p><button type="button" onClick={load} className="mt-3 min-h-10 rounded-xl border border-rose-200 bg-white px-3 text-sm font-semibold text-rose-700">Retry</button></div> : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         {!subscription ? (
           <p className="text-slate-600">No subscription found.</p>
         ) : (
           <>
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm uppercase tracking-wide text-slate-500">Current Plan</p>
                 <h3 className="mt-1 text-2xl font-bold text-slate-900">{planName}</h3>
-                <p className="mt-1 text-lg text-teal-800">
+                <p className="mt-1 text-lg font-semibold text-teal-800">
                   {subscription.status === "trial"
                     ? "Free trial"
                     : `${formatMoney(subscription.price)} / month`}
@@ -130,7 +137,9 @@ const MySubscriptionPage = () => {
               <SubscriptionStatusBadge status={subscription.status} />
             </div>
 
-            <div className="mt-6 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+            {subscription.status === "trial" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p className="font-semibold">Trial access</p><p className="mt-1">{subscription.daysRemainingLabel || "Trial in progress"}{subscription.trialEndAt ? ` · Ends ${formatDate(subscription.trialEndAt)}` : ""}</p></div> : null}
+            {subscription.status === "expired" ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><p className="font-semibold">Subscription expired</p><p className="mt-1">{subscription.renewalDate ? `Expired ${formatDate(subscription.renewalDate)}` : "Choose an available plan to continue."}</p></div> : null}
+            <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
               <p>
                 <span className="font-medium">Status:</span> {String(subscription.status || "").toUpperCase()}
               </p>
@@ -163,22 +172,6 @@ const MySubscriptionPage = () => {
                   Upgrade / Pay Now
                 </Link>
               )}
-              <button
-                type="button"
-                disabled
-                title="Not available"
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-400 bg-slate-50 cursor-not-allowed"
-              >
-                Change Plan
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Not available"
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-400 bg-slate-50 cursor-not-allowed"
-              >
-                Cancel Subscription
-              </button>
               <Link to="/pricing" className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                 View Pricing
               </Link>
@@ -187,11 +180,11 @@ const MySubscriptionPage = () => {
         )}
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3">
           <h3 className="font-semibold text-slate-900">Payment History</h3>
         </div>
-        <table className="subscription-history-table min-w-full text-left text-sm">
+        <div className="hidden overflow-x-auto md:block"><table className="subscription-history-table min-w-[760px] w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-4 py-3">Payment ID</th>
@@ -234,7 +227,8 @@ const MySubscriptionPage = () => {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
+        <div className="space-y-3 p-3 md:hidden">{payments.length === 0 ? <p className="p-5 text-center text-sm text-slate-500">No payments yet.</p> : payments.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-all font-mono text-xs text-slate-700">{p.paymentId || "—"}</p><p className="mt-1 font-semibold text-slate-900">{formatMoney(p.amount, p.currency)}</p></div><span className="shrink-0 text-xs font-semibold text-slate-700">{p.status}</span></div><p className="mt-2 text-xs text-slate-500">{planDisplayName(p.plan)} · {formatDate(p.paymentDate || p.paidAt || p.createdAt)}</p><button type="button" disabled={Boolean(pdfBusyId && pdfBusyId !== p.id)} onClick={() => downloadPdf(p)} className="mt-3 min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">{pdfBusyId === p.id ? "Downloading..." : "Download PDF"}</button></article>)}</div>
       </div>
     </div>
   );

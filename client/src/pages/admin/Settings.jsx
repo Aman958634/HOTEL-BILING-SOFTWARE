@@ -116,8 +116,9 @@ const Settings = () => {
         <p className="mt-1 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]" aria-busy={loading || saving}>
+        <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div><h3 className="text-lg font-semibold text-slate-900">Restaurant information</h3><p className="mt-1 text-sm text-slate-500">Business identity and customer-facing contact details.</p></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-700">
               <span>Restaurant Name</span>
@@ -238,7 +239,7 @@ const Settings = () => {
           </div>
         </div>
 
-        <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Operational Controls</h2>
             <div className="space-y-4">
@@ -260,7 +261,7 @@ const Settings = () => {
             </div>
           </div>
 
-          <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Preview</h2>
             <div className="space-y-3 text-sm text-slate-600">
               <p><strong>Name:</strong> {settings.name || "Not set"}</p>
@@ -274,7 +275,7 @@ const Settings = () => {
           <button
             type="submit"
             disabled={saving || loading}
-            className="w-full rounded-2xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
