@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { FiAlertTriangle, FiCheckCircle, FiClock, FiCoffee, FiCreditCard, FiGrid, FiLoader, FiRefreshCw, FiSearch, FiShoppingBag, FiTable, FiXCircle, FiWifi, FiWifiOff } from "react-icons/fi";
 import { useSocket } from "../../context/SocketContext";
+import { Link } from "react-router-dom";
 import { getCockpitOverview } from "../../services/cockpitService";
 import { getTables } from "../../services/tableService";
 import TableStatusBadge from "../../components/admin/tables/TableStatusBadge";
@@ -207,10 +208,12 @@ const ServiceCockpit = () => {
     (overview?.orders?.items || []).forEach((o) => {
       if (!o.table) return;
       const id = String(o.table._id || o.table);
-      if (!map[id]) map[id] = { count: 0, total: 0, oldest: o.createdAt, orders: [] };
+      if (!map[id]) map[id] = { count: 0, total: 0, oldest: o.createdAt, orders: [], preparing: 0, ready: 0 };
       map[id].count += 1;
       map[id].total += Number(o.total || 0);
       map[id].orders.push(o);
+      if (String(o.status).toUpperCase() === "PREPARING") map[id].preparing += 1;
+      if (String(o.status).toUpperCase() === "READY") map[id].ready += 1;
       if (new Date(o.createdAt) < new Date(map[id].oldest)) map[id].oldest = o.createdAt;
     });
     return map;
@@ -245,6 +248,24 @@ const ServiceCockpit = () => {
   const revenue = overview?.revenue;
 
   const serviceStatus = tablesSummary && tablesSummary.OCCUPIED > 0 ? "BUSY" : "OPEN";
+
+  const attentionItems = useMemo(() => {
+    const delayed = (kitchen?.items || [])
+      .filter((item) => Number(item.waitMinutes || 0) >= thresholds.delayed)
+      .slice(0, 2)
+      .map((item) => ({ key: `delayed-${item.orderId}`, kind: "Delayed", tone: "rose", orderId: item.orderId, title: `Order #${item.orderNumber}`, detail: `${item.table ? `Table ${item.table} · ` : ""}${fmtDuration(item.waitMinutes)}` }));
+    const ready = (overview?.orders?.items || [])
+      .filter((order) => String(order.status).toUpperCase() === "READY")
+      .slice(0, 2)
+      .map((order) => ({ key: `ready-${order._id}`, kind: "Ready", tone: "indigo", orderId: order._id, title: `Order #${order.orderNumber}`, detail: `${order.table?.tableNumber ? `Table ${order.table.tableNumber} · ` : ""}${(order.items || []).reduce((count, item) => count + Number(item.quantity || 1), 0)} items` }));
+    const pending = revenue?.pendingPayments ? [{ key: "pending-payment", kind: "Payment", tone: "amber", title: `${revenue.pendingPayments} payment${revenue.pendingPayments === 1 ? "" : "s"} pending`, detail: revenue?.unpaidAmount ? currency(revenue.unpaidAmount) : "Open payments" }] : [];
+    return [...delayed, ...ready, ...pending].slice(0, 4);
+  }, [kitchen?.items, overview?.orders?.items, revenue?.pendingPayments, revenue?.unpaidAmount, thresholds.delayed]);
+
+  const openCockpitOrder = useCallback((orderId) => {
+    const order = (overview?.orders?.items || []).find((item) => String(item._id) === String(orderId));
+    if (order) setSelectedOrder(order);
+  }, [overview]);
 
   const filterChips = [
     { key: "all", label: "All" },
@@ -296,19 +317,13 @@ const ServiceCockpit = () => {
       </div>
 
       {/* KPI bar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        <Kpi label="Tables" value={tablesSummary?.total ?? "-"} sub={`${tablesSummary?.AVAILABLE ?? 0} free · ${tablesSummary?.OCCUPIED ?? 0} busy`} icon={<FiGrid />} />
-        <Kpi label="Occupied" value={tablesSummary?.OCCUPIED ?? "-"} tone="rose" icon={<FiTable />} />
-        <Kpi label="Active Orders" value={ordersSummary?.active ?? "-"} tone="sky" icon={<FiShoppingBag />} />
-        <Kpi label="Preparing" value={ordersSummary?.byStatus?.PREPARING ?? 0} tone="violet" icon={<FiLoader />} />
-        <Kpi label="Ready" value={ordersSummary?.byStatus?.READY ?? 0} tone="indigo" icon={<FiCheckCircle />} />
-        <Kpi label="Delayed KOT" value={kitchen?.delayedKot ?? 0} tone={kitchen?.delayedKot ? "rose" : "slate"} icon={<FiAlertTriangle />} />
-        <Kpi label="Pending KOT" value={kitchen?.newKot ?? 0} tone="amber" icon={<FiCoffee />} />
-        <Kpi label="Today's Sales" value={revenue ? currency(revenue.todaySales) : "-"} tone="emerald" icon={<FiCreditCard />} />
-        <Kpi label="Unpaid Bills" value={revenue?.unpaidBills ?? "-"} sub={revenue ? currency(revenue.unpaidAmount) : ""} tone="amber" icon={<FiCreditCard />} />
-        <Kpi label="Payment Pending" value={revenue?.pendingPayments ?? "-"} tone="sky" icon={<FiClock />} />
-        <Kpi label="Completed" value={ordersSummary?.byStatus?.COMPLETED ?? 0} tone="emerald" icon={<FiCheckCircle />} />
-        <Kpi label="Served" value={ordersSummary?.byStatus?.SERVED ?? 0} tone="emerald" icon={<FiCheckCircle />} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <Kpi label="Tables" value={`${tablesSummary?.OCCUPIED ?? 0}/${tablesSummary?.total ?? 0}`} sub={`${tablesSummary?.AVAILABLE ?? 0} available`} icon={<FiGrid />} />
+        <Kpi label="Active" value={ordersSummary?.active ?? "-"} sub="orders" tone="sky" icon={<FiShoppingBag />} />
+        <Kpi label="Kitchen" value={kitchen?.preparingKot ?? 0} sub={`${kitchen?.readyKot ?? 0} ready`} tone="violet" icon={<FiLoader />} />
+        <Kpi label="Attention" value={kitchen?.delayedKot ?? 0} sub="delayed KOT" tone={kitchen?.delayedKot ? "rose" : "slate"} icon={<FiAlertTriangle />} />
+        <Kpi label="Bills" value={revenue?.unpaidBills ?? 0} sub={revenue?.unpaidAmount ? currency(revenue.unpaidAmount) : "none pending"} tone="amber" icon={<FiCreditCard />} />
+        <Kpi label="Ready" value={kitchen?.readyKot ?? 0} sub="for service" tone="indigo" icon={<FiCheckCircle />} />
       </div>
 
       {/* Filters + search */}
@@ -380,7 +395,7 @@ const ServiceCockpit = () => {
                       <span className="text-sm font-bold text-slate-900">Table {t.tableNumber}</span>
                       <TableStatusBadge status={t.status} />
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">{t.capacity} seats · {t.floor}/{t.section}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{t.capacity} seats · {t.floor}/{t.section}</p>
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <span className="text-slate-600">
                         {agg?.count ? `${agg.count} active` : "Free"}
@@ -390,6 +405,7 @@ const ServiceCockpit = () => {
                     {agg?.oldest ? (
                       <p className="mt-1 text-[11px] text-slate-400">Occupied {relativeTime(agg.oldest)}</p>
                     ) : null}
+                    {agg?.preparing || agg?.ready ? <p className="mt-1 text-[11px] font-medium text-slate-600">Kitchen: {agg.preparing ? `${agg.preparing} preparing` : ""}{agg.preparing && agg.ready ? " · " : ""}{agg.ready ? `${agg.ready} ready` : ""}</p> : null}
                   </button>
                 );
               })}
@@ -397,38 +413,18 @@ const ServiceCockpit = () => {
           )}
         </section>
 
-        {/* Activity feed */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-base font-semibold text-slate-900">Live Activity</h3>
-          {!overview ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100" />
-              ))}
-            </div>
-          ) : (overview.activity || []).length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-500">No recent activity.</p>
-          ) : (
-            <ul className="max-h-[420px] space-y-2 overflow-y-auto overscroll-contain pr-1">
-              {(overview.activity || []).map((a) => (
-                <li key={a.id} className="flex items-start gap-2 rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 text-xs">
-                  <span className={a.type === "payment" ? "text-emerald-600" : "text-sky-600"}>
-                    {a.type === "payment" ? <FiCreditCard /> : <FiShoppingBag />}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-slate-700">{a.text}</p>
-                    <p className="text-[11px] text-slate-400">{relativeTime(a.time)}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <aside className="space-y-3">
+          <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="flex items-center justify-between gap-2"><h3 className="text-base font-semibold text-slate-900">Attention needed</h3><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${attentionItems.length ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{attentionItems.length || "All clear"}</span></div>
+            {!overview ? <div className="mt-3 space-y-2">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-12 animate-pulse rounded-lg bg-slate-100" />)}</div> : attentionItems.length ? <div className="mt-3 space-y-2">{attentionItems.map((item) => <button type="button" key={item.key} onClick={() => item.orderId ? openCockpitOrder(item.orderId) : null} className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left ${item.tone === "rose" ? "border-rose-200 bg-rose-50" : item.tone === "indigo" ? "border-indigo-200 bg-indigo-50" : "border-amber-200 bg-amber-50"}`}><span className="min-w-0"><span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">{item.kind}</span><span className="block truncate text-sm font-semibold text-slate-900">{item.title}</span><span className="block truncate text-xs text-slate-600">{item.detail}</span></span>{item.orderId ? <FiClock className="shrink-0 text-slate-500" aria-hidden="true" /> : <FiCreditCard className="shrink-0 text-slate-500" aria-hidden="true" />}</button>)}</div> : <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-3 text-sm font-medium text-emerald-800">All operations on track.</p>}
+          </section>
+          <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4"><div className="flex items-center justify-between gap-2"><div><h3 className="text-base font-semibold text-slate-900">Kitchen snapshot</h3><p className="text-xs text-slate-500">Live production state</p></div><Link to="/dashboard/admin/kitchen" className="inline-flex min-h-10 items-center rounded-lg border border-brand-200 bg-brand-50 px-3 text-xs font-semibold text-brand-700">Open kitchen</Link></div><div className="mt-3 grid grid-cols-4 gap-2 text-center"><div><p className="text-[11px] text-slate-500">New</p><p className="font-bold text-slate-900">{kitchen?.newKot ?? 0}</p></div><div><p className="text-[11px] text-slate-500">Prep</p><p className="font-bold text-violet-700">{kitchen?.preparingKot ?? 0}</p></div><div><p className="text-[11px] text-slate-500">Ready</p><p className="font-bold text-indigo-700">{kitchen?.readyKot ?? 0}</p></div><div><p className="text-[11px] text-slate-500">Late</p><p className="font-bold text-rose-700">{kitchen?.delayedKot ?? 0}</p></div></div><div className="mt-3 flex flex-wrap gap-2"><Link to="/dashboard/admin/payments" className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">Payments</Link><Link to="/dashboard/admin/billing" className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">Billing</Link></div></section>
+        </aside>
       </div>
 
       {/* Order board */}
       <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
-        <h3 className="mb-3 text-base font-semibold text-slate-900">Order Board</h3>
+        <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-base font-semibold text-slate-900">Active orders</h3><span className="text-xs text-slate-500">Tap an order to open</span></div>
         {loading && !overview ? (
           <div className="grid gap-3 md:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -456,14 +452,14 @@ const ServiceCockpit = () => {
                           <button
                             key={o._id}
                             onClick={() => setSelectedOrder(o)}
-                            className="w-full rounded-lg border border-slate-200 bg-white p-2 text-left transition hover:border-brand-300 hover:shadow-sm"
+                            className={`w-full rounded-lg border bg-white p-2.5 text-left transition hover:border-brand-300 hover:shadow-sm ${sev === "critical" ? "border-rose-300" : sev === "delayed" ? "border-orange-200" : "border-slate-200"}`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-semibold text-slate-900">#{o.orderNumber}</span>
                               <OrderStatusBadge status={o.status} />
                             </div>
                             <p className="mt-1 text-xs text-slate-500">
-                              Table {o.table?.tableNumber || "-"} · {(o.items || []).reduce((s, i) => s + (i.quantity || 1), 0)} items
+                              {o.table?.tableNumber ? `Table ${o.table.tableNumber}` : o.orderType?.replaceAll("_", " ")} · {(o.items || []).reduce((s, i) => s + (i.quantity || 1), 0)} items
                             </p>
                             <div className="mt-1 flex items-center justify-between text-[11px]">
                               <span className={`inline-flex items-center gap-1 font-medium ${severityClass[sev]}`}>
@@ -471,6 +467,7 @@ const ServiceCockpit = () => {
                               </span>
                               <span className="text-slate-400">{relativeTime(o.createdAt)}</span>
                             </div>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">{currency(o.total)}</p>
                           </button>
                         );
                       })
