@@ -20,7 +20,7 @@ const DASHBOARD_ICON_MAP = {
   totalMenuItems: <FiBookOpen />,
 };
 
-const SalesChartSkeleton = () => <div className="h-56 animate-pulse rounded-2xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />;
+const SalesChartSkeleton = () => <div className="h-48 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />;
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -153,7 +153,7 @@ const AdminDashboard = () => {
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h2>
-          <p className="mt-1 text-sm text-slate-500">Overview of today&apos;s restaurant activity.</p>
+          <p className="mt-1 text-sm text-slate-500">Restaurant overview</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs text-slate-500 sm:inline">{todayLabel}</span>

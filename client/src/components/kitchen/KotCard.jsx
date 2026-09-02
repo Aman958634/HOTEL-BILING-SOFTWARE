@@ -48,7 +48,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
 
   return (
     <article className={`rounded-xl border bg-white shadow-sm ${phase === "NEW" ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200"}`}>
-      <div className="border-b border-slate-100 p-3">
+      <div className="border-b border-slate-100 p-2.5 sm:p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-bold text-slate-900">#{ticket.orderNumber}</p>
@@ -68,7 +68,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
           </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
           <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">
             {newCount} new
           </span>
@@ -86,7 +86,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
         </div>
       </div>
 
-      <div className="space-y-2 p-3">
+      <div className="space-y-2 p-2.5 sm:p-3">
         {(ticket.items || []).map((item) => (
           <KitchenItem
             key={item.index}
@@ -101,7 +101,7 @@ const KotCard = ({ ticket, thresholds, onStatusChange, onItemStatusChange, canUp
       </div>
 
       {canTakeBulkAction && (
-        <div className="border-t border-slate-100 p-3">
+        <div className="border-t border-slate-100 p-2.5 sm:p-3">
           {phase === "NEW" && (
             <button
               onClick={() => onBulkStart?.(ticket.orderId)}

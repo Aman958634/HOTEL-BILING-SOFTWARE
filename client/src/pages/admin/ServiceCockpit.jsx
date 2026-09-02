@@ -65,13 +65,13 @@ const Kpi = ({ label, value, sub, icon, tone = "slate" }) => {
     sky: "text-sky-600",
   };
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl sm:p-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-lg ${tones[tone]}`}>{icon}</span>
+        <span className={`flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-base ${tones[tone]}`}>{icon}</span>
       </div>
-      <p className={`mt-3 text-2xl font-bold tracking-tight ${tones[tone]}`}>{value}</p>
-      {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
+      <p className={`mt-2 text-xl font-bold tracking-tight sm:text-2xl ${tones[tone]}`}>{value}</p>
+      {sub ? <p className="mt-0.5 text-xs text-slate-500">{sub}</p> : null}
     </div>
   );
 };
@@ -257,11 +257,11 @@ const ServiceCockpit = () => {
   ];
 
   return (
-    <div className="space-y-5 pb-20">
+    <div className="space-y-4 pb-16 sm:space-y-5 sm:pb-20">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Live Service Cockpit</h2>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-3xl">Live Service Cockpit</h2>
           <p className="mt-1 text-sm text-slate-500">
             {user?.restaurantName || "Restaurant"} · {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} ·{" "}
             {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
@@ -312,8 +312,8 @@ const ServiceCockpit = () => {
       </div>
 
       {/* Filters + search */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
-        <div className="flex flex-wrap gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-3.5">
+        <div className="ops-scroll-tabs" aria-label="Cockpit filters">
           {filterChips.map((c) => (
             <button
               key={c.key}
@@ -326,7 +326,7 @@ const ServiceCockpit = () => {
             </button>
           ))}
         </div>
-        <div className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:w-auto">
+        <div className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-slate-300 px-3 py-1.5 sm:ml-auto sm:mt-0 sm:w-auto">
           <FiSearch className="text-slate-400" />
           <input
             value={searchInput}
@@ -348,9 +348,9 @@ const ServiceCockpit = () => {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Table map */}
-        <section className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-base font-semibold text-slate-900">Table Map</h3>
             <span className="text-xs text-slate-500">{visibleTables.length} tables</span>
@@ -372,7 +372,7 @@ const ServiceCockpit = () => {
                   <button
                     key={t._id}
                     onClick={() => setSelectedTable(t)}
-                    className={`min-h-32 rounded-2xl border p-3 text-left transition hover:-translate-y-px hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/25 ${
+                    className={`min-h-28 rounded-xl border p-3 text-left transition hover:-translate-y-px hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/25 ${
                       status === "OCCUPIED" ? "border-rose-200 bg-rose-50/40" : status === "RESERVED" ? "border-amber-200 bg-amber-50/40" : "border-slate-200 bg-white"
                     }`}
                   >
@@ -427,7 +427,7 @@ const ServiceCockpit = () => {
       </div>
 
       {/* Order board */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
         <h3 className="mb-3 text-base font-semibold text-slate-900">Order Board</h3>
         {loading && !overview ? (
           <div className="grid gap-3 md:grid-cols-5">

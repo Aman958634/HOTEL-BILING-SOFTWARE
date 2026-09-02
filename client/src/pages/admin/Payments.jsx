@@ -369,7 +369,7 @@ const Payments = () => {
           </button>
         </div>
       ) : (
-        <div className="min-h-[20rem]">
+        <div>
           <PaymentTable
             payments={tableContent}
             loading={loadingPayments}
@@ -384,13 +384,13 @@ const Payments = () => {
         </div>
       )}
 
-      <div ref={analyticsRef} className="min-h-[24rem]">
+      <div ref={analyticsRef} className="min-h-[13rem] sm:min-h-[24rem]">
         {analyticsVisible ? (
-          <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-slate-100" />}>
+          <Suspense fallback={<div className="h-52 animate-pulse rounded-xl bg-slate-100 sm:h-96 sm:rounded-2xl" />}>
             <PaymentAnalytics stats={stats} loading={loadingStats} />
           </Suspense>
         ) : (
-          <div className="h-96 animate-pulse rounded-2xl bg-slate-100" />
+          <div className="h-52 animate-pulse rounded-xl bg-slate-100 sm:h-96 sm:rounded-2xl" />
         )}
       </div>
 

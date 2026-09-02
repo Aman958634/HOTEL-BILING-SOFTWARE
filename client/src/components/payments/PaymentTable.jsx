@@ -20,29 +20,26 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
 };
 
 const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
-  <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+  <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
     <div className="flex items-start justify-between gap-3">
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-        <p className="text-xs text-slate-500">{formatPaymentDate(payment.createdAt)}</p>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
+        <p className="mt-1 text-xs text-slate-500">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "No bill reference")}</p>
       </div>
       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${paymentBadgeClasses(payment.paymentStatus)}`}>
         {paymentStatusLabel(payment.paymentStatus)}
       </span>
     </div>
 
-    <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-700">
-      <p><strong>Order / Bill:</strong> {payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "-")}</p>
-      <p><strong>Customer:</strong> {payment.customerName || "Guest"}</p>
-      <p><strong>Table:</strong> {payment.tableNumber || "-"}</p>
-      <p><strong>Amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
-      <p><strong>Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
-      <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || "-"}</p>
-      <p><strong>Refund:</strong> {formatCurrency(payment.refundAmount || 0)}</p>
-      <p><strong>Reconciliation:</strong> {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p>
+    <div className="mt-3 flex items-end justify-between gap-3">
+      <div className="min-w-0 text-sm text-slate-600">
+        <p className="truncate">{paymentMethodLabel(payment.paymentMethod)}{payment.tableNumber ? ` · Table ${payment.tableNumber}` : ""}</p>
+        <p className="mt-1 text-xs text-slate-500">{formatPaymentDate(payment.createdAt)}</p>
+      </div>
+      <p className="shrink-0 text-lg font-bold tracking-tight text-slate-900">{formatCurrency(getPaymentAmount(payment))}</p>
     </div>
 
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-3 flex flex-wrap gap-2">
       <ActionButton onClick={() => onView(payment)} tone="primary"><FiEye /> View</ActionButton>
       <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton>
       {canRefundPayment(payment) ? (

@@ -385,7 +385,7 @@ const KitchenDisplay = () => {
   ];
 
   return (
-    <div className="space-y-5 overflow-x-hidden">
+    <div className="min-w-0 space-y-4 pb-16 sm:space-y-5 sm:pb-20">
       <KdsHeader
         restaurantName={user?.restaurantName}
         now={new Date()}

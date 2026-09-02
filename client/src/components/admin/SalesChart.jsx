@@ -19,19 +19,19 @@ const SalesChart = ({ data, range, onRangeChange, loading, error, onRetry }) => 
     </div>
 
     {loading ? (
-      <div className="h-56 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />
+      <div className="h-48 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />
     ) : error ? (
-      <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-700 sm:h-64 md:h-80" role="alert">
+      <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-700 sm:h-64 md:h-80" role="alert">
         <span>Unable to load sales overview.</span>
         <button type="button" onClick={onRetry} className="min-h-10 rounded-lg bg-rose-700 px-3 text-sm font-semibold text-white hover:bg-rose-800">Retry</button>
       </div>
     ) : data.length === 0 ? (
-      <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 sm:h-64 md:h-80">
+      <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 sm:h-64 md:h-80">
         <FiBarChart2 className="h-8 w-8 text-slate-300" aria-hidden="true" />
         <span>No sales data found for the selected range.</span>
       </div>
     ) : (
-      <div className="h-56 sm:h-64 md:h-80">
+      <div className="h-48 sm:h-64 md:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs><linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#059669" stopOpacity={0.3} /><stop offset="95%" stopColor="#059669" stopOpacity={0.02} /></linearGradient></defs>

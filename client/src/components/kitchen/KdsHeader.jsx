@@ -12,9 +12,9 @@ const KdsHeader = ({
   onToggleSound,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-5">
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Kitchen Display</h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-3xl">Kitchen Display</h1>
         <p className="mt-1 text-sm text-slate-500">
           {restaurantName || "Restaurant"} · {now.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })} ·{" "}
           {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
