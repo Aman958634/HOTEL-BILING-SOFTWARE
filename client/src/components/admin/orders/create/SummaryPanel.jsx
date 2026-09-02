@@ -13,7 +13,7 @@ const SummaryPanel = ({
   onNotesChange,
   onServiceChargePercentChange,
 }) => (
-  <aside className="lg:sticky lg:top-4 lg:self-start">
+  <aside className="hidden lg:sticky lg:top-4 lg:block lg:self-start">
     <section className={`${cardClass} space-y-4`}>
       <h3 className="text-base font-semibold text-slate-900">Order Summary</h3>
 
@@ -59,9 +59,12 @@ const SummaryPanel = ({
           </div>
         ) : null}
 
-        <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900">
-          <span>Grand Total</span>
-          <span className="text-brand-700">{currency(totals.total)}</span>
+        <div className="rounded-xl bg-slate-900 px-3 py-3 text-white">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">Grand Total</p>
+          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-xl font-bold">
+            <span>{currency(totals.total)}</span>
+            <span className="text-xs font-medium text-slate-300">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
+          </div>
         </div>
       </div>
 

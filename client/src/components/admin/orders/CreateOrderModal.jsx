@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { FiCalendar, FiX } from "react-icons/fi";
+import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
 import { addOrderCustomer, searchOrderCustomers } from "../../../services/orderService";
 import { calculateOrderTotals } from "../../../utils/orderCalculations";
+import { currency } from "../../../utils/format";
 import CustomerSection from "./create/CustomerSection";
 import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
@@ -91,6 +92,7 @@ const CreateOrderModal = ({
   const [customerForm, setCustomerForm] = useState({ fullName: "", email: "", phone: "" });
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -115,6 +117,7 @@ const CreateOrderModal = ({
     setCustomerForm({ fullName: "", email: "", phone: "" });
     setErrors({});
     setGuestCount(1);
+    setMobileCartOpen(false);
 
     if (initialData?.createdAt) {
       const created = new Date(initialData.createdAt);
@@ -353,9 +356,9 @@ const CreateOrderModal = ({
       aria-modal="true"
       aria-labelledby="create-order-title"
     >
-      <div className="my-2 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-2xl">
+      <div className="my-0 flex max-h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-slate-100 shadow-2xl sm:my-2 sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0 flex items-start gap-3">
             <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
               <FiCalendar className="h-5 w-5" aria-hidden="true" />
@@ -369,19 +372,22 @@ const CreateOrderModal = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
-          >
-            <FiX className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {itemCount > 0 ? <button type="button" onClick={() => setMobileCartOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white lg:hidden" aria-label={`View cart with ${itemCount} items`}><FiShoppingBag aria-hidden="true" /> {itemCount} · {currency(totals.total)}</button> : null}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
+            >
+              <FiX className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="grid flex-1 overflow-y-auto gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="space-y-5">
+          <div className="grid flex-1 gap-4 overflow-y-auto p-3 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4 sm:space-y-5">
               <CustomerSection
                 customer={form.customer}
                 customerSearch={customerSearch}
@@ -431,6 +437,12 @@ const CreateOrderModal = ({
                 onRemoveItem={removeItem}
                 onDiscountPercentChange={patchDiscountPercent}
                 getCategoryName={getCategoryName}
+                totals={totals}
+                orderType={form.orderType}
+                mobileCartOpen={mobileCartOpen}
+                onCloseMobileCart={() => setMobileCartOpen(false)}
+                submitting={loading}
+                isEdit={isEdit}
               />
 
               <section className={cardClass}>
@@ -467,7 +479,7 @@ const CreateOrderModal = ({
           </div>
 
           {/* Bottom action bar */}
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
             <button
               type="button"
               onClick={onClose}

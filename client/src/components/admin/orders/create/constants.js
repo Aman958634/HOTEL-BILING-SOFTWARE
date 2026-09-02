@@ -32,7 +32,7 @@ export const fieldClass =
 
 export const labelClass = "mb-1.5 block text-xs font-medium text-slate-600";
 
-export const cardClass = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+export const cardClass = "rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4";
 
 export const NOTE_MAX = 200;
 export const INSTRUCTIONS_MAX = 250;
