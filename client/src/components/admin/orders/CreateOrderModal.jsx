@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
 import { addOrderCustomer, searchOrderCustomers } from "../../../services/orderService";
@@ -9,6 +10,8 @@ import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
 import { INSTRUCTIONS_MAX, cardClass, fieldClass, labelClass } from "./create/constants";
+import { useConnectivity } from "../../../context/ConnectivityContext";
+import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 
 const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
 
@@ -79,6 +82,10 @@ const CreateOrderModal = ({
   onSubmit,
 }) => {
   const isEdit = Boolean(initialData?._id);
+  const user = useSelector((state) => state.auth.user);
+  const { state: connectivityState } = useConnectivity();
+  const outletId = localStorage.getItem("selectedOutletId") || "";
+  const draftScope = getOrderDraftScope({ user, outletId });
 
   const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories));
   const [guestCount, setGuestCount] = useState(1);
@@ -108,7 +115,10 @@ const CreateOrderModal = ({
 
   useEffect(() => {
     if (!open) return;
-    setForm(buildInitialState(initialData, menuItems, categories));
+    const initialForm = buildInitialState(initialData, menuItems, categories);
+    const draft = !isEdit ? readOrderDraft(draftScope) : null;
+    setForm(draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories) } : initialForm);
+    if (draft) toast.success("Unsent order restored.", { id: "order-draft-restored" });
     setMenuSearch("");
     setMenuCategory("");
     setCustomerSearch("");
@@ -125,7 +135,13 @@ const CreateOrderModal = ({
     } else {
       setOrderDate(new Date());
     }
-  }, [open, initialData, menuItems, categories]);
+  }, [draftScope, initialData, isEdit, menuItems, categories, open]);
+
+  useEffect(() => {
+    if (!open || isEdit || !draftScope || !form.items.length) return undefined;
+    const timer = window.setTimeout(() => writeOrderDraft(draftScope, form), 350);
+    return () => window.clearTimeout(timer);
+  }, [draftScope, form, isEdit, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -327,6 +343,10 @@ const CreateOrderModal = ({
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) return;
+    if (!isEdit && connectivityState !== "online") {
+      toast.error("Connection required to submit order.", { id: "order-submit-offline" });
+      return;
+    }
 
     onSubmit({
       customer: form.customer?._id || null,

@@ -2,12 +2,14 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { getMyProfile, loginUser, logoutUser, registerUser } from "../../services/authService";
 import { clearOutletSession, persistAuthorizedOutlet } from "../../utils/outletSession";
 import { clearLastKnown } from "../../utils/lastKnownData";
+import { clearAllOrderDrafts } from "../../utils/orderDraft";
 
 const clearStoredTokens = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   clearOutletSession();
   clearLastKnown();
+  clearAllOrderDrafts();
 };
 
 const persistTokens = (accessToken, refreshToken) => {

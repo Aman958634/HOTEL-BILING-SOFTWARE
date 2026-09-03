@@ -80,6 +80,7 @@ const Reports = () => {
   const [salesMeta, setSalesMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
 
   const filtersRef = useRef(filters);
+  const requestControllerRef = useRef(null);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -116,6 +117,10 @@ const Reports = () => {
     }
 
     setLoading(true);
+        requestControllerRef.current?.abort();
+        const controller = new AbortController();
+        requestControllerRef.current = controller;
+        const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
         const cached = readLastKnown(reportsKey);
         if (cached?.value) {
           setSummary(cached.value.summary);
@@ -133,15 +138,16 @@ const Reports = () => {
 
     try {
       const [summaryRes, revenueRes, ordersRes, topItemsRes, categoriesRes, paymentsRes, customersRes, salesRes] = await Promise.all([
-        getReportsSummary(nextReportQuery),
-        getReportsRevenue(nextReportQuery),
-        getReportsOrders(nextReportQuery),
-        getReportsTopItems(nextReportQuery),
-        getReportsCategories(nextReportQuery),
-        getReportsPayments(nextReportQuery),
-        getReportsCustomers(nextReportQuery),
-        getReportsSales(nextSalesQuery),
+        getReportsSummary(nextReportQuery, { signal: controller.signal }),
+        getReportsRevenue(nextReportQuery, { signal: controller.signal }),
+        getReportsOrders(nextReportQuery, { signal: controller.signal }),
+        getReportsTopItems(nextReportQuery, { signal: controller.signal }),
+        getReportsCategories(nextReportQuery, { signal: controller.signal }),
+        getReportsPayments(nextReportQuery, { signal: controller.signal }),
+        getReportsCustomers(nextReportQuery, { signal: controller.signal }),
+        getReportsSales(nextSalesQuery, { signal: controller.signal }),
       ]);
+      if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
 
       setSummary(summaryRes.data.data || null);
       setRevenue(revenueRes.data.data || { points: [], totalRevenue: 0 });
@@ -164,6 +170,7 @@ const Reports = () => {
         salesMeta: salesRes.data.meta || { total: 0, page: 1, limit: 10, totalPages: 1 },
       });
     } catch (err) {
+      if (controller.signal.aborted || err?.code === "ERR_CANCELED") return;
       const message = !err?.response ? "Connection unavailable. Showing last available reports." : err?.response?.data?.message || "Unable to load reports";
       setError(message);
       toast.error(message);
@@ -171,6 +178,8 @@ const Reports = () => {
       setLoading(false);
     }
   }, [reportQuery, reportsKey, salesQuery]);
+
+  useEffect(() => () => requestControllerRef.current?.abort(), []);
 
   useEffect(() => {
     const timer = setTimeout(() => {

@@ -60,17 +60,24 @@ const AdminDashboard = () => {
   const [setup, setSetup] = useState({ loading: true, error: false, restaurant: null, outlets: [] });
   const initialRangeRef = useRef(range);
   const initialRangeLoad = useRef(true);
+  const requestControllers = useRef({ stats: null, sales: null, orders: null });
   const socket = useSocket();
   const todayLabel = useMemo(() => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(new Date()), []);
 
   const loadStats = useCallback(async () => {
+    requestControllers.current.stats?.abort();
+    const controller = new AbortController();
+    requestControllers.current.stats = controller;
+    const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
     setLoadingStats(true);
     setStatsError("");
     try {
-      const { data } = await getAdminStats();
+      const { data } = await getAdminStats({ signal: controller.signal });
+      if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setStats(data.data);
       writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, stats: data.data });
     } catch (error) {
+      if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = !error?.response ? "Connection unavailable. Showing last available dashboard data." : error?.response?.data?.message || "Failed to load dashboard stats";
       setStatsError(message);
       toast.error(message);
@@ -80,13 +87,19 @@ const AdminDashboard = () => {
   }, [dashboardKey]);
 
   const loadSales = useCallback(async (selectedRange) => {
+    requestControllers.current.sales?.abort();
+    const controller = new AbortController();
+    requestControllers.current.sales = controller;
+    const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
     setLoadingSales(true);
     setSalesError("");
     try {
-      const { data } = await getAdminSales(selectedRange);
+      const { data } = await getAdminSales(selectedRange, { signal: controller.signal });
+      if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setSales(data.data || []);
       writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, sales: data.data || [] });
     } catch (error) {
+      if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = !error?.response ? "Connection unavailable. Showing last available sales data." : error?.response?.data?.message || "Failed to load sales overview";
       setSalesError(message);
       toast.error(message);
@@ -96,13 +109,19 @@ const AdminDashboard = () => {
   }, [dashboardKey]);
 
   const loadOrders = useCallback(async () => {
+    requestControllers.current.orders?.abort();
+    const controller = new AbortController();
+    requestControllers.current.orders = controller;
+    const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
     setLoadingOrders(true);
     setOrdersError("");
     try {
-      const { data } = await getAdminRecentOrders();
+      const { data } = await getAdminRecentOrders({ signal: controller.signal });
+      if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setOrders(data.data || []);
       writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, orders: data.data || [] });
     } catch (error) {
+      if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = !error?.response ? "Connection unavailable. Showing last available orders." : error?.response?.data?.message || "Failed to load recent orders";
       setOrdersError(message);
       toast.error(message);
@@ -110,6 +129,8 @@ const AdminDashboard = () => {
       setLoadingOrders(false);
     }
   }, [dashboardKey]);
+
+  useEffect(() => () => Object.values(requestControllers.current).forEach((controller) => controller?.abort()), []);
 
   useEffect(() => {
     Promise.all([loadStats(), loadSales(initialRangeRef.current), loadOrders()]);

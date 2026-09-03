@@ -15,6 +15,7 @@ let isRefreshing = false;
 let failedQueue = [];
 let outletRecoveryPromise = null;
 let outletAccessToastShown = false;
+const outletRequestControllers = new Set();
 
 const AUTH_SKIP_REFRESH_PATHS = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"];
 
@@ -59,6 +60,13 @@ export const setupAuthInterceptor = (store) => {
   authStore = store;
 };
 
+if (typeof window !== "undefined") {
+  window.addEventListener("restosphere:outlet-changed", () => {
+    outletRequestControllers.forEach((controller) => controller.abort());
+    outletRequestControllers.clear();
+  });
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
   if (token) {
@@ -71,6 +79,12 @@ api.interceptors.request.use((config) => {
   if (outletId && !shouldSkipOutletHeader(config.url || "")) config.headers["X-Outlet-Id"] = outletId;
   const method = String(config.method || "get").toLowerCase();
   const url = String(config.url || "");
+  if (!config.signal && !shouldSkipOutletHeader(url)) {
+    const controller = new AbortController();
+    config.signal = controller.signal;
+    config._outletRequestController = controller;
+    outletRequestControllers.add(controller);
+  }
   const isPaymentWrite =
     /\/orders\/[^/]+\/(pay|payment|payment-status)$/.test(url) ||
     /\/payments\/verify$/.test(url) ||
@@ -83,6 +97,7 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => {
+    if (response.config?._outletRequestController) outletRequestControllers.delete(response.config._outletRequestController);
     if (!response.config?._connectivityProbe) {
       window.dispatchEvent(new CustomEvent("restosphere:api-reachability", { detail: { ok: true } }));
     }
@@ -90,6 +105,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error?.config;
+    if (originalRequest?._outletRequestController) outletRequestControllers.delete(originalRequest._outletRequestController);
     const payload = error?.response?.data;
     const code = payload?.code;
     // Existing toast calls can safely read this normalized message.
