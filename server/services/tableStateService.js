@@ -40,9 +40,18 @@ export const normalizeTableStatus = (value) => {
 export const activeOrderStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"];
 export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CONFIRMED"];
 
+export const getTableSocketRoom = (table) => {
+  const outletId = table?.outlet?._id || table?.outlet || null;
+  return outletId ? `outlet:${outletId}` : null;
+};
+
 export const emitTableStatusChange = (table) => {
   try {
-    getIO().to("dashboard").emit("table:statusChanged", {
+    const room = getTableSocketRoom(table);
+    // A table is operationally outlet-scoped. Do not broadcast a legacy
+    // unscoped record to the whole restaurant; polling remains authoritative.
+    if (!room) return;
+    getIO().to(room).emit("table:statusChanged", {
       tableId: table._id,
       tableNumber: table.tableNumber,
       status: table.status,

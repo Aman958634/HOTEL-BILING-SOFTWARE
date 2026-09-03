@@ -383,6 +383,7 @@ export const recordVerifiedPayment = async (
         customerId: orderDoc.customer?._id || orderDoc.customer || null,
         tableId: orderDoc.table?._id || orderDoc.table || null,
         restaurant: orderDoc.restaurant || null,
+        outlet: orderDoc.outlet || null,
         amount: paymentAmount,
         currency: "INR",
         subtotal: Number(orderDoc.subtotal || 0),
@@ -452,7 +453,7 @@ export const recordVerifiedPayment = async (
   const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
   await maybeReleaseTableAfterSettlement(committedOrder);
 
-  await payment.populate("orderId", "orderNumber status total paymentStatus createdAt updatedAt");
+  await payment.populate("orderId", "orderNumber status total paymentStatus outlet createdAt updatedAt");
   await payment.populate("customerId", "fullName email phone avatar");
   await payment.populate("tableId", "tableNumber floor section");
   // earn:<orderId> makes this safe for gateway retries and recovery runs.

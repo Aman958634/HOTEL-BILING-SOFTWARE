@@ -33,6 +33,7 @@ jobs:
         run: |
           cd server
           npm run lint
+          npm run test:realtime-scope
       - name: Build frontend
         env:
           VITE_API_URL: https://api.validation.invalid

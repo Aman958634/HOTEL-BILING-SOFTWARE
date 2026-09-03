@@ -29,6 +29,7 @@
     "test:intelligence": "node tests/intelligenceSignals.test.js",
     "test:global-search": "node tests/globalSearch.test.js",
     "test:notifications": "node tests/notificationEvents.test.js",
+    "test:realtime-scope": "node tests/realtimeScope.test.js",
     "test:security": "node tests/paymentSecurity.test.js",
     "test:tenant-isolation": "node tests/tenantIsolation.test.js",
     "test:tenant-security": "node tests/tenantOutletSecurity.test.js",
