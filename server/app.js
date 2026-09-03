@@ -69,17 +69,25 @@ app.get("/api/v1/health", (_req, res) => {
     success: true,
     message: "Server is healthy",
     database: isDbConnected() ? "connected" : "disconnected",
+    status: "ok",
   });
+});
+
+app.get("/api/v1/ready", (_req, res) => {
+  if (!isDbConnected() || isDatabaseRestoreInProgress()) {
+    return res.status(503).json({ success: false, status: "not_ready" });
+  }
+  return res.status(200).json({ success: true, status: "ready" });
 });
 
 app.get("/api-docs/openapi.json", (_req, res) => {
   res.status(200).json(openapiSpec);
 });
 
-// All API routes require an active MongoDB connection (except health probe).
+// All API routes require an active MongoDB connection (except operational probes).
 app.use((req, res, next) => {
   if (!req.path.startsWith("/api")) return next();
-  if (req.path === "/api/v1/health") return next();
+  if (req.path === "/api/v1/health" || req.path === "/api/v1/ready") return next();
   if (isDatabaseRestoreInProgress()) {
     return res.status(503).json({ success: false, message: "Database restore is in progress. Please retry shortly." });
   }

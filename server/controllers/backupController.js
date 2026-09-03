@@ -14,8 +14,11 @@ export const createBackup = asyncHandler(async (_req, res) => {
 });
 
 export const restoreBackup = asyncHandler(async (req, res) => {
-  if (String(process.env.ENABLE_BACKUP_RESTORE || "").toLowerCase() !== "true") {
-    throw new ApiError(403, "Backup restore is disabled. Set ENABLE_BACKUP_RESTORE=true during a maintenance window.");
+  if (
+    String(process.env.ENABLE_BACKUP_RESTORE || "").toLowerCase() !== "true"
+    || String(process.env.BACKUP_RESTORE_MAINTENANCE_MODE || "").toLowerCase() !== "true"
+  ) {
+    throw new ApiError(403, "Backup restore is disabled. Enable it only during a planned maintenance window.");
   }
   const backupName = String(req.body?.backupName || "").trim();
   if (req.body?.confirmation !== `RESTORE ${backupName}`) {

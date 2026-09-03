@@ -46,11 +46,17 @@ const connectDB = async () => {
 
   logger.info(`MongoDB connected successfully: ${conn.connection.host}`);
 
-  try {
-    await ensureDefaultPlans();
-    await ensureRestaurantSubscriptions();
-  } catch (error) {
-    logger.error(`Subscription bootstrap failed: ${error.message}`);
+  const allowStartupDataBootstrap = process.env.NODE_ENV !== "production"
+    || process.env.RUN_STARTUP_DATA_BOOTSTRAP === "true";
+  if (allowStartupDataBootstrap) {
+    try {
+      await ensureDefaultPlans();
+      await ensureRestaurantSubscriptions();
+    } catch (error) {
+      logger.error(`Subscription bootstrap failed: ${error.message}`);
+    }
+  } else {
+    logger.info("Production startup data bootstrap skipped; run only through a planned, explicit maintenance operation.");
   }
 
   if (shouldSeedSuperAdmin()) {

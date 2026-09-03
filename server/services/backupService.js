@@ -5,21 +5,41 @@ import { getMongoUri } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 
+const isProduction = () => process.env.NODE_ENV === "production";
+const isEnabled = (value) => String(value || "").trim().toLowerCase() === "true";
 const backupRoot = () => path.resolve(process.env.BACKUP_DIR || path.join(process.cwd(), "backups"));
 const backupNamePattern = /^backup-\d{8}T\d{6}Z$/;
 let restoreInProgress = false;
 
 export const isDatabaseRestoreInProgress = () => restoreInProgress;
 
+// Production containers normally have ephemeral disks. Local dump backups are
+// therefore disabled unless operations explicitly supplies a durable absolute
+// mount and acknowledges that it is persistent storage.
+export const isLocalBackupStorageAvailable = () => {
+  if (!isProduction()) return true;
+  const configuredDirectory = String(process.env.BACKUP_DIR || "").trim();
+  return isEnabled(process.env.BACKUP_ENABLED)
+    && isEnabled(process.env.BACKUP_LOCAL_STORAGE_CONFIRMED)
+    && Boolean(configuredDirectory)
+    && path.isAbsolute(configuredDirectory);
+};
+
+const assertLocalBackupStorageAvailable = () => {
+  if (isLocalBackupStorageAvailable()) return;
+  throw new ApiError(
+    503,
+    "Local database backups are unavailable in production. Use provider backups or configure a durable mounted backup directory."
+  );
+};
+
 const runMongoTool = (tool, args) =>
   new Promise((resolve, reject) => {
     const child = spawn(tool, args, { shell: false, windowsHide: true });
-    let stderr = "";
-    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
     child.on("error", (error) => reject(error));
     child.on("close", (code) => {
       if (code === 0) return resolve();
-      return reject(new Error(`${tool} exited with code ${code}: ${stderr.slice(-500)}`));
+      return reject(new Error(`${tool} exited with code ${code}`));
     });
   });
 
@@ -35,6 +55,7 @@ const getSafeBackupPath = async (backupName) => {
 };
 
 export const listDatabaseBackups = async () => {
+  assertLocalBackupStorageAvailable();
   const root = backupRoot();
   await fs.mkdir(root, { recursive: true });
   const entries = await fs.readdir(root, { withFileTypes: true });
@@ -48,6 +69,7 @@ export const listDatabaseBackups = async () => {
 };
 
 export const createDatabaseBackup = async () => {
+  assertLocalBackupStorageAvailable();
   const uri = getMongoUri();
   if (!uri) throw new ApiError(503, "Database URI is not configured");
   const root = backupRoot();
@@ -57,14 +79,16 @@ export const createDatabaseBackup = async () => {
   await fs.mkdir(target, { recursive: false });
   try {
     await runMongoTool(process.env.MONGODUMP_PATH || "mongodump", ["--uri", uri, "--out", target]);
-    return { name, path: target, createdAt: new Date() };
+    return { name, createdAt: new Date() };
   } catch (error) {
     await fs.rm(target, { recursive: true, force: true }).catch(() => {});
-    throw new ApiError(500, `Backup failed: ${error.message}`);
+    logger.error(`Database backup failed: ${error.message}`);
+    throw new ApiError(500, "Backup failed. Check the server logs for the operation result.");
   }
 };
 
 export const restoreDatabaseBackup = async (backupName) => {
+  assertLocalBackupStorageAvailable();
   const uri = getMongoUri();
   if (!uri) throw new ApiError(503, "Database URI is not configured");
   const target = await getSafeBackupPath(backupName);
@@ -72,7 +96,8 @@ export const restoreDatabaseBackup = async (backupName) => {
   try {
     await runMongoTool(process.env.MONGORESTORE_PATH || "mongorestore", ["--uri", uri, "--drop", "--stopOnError", target]);
   } catch (error) {
-    throw new ApiError(500, `Restore failed: ${error.message}`);
+    logger.error(`Database restore failed: ${error.message}`);
+    throw new ApiError(500, "Restore failed. Check the server logs for the operation result.");
   } finally {
     restoreInProgress = false;
   }
@@ -80,7 +105,15 @@ export const restoreDatabaseBackup = async (backupName) => {
 };
 
 export const scheduleDailyBackup = () => {
-  if (String(process.env.BACKUP_ENABLED || "true").toLowerCase() === "false") return null;
+  const enabledByDefault = isProduction() ? "false" : "true";
+  if (!isEnabled(process.env.BACKUP_ENABLED || enabledByDefault)) {
+    logger.info("Automatic local database backups are disabled.");
+    return null;
+  }
+  if (!isLocalBackupStorageAvailable()) {
+    logger.warn("Automatic local database backups are disabled in production until durable mounted storage is explicitly configured. Configure managed database backups separately.");
+    return null;
+  }
   const configuredHour = Number(process.env.BACKUP_HOUR_UTC ?? 2);
   const hour = Number.isInteger(configuredHour) && configuredHour >= 0 && configuredHour <= 23 ? configuredHour : 2;
   const now = new Date();

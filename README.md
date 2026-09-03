@@ -49,6 +49,8 @@ Production-ready full-stack restaurant management platform with role-based acces
 ## API Docs
 - OpenAPI file: `server/docs/openapi.json`
 - Health: `GET /api/v1/health`
+- Readiness: `GET /api/v1/ready`
+- Recovery runbook: [docs/PRODUCTION_RECOVERY.md](docs/PRODUCTION_RECOVERY.md)
 
 ## Deployment
 ### Frontend (Vercel)
@@ -63,11 +65,12 @@ Production-ready full-stack restaurant management platform with role-based acces
 
 ### Backend (Render)
 - Root: `server`
-- Build command: `npm install`
+- Build command: `npm ci`
 - Start command: `npm start`
 - Add all variables from `server/.env.example`
-- **Super Admin login:** On startup the server idempotently seeds `superadmin@restosphere.com` (password from `SUPER_ADMIN_PASSWORD`, default in `.env.example`) if no `super_admin` exists. Set `SUPER_ADMIN_SEED=false` to disable.
-- Or run once: `npm run seed:super-admin`
+- Configure the provider health check as `GET /api/v1/ready`.
+- MongoDB snapshots/PITR and retention are provider-side controls; see the recovery runbook before production launch.
+- **Super Admin bootstrap:** production seeding is disabled by default. Set `SUPER_ADMIN_SEED=true` only for a planned, credentialed first-run operation, or use `npm run seed:super-admin` explicitly.
 - Verify: `GET /api/v1/public/seed-status` → `{ exists: true }`
 
 ### Database

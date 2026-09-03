@@ -29,7 +29,14 @@ jobs:
         run: |
           cd client
           npm ci
+      - name: Validate backend syntax
+        run: |
+          cd server
+          npm run lint
       - name: Build frontend
+        env:
+          VITE_API_URL: https://api.validation.invalid
+          VITE_SOCKET_URL: https://socket.validation.invalid
         run: |
           cd client
           npm run build

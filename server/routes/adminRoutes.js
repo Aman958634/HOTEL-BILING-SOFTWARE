@@ -37,8 +37,8 @@ router.post("/billing/select-plan", selectBillingPlan);
 router.post("/billing/checkout", billingCtrl.createBillingCheckout);
 router.post("/billing/verify", billingCtrl.verifyBillingPayment);
 
-// Restore is deliberately disabled unless ENABLE_BACKUP_RESTORE=true and an
-// explicit confirmation is supplied. It runs only from a local backup name.
+// Restore is deliberately disabled unless explicit maintenance flags and an
+// exact confirmation are supplied. It runs only from a local backup name.
 router.get("/backups", listBackups);
 router.post("/backups", createBackup);
 router.post("/restore-backup", restoreBackup);
