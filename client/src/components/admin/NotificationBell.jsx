@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDollarSign, FiAlertCircle, FiExternalLink, FiXCircle } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
@@ -8,19 +9,42 @@ const getNotificationLink = (notification) => {
   if (notification?.route) return notification.route;
   const type = typeof notification === "string" ? notification : notification?.type;
   switch (type) {
+    case "ORDER_CREATED":
     case "NEW_ORDER":
     case "ORDER_CANCELLED":
     case "order":
       return "/dashboard/admin/orders";
+    case "ONLINE_ORDER_RECEIVED":
+      return "/dashboard/admin/online-orders";
+    case "KOT_CREATED":
+    case "KOT_READY":
+      return "/dashboard/admin/kitchen";
+    case "CUSTOMER_CREATED":
+      return "/dashboard/admin/customers";
+    case "STAFF_CREATED":
+      return "/dashboard/admin/staff";
     case "PAYMENT_RECEIVED":
     case "payment":
       return "/dashboard/admin/payments";
     case "NEW_STAFF":
       return "/dashboard/admin/staff";
+    case "BILL_GENERATED":
+    case "PARTIAL_PAYMENT_RECEIVED":
+    case "BILL_FULLY_PAID":
+    case "REFUND_CREATED":
+    case "REFUND_COMPLETED":
+    case "RECONCILIATION_MISMATCH":
+      return "/dashboard/admin/payments";
+    case "LOYALTY_MEMBER_ENROLLED":
+      return "/dashboard/admin/loyalty";
     case "SUBSCRIPTION_EXPIRING":
       return "/dashboard/admin/billing";
+    case "INVENTORY_LOW":
+    case "INVENTORY_OUT_OF_STOCK":
     case "LOW_STOCK":
-      return "/dashboard/admin/menu";
+      return "/dashboard/admin/inventory";
+    case "INTELLIGENCE_ALERT_CREATED":
+      return "/dashboard/admin/intelligence";
     default:
       return null;
   }
@@ -98,6 +122,8 @@ const NotificationBell = () => {
   const [summary, setSummary] = useState({ total: 0, unread: 0 });
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const wrapperRef = useRef(null);
   const socket = useSocket();
 
@@ -112,11 +138,13 @@ const NotificationBell = () => {
 
   const loadNotifications = async () => {
     setLoading(true);
+    setError("");
     try {
       const { data } = await getNotifications({ page: 1, limit: 3, isRead: false, sortBy: "createdAt", sortOrder: "desc" });
       setNotifications(data.data || []);
     } catch {
       setNotifications([]);
+      setError("Unable to load notifications.");
     } finally {
       setLoading(false);
     }
@@ -125,6 +153,13 @@ const NotificationBell = () => {
   useEffect(() => {
     loadSummary();
   }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
 
   useEffect(() => {
     if (!socket) return;
@@ -165,11 +200,28 @@ const NotificationBell = () => {
   };
 
   const toggleReadStatus = async (notification) => {
+    if (saving) return;
+    setSaving(true);
     try {
       await updateNotificationStatus(notification._id, !notification.isRead);
       await Promise.all([loadNotifications(), loadSummary()]);
     } catch {
-      // ignore
+      toast.error("Unable to update notification");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!summary.unread || saving) return;
+    setSaving(true);
+    try {
+      await markAllNotificationsRead();
+      await Promise.all([loadSummary(), loadNotifications()]);
+    } catch {
+      toast.error("Unable to mark notifications as read");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -194,7 +246,7 @@ const NotificationBell = () => {
       </button>
 
       {open && (
-        <div role="menu" aria-label="Notifications" className="fixed left-3 right-3 top-16 z-50 mt-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-80">
+        <div role="menu" aria-label="Notifications" className="fixed left-3 right-3 top-16 z-50 flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:max-h-[min(34rem,calc(100dvh-6rem))] sm:w-96">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
@@ -205,14 +257,14 @@ const NotificationBell = () => {
             </button>
           </div>
 
-          <div className="space-y-2 px-3 py-3">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
             {loading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
                 ))}
               </div>
-            ) : notifications.length ? (
+            ) : error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><p>{error}</p><button type="button" onClick={loadNotifications} className="mt-2 font-semibold">Retry</button></div> : notifications.length ? (
               notifications.map((item) => {
                 const link = getNotificationLink(item);
                 const Icon = typeIconMap[item.type] || FiBell;
@@ -220,7 +272,7 @@ const NotificationBell = () => {
                 const actionLabel = actionLabelMap[item.type];
 
                 const content = (
-                  <div key={item._id} className={`rounded-2xl border p-3 ${item.isRead ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"}`}>
+                  <div key={item._id} className={`rounded-xl border p-3 ${item.isRead ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"}`}>
                     <div className="flex items-start gap-3">
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
                         <Icon className="h-4 w-4" />
@@ -230,7 +282,7 @@ const NotificationBell = () => {
                           <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
                           {!item.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" title="Unread" />}
                         </div>
-                        <p className="mt-1 text-xs text-slate-600 truncate">{item.message}</p>
+                        <p className="mt-1 break-words text-xs leading-5 text-slate-600">{item.message}</p>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           <span className="text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</span>
                           <div className="flex items-center gap-1.5">
@@ -247,6 +299,7 @@ const NotificationBell = () => {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); toggleReadStatus(item); }}
+                              disabled={saving}
                               className="text-[11px] font-medium text-slate-600 hover:text-slate-800"
                             >
                               {item.isRead ? "Unread" : "Read"}
@@ -257,14 +310,6 @@ const NotificationBell = () => {
                     </div>
                   </div>
                 );
-
-                if (link && actionLabel) {
-                  return (
-                    <Link key={item._id} to={link} className="block transition hover:shadow-md" onClick={() => setOpen(false)}>
-                      {content}
-                    </Link>
-                  );
-                }
 
                 return content;
               })
@@ -287,13 +332,11 @@ const NotificationBell = () => {
             </Link>
             <button
               type="button"
-              onClick={async () => {
-                await markAllNotificationsRead();
-                await Promise.all([loadSummary(), loadNotifications()]);
-              }}
-              className="rounded-2xl bg-brand-700 px-4 py-2 text-sm text-white transition hover:bg-brand-800"
+              onClick={handleMarkAllRead}
+              disabled={!summary.unread || saving}
+              className="min-h-10 rounded-xl bg-brand-700 px-3 text-sm text-white transition hover:bg-brand-800 disabled:opacity-60"
             >
-              Mark all read
+              {saving ? "Saving…" : "Mark all read"}
             </button>
           </div>
         </div>

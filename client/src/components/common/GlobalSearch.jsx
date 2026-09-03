@@ -203,7 +203,7 @@ const GlobalSearch = ({ className = "", compact = false }) => {
 
 const SearchInput = ({ inputRef, query, onChange, onFocus, onKeyDown, onClear, onClose, fullWidth = false }) => <div className={`relative ${fullWidth ? "p-3 sm:p-4" : ""}`}>
   <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, customers, payments, and more" aria-autocomplete="list" className={`h-10 w-full rounded-xl border border-slate-200 py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "pr-20" : "pr-16"}`} placeholder="Search records…" />
+  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, tables, customers, staff, payments, and inventory" aria-autocomplete="list" className={`h-11 w-full rounded-xl border border-slate-200 py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "pr-20" : "pr-16"}`} placeholder="Search orders, tables, customers…" />
   {query ? <button type="button" onClick={onClear} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-700" aria-label="Clear search"><FiX className="h-4 w-4" /></button> : null}
   {fullWidth && onClose ? <button type="button" onClick={onClose} className="absolute right-10 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500">Close</button> : null}
 </div>;
@@ -212,6 +212,7 @@ const SearchPanel = ({ compact, query, loading, error, groupedResults, activeInd
   const rows = groupedResults.flatMap(({ type, rows: groupRows }) => groupRows.map((item) => ({ type, item })));
   const noResults = !loading && !error && query.trim().length >= MIN_QUERY_LENGTH && !rows.length;
   const content = <>
+    {!loading && !error && !query.trim() ? <p className="px-4 py-4 text-sm text-slate-500">Search authorized records by order, table, customer, staff member, payment, or inventory item.</p> : null}
     {loading ? <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-500"><span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" />Searching authorized records…</div> : null}
     {error && !loading ? <div className="px-4 py-4 text-sm text-rose-700"><p>{error}</p><button type="button" onClick={onRetry} className="mt-2 font-semibold text-emerald-700 hover:underline">Retry</button></div> : null}
     {!loading && !error && query.trim().length > 0 && query.trim().length < MIN_QUERY_LENGTH ? <p className="px-4 py-3 text-sm text-slate-500">Enter at least {MIN_QUERY_LENGTH} characters to search.</p> : null}
@@ -221,7 +222,7 @@ const SearchPanel = ({ compact, query, loading, error, groupedResults, activeInd
       return <section key={type} className="border-b border-slate-100 last:border-b-0"><p className="flex items-center gap-2 px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400"><MetaIcon className="h-4 w-4" />{categoryMeta[type].label}</p>{groupRows.map((item) => {
         const index = rows.findIndex((entry) => entry.item.id === item.id && entry.type === type);
         const selected = index === activeIndex;
-        return <button key={item.id} type="button" role="option" aria-selected={selected} onMouseEnter={() => onActive(index)} onClick={() => onSelect(item)} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition ${selected ? "bg-emerald-50" : "hover:bg-slate-50"}`}><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-slate-900">{item.title}</span>{item.subtitle ? <span className="block truncate text-xs text-slate-500">{item.subtitle}</span> : null}</span><FiChevronRight className="h-4 w-4 shrink-0 text-slate-400" /></button>;
+        return <button key={item.id} type="button" role="option" aria-selected={selected} onMouseEnter={() => onActive(index)} onClick={() => onSelect(item)} className={`flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left transition ${selected ? "bg-emerald-50" : "hover:bg-slate-50"}`}><span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium text-slate-900">{item.title}</span>{item.subtitle ? <span className="mt-0.5 block break-words text-xs text-slate-500">{item.subtitle}</span> : null}</span><FiChevronRight className="h-4 w-4 shrink-0 text-slate-400" /></button>;
       })}</section>;
     }) : null}
   </>;

@@ -71,6 +71,7 @@ const typeOptions = [
 
 const typeLabel = (type) => {
   switch (type) {
+    case "ORDER_CREATED":
     case "NEW_ORDER":
       return "New Order";
     case "PAYMENT_RECEIVED":
@@ -124,6 +125,15 @@ const getNotificationLink = (notification) => {
     case "ORDER_CANCELLED":
     case "order":
       return "/dashboard/admin/orders";
+    case "ONLINE_ORDER_RECEIVED":
+      return "/dashboard/admin/online-orders";
+    case "KOT_CREATED":
+    case "KOT_READY":
+      return "/dashboard/admin/kitchen";
+    case "CUSTOMER_CREATED":
+      return "/dashboard/admin/customers";
+    case "STAFF_CREATED":
+      return "/dashboard/admin/staff";
     case "PAYMENT_RECEIVED":
     case "payment":
       return "/dashboard/admin/payments";
@@ -132,7 +142,9 @@ const getNotificationLink = (notification) => {
     case "SUBSCRIPTION_EXPIRING":
       return "/dashboard/admin/billing";
     case "LOW_STOCK":
-      return "/dashboard/admin/menu";
+    case "INVENTORY_LOW":
+    case "INVENTORY_OUT_OF_STOCK":
+      return "/dashboard/admin/inventory";
     default:
       return null;
   }
@@ -349,14 +361,6 @@ const Notifications = () => {
             </div>
           </article>
         );
-
-        if (link && actionLabel) {
-          return (
-            <Link key={item._id} to={link} className="block">
-              {content}
-            </Link>
-          );
-        }
 
         return content;
       }),
