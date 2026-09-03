@@ -8,6 +8,7 @@ const isNetworkError = (detail) => !detail?.hasResponse;
 export const ConnectivityProvider = ({ children }) => {
   const [state, setState] = useState(() => (navigator.onLine ? "reconnecting" : "offline"));
   const [lastOnlineAt, setLastOnlineAt] = useState(null);
+  const [reconnectVersion, setReconnectVersion] = useState(0);
   const checkInFlight = useRef(null);
   const retryTimer = useRef(null);
   const retryDelay = useRef(1000);
@@ -20,6 +21,7 @@ export const ConnectivityProvider = ({ children }) => {
         retryDelay.current = 1000;
         setLastOnlineAt(Date.now());
         setState("online");
+        setReconnectVersion((version) => version + 1);
       })
       .catch(() => {
         setState("offline");
@@ -50,6 +52,7 @@ export const ConnectivityProvider = ({ children }) => {
         retryDelay.current = 1000;
         setLastOnlineAt(Date.now());
         setState("online");
+        setReconnectVersion((version) => version + 1);
       } else if (isNetworkError(event.detail)) {
         setState("offline");
         checkReachability();
@@ -73,7 +76,7 @@ export const ConnectivityProvider = ({ children }) => {
     };
   }, [checkReachability]);
 
-  return <ConnectivityContext.Provider value={{ state, lastOnlineAt, retry: checkReachability }}>{children}</ConnectivityContext.Provider>;
+  return <ConnectivityContext.Provider value={{ state, lastOnlineAt, reconnectVersion, retry: checkReachability }}>{children}</ConnectivityContext.Provider>;
 };
 
 export const useConnectivity = () => useContext(ConnectivityContext);

@@ -9,6 +9,9 @@ import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, u
 import { useSocket } from "../../context/SocketContext";
 import { getMyOutlets } from "../../services/outletService";
 import { getRestaurantSettings } from "../../services/restaurantService";
+import { useConnectivity } from "../../context/ConnectivityContext";
+import StaleDataNotice from "../../components/common/StaleDataNotice";
+import { readLastKnown, writeLastKnown } from "../../utils/lastKnownData";
 
 const SalesChart = lazy(() => import("../../components/admin/SalesChart"));
 
@@ -39,13 +42,17 @@ const TrendLine = ({ label, card }) => {
 };
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [sales, setSales] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const { reconnectVersion } = useConnectivity();
+  const outletId = localStorage.getItem("selectedOutletId") || "none";
+  const dashboardKey = `dashboard:${outletId}`;
+  const savedDashboard = readLastKnown(dashboardKey)?.value || {};
+  const [stats, setStats] = useState(savedDashboard.stats || null);
+  const [sales, setSales] = useState(savedDashboard.sales || []);
+  const [orders, setOrders] = useState(savedDashboard.orders || []);
   const [range, setRange] = useState("7d");
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingSales, setLoadingSales] = useState(true);
-  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(!savedDashboard.stats);
+  const [loadingSales, setLoadingSales] = useState(!savedDashboard.sales);
+  const [loadingOrders, setLoadingOrders] = useState(!savedDashboard.orders);
   const [statsError, setStatsError] = useState("");
   const [salesError, setSalesError] = useState("");
   const [ordersError, setOrdersError] = useState("");
@@ -62,14 +69,15 @@ const AdminDashboard = () => {
     try {
       const { data } = await getAdminStats();
       setStats(data.data);
+      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, stats: data.data });
     } catch (error) {
-      const message = error?.response?.data?.message || "Failed to load dashboard stats";
+      const message = !error?.response ? "Connection unavailable. Showing last available dashboard data." : error?.response?.data?.message || "Failed to load dashboard stats";
       setStatsError(message);
       toast.error(message);
     } finally {
       setLoadingStats(false);
     }
-  }, []);
+  }, [dashboardKey]);
 
   const loadSales = useCallback(async (selectedRange) => {
     setLoadingSales(true);
@@ -77,14 +85,15 @@ const AdminDashboard = () => {
     try {
       const { data } = await getAdminSales(selectedRange);
       setSales(data.data || []);
+      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, sales: data.data || [] });
     } catch (error) {
-      const message = error?.response?.data?.message || "Failed to load sales overview";
+      const message = !error?.response ? "Connection unavailable. Showing last available sales data." : error?.response?.data?.message || "Failed to load sales overview";
       setSalesError(message);
       toast.error(message);
     } finally {
       setLoadingSales(false);
     }
-  }, []);
+  }, [dashboardKey]);
 
   const loadOrders = useCallback(async () => {
     setLoadingOrders(true);
@@ -92,18 +101,23 @@ const AdminDashboard = () => {
     try {
       const { data } = await getAdminRecentOrders();
       setOrders(data.data || []);
+      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, orders: data.data || [] });
     } catch (error) {
-      const message = error?.response?.data?.message || "Failed to load recent orders";
+      const message = !error?.response ? "Connection unavailable. Showing last available orders." : error?.response?.data?.message || "Failed to load recent orders";
       setOrdersError(message);
       toast.error(message);
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [dashboardKey]);
 
   useEffect(() => {
     Promise.all([loadStats(), loadSales(initialRangeRef.current), loadOrders()]);
   }, [loadOrders, loadSales, loadStats]);
+
+  useEffect(() => {
+    if (reconnectVersion) Promise.all([loadStats(), loadSales(range), loadOrders()]);
+  }, [loadOrders, loadSales, loadStats, reconnectVersion, range]);
 
   useEffect(() => {
     let active = true;
@@ -221,6 +235,7 @@ const AdminDashboard = () => {
         </div>
         <span className="flex w-full items-center gap-2 text-xs text-slate-500 sm:hidden"><FiCalendar className="h-4 w-4" aria-hidden="true" />{todayLabel}</span>
       </header>
+      <StaleDataNotice savedAt={readLastKnown(dashboardKey)?.savedAt} />
 
       {setup.loading ? <section className="h-32 animate-pulse rounded-2xl bg-slate-100" aria-busy="true" aria-label="Loading setup progress" /> : null}
       {!setup.loading && !setup.error && visibleSetupSteps.length ? (
@@ -239,13 +254,13 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" aria-busy="true">
           {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100 sm:h-32" />)}
         </div>
-      ) : statsError ? <RequestState message={statsError} onRetry={loadStats} /> : (
+      ) : statsError && !stats ? <RequestState message={statsError} onRetry={loadStats} /> : (
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" aria-label="Restaurant metrics">
           {cards.map((card) => <StatCard key={card.key} {...card} icon={DASHBOARD_ICON_MAP[card.key]} range="today" comparisonType="dashboard" compact />)}
         </section>
       )}
 
-      {!loadingStats && !statsError ? <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+      {!loadingStats && (!statsError || stats) ? <div className="grid min-w-0 gap-4 xl:grid-cols-3">
         <section className="ops-card min-w-0 p-3 sm:p-4 xl:col-span-2" aria-labelledby="dashboard-changed-title">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 id="dashboard-changed-title" className="text-base font-bold text-slate-900">What changed today</h3><p className="mt-0.5 text-xs text-slate-500">Compared with yesterday</p></div>
@@ -266,9 +281,9 @@ const AdminDashboard = () => {
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
         <div className="min-w-0 xl:col-span-2">
-          {chartReady ? <Suspense fallback={<SalesChartSkeleton />}><SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} error={salesError} onRetry={() => loadSales(range)} /></Suspense> : <SalesChartSkeleton />}
+          {chartReady ? <Suspense fallback={<SalesChartSkeleton />}><SalesChart data={sales} range={range} onRangeChange={setRange} loading={loadingSales} error={salesError && !sales.length} onRetry={() => loadSales(range)} /></Suspense> : <SalesChartSkeleton />}
         </div>
-        <div className="min-w-0"><RecentOrders orders={orders} loading={loadingOrders} error={ordersError} onRetry={loadOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} /></div>
+        <div className="min-w-0"><RecentOrders orders={orders} loading={loadingOrders} error={ordersError && !orders.length} onRetry={loadOrders} onStatusChange={onStatusChange} onDelete={onDeleteOrder} /></div>
       </div>
     </div>
   );
