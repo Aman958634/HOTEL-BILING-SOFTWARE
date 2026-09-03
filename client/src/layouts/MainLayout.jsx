@@ -75,7 +75,6 @@ const MainLayout = () => {
           </div>
         ) : null}
       </header>
-
       <main className="app-page-container mx-auto max-w-7xl">
         <Outlet />
       </main>

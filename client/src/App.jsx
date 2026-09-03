@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { profileThunk } from "./redux/slices/authSlice";
 import AppRouter from "./routes/AppRouter";
+import ConnectivityIndicator from "./components/common/ConnectivityIndicator";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -24,7 +25,12 @@ const App = () => {
     return () => window.removeEventListener("restosphere:outlet-access-denied", showOutletAccessMessage);
   }, []);
 
-  return <AppRouter />;
+  return (
+    <>
+      <ConnectivityIndicator />
+      <AppRouter />
+    </>
+  );
 };
 
 export default App;

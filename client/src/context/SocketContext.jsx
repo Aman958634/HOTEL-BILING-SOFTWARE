@@ -20,11 +20,41 @@ export const SocketProvider = ({ children }) => {
     const needsOutlet = Boolean(user?.restaurant) && !["customer", "super_admin"].includes(String(user?.role || "").toLowerCase());
     if (!shouldConnectSocket() || !accessToken || !user || (needsOutlet && outletStatus !== "ready")) return undefined;
 
-    socket.connect();
-    socket.emit("join-room", "dashboard");
-    const reconnectForOutlet = () => { socket.disconnect(); socket.connect(); };
+    const emitSocketState = (state) => window.dispatchEvent(new CustomEvent("restosphere:socket-state", { detail: { state } }));
+    const onBrowserOffline = () => {
+      emitSocketState("offline");
+      socket.disconnect();
+    };
+    const onBrowserOnline = () => {
+      emitSocketState("reconnecting");
+      socket.connect();
+    };
+    const onConnect = () => {
+      emitSocketState("connected");
+      socket.emit("join-room", "dashboard");
+    };
+    const onDisconnect = () => emitSocketState(navigator.onLine ? "reconnecting" : "offline");
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    window.addEventListener("offline", onBrowserOffline);
+    window.addEventListener("online", onBrowserOnline);
+    if (navigator.onLine) socket.connect();
+    const reconnectForOutlet = () => {
+      if (!navigator.onLine) return;
+      emitSocketState("reconnecting");
+      socket.disconnect();
+      socket.connect();
+    };
     window.addEventListener("restosphere:outlet-changed", reconnectForOutlet);
-    return () => { window.removeEventListener("restosphere:outlet-changed", reconnectForOutlet); socket.disconnect(); };
+    return () => {
+      window.removeEventListener("restosphere:outlet-changed", reconnectForOutlet);
+      window.removeEventListener("offline", onBrowserOffline);
+      window.removeEventListener("online", onBrowserOnline);
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.disconnect();
+    };
   }, [accessToken, outletStatus, user]);
 
   return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;

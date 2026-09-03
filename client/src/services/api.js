@@ -82,7 +82,12 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (!response.config?._connectivityProbe) {
+      window.dispatchEvent(new CustomEvent("restosphere:api-reachability", { detail: { ok: true } }));
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error?.config;
     const payload = error?.response?.data;
@@ -91,6 +96,9 @@ api.interceptors.response.use(
     error.userMessage = getApiErrorMessage(error);
     if (payload && typeof payload === "object" && typeof payload.message === "string") {
       payload.message = error.userMessage;
+    }
+    if (!error.response) {
+      window.dispatchEvent(new CustomEvent("restosphere:api-reachability", { detail: { ok: false, hasResponse: false } }));
     }
 
     if (isOutletAccessDenied(error) && originalRequest && !originalRequest._outletRetry) {

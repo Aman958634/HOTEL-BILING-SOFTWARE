@@ -8,6 +8,7 @@ import { store } from "./redux/store";
 import { setupAuthInterceptor } from "./services/api";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { SocketProvider } from "./context/SocketContext";
+import { ConnectivityProvider } from "./context/ConnectivityContext";
 import "./index.css";
 
 setupAuthInterceptor(store);
@@ -16,7 +17,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Provider store={store}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <SocketProvider>
+        <ConnectivityProvider>
+          <SocketProvider>
             <Toaster
               position="top-right"
               toastOptions={{
@@ -28,7 +30,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <ErrorBoundary>
               <App />
             </ErrorBoundary>
-        </SocketProvider>
+          </SocketProvider>
+        </ConnectivityProvider>
       </BrowserRouter>
     </Provider>
   </React.StrictMode>
