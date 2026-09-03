@@ -1,10 +1,10 @@
 import { FiAlertCircle, FiRefreshCw } from "react-icons/fi";
 
-const RequestState = ({ title = "Unable to load this section", message = "Please check your connection and try again.", onRetry }) => (
+const RequestState = ({ title = "Unable to load this section", message = "Please check your connection and try again.", description, onRetry }) => (
   <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center sm:rounded-2xl sm:p-6" role="alert">
     <FiAlertCircle className="mx-auto mb-2 h-8 w-8 text-rose-500" aria-hidden="true" />
     <h3 className="text-lg font-semibold text-rose-900">{title}</h3>
-    <p className="mt-2 text-sm text-rose-700">{message}</p>
+    <p className="mt-2 break-words text-sm text-rose-700">{description || message}</p>
     {onRetry ? (
       <button type="button" onClick={onRetry} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-800">
         <FiRefreshCw aria-hidden="true" /> Retry

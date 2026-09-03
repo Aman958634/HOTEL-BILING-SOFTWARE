@@ -1,9 +1,17 @@
+import { useEffect } from "react";
 import { currency } from "../../../utils/format";
 import Button from "../../ui/Button";
 
 const paymentLabel = (value) => String(value || "CASH").replaceAll("_", " ");
 
 const OrderPaymentPromptModal = ({ open, order, onClose, onPayNow, onPayLater, onViewOrder, loading }) => {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => { if (event.key === "Escape" && !loading) onClose?.(); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [loading, onClose, open]);
+
   if (!open || !order) return null;
 
   const items = Array.isArray(order.items) ? order.items : [];
@@ -16,13 +24,13 @@ const OrderPaymentPromptModal = ({ open, order, onClose, onPayNow, onPayLater, o
   const customerName = order.customer?.fullName || "Guest";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-4">
-      <div className="max-h-[90dvh] w-full max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:max-w-xl sm:p-6">
+    <div className="ui-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!loading && event.target === event.currentTarget) onClose?.(); }}>
+      <div className="ui-modal max-w-xl" role="dialog" aria-modal="true" aria-labelledby="order-payment-title" aria-describedby="order-payment-description">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium uppercase tracking-wide text-emerald-600">Pay Order</p>
-            <h3 className="mt-1 break-words text-xl font-bold text-slate-900 sm:text-2xl">{`Order ID: #${order.orderNumber}`}</h3>
-            <p className="mt-1 text-sm text-slate-500">Customer: {customerName}</p>
+            <h3 id="order-payment-title" className="mt-1 break-words text-xl font-bold text-slate-900 sm:text-2xl">{`Order ID: #${order.orderNumber}`}</h3>
+            <p id="order-payment-description" className="mt-1 break-words text-sm text-slate-500">Customer: {customerName}</p>
           </div>
           <button type="button" onClick={onClose} className="min-h-11 shrink-0 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700">Close</button>
         </div>
