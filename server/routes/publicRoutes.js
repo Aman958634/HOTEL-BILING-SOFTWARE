@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { body } from "express-validator";
 import Food from "../models/Food.js";
 import Category from "../models/Category.js";
 import User from "../models/User.js";
@@ -7,6 +8,8 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
 import { getPublicMenuContextToken, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
+import { validate } from "../middleware/validate.js";
 import {
   listPublicPlans,
   publicSubscribeSignup,
@@ -15,7 +18,23 @@ import {
 const router = Router();
 
 router.get("/plans", listPublicPlans);
-router.post("/subscribe/signup", publicSubscribeSignup);
+router.post(
+  "/subscribe/signup",
+  authLimiter,
+  [
+    body("planName").isString().trim().isLength({ min: 1, max: 80 }).withMessage("Plan selection is invalid"),
+    body("fullName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Owner name is invalid"),
+    body("ownerName").optional({ values: "falsy" }).isString().trim().isLength({ max: 120 }).withMessage("Owner name is invalid"),
+    body("email").isEmail().withMessage("Valid email is required"),
+    body("password").isString().isLength({ min: 8, max: 128 }).withMessage("Password must be between 8 and 128 characters"),
+    body("phone").isString().trim().isLength({ min: 7, max: 20 }).withMessage("Phone number is invalid"),
+    body("restaurantName").isString().trim().isLength({ min: 1, max: 160 }).withMessage("Restaurant name is invalid"),
+    body("address").isString().trim().isLength({ min: 1, max: 500 }).withMessage("Address is invalid"),
+    body("city").optional({ values: "falsy" }).isString().trim().isLength({ max: 120 }).withMessage("City is invalid"),
+  ],
+  validate,
+  publicSubscribeSignup
+);
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const getPublicMenu = async (req) => {
@@ -72,7 +91,8 @@ router.get(
   asyncHandler(async (_req, res) => {
     const user = await User.findOne({ role: "super_admin" }).select("email role fullName");
     if (user) {
-      return res.status(200).json(new ApiResponse(true, "Super admin exists", { exists: true, user }));
+      const data = process.env.NODE_ENV === "production" ? { exists: true } : { exists: true, user };
+      return res.status(200).json(new ApiResponse(true, "Super admin exists", data));
     }
     return res.status(200).json(new ApiResponse(true, "No super admin found", { exists: false }));
   })

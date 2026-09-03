@@ -16,6 +16,7 @@ import {
 import { protect } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { requirePaymentAdminAccess, requirePaymentViewAccess } from "../middleware/paymentAuth.js";
+import { paymentLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -45,9 +46,9 @@ router.post(
 	validate,
 	createPayment
 );
-router.post("/intent", protect, paymentIntentValidation, validate, createPaymentIntent);
-router.post("/create-order", protect, paymentIntentValidation, validate, createPaymentIntent);
-router.post("/verify", protect, verifyPaymentValidation, validate, verifyPayment);
+router.post("/intent", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
+router.post("/create-order", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
+router.post("/verify", protect, paymentLimiter, verifyPaymentValidation, validate, verifyPayment);
 router.get("/stats", protect, requirePaymentViewAccess, getPaymentStats);
 router.get("/export", protect, requirePaymentViewAccess, exportPayments);
 router.get("/:id/receipt", protect, requirePaymentViewAccess, [param("id").isMongoId().withMessage("Invalid payment id")], validate, getPaymentReceipt);

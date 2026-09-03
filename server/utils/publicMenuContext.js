@@ -27,7 +27,7 @@ export const createPublicMenuContext = (table) => {
       outletId: String(table.outlet),
     },
     getSecret(),
-    { expiresIn: process.env.PUBLIC_MENU_CONTEXT_EXPIRES || "365d" }
+    { expiresIn: process.env.PUBLIC_MENU_CONTEXT_EXPIRES || "365d", algorithm: "HS256" }
   );
 };
 
@@ -38,7 +38,7 @@ export const resolvePublicMenuContext = async (token) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, getSecret());
+    payload = jwt.verify(token, getSecret(), { algorithms: ["HS256"] });
   } catch {
     throw contextError("The table QR context is invalid or has expired");
   }

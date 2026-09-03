@@ -9,6 +9,7 @@ const router = Router();
 
 router.post(
   "/register",
+  authLimiter,
   [
     body("fullName").trim().notEmpty().withMessage("Full name is required"),
     body("email").isEmail().withMessage("Valid email is required"),

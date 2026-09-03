@@ -13,9 +13,11 @@ const refreshExpires =
 export const generateAccessToken = (payload) =>
   jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
     expiresIn: accessExpires,
+    algorithm: "HS256",
   });
 
 export const generateRefreshToken = (payload) =>
   jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
     expiresIn: refreshExpires,
+    algorithm: "HS256",
   });

@@ -12,7 +12,7 @@ export const resolveSocketContext = async (handshake = {}) => {
   if (!token) throw new Error("Unauthorized");
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET, { algorithms: ["HS256"] });
     const user = await User.findById(decoded.id).select("_id role restaurant outletAccess allOutletsAccess isActive").lean();
     if (!user?.isActive) throw new Error("Unauthorized");
 

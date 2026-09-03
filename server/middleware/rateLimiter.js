@@ -41,3 +41,12 @@ export const publicOrderLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Too many order attempts. Please try again shortly." },
 });
+
+/** Provider-payment initiation and verification need stricter abuse bounds than general API traffic. */
+export const paymentLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many payment attempts. Please try again shortly." },
+});
