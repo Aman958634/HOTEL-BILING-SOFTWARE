@@ -64,6 +64,9 @@ export const loginThunk = createAsyncThunk("auth/login", async (payload, { rejec
     const { data } = await loginUser(payload);
     return data.data;
   } catch (error) {
+    if (error?.response?.status === 429) {
+      return rejectWithValue("Too many login attempts. Please wait a few minutes and try again.");
+    }
     return rejectWithValue(error?.response?.data?.message || "Login failed");
   }
 });

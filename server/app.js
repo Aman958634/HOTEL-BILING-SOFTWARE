@@ -41,6 +41,9 @@ import serviceModeRoutes from "./routes/serviceModeRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
 
 const app = express();
+// Render terminates TLS and forwards the original client IP through one proxy hop.
+// Trusting exactly one hop keeps rate-limit keys client-specific without trusting arbitrary headers.
+app.set("trust proxy", 1);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const openapiPath = path.join(__dirname, "docs", "openapi.json");

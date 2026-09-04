@@ -8,7 +8,7 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getPagination } from "../utils/pagination.js";
 import { getPublicMenuContextToken, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
-import { authLimiter } from "../middleware/rateLimiter.js";
+import { signupLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
 import {
   listPublicPlans,
@@ -20,7 +20,7 @@ const router = Router();
 router.get("/plans", listPublicPlans);
 router.post(
   "/subscribe/signup",
-  authLimiter,
+  signupLimiter,
   [
     body("planName").isString().trim().isLength({ min: 1, max: 80 }).withMessage("Plan selection is invalid"),
     body("fullName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Owner name is invalid"),
