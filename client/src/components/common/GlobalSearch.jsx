@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { globalSearch } from "../../services/searchService";
-import { useConnectivity } from "../../context/ConnectivityContext";
 import {
   FiBox,
   FiCalendar,
@@ -41,7 +40,6 @@ const isEditableTarget = (target) => {
 
 const GlobalSearch = ({ className = "", compact = false }) => {
   const navigate = useNavigate();
-  const { state: connectivityState } = useConnectivity();
   const inputRef = useRef(null);
   const requestRef = useRef(null);
   const debounceRef = useRef(null);
@@ -83,13 +81,6 @@ const GlobalSearch = ({ className = "", compact = false }) => {
       setError("");
       return;
     }
-    if (connectivityState !== "online") {
-      setResults({});
-      setLoading(false);
-      setError("Search requires connection.");
-      setOpen(true);
-      return;
-    }
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -110,7 +101,7 @@ const GlobalSearch = ({ className = "", compact = false }) => {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [connectivityState]);
+  }, []);
 
   const scheduleSearch = useCallback((value) => {
     cancelPending();

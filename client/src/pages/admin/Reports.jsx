@@ -1,6 +1,3 @@
-import { useConnectivity } from "../../context/ConnectivityContext";
-import StaleDataNotice from "../../components/common/StaleDataNotice";
-import { readLastKnown, writeLastKnown } from "../../utils/lastKnownData";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { FiDownload, FiFileText, FiFilter, FiRefreshCw, FiUsers, FiDollarSign, FiShoppingBag, FiCheckCircle, FiXCircle, FiTrendingUp } from "react-icons/fi";
@@ -63,8 +60,6 @@ const paymentLabel = (value) =>
     .join(" ");
 
 const Reports = () => {
-    const { reconnectVersion } = useConnectivity();
-    const outletId = localStorage.getItem("selectedOutletId") || "none";
   const [filters, setFilters] = useState(defaultFilters);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -109,31 +104,16 @@ const Reports = () => {
     [reportQuery, filters.page, filters.limit, filters.search, filters.orderStatus, filters.paymentStatus, filters.sortBy, filters.sortOrder]
   );
 
-  const reportsKey = `reports:${outletId}:${JSON.stringify(reportQuery)}:${JSON.stringify(salesQuery)}`;
-
   const loadAll = useCallback(async (nextReportQuery = reportQuery, nextSalesQuery = salesQuery) => {
     if (nextReportQuery.range === "custom" && (!nextReportQuery.startDate || !nextReportQuery.endDate)) {
       return;
     }
 
     setLoading(true);
-        requestControllerRef.current?.abort();
-        const controller = new AbortController();
-        requestControllerRef.current = controller;
-        const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
-        const cached = readLastKnown(reportsKey);
-        if (cached?.value) {
-          setSummary(cached.value.summary);
-          setRevenue(cached.value.revenue);
-          setOrders(cached.value.orders);
-          setTopItems(cached.value.topItems);
-          setCategories(cached.value.categories);
-          setPayments(cached.value.payments);
-          setCustomers(cached.value.customers);
-          setSalesRows(cached.value.salesRows);
-          setSalesMeta(cached.value.salesMeta);
-        }
-        setLoading(!cached?.value);
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const requestedOutlet = localStorage.getItem("selectedOutletId") || "none";
     setError("");
 
     try {
@@ -158,26 +138,15 @@ const Reports = () => {
       setCustomers(customersRes.data.data || null);
       setSalesRows(salesRes.data.data || []);
       setSalesMeta(salesRes.data.meta || { total: 0, page: 1, limit: 10, totalPages: 1 });
-      writeLastKnown(reportsKey, {
-        summary: summaryRes.data.data || null,
-        revenue: revenueRes.data.data || { points: [], totalRevenue: 0 },
-        orders: ordersRes.data.data || { statusBreakdown: [] },
-        topItems: topItemsRes.data.data || [],
-        categories: categoriesRes.data.data || [],
-        payments: paymentsRes.data.data || { summary: {}, methods: [] },
-        customers: customersRes.data.data || null,
-        salesRows: salesRes.data.data || [],
-        salesMeta: salesRes.data.meta || { total: 0, page: 1, limit: 10, totalPages: 1 },
-      });
     } catch (err) {
       if (controller.signal.aborted || err?.code === "ERR_CANCELED") return;
-      const message = !err?.response ? "Connection unavailable. Showing last available reports." : err?.response?.data?.message || "Unable to load reports";
+      const message = err?.response?.data?.message || "Unable to load reports";
       setError(message);
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestControllerRef.current === controller) setLoading(false);
     }
-  }, [reportQuery, reportsKey, salesQuery]);
+  }, [reportQuery, salesQuery]);
 
   useEffect(() => () => requestControllerRef.current?.abort(), []);
 
@@ -187,10 +156,6 @@ const Reports = () => {
     }, 200);
     return () => clearTimeout(timer);
   }, [loadAll, reportQuery, salesQuery]);
-
-  useEffect(() => {
-    if (reconnectVersion) loadAll(reportQuery, salesQuery);
-  }, [loadAll, reconnectVersion, reportQuery, salesQuery]);
 
   const updateFilters = (patch) => {
     setFilters((current) => ({
@@ -300,7 +265,6 @@ const Reports = () => {
           <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Reports & Analytics</h2>
           <p className="mt-1 text-sm text-slate-500">Real-time revenue, orders, customer and payment insights.</p>
         </div>
-          <StaleDataNotice savedAt={readLastKnown(reportsKey)?.savedAt} />
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => loadAll(reportQuery, salesQuery)}

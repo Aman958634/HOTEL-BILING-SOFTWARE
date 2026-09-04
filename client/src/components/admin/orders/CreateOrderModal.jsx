@@ -10,7 +10,6 @@ import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
 import { INSTRUCTIONS_MAX, cardClass, fieldClass, labelClass } from "./create/constants";
-import { useConnectivity } from "../../../context/ConnectivityContext";
 import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 
 const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
@@ -83,7 +82,6 @@ const CreateOrderModal = ({
 }) => {
   const isEdit = Boolean(initialData?._id);
   const user = useSelector((state) => state.auth.user);
-  const { state: connectivityState } = useConnectivity();
   const outletId = localStorage.getItem("selectedOutletId") || "";
   const draftScope = getOrderDraftScope({ user, outletId });
 
@@ -343,11 +341,6 @@ const CreateOrderModal = ({
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) return;
-    if (!isEdit && connectivityState !== "online") {
-      toast.error("Connection required to submit order.", { id: "order-submit-offline" });
-      return;
-    }
-
     onSubmit({
       customer: form.customer?._id || null,
       orderType: form.orderType,

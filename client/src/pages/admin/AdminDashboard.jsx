@@ -9,9 +9,6 @@ import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, u
 import { useSocket } from "../../context/SocketContext";
 import { getMyOutlets } from "../../services/outletService";
 import { getRestaurantSettings } from "../../services/restaurantService";
-import { useConnectivity } from "../../context/ConnectivityContext";
-import StaleDataNotice from "../../components/common/StaleDataNotice";
-import { readLastKnown, writeLastKnown } from "../../utils/lastKnownData";
 
 const SalesChart = lazy(() => import("../../components/admin/SalesChart"));
 
@@ -42,17 +39,13 @@ const TrendLine = ({ label, card }) => {
 };
 
 const AdminDashboard = () => {
-  const { reconnectVersion } = useConnectivity();
-  const outletId = localStorage.getItem("selectedOutletId") || "none";
-  const dashboardKey = `dashboard:${outletId}`;
-  const savedDashboard = readLastKnown(dashboardKey)?.value || {};
-  const [stats, setStats] = useState(savedDashboard.stats || null);
-  const [sales, setSales] = useState(savedDashboard.sales || []);
-  const [orders, setOrders] = useState(savedDashboard.orders || []);
+  const [stats, setStats] = useState(null);
+  const [sales, setSales] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [range, setRange] = useState("7d");
-  const [loadingStats, setLoadingStats] = useState(!savedDashboard.stats);
-  const [loadingSales, setLoadingSales] = useState(!savedDashboard.sales);
-  const [loadingOrders, setLoadingOrders] = useState(!savedDashboard.orders);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingSales, setLoadingSales] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [statsError, setStatsError] = useState("");
   const [salesError, setSalesError] = useState("");
   const [ordersError, setOrdersError] = useState("");
@@ -75,16 +68,15 @@ const AdminDashboard = () => {
       const { data } = await getAdminStats({ signal: controller.signal });
       if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setStats(data.data);
-      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, stats: data.data });
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
-      const message = !error?.response ? "Connection unavailable. Showing last available dashboard data." : error?.response?.data?.message || "Failed to load dashboard stats";
+      const message = error?.response?.data?.message || "Failed to load dashboard stats";
       setStatsError(message);
       toast.error(message);
     } finally {
-      setLoadingStats(false);
+      if (requestControllers.current.stats === controller) setLoadingStats(false);
     }
-  }, [dashboardKey]);
+  }, []);
 
   const loadSales = useCallback(async (selectedRange) => {
     requestControllers.current.sales?.abort();
@@ -97,16 +89,15 @@ const AdminDashboard = () => {
       const { data } = await getAdminSales(selectedRange, { signal: controller.signal });
       if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setSales(data.data || []);
-      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, sales: data.data || [] });
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
-      const message = !error?.response ? "Connection unavailable. Showing last available sales data." : error?.response?.data?.message || "Failed to load sales overview";
+      const message = error?.response?.data?.message || "Failed to load sales overview";
       setSalesError(message);
       toast.error(message);
     } finally {
-      setLoadingSales(false);
+      if (requestControllers.current.sales === controller) setLoadingSales(false);
     }
-  }, [dashboardKey]);
+  }, []);
 
   const loadOrders = useCallback(async () => {
     requestControllers.current.orders?.abort();
@@ -119,26 +110,21 @@ const AdminDashboard = () => {
       const { data } = await getAdminRecentOrders({ signal: controller.signal });
       if (controller.signal.aborted || requestedOutlet !== (localStorage.getItem("selectedOutletId") || "none")) return;
       setOrders(data.data || []);
-      writeLastKnown(dashboardKey, { ...readLastKnown(dashboardKey)?.value, orders: data.data || [] });
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
-      const message = !error?.response ? "Connection unavailable. Showing last available orders." : error?.response?.data?.message || "Failed to load recent orders";
+      const message = error?.response?.data?.message || "Failed to load recent orders";
       setOrdersError(message);
       toast.error(message);
     } finally {
-      setLoadingOrders(false);
+      if (requestControllers.current.orders === controller) setLoadingOrders(false);
     }
-  }, [dashboardKey]);
+  }, []);
 
   useEffect(() => () => Object.values(requestControllers.current).forEach((controller) => controller?.abort()), []);
 
   useEffect(() => {
     Promise.all([loadStats(), loadSales(initialRangeRef.current), loadOrders()]);
   }, [loadOrders, loadSales, loadStats]);
-
-  useEffect(() => {
-    if (reconnectVersion) Promise.all([loadStats(), loadSales(range), loadOrders()]);
-  }, [loadOrders, loadSales, loadStats, reconnectVersion, range]);
 
   useEffect(() => {
     let active = true;
@@ -256,8 +242,6 @@ const AdminDashboard = () => {
         </div>
         <span className="flex w-full items-center gap-2 text-xs text-slate-500 sm:hidden"><FiCalendar className="h-4 w-4" aria-hidden="true" />{todayLabel}</span>
       </header>
-      <StaleDataNotice savedAt={readLastKnown(dashboardKey)?.savedAt} />
-
       {setup.loading ? <section className="h-32 animate-pulse rounded-2xl bg-slate-100" aria-busy="true" aria-label="Loading setup progress" /> : null}
       {!setup.loading && !setup.error && visibleSetupSteps.length ? (
         <section className="ops-card border-emerald-100 bg-emerald-50/40 p-4 sm:p-5" aria-labelledby="setup-progress-title">
