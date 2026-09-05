@@ -13,6 +13,7 @@ import { INSTRUCTIONS_MAX, cardClass, fieldClass, labelClass } from "./create/co
 import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 
 const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
+const newIdempotencyKey = () => globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const derivePercent = (amount, base) => {
   if (!base || base <= 0) return "";
@@ -60,6 +61,7 @@ const buildInitialState = (initialData, menuItems, categories) => {
     deliveryAddress: initialData?.deliveryAddress || "",
     paymentMethod: initialData?.paymentMethod || "CASH",
     paymentStatus: initialData?.paymentStatus || "PENDING",
+    idempotencyKey: initialData?.idempotencyKey || "",
   };
 };
 
@@ -76,6 +78,7 @@ const CreateOrderModal = ({
   categories = [],
   tables = [],
   dependenciesLoading = false,
+  submissionError = "",
   initialData = null,
   onClose,
   onSubmit,
@@ -99,6 +102,7 @@ const CreateOrderModal = ({
   const [errors, setErrors] = useState({});
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const menuSearchRef = useRef(null);
+  const [submissionMessage, setSubmissionMessage] = useState("");
 
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -116,7 +120,9 @@ const CreateOrderModal = ({
     if (!open) return;
     const initialForm = buildInitialState(initialData, menuItems, categories);
     const draft = !isEdit ? readOrderDraft(draftScope) : null;
-    setForm(draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories) } : initialForm);
+    const restoredForm = draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories) } : initialForm;
+    if (!isEdit && !restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
+    setForm(restoredForm);
     if (draft) toast.success("Unsent order restored.", { id: "order-draft-restored" });
     setMenuSearch("");
     setMenuCategory("");
@@ -125,6 +131,7 @@ const CreateOrderModal = ({
     setShowCustomerForm(false);
     setCustomerForm({ fullName: "", email: "", phone: "" });
     setErrors({});
+    setSubmissionMessage("");
     setGuestCount(1);
     setMobileCartOpen(false);
 
@@ -354,6 +361,12 @@ const CreateOrderModal = ({
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) return;
+    if (!navigator.onLine) {
+      writeOrderDraft(draftScope, form);
+      setSubmissionMessage("Connection required to submit order. Your draft is saved.");
+      return;
+    }
+    setSubmissionMessage("");
     onSubmit({
       customer: form.customer?._id || null,
       orderType: form.orderType,
@@ -368,6 +381,7 @@ const CreateOrderModal = ({
       deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
       paymentMethod: form.paymentMethod,
       paymentStatus: form.paymentStatus,
+      _idempotencyKey: form.idempotencyKey,
     });
   };
 
@@ -507,6 +521,7 @@ const CreateOrderModal = ({
 
           {/* Bottom action bar */}
           <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+            {submissionMessage || submissionError ? <p className="text-sm text-amber-800" role="status">{submissionMessage || submissionError}</p> : null}
             <button
               type="button"
               onClick={onClose}

@@ -109,8 +109,8 @@ const OrderManagement = () => {
   const [cashConfirmOpen, setCashConfirmOpen] = useState(false);
   const [cashConfirmLoading, setCashConfirmLoading] = useState(false);
   const filtersRef = useRef(filters);
-  const createRequestKeyRef = useRef(null);
   const createSubmittingRef = useRef(false);
+  const [createSubmitError, setCreateSubmitError] = useState("");
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -275,11 +275,11 @@ const OrderManagement = () => {
   const submitCreate = async (payload) => {
     if (createSubmittingRef.current) return;
     createSubmittingRef.current = true;
-    createRequestKeyRef.current ||= globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setCreateSubmitError("");
     setSaving(true);
     try {
-      const { paymentStatus, ...orderPayload } = payload;
-      const { data } = await createOrder(orderPayload, createRequestKeyRef.current);
+      const { paymentStatus, _idempotencyKey, ...orderPayload } = payload;
+      const { data } = await createOrder(orderPayload, _idempotencyKey);
       let order = data.data;
       const isCashSettlement = paymentStatus === "PAID" && String(orderPayload.paymentMethod || "CASH").toUpperCase() === "CASH";
 
@@ -296,7 +296,6 @@ const OrderManagement = () => {
       }
 
       toast.success("Order created successfully");
-      createRequestKeyRef.current = null;
       clearOrderDraft(getOrderDraftScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" }));
       setCreateOpen(false);
 
@@ -309,7 +308,14 @@ const OrderManagement = () => {
       setPaymentPromptOpen(true);
       await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Unable to create order");
+      if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
+      const message = !error?.response
+        ? "Unable to reach the server. Your draft is saved. Try again."
+        : error?.response?.status >= 500
+          ? "The server is unavailable. Your draft is saved. Try again."
+          : error?.response?.data?.message || "Unable to create order";
+      setCreateSubmitError(message);
+      toast.error(message);
     } finally {
       createSubmittingRef.current = false;
       setSaving(false);
@@ -478,6 +484,7 @@ const OrderManagement = () => {
   }, [meta.totalPages]);
 
   const openCreate = useCallback(() => {
+    setCreateSubmitError("");
     setCreateOpen(true);
   }, []);
 
@@ -523,6 +530,7 @@ const OrderManagement = () => {
         categories={categories}
         tables={tables}
         dependenciesLoading={dependenciesLoading}
+        submissionError={createSubmitError}
         initialData={createInitialTable ? { table: createInitialTable } : null}
         onClose={() => {
           setCreateOpen(false);

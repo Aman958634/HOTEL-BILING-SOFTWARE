@@ -35,6 +35,7 @@ export const writeOrderDraft = (scope, form) => {
     store[scope] = {
       version: VERSION,
       scope,
+      idempotencyKey: String(form.idempotencyKey || "").slice(0, 200),
       savedAt: Date.now(),
       orderType: form.orderType,
       table: form.orderType === "DINE_IN" ? form.table || "" : "",
