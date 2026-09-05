@@ -158,6 +158,26 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
+  const idempotencyFingerprint = idempotencyKey ? crypto.createHash("sha256").update(JSON.stringify({
+    orderType,
+    table: req.body.table || null,
+    customer: customerId,
+    items: req.body.items || [],
+    discount: req.body.discount,
+    serviceChargePercent: req.body.serviceChargePercent,
+    deliveryCharge: req.body.deliveryCharge,
+    deliveryAddress: req.body.deliveryAddress || "",
+    notes: req.body.notes || "",
+  })).digest("hex") : null;
+  if (idempotencyKey) {
+    const existing = await Order.findOne({ restaurant: restaurantId, outlet: req.user.activeOutlet || null, idempotencyKey });
+    if (existing) {
+      if (existing.idempotencyFingerprint !== idempotencyFingerprint) throw new ApiError(409, "Idempotency-Key was already used for a different order");
+      const normalized = await Order.findById(existing._id).populate("customer", "fullName email phone").populate("table", "tableNumber floor section status").populate("items.menuItem", "name");
+      return res.status(200).json(new ApiResponse(true, "Existing order returned for this idempotency key", normalizeOrderOutput(normalized)));
+    }
+  }
   const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
   if (duplicate) {
     return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
@@ -196,7 +216,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     gstType: await resolveOrderGstType(restaurantId, billingState),
   });
 
-  const order = await Order.create({
+  let order;
+  try {
+    order = await Order.create({
     orderNumber,
     customer: customerId,
     table: orderType === ORDER_TYPES.DINE_IN ? req.body.table || null : null,
@@ -205,6 +227,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     orderType,
     orderSource,
     externalOrderId: String(req.body.externalOrderId || "").trim() || undefined,
+    idempotencyKey: idempotencyKey || undefined,
+    idempotencyFingerprint,
     items: calculated.items,
     subtotal: calculated.subtotal,
     discount: calculated.discount,
@@ -226,8 +250,18 @@ export const createOrder = asyncHandler(async (req, res) => {
     deliveryAddress: req.body.deliveryAddress || "",
     pickupDetails: req.body.pickupDetails || "",
     billingState,
-    notes: req.body.notes || "",
-  });
+      notes: req.body.notes || "",
+    });
+  } catch (error) {
+    if (error?.code !== 11000 || !idempotencyKey) throw error;
+    const existing = await Order.findOne({ restaurant: restaurantId, outlet: req.user.activeOutlet || null, idempotencyKey })
+      .populate("customer", "fullName email phone")
+      .populate("table", "tableNumber floor section status")
+      .populate("items.menuItem", "name");
+    if (!existing) throw error;
+    if (existing.idempotencyFingerprint !== idempotencyFingerprint) throw new ApiError(409, "Idempotency-Key was already used for a different order");
+    return res.status(200).json(new ApiResponse(true, "Existing order returned for this idempotency key", normalizeOrderOutput(existing)));
+  }
 
   if (orderType === ORDER_TYPES.DINE_IN) {
     try {

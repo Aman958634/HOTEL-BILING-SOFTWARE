@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
@@ -98,6 +98,7 @@ const CreateOrderModal = ({
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const menuSearchRef = useRef(null);
 
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -140,6 +141,18 @@ const CreateOrderModal = ({
     const timer = window.setTimeout(() => writeOrderDraft(draftScope, form), 350);
     return () => window.clearTimeout(timer);
   }, [draftScope, form, isEdit, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onShortcut = (event) => {
+      const tag = String(event.target?.tagName || "").toLowerCase();
+      if (event.key !== "/" || tag === "input" || tag === "textarea" || event.target?.isContentEditable) return;
+      event.preventDefault();
+      menuSearchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onShortcut);
+    return () => document.removeEventListener("keydown", onShortcut);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -435,6 +448,7 @@ const CreateOrderModal = ({
               />
 
               <ItemsSection
+                menuSearchRef={menuSearchRef}
                 menuSearch={menuSearch}
                 menuCategory={menuCategory}
                 categories={categories}

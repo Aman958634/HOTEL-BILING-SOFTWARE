@@ -109,6 +109,8 @@ const OrderManagement = () => {
   const [cashConfirmOpen, setCashConfirmOpen] = useState(false);
   const [cashConfirmLoading, setCashConfirmLoading] = useState(false);
   const filtersRef = useRef(filters);
+  const createRequestKeyRef = useRef(null);
+  const createSubmittingRef = useRef(false);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -271,10 +273,13 @@ const OrderManagement = () => {
   };
 
   const submitCreate = async (payload) => {
+    if (createSubmittingRef.current) return;
+    createSubmittingRef.current = true;
+    createRequestKeyRef.current ||= globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setSaving(true);
     try {
       const { paymentStatus, ...orderPayload } = payload;
-      const { data } = await createOrder(orderPayload);
+      const { data } = await createOrder(orderPayload, createRequestKeyRef.current);
       let order = data.data;
       const isCashSettlement = paymentStatus === "PAID" && String(orderPayload.paymentMethod || "CASH").toUpperCase() === "CASH";
 
@@ -291,20 +296,22 @@ const OrderManagement = () => {
       }
 
       toast.success("Order created successfully");
+      createRequestKeyRef.current = null;
       clearOrderDraft(getOrderDraftScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" }));
       setCreateOpen(false);
 
       if (isCashSettlement) {
-        await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+        await Promise.all([loadOrders(), loadStats()]);
         return;
       }
 
       setCreatedOrder(order);
       setPaymentPromptOpen(true);
-      await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to create order");
     } finally {
+      createSubmittingRef.current = false;
       setSaving(false);
     }
   };
@@ -318,7 +325,7 @@ const OrderManagement = () => {
       toast.success("Order updated successfully");
       setEditOpen(false);
       setEditOrder(null);
-      await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update order");
     } finally {
@@ -335,7 +342,7 @@ const OrderManagement = () => {
       toast.success("Order status updated");
       setStatusTarget(null);
       setStatusValue("");
-      await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update status");
     } finally {
@@ -351,7 +358,7 @@ const OrderManagement = () => {
       await deleteOrder(deleteTarget._id);
       toast.success("Order deleted successfully.");
       setDeleteTarget(null);
-      await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to delete order. Please try again.");
     } finally {
@@ -384,7 +391,7 @@ const OrderManagement = () => {
       });
       toast.success("Cash payment marked as paid");
       closePaymentPrompt();
-      await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update cash payment");
     } finally {
@@ -431,7 +438,7 @@ const OrderManagement = () => {
             });
             toast.success("Payment completed successfully");
             closePaymentPrompt();
-            await Promise.all([loadOrders(), loadStats(), loadOrderDependencies()]);
+            await Promise.all([loadOrders(), loadStats()]);
           } catch (error) {
             toast.error(error?.response?.data?.message || "Payment verification failed");
           } finally {
@@ -471,9 +478,8 @@ const OrderManagement = () => {
   }, [meta.totalPages]);
 
   const openCreate = useCallback(() => {
-    loadOrderDependencies();
     setCreateOpen(true);
-  }, [loadOrderDependencies]);
+  }, []);
 
   const requestDelete = useCallback((order) => setDeleteTarget(order), []);
 

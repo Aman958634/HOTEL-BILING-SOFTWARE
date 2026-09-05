@@ -148,6 +148,8 @@ const orderSchema = new mongoose.Schema(
     // Omitted for internally-created orders; sparse unique index applies only
     // when an integration/client supplied an actual idempotency key.
     externalOrderId: { type: String, trim: true },
+    idempotencyKey: { type: String, trim: true },
+    idempotencyFingerprint: { type: String, trim: true },
     kitchenStatus: {
       type: String,
       enum: ["PENDING", "PREPARING", "READY", "COMPLETED"],
@@ -185,6 +187,7 @@ orderSchema.index({ restaurant: 1, orderSource: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderNumber: 1 });
 orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, sparse: true });
+orderSchema.index({ restaurant: 1, outlet: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 orderSchema.index({ restaurant: 1, customer: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
 
