@@ -17,6 +17,14 @@ const GuestCheckoutPage = () => {
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(null);
+  const [idempotencyKey] = useState(() => {
+    const storageKey = qrToken ? `restosphere.qrOrderKey:${qrToken}` : "restosphere.qrOrderKey:missing";
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const next = globalThis.crypto?.randomUUID?.() || `qr-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(storageKey, next);
+    return next;
+  });
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = Math.round(subtotal * 0.05);
@@ -47,9 +55,10 @@ const GuestCheckoutPage = () => {
         specialInstructions: name ? `Guest: ${name}${phone ? `, Phone: ${phone}` : ""}` : "",
       };
 
-      const { data } = await createGuestOrder(payload);
+      const { data } = await createGuestOrder(payload, idempotencyKey);
       setPlacedOrder(data?.data || null);
       dispatch(clearCart());
+      sessionStorage.removeItem(`restosphere.qrOrderKey:${qrToken}`);
       toast.success("Order placed successfully");
     } catch (error) {
       toast.error(error?.response?.data?.message || "Order failed. Please try again.");

@@ -1,7 +1,7 @@
 import api from "./api";
 
 export const createOrder = (payload, idempotencyKey) => api.post("/orders", payload, { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {} });
-export const createGuestOrder = (payload) => api.post("/orders/guest", payload);
+export const createGuestOrder = (payload, idempotencyKey) => api.post("/orders/guest", payload, { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {} });
 export const getOrders = (params = {}) => api.get("/orders", { params });
 export const getOrderById = (id) => api.get(`/orders/${id}`);
 export const updateOrder = (id, payload) => api.put(`/orders/${id}`, payload);
