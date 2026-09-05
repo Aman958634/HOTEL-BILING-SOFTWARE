@@ -1,5 +1,5 @@
 import { memo, useCallback } from "react";
-import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiX, FiAward, FiMapPin } from "react-icons/fi";
+import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin } from "react-icons/fi";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
