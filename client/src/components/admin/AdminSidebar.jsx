@@ -28,6 +28,7 @@ const links = [
   { group: "Administration", to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell /> },
   { group: "Administration", to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin /> },
   { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings /> },
+  { group: "Administration", to: "/dashboard/admin/integrations", label: "Integrations", icon: <FiWifi /> },
 ];
 
 const linkGroups = Object.entries(

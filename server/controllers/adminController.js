@@ -221,3 +221,71 @@ export const recentOrders = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(true, "Recent orders fetched", data));
 });
+
+export const integrationStatus = asyncHandler(async (_req, res) => {
+  const configured = (...names) => names.every((name) => {
+    const value = String(process.env[name] || "").trim();
+    return value && !/^(false|your_|replace_with)/i.test(value);
+  });
+  res.status(200).json(new ApiResponse(true, "Integration status fetched", {
+    integrations: [
+      {
+        id: "razorpay",
+        name: "Razorpay",
+        category: "Payments",
+        status: configured("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET") ? "Configured" : "Unavailable",
+        scope: "Platform payment account",
+        detail: "Order and subscription checkout with server-side signature verification.",
+      },
+      {
+        id: "stripe",
+        name: "Stripe",
+        category: "Payments",
+        status: configured("STRIPE_SECRET_KEY") ? "Configured" : "Unavailable",
+        scope: "Platform payment account",
+        detail: process.env.STRIPE_SECRET_KEY ? "Payment intents are available; client settlement requires a provider webhook." : "Stripe credentials are not configured.",
+      },
+      {
+        id: "email",
+        name: "SMTP email",
+        category: "Communication",
+        status: configured("EMAIL_HOST", "EMAIL_USER", "EMAIL_PASS") ? "Configured" : "Unavailable",
+        scope: "Server configuration",
+        detail: "Server-side email transport is configured where credentials are present.",
+      },
+      {
+        id: "cloudinary",
+        name: "Cloudinary",
+        category: "Media",
+        status: configured("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET") ? "Configured" : "Unavailable",
+        scope: "Server configuration",
+        detail: "Cloudinary configuration is available to server media workflows.",
+      },
+      {
+        id: "qr-ordering",
+        name: "QR ordering",
+        category: "Ordering",
+        status: configured("PUBLIC_MENU_CONTEXT_SECRET") || process.env.NODE_ENV !== "production" ? "Configured" : "Unavailable",
+        scope: "Restaurant and outlet table context",
+        detail: "Signed table context routes to the authorized public menu and ordering flow.",
+      },
+      {
+        id: "socket-io",
+        name: "Socket.IO",
+        category: "Infrastructure",
+        status: "Configured",
+        scope: "Authenticated restaurant and outlet rooms",
+        detail: "Real-time order, payment, kitchen, and notification events.",
+      },
+      {
+        id: "online-orders",
+        name: "Online orders",
+        category: "Ordering",
+        status: "Configured",
+        scope: "Internal order sources",
+        detail: "Internal online, delivery, pickup, and QR order sources are supported.",
+      },
+    ],
+    unsupported: ["External aggregator ingestion", "WhatsApp API ordering", "Google Maps", "External menu sync"],
+  }));
+});

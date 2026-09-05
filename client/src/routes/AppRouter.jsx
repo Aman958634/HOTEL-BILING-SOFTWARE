@@ -52,6 +52,7 @@ const BusinessIntelligence = lazy(() => import("../pages/admin/BusinessIntellige
 const RestoSphereIntelligence = lazy(() => import("../pages/admin/RestoSphereIntelligence"));
 const Notifications = lazy(() => import("../pages/admin/Notifications"));
 const Settings = lazy(() => import("../pages/admin/Settings"));
+const IntegrationsPage = lazy(() => import("../pages/admin/IntegrationsPage"));
 const SuperAdminModuleLayout = lazy(() => import("../pages/admin/SuperAdminModuleLayout"));
 const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage"));
 const RestaurantsPage = lazy(() => import("../pages/admin/RestaurantsPage"));
@@ -208,6 +209,7 @@ const AppRouter = () => (
       <Route path="intelligence" element={<RestoSphereIntelligence />} />
       <Route path="notifications" element={<Notifications />} />
       <Route path="settings" element={<Settings />} />
+      <Route path="integrations" element={<IntegrationsPage />} />
       <Route path="outlets" element={<Outlets />} />
     </Route>
 
