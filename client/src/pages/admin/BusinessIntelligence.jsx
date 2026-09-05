@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FiArrowRight, FiBarChart2, FiInfo, FiRefreshCw } from "react-icons/fi";
@@ -37,26 +37,37 @@ const BusinessIntelligence = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
     if (range === "custom" && (!startDate || !endDate)) return;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError("");
     try {
-      const response = await getBusinessIntelligence({ range, ...(range === "custom" ? { startDate, endDate } : {}) });
+      const response = await getBusinessIntelligence({ range, ...(range === "custom" ? { startDate, endDate } : {}) }, { signal: controller.signal });
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
       setData(response.data?.data || null);
     } catch (err) {
+      if (controller.signal.aborted || err?.code === "ERR_CANCELED" || requestId !== requestIdRef.current) return;
       const message = err?.response?.data?.message || "Unable to load business intelligence";
       setError(message);
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [range, startDate, endDate]);
 
   useEffect(() => {
     const timer = setTimeout(load, 150);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      requestControllerRef.current?.abort();
+    };
   }, [load]);
 
   const overview = data?.overview || {};

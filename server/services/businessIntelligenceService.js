@@ -30,14 +30,16 @@ const localToUtc = (parts, timeZone) => { const guess = Date.UTC(parts.year, par
 const addLocalDays = (parts, days) => { const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days)); return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: 0, minute: 0, second: 0 }; };
 const dateParts = (value, name) => { const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); if (!match) throw new ApiError(422, `${name} must use YYYY-MM-DD`); const result = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: 0, minute: 0, second: 0 }; const check = new Date(Date.UTC(result.year, result.month - 1, result.day)); if (check.getUTCFullYear() !== result.year || check.getUTCMonth() + 1 !== result.month || check.getUTCDate() !== result.day) throw new ApiError(422, `${name} is invalid`); return result; };
 
-export const resolveBusinessRange = ({ range = "last_30_days", startDate, endDate, timeZone = "Asia/Kolkata" } = {}) => {
-  const now = new Date(); const today = zoneParts(now, timeZone); const dayStart = { ...today, hour: 0, minute: 0, second: 0 };
+export const resolveBusinessRange = ({ range = "last_30_days", startDate, endDate, timeZone = "Asia/Kolkata", now: referenceNow } = {}) => {
+  const now = new Date(referenceNow || Date.now()); const today = zoneParts(now, timeZone); const dayStart = { ...today, hour: 0, minute: 0, second: 0 };
   let startParts; let endParts; let granularity = "day"; const key = String(range || "last_30_days").toLowerCase();
   if (key === "custom") { startParts = dateParts(startDate, "startDate"); endParts = addLocalDays(dateParts(endDate, "endDate"), 1); }
   else if (key === "today") { startParts = dayStart; endParts = addLocalDays(dayStart, 1); granularity = "hour"; }
   else if (key === "yesterday") { endParts = dayStart; startParts = addLocalDays(dayStart, -1); granularity = "hour"; }
   else if (key === "last_7_days") { startParts = addLocalDays(dayStart, -6); endParts = addLocalDays(dayStart, 1); }
   else if (key === "last_30_days") { startParts = addLocalDays(dayStart, -29); endParts = addLocalDays(dayStart, 1); }
+  else if (key === "this_week") { const daysSinceMonday = (today.weekday || new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay() + 6) % 7; startParts = addLocalDays(dayStart, -daysSinceMonday); endParts = addLocalDays(dayStart, 1); }
+  else if (key === "last_week") { const daysSinceMonday = (today.weekday || new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay() + 6) % 7; endParts = addLocalDays(dayStart, -daysSinceMonday); startParts = addLocalDays(endParts, -7); }
   else if (key === "this_month") { startParts = { year: today.year, month: today.month, day: 1, hour: 0, minute: 0, second: 0 }; endParts = addLocalDays(dayStart, 1); }
   else if (key === "last_month") { const first = new Date(Date.UTC(today.year, today.month - 1, 1)); const prior = new Date(Date.UTC(today.year, today.month - 2, 1)); startParts = { year: prior.getUTCFullYear(), month: prior.getUTCMonth() + 1, day: 1, hour: 0, minute: 0, second: 0 }; endParts = { year: first.getUTCFullYear(), month: first.getUTCMonth() + 1, day: 1, hour: 0, minute: 0, second: 0 }; }
   else throw new ApiError(422, "Invalid business intelligence range");

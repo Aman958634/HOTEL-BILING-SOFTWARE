@@ -9,107 +9,19 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { normalizePaymentMethod, normalizePaymentStatus } from "../utils/paymentUtils.js";
 import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
+import Restaurant from "../models/Restaurant.js";
+import { resolveBusinessRange } from "../services/businessIntelligenceService.js";
 
-const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "COMPLETED", "CANCELLED"];
+const ORDER_STATUSES = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "SERVED", "COMPLETED", "CANCELLED", "REJECTED"];
 const SUCCESS_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
 
-const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
-const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
-const startOfYear = (date) => new Date(date.getFullYear(), 0, 1);
-
-const addDays = (date, days) => {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
+const getReportTimeZone = async (user) => {
+  if (!user?.restaurant) return "Asia/Kolkata";
+  const restaurant = await Restaurant.findById(user.restaurant).select("timeZone").lean();
+  return restaurant?.timeZone || "Asia/Kolkata";
 };
 
-const addMonths = (date, months) => {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-};
-
-const startOfWeek = (date) => {
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  return startOfDay(addDays(date, diff));
-};
-
-const ensureDate = (value, name) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ApiError(422, `${name} is invalid`);
-  }
-  return date;
-};
-
-const parseDateRange = (query) => {
-  const now = new Date();
-  const range = String(query.range || "this_month").toLowerCase();
-  let start;
-  let end;
-  let granularity = "day";
-
-  if (range === "custom") {
-    if (!query.startDate || !query.endDate) {
-      throw new ApiError(422, "startDate and endDate are required for custom range");
-    }
-    start = startOfDay(ensureDate(query.startDate, "startDate"));
-    const customEnd = ensureDate(query.endDate, "endDate");
-    end = addDays(startOfDay(customEnd), 1);
-
-    const diffDays = Math.max(Math.ceil((end - start) / (24 * 60 * 60 * 1000)), 1);
-    if (diffDays <= 1) granularity = "hour";
-    else if (diffDays >= 365) granularity = "month";
-    else granularity = "day";
-  } else if (range === "today") {
-    start = startOfDay(now);
-    end = now;
-    granularity = "hour";
-  } else if (range === "yesterday") {
-    end = startOfDay(now);
-    start = addDays(end, -1);
-    granularity = "hour";
-  } else if (range === "this_week") {
-    start = startOfWeek(now);
-    end = now;
-    granularity = "day";
-  } else if (range === "last_week") {
-    end = startOfWeek(now);
-    start = addDays(end, -7);
-    granularity = "day";
-  } else if (range === "this_month") {
-    start = startOfMonth(now);
-    end = now;
-    granularity = "day";
-  } else if (range === "last_month") {
-    end = startOfMonth(now);
-    start = addMonths(end, -1);
-    granularity = "day";
-  } else if (range === "this_year") {
-    start = startOfYear(now);
-    end = now;
-    granularity = "month";
-  } else {
-    throw new ApiError(422, "Invalid date range");
-  }
-
-  if (start >= end) {
-    throw new ApiError(422, "Date range is invalid");
-  }
-
-  const previousEnd = new Date(start);
-  const previousStart = new Date(start.getTime() - (end.getTime() - start.getTime()));
-
-  return {
-    range,
-    start,
-    end,
-    previousStart,
-    previousEnd,
-    granularity,
-  };
-};
+const parseDateRange = async (query, user) => resolveBusinessRange({ ...query, timeZone: await getReportTimeZone(user) });
 
 const growthPercent = (current, previous) => calculateGrowth(current, previous);
 
@@ -117,8 +29,9 @@ const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g
 
 const escapeCsv = (value) => {
   const text = String(value ?? "");
-  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
+  const safeText = typeof value === "string" && /^[=+\-@]/.test(text) ? `'${text}` : text;
+  if (/[",\n]/.test(safeText)) return `"${safeText.replace(/"/g, '""')}"`;
+  return safeText;
 };
 
 const formatInr = (value) =>
@@ -169,12 +82,7 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
   const orderMatch = toOrderMatch(rangeContext, restaurantFilter);
   const invoiceMatch = toInvoiceMatch(rangeContext, invoiceFilter);
 
-  const [
-    orderStatusRows,
-    uniqueCustomers,
-    revenueAgg,
-    paidOrders,
-  ] = await Promise.all([
+  const [orderStatusRows, uniqueCustomers, revenueAgg] = await Promise.all([
     Order.aggregate([
       { $match: orderMatch },
       { $group: { _id: "$status", count: { $sum: 1 } } },
@@ -195,13 +103,6 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
         },
       },
     ]),
-    Order.countDocuments({
-      ...restaurantFilter,
-      isArchived: { $ne: true },
-      status: { $ne: "CANCELLED" },
-      paymentStatus: "PAID",
-      paidAt: { $gte: rangeContext.start, $lt: rangeContext.end },
-    }),
   ]);
 
   const statusMap = orderStatusRows.reduce((acc, row) => {
@@ -209,26 +110,26 @@ const buildSummaryForRange = async (rangeContext, restaurantFilter = {}, invoice
     return acc;
   }, {});
 
-  const completedOrders = statusMap.COMPLETED || 0;
+  const completedOrders = (statusMap.COMPLETED || 0) + (statusMap.SERVED || 0);
   const cancelledOrders = statusMap.CANCELLED || 0;
   const revenue = Number(revenueAgg[0]?.totalSales || 0);
   const totalTax = Number(revenueAgg[0]?.totalTax || 0);
-  const averageOrderValue = paidOrders ? revenue / paidOrders : 0;
+  const averageOrderValue = completedOrders ? revenue / completedOrders : 0;
 
   return {
     totalRevenue: revenue,
     totalSales: revenue,
     totalTax,
-    totalOrders: paidOrders,
+    totalOrders: completedOrders,
     averageOrderValue,
     totalCustomers: uniqueCustomers.length,
-    completedOrders: paidOrders,
+    completedOrders,
     cancelledOrders,
   };
 };
 
 export const getReportSummary = asyncHandler(async (req, res) => {
-  const current = parseDateRange(req.query);
+  const current = await parseDateRange(req.query, req.user);
   const previous = {
     ...current,
     start: current.previousStart,
@@ -259,7 +160,7 @@ export const getReportSummary = asyncHandler(async (req, res) => {
 });
 
 export const getRevenueReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const invoiceFilter = await getInvoiceFilter(req.user);
   const format =
     rangeContext.granularity === "hour"
@@ -296,7 +197,7 @@ export const getRevenueReport = asyncHandler(async (req, res) => {
 });
 
 export const getOrdersReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
   const rows = await Order.aggregate([
     { $match: toOrderMatch(rangeContext, restaurantFilter) },
@@ -333,7 +234,7 @@ export const getOrdersReport = asyncHandler(async (req, res) => {
 });
 
 export const getTopItemsReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 20);
 
@@ -399,7 +300,7 @@ export const getTopItemsReport = asyncHandler(async (req, res) => {
 });
 
 export const getCategoryReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
 
   const rows = await Order.aggregate([
@@ -458,7 +359,7 @@ export const getCategoryReport = asyncHandler(async (req, res) => {
 });
 
 export const getPaymentReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
   const match = toPaymentMatch(rangeContext, restaurantFilter);
 
@@ -468,8 +369,8 @@ export const getPaymentReport = asyncHandler(async (req, res) => {
       { $group: { _id: "$paymentStatus", count: { $sum: 1 } } },
     ]),
     Payment.aggregate([
-      { $match: match },
-      { $group: { _id: "$paymentMethod", count: { $sum: 1 }, totalAmount: { $sum: "$totalAmount" } } },
+      { $match: { ...match, paymentStatus: { $in: SUCCESS_PAYMENT_STATUSES } } },
+      { $group: { _id: "$paymentMethod", count: { $sum: 1 }, totalAmount: { $sum: { $subtract: [{ $ifNull: ["$amount", 0] }, { $ifNull: ["$refundAmount", 0] }] } } } },
       { $sort: { totalAmount: -1 } },
     ]),
     Payment.countDocuments(match),
@@ -498,7 +399,7 @@ export const getPaymentReport = asyncHandler(async (req, res) => {
 });
 
 export const getCustomerReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
 
   const [customersInPeriod, firstOrderRows] = await Promise.all([
@@ -571,7 +472,7 @@ export const getCustomerReport = asyncHandler(async (req, res) => {
 });
 
 export const getSalesReport = asyncHandler(async (req, res) => {
-  const rangeContext = parseDateRange(req.query);
+  const rangeContext = await parseDateRange(req.query, req.user);
   const restaurantFilter = await getRestaurantFilter(req.user);
   const page = Math.max(Number(req.query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
@@ -669,7 +570,7 @@ export const getSalesReport = asyncHandler(async (req, res) => {
 });
 
 const buildExportPayload = async (query, user) => {
-  const rangeContext = parseDateRange(query);
+  const rangeContext = await parseDateRange(query, user);
   const restaurantFilter = await getRestaurantFilter(user);
   const [summaryRes, revenueRes, topItemsRes, paymentRes, salesRes] = await Promise.all([
     (async () => {
@@ -884,7 +785,8 @@ const buildReportPdfBuffer = async (payload) =>
     doc.fillColor("white").fontSize(20).font("Helvetica-Bold").text("RestoSphere Reports", 36, 25);
 
     doc.fillColor("#0f172a").moveDown(3);
-    doc.fontSize(10).font("Helvetica").text(`Range: ${formatDate(rangeContext.start)} to ${formatDate(addDays(rangeContext.end, -1))}`);
+    const displayedEnd = new Date(rangeContext.end.getTime() - 1);
+    doc.fontSize(10).font("Helvetica").text(`Range: ${formatDate(rangeContext.start)} to ${formatDate(displayedEnd)}`);
     doc.moveDown(0.8);
 
     doc.fontSize(13).font("Helvetica-Bold").text("Summary");

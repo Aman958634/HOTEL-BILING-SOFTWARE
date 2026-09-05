@@ -12,8 +12,8 @@ import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
-
-const startOfDay = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+import Restaurant from "../models/Restaurant.js";
+import { resolveBusinessRange } from "../services/businessIntelligenceService.js";
 
 const PAID_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
 
@@ -67,9 +67,10 @@ const normalizeStatus = (status) => {
 };
 
 export const dashboardStats = asyncHandler(async (req, res) => {
-  const todayStart = startOfDay();
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const restaurant = req.user?.restaurant ? await Restaurant.findById(req.user.restaurant).select("timeZone").lean() : null;
+  const timeZone = restaurant?.timeZone || "Asia/Kolkata";
+  const todayRange = resolveBusinessRange({ range: "today", timeZone });
+  const yesterdayRange = resolveBusinessRange({ range: "yesterday", timeZone });
 
   const baseOrderMatch = await buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true });
   const invoiceMatch = await invoiceOrderScope(req.user);
@@ -88,12 +89,12 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     totalMenuItems,
   ] = await Promise.all([
     sumInvoiceSales(invoiceMatch),
-    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: todayStart } }),
-    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: todayRange.start, $lt: todayRange.end } }),
+    sumInvoiceSales({ ...invoiceMatch, issuedAt: { $gte: yesterdayRange.start, $lt: yesterdayRange.end } }),
     // Revenue is invoice-based; paid-order count is intentionally order-based.
     Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID" }),
-    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: todayStart } }),
-    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: yesterdayStart, $lt: todayStart } }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: todayRange.start, $lt: todayRange.end } }),
+    Order.countDocuments({ ...baseOrderMatch, status: { $ne: "CANCELLED" }, paymentStatus: "PAID", paidAt: { $gte: yesterdayRange.start, $lt: yesterdayRange.end } }),
     Reservation.countDocuments({ ...operationalScope, status: { $in: ["pending", "confirmed"] } }),
     Table.countDocuments({ ...operationalScope, status: { $in: ["AVAILABLE", "available"] } }),
     Inventory.countDocuments({ ...operationalScope, $expr: { $lte: ["$quantity", "$reorderLevel"] } }),
@@ -169,25 +170,15 @@ export const dashboardStats = asyncHandler(async (req, res) => {
 
 export const salesOverview = asyncHandler(async (req, res) => {
   const range = req.query.range || "7d";
-  const now = new Date();
-  let startDate = new Date(now);
-  let groupFormat = "%Y-%m-%d";
-
-  if (range === "today") {
-    startDate = startOfDay(now);
-    groupFormat = "%Y-%m-%d %H:00";
-  } else if (range === "7d") {
-    startDate.setDate(now.getDate() - 6);
-  } else if (range === "30d") {
-    startDate.setDate(now.getDate() - 29);
-  } else if (range === "year") {
-    startDate = new Date(now.getFullYear(), 0, 1);
-    groupFormat = "%Y-%m";
-  }
+  const restaurant = req.user?.restaurant ? await Restaurant.findById(req.user.restaurant).select("timeZone").lean() : null;
+  const timeZone = restaurant?.timeZone || "Asia/Kolkata";
+  const rangeMap = { today: "today", "7d": "last_7_days", "30d": "last_30_days", year: "this_year" };
+  const resolved = resolveBusinessRange({ range: rangeMap[range] || "last_7_days", timeZone });
+  const groupFormat = resolved.granularity === "hour" ? "%Y-%m-%d %H:00" : resolved.granularity === "month" ? "%Y-%m" : "%Y-%m-%d";
 
   const invoiceMatch = await invoiceOrderScope(req.user,
     {
-      issuedAt: { $gte: startDate },
+      issuedAt: { $gte: resolved.start, $lt: resolved.end },
       status: { $ne: "VOID" },
     }
   );
@@ -196,7 +187,7 @@ export const salesOverview = asyncHandler(async (req, res) => {
     { $match: invoiceMatch },
     {
       $group: {
-        _id: { $dateToString: { format: groupFormat, date: "$issuedAt" } },
+        _id: { $dateToString: { format: groupFormat, date: "$issuedAt", timezone: timeZone } },
         revenue: { $sum: "$netTotal" },
         orders: { $sum: 1 },
       },
