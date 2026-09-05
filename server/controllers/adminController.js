@@ -14,6 +14,7 @@ import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
 import Restaurant from "../models/Restaurant.js";
 import { resolveBusinessRange } from "../services/businessIntelligenceService.js";
+import { getExternalOrderIntegrationStatus } from "../services/externalOrderAdapter.js";
 
 const PAID_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED"];
 
@@ -229,6 +230,14 @@ export const integrationStatus = asyncHandler(async (_req, res) => {
   });
   res.status(200).json(new ApiResponse(true, "Integration status fetched", {
     integrations: [
+      {
+        id: "external-order-adapter",
+        name: "External order adapter",
+        category: "Ordering",
+        status: getExternalOrderIntegrationStatus().status,
+        scope: "Server-side provider boundary",
+        detail: "Provider credentials and webhook specification are required before external orders can be accepted.",
+      },
       {
         id: "razorpay",
         name: "Razorpay",
