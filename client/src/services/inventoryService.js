@@ -1,6 +1,6 @@
 import api from "./api";
 
-export const getInventoryItems = (params = {}) => api.get("/inventory/items", { params });
+export const getInventoryItems = (params = {}, config = {}) => api.get("/inventory/items", { params, ...config });
 export const createInventoryItem = (payload) => api.post("/inventory/items", payload);
 export const adjustInventoryItem = (id, payload) => api.post(`/inventory/items/${id}/adjust`, payload);
 export const getInventoryMovements = (id) => api.get(`/inventory/items/${id}/movements`);

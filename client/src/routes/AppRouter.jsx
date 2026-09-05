@@ -67,6 +67,7 @@ const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPayme
 const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
 const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
+const ProcurementPage = lazy(() => import("../pages/admin/ProcurementPage"));
 const Outlets = lazy(() => import("../pages/admin/Outlets"));
 const CentralKitchen = lazy(() => import("../pages/admin/CentralKitchen"));
 const MobileServiceMode = lazy(() => import("../pages/service/MobileServiceMode"));
@@ -197,6 +198,7 @@ const AppRouter = () => (
       <Route path="loyalty" element={<LoyaltyManagement />} />
       <Route path="staff" element={<StaffManagement />} />
       <Route path="inventory" element={<InventoryPage />} />
+      <Route path="procurement" element={<ProcurementPage />} />
       <Route path="central-kitchen" element={<CentralKitchen />} />
       <Route path="payments" element={<Payments />} />
       <Route path="billing" element={<BillingPage />} />

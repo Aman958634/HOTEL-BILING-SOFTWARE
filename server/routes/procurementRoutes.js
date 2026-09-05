@@ -1,0 +1,26 @@
+import { Router } from "express";
+import { body, param, query } from "express-validator";
+import authMiddleware from "../middleware/authMiddleware.js";
+import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
+import { requireRole } from "../middleware/roleMiddleware.js";
+import { validate } from "../middleware/validate.js";
+import { listSuppliers, getSupplier, createSupplierController, updateSupplierController, toggleSupplierController, listPurchaseOrders, getPurchaseOrder, createPurchaseOrderController, updatePurchaseOrderController, placePurchaseOrder, cancelPurchaseOrder, receivePurchaseOrderController, listGoodsReceipts } from "../controllers/procurementController.js";
+
+const roles = ["admin", "manager", "inventory_manager"];
+const objectId = (name) => param(name).isMongoId().withMessage(`${name} is invalid`);
+const router = Router();
+router.use(authMiddleware, requireActiveSubscription, requireRole(...roles));
+router.get("/suppliers", [query("search").optional().isString().isLength({ max: 120 }), query("isActive").optional().isBoolean()], validate, listSuppliers);
+router.get("/suppliers/:id", objectId("id"), validate, getSupplier);
+router.post("/suppliers", [body("name").isString().trim().notEmpty(), body("phone").isString().trim().notEmpty()], validate, createSupplierController);
+router.patch("/suppliers/:id", [objectId("id")], validate, updateSupplierController);
+router.patch("/suppliers/:id/toggle", [objectId("id")], validate, toggleSupplierController);
+router.get("/purchase-orders", [query("status").optional().isIn(["DRAFT", "PLACED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"]), query("supplier").optional().isMongoId(), query("search").optional().isString().isLength({ max: 80 })], validate, listPurchaseOrders);
+router.get("/purchase-orders/:id", objectId("id"), validate, getPurchaseOrder);
+router.post("/purchase-orders", [body("supplier").isMongoId(), body("lines").isArray({ min: 1 })], validate, createPurchaseOrderController);
+router.patch("/purchase-orders/:id", [objectId("id")], validate, updatePurchaseOrderController);
+router.post("/purchase-orders/:id/place", [objectId("id")], validate, placePurchaseOrder);
+router.post("/purchase-orders/:id/cancel", [objectId("id")], validate, cancelPurchaseOrder);
+router.post("/purchase-orders/:id/receive", [objectId("id"), body("lines").isArray({ min: 1 })], validate, receivePurchaseOrderController);
+router.get("/goods-receipts", [query("purchaseOrder").optional().isMongoId()], validate, listGoodsReceipts);
+export default router;

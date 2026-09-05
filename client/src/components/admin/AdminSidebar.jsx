@@ -17,6 +17,7 @@ const links = [
   { group: "Menu & Customers", to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward /> },
   { group: "Management", to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers /> },
   { group: "Management", to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox /> },
+  { group: "Management", to: "/dashboard/admin/procurement", label: "Procurement", icon: <FiTruck /> },
   { group: "Management", to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee /> },
   { group: "Finance & Insights", to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard /> },
   { group: "Finance & Insights", to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText /> },

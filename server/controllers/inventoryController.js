@@ -93,6 +93,9 @@ export const adjustInventory = asyncHandler(async (req, res) => {
 
 export const receiveStock = asyncHandler(async (req, res) => {
   const restaurant = resolveRestaurantId(req.user);
+  const referenceId = String(req.body.referenceId || "").trim();
+  const idempotencyKey = String(req.get("Idempotency-Key") || (referenceId ? `purchase:${restaurant}:${req.params.id}:${referenceId}` : "")).trim();
+  if (!idempotencyKey) throw new ApiError(422, "A receiving referenceId or Idempotency-Key is required");
   const movement = await recordStockMovement({
     restaurant,
     outlet: req.user.activeOutlet || null,
@@ -101,7 +104,8 @@ export const receiveStock = asyncHandler(async (req, res) => {
     quantity: toPositive(req.body.quantity, "Quantity"),
     unit: req.body.unit,
     referenceType: "PURCHASE",
-    referenceId: req.body.referenceId || "",
+    referenceId,
+    idempotencyKey,
     reason: req.body.reason || "Stock received",
     user: req.user._id,
     metadata: { supplier: req.body.supplier || null, invoice: req.body.invoice || "" },

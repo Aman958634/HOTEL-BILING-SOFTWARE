@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const supplierSchema = new mongoose.Schema(
   {
-    restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
+    restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: true, index: true },
     name: { type: String, required: true, trim: true, index: true },
     phone: { type: String, required: true },
     email: { type: String, default: "" },
@@ -12,6 +12,8 @@ const supplierSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+supplierSchema.index({ restaurant: 1, name: 1 });
 
 const Supplier = mongoose.model("Supplier", supplierSchema);
 export default Supplier;

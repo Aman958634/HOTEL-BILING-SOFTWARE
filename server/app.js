@@ -39,6 +39,7 @@ import centralKitchenRoutes from "./routes/centralKitchenRoutes.js";
 import serviceModeRoutes from "./routes/serviceModeRoutes.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
+import procurementRoutes from "./routes/procurementRoutes.js";
 
 const app = express();
 // Render terminates TLS and forwards the original client IP through one proxy hop.
@@ -123,6 +124,7 @@ app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/search", searchRoutes);
+app.use("/api/v1/procurement", procurementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
