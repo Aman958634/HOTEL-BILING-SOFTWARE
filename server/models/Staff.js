@@ -14,7 +14,7 @@ const staffSchema = new mongoose.Schema(
     outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     role: {
       type: String,
-      enum: ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"],
+      enum: ["ADMIN", "MANAGER", "KITCHEN_MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"],
       required: true,
       index: true,
     },

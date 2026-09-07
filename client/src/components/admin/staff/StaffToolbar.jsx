@@ -1,4 +1,4 @@
-const roleOptions = ["All", "ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
+const roleOptions = ["All", "ADMIN", "MANAGER", "KITCHEN_MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
 const statusOptions = ["All", "ACTIVE", "INACTIVE", "ON_LEAVE", "SUSPENDED"];
 const departmentOptions = ["All", "Management", "Kitchen", "Service", "Delivery", "Billing", "Reception", "Inventory"];
 

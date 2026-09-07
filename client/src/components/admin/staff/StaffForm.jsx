@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import Button from "../../ui/Button";
+import PasswordInput from "../../common/PasswordInput";
 
-const roleOptions = ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
+const roleOptions = ["ADMIN", "MANAGER", "KITCHEN_MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
 const departmentOptions = ["Management", "Kitchen", "Service", "Delivery", "Billing", "Reception", "Inventory"];
 const statusOptions = ["ACTIVE", "INACTIVE", "ON_LEAVE", "SUSPENDED"];
 const shiftOptions = ["Morning", "Evening", "Night"];
@@ -207,7 +208,7 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div>
                 <label className="text-sm text-slate-600">Password</label>
-                <input type="password" className="mt-1 w-full rounded-xl border border-slate-300 p-2" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <PasswordInput autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password}</p>}
               </div>
             </div>

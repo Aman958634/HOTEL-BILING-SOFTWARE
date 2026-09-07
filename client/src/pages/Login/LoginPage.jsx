@@ -6,31 +6,22 @@ import toast from "react-hot-toast";
 import { loginThunk, logout } from "../../redux/slices/authSlice";
 import { getSelectedPlan, saveSelectedPlan } from "../../utils/planSelection";
 import PasswordInput from "../../components/common/PasswordInput";
+import { isRestaurantStaff, roleLandingPath } from "../../utils/roleLanding";
 
-const roleRedirectMap = {
-  super_admin: "/super-admin/dashboard",
-  admin: "/dashboard/admin",
-  chef: "/dashboard/admin/kitchen",
-  kitchen_manager: "/dashboard/admin/kitchen",
-  waiter: "/dashboard/service",
-  delivery: "/dashboard/delivery",
-  customer: "/dashboard/customer",
-  manager: "/dashboard/admin",
-  cashier: "/dashboard/admin/orders",
-};
-
-const resolvePostLoginPath = (role, location) => {
+const resolvePostLoginPath = (user, location) => {
+  const role = String(user?.role || "").toLowerCase();
   const fromPath = location.state?.from?.pathname;
   const selectedPlan = location.state?.selectedPlan || getSelectedPlan();
   if (selectedPlan) saveSelectedPlan(selectedPlan);
 
+  // A saved plan belongs to restaurant-owner checkout only. Staff already have
+  // a restaurant and inherit that restaurant's subscription; sending them to
+  // owner onboarding would incorrectly create a second tenant.
+  if (isRestaurantStaff(user)) return roleLandingPath(role);
   if (selectedPlan && role === "admin") {
     return "/subscribe/checkout";
   }
-  if (selectedPlan && role !== "admin" && role !== "super_admin") {
-    return "/subscribe/register";
-  }
-  return fromPath || roleRedirectMap[role] || "/";
+  return fromPath || roleLandingPath(role);
 };
 
 const LoginPage = ({ superAdminOnly = false }) => {
@@ -59,7 +50,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
   useEffect(() => {
     if (superAdminOnly && user && accessToken) {
       if (user.role !== "super_admin") {
-        navigate(roleRedirectMap[user.role] || "/login", { replace: true });
+        navigate(roleLandingPath(user.role) || "/login", { replace: true });
       } else {
         navigate("/super-admin/dashboard", { replace: true });
       }
@@ -75,7 +66,8 @@ const LoginPage = ({ superAdminOnly = false }) => {
           password: String(values.password || ""),
         })
       ).unwrap();
-      const role = result?.user?.role;
+      const loggedInUser = result?.user;
+      const role = loggedInUser?.role;
 
       if (superAdminOnly && role !== "super_admin") {
         dispatch(logout());
@@ -84,7 +76,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
       }
 
       toast.success("Welcome back");
-      navigate(resolvePostLoginPath(role, location), { replace: true });
+      navigate(resolvePostLoginPath(loggedInUser, location), { replace: true });
     } catch (error) {
       const message = typeof error === "string" ? error : error?.message || "Invalid credentials";
       setError("root", { message: message === "Invalid credentials" ? "Your email or password is incorrect. Please try again." : message });
@@ -127,7 +119,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                     id="email"
                     type="email"
                     placeholder="Enter your email address"
-                    className="h-[56px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#EF1B1B] focus:ring-[3px] focus:ring-[#EF1B1B]/10"
+                    className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.email ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
                     aria-invalid={Boolean(errors.email)}
                     aria-describedby={errors.email ? "email-error" : undefined}
                     {...register("email", { required: "Email address is required.", pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email address." } })}
@@ -149,7 +141,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                   <PasswordInput
                     id="password"
                     placeholder="Enter your password"
-                    className="h-[56px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-11 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#EF1B1B] focus:ring-[3px] focus:ring-[#EF1B1B]/10"
+                    className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-12 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.password ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
                     aria-invalid={Boolean(errors.password)}
                     aria-describedby={errors.password ? "password-error" : undefined}
                     {...register("password", { required: "Password is required." })}

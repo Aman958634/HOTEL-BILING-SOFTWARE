@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 import { publicSubscribeSignup, fetchPublicPlans, parsePublicPlansResponse } from "../../services/publicSubscriptionService";
 import { getSelectedPlan, planDisplayName, saveSelectedPlan } from "../../utils/planSelection";
 import { setAuthSession } from "../../redux/slices/authSlice";
+import PasswordInput from "../../components/common/PasswordInput";
+import { isRestaurantStaff, roleLandingPath } from "../../utils/roleLanding";
 
 const SubscribeRegisterPage = () => {
   const navigate = useNavigate();
@@ -41,6 +43,10 @@ const SubscribeRegisterPage = () => {
   }, []);
 
   useEffect(() => {
+    if (accessToken && isRestaurantStaff(user)) {
+      navigate(roleLandingPath(user.role), { replace: true });
+      return;
+    }
     if (accessToken && user?.role === "admin" && user?.restaurant) {
       navigate("/subscribe/checkout", { replace: true });
     }
@@ -136,7 +142,7 @@ const SubscribeRegisterPage = () => {
           <input name="ownerName" value={form.ownerName} onChange={onChange} placeholder="Owner name (optional)" className="rounded-xl border p-3" />
           <input name="email" type="email" required value={form.email} onChange={onChange} placeholder="Email" className="rounded-xl border p-3" />
           <input name="phone" required value={form.phone} onChange={onChange} placeholder="Phone" className="rounded-xl border p-3" />
-          <input name="password" type="password" required minLength={8} value={form.password} onChange={onChange} placeholder="Password (min 8)" className="rounded-xl border p-3 md:col-span-2" />
+          <PasswordInput name="password" required minLength={8} value={form.password} onChange={onChange} autoComplete="new-password" placeholder="Password (min 8)" className="rounded-xl border border-slate-300 p-3 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 md:col-span-2" />
           <input name="restaurantName" required value={form.restaurantName} onChange={onChange} placeholder="Restaurant name" className="rounded-xl border p-3 md:col-span-2" />
           <input name="address" required value={form.address} onChange={onChange} placeholder="Address" className="rounded-xl border p-3 md:col-span-2" />
           <input name="city" value={form.city} onChange={onChange} placeholder="City" className="rounded-xl border p-3 md:col-span-2" />

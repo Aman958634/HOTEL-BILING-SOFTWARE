@@ -3,6 +3,7 @@ import { FiShield } from "react-icons/fi";
 const roleLabels = {
   ADMIN: "Admin",
   MANAGER: "Manager",
+  KITCHEN_MANAGER: "Kitchen Manager",
   CHEF: "Chef",
   WAITER: "Waiter",
   DELIVERY: "Delivery",

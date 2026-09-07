@@ -3,7 +3,7 @@ import { currency } from "../../utils/format";
 import { formatGrowthTrend } from "../../utils/growthUtils";
 import { getComparisonPeriodLabel } from "../../utils/comparisonPeriod";
 
-const StatCard = ({ icon, label, value, trend = 0, formatValue, range = "today", comparisonType = "dashboard", compact = false }) => {
+const StatCard = ({ icon, label, value, trend = 0, formatValue, range = "today", comparisonType = "dashboard", compact = false, showComparison = true }) => {
   const growth = formatGrowthTrend(trend);
   const comparisonPeriod = getComparisonPeriodLabel(range, comparisonType);
   const toneClass = growth.type === "positive" ? "text-emerald-600" : growth.type === "negative" ? "text-rose-600" : "text-slate-500";
@@ -21,7 +21,7 @@ const StatCard = ({ icon, label, value, trend = 0, formatValue, range = "today",
         <div className={`flex shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 ${compact ? "h-9 w-9" : "h-10 w-10"}`} aria-hidden="true">
           {icon}
         </div>
-        {comparisonText ? <p className={`min-w-0 text-right text-[11px] font-semibold leading-4 ${toneClass}`}>{comparisonText}</p> : null}
+        {showComparison && comparisonText ? <p className={`min-w-0 text-right text-[11px] font-semibold leading-4 ${toneClass}`}>{comparisonText}</p> : null}
       </div>
       <div className={compact ? "mt-3" : "mt-4"}>
         <p className="truncate text-xs font-medium text-slate-500 sm:text-sm" title={label}>{label}</p>

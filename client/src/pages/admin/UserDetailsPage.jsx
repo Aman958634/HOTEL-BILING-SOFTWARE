@@ -93,7 +93,7 @@ const UserDetailsPage = () => {
           <input {...register("fullName")} placeholder="Full Name" className="border p-2" required />
           <input {...register("email")} placeholder="Email" className="border p-2" type="email" required />
           <input {...register("phone")} placeholder="Phone" className="border p-2" />
-          <input {...register("password")} placeholder="New Password" className="border p-2" type="password" />
+          <PasswordInput {...register("password")} autoComplete="new-password" placeholder="New Password" className="border p-2" />
           <select {...register("role")} className="border p-2">
             {USER_ROLES.map((role) => (
               <option key={role} value={role}>{role.replaceAll("_", " ")}</option>
