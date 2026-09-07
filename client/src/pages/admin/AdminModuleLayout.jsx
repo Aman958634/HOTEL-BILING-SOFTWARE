@@ -33,10 +33,14 @@ const useDesktopLayout = () => {
 const AdminModuleLayout = () => {
   const user = useSelector((state) => state.auth.user);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [blocked, setBlocked] = useState(null);
   const isDesktop = useDesktopLayout();
-  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const openSidebar = useCallback(() => {
+    if (window.matchMedia("(min-width: 1024px)").matches) setDesktopSidebarOpen((open) => !open);
+    else setSidebarOpen(true);
+  }, []);
   const location = useLocation();
   const permissionByPath = [
     ["/dashboard/admin", "reports.view_full"],
@@ -115,10 +119,10 @@ const AdminModuleLayout = () => {
   return (
     <div className="app-shell">
       <div className="flex min-h-dvh">
-        <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+        <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} desktopOpen={desktopSidebarOpen} />
 
-        <div className="min-w-0 flex-1 lg:ml-72">
-          {isDesktop ? <AdminHeader /> : <MobileAppHeader onMenuClick={openSidebar} sidebarOpen={sidebarOpen} sidebarId="admin-navigation-drawer" />}
+        <div className={`min-w-0 flex-1 transition-[margin] duration-200 ${desktopSidebarOpen ? "lg:ml-72" : "lg:ml-0"}`}>
+          {isDesktop ? <AdminHeader onMenuClick={openSidebar} sidebarOpen={desktopSidebarOpen} sidebarId="admin-navigation-drawer" /> : <MobileAppHeader onMenuClick={openSidebar} sidebarOpen={sidebarOpen} sidebarId="admin-navigation-drawer" />}
           <main className="min-w-0">
             <div className="app-page-container">
               {!isBilling && <TrialBanner subscription={subscription} />}

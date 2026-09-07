@@ -35,7 +35,7 @@ const linkGroups = Object.entries(
   links.reduce((groups, link) => ({ ...groups, [link.group]: [...(groups[link.group] || []), link] }), {})
 );
 
-const AdminSidebar = ({ open, setOpen }) => {
+const AdminSidebar = ({ open, setOpen, desktopOpen = true }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
@@ -52,7 +52,7 @@ const AdminSidebar = ({ open, setOpen }) => {
     <aside
       id="admin-navigation-drawer"
       aria-label="Restaurant administration"
-      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 ${desktopOpen ? "lg:translate-x-0" : "lg:-translate-x-full"} ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >

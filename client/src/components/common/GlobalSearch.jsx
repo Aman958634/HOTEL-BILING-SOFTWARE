@@ -38,7 +38,7 @@ const isEditableTarget = (target) => {
   return tag === "input" || tag === "textarea" || target?.isContentEditable;
 };
 
-const GlobalSearch = ({ className = "", compact = false }) => {
+const GlobalSearch = ({ className = "", compact = false, showShortcut = false }) => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const requestRef = useRef(null);
@@ -196,14 +196,15 @@ const GlobalSearch = ({ className = "", compact = false }) => {
   }
 
   return <div className={`relative ${className}`}>
-    <SearchInput inputRef={inputRef} query={query} onChange={onChange} onFocus={() => query.trim() && setOpen(true)} onKeyDown={onInputKeyDown} onClear={clear} />
+    <SearchInput inputRef={inputRef} query={query} onChange={onChange} onFocus={() => query.trim() && setOpen(true)} onKeyDown={onInputKeyDown} onClear={clear} showShortcut={showShortcut} />
     {panel}
   </div>;
 };
 
-const SearchInput = ({ inputRef, query, onChange, onFocus, onKeyDown, onClear, onClose, fullWidth = false }) => <div className={`relative ${fullWidth ? "p-3 sm:p-4" : ""}`}>
+const SearchInput = ({ inputRef, query, onChange, onFocus, onKeyDown, onClear, onClose, fullWidth = false, showShortcut = false }) => <div className={`relative ${fullWidth ? "p-3 sm:p-4" : ""}`}>
   <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, tables, customers, staff, payments, and inventory" aria-autocomplete="list" className={`h-11 w-full rounded-xl border border-slate-200 py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "pr-20" : "pr-16"}`} placeholder="Search orders, tables, customers…" />
+  <input ref={inputRef} value={query} onChange={onChange} onFocus={onFocus} onKeyDown={onKeyDown} aria-label="Search orders, tables, customers, staff, payments, and inventory" aria-autocomplete="list" className={`h-11 w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 text-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 ${fullWidth ? "pr-20" : showShortcut && !query ? "pr-24" : "pr-16"}`} placeholder="Search orders, tables, customers, menu…" />
+  {showShortcut && !query ? <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 text-xs font-medium text-slate-400 lg:flex"><kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans">Ctrl</kbd><kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans">K</kbd></span> : null}
   {query ? <button type="button" onClick={onClear} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:text-slate-700" aria-label="Clear search"><FiX className="h-4 w-4" /></button> : null}
   {fullWidth && onClose ? <button type="button" onClick={onClose} className="absolute right-10 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500">Close</button> : null}
 </div>;
