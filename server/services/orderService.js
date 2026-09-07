@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
+import Counter from "../models/Counter.js";
 import Food from "../models/Food.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
@@ -235,22 +236,34 @@ export const canTransitionOrderStatus = (from, to, order = null) => {
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const generateOrderNumber = async () => {
-  const latest = await Order.findOne({ orderNumber: /^ORD-\d+$/i })
-    .select("orderNumber")
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const latestDigits = Number(latest?.orderNumber?.split("-")[1] || 10000);
-  let nextNumber = latestDigits + 1;
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const candidate = `ORD-${nextNumber}`;
-    const exists = await Order.exists({ orderNumber: candidate });
-    if (!exists) return candidate;
-    nextNumber += 1;
+  const counterExists = await Counter.exists({ key: "orderNumber" });
+  let baseline = 10000;
+  if (!counterExists) {
+    // The first allocation seeds the counter above legacy ORD-* records. This
+    // bounded scan is skipped after the counter exists.
+    const legacyMax = await Order.aggregate([
+      { $match: { orderNumber: /^ORD-\d+$/i } },
+      { $project: { sequence: { $toLong: { $substr: ["$orderNumber", 4, -1] } } } },
+      { $sort: { sequence: -1 } },
+      { $limit: 1 },
+    ]);
+    baseline = Math.max(10000, Number(legacyMax[0]?.sequence || 10000));
   }
 
-  return `ORD-${Date.now()}${crypto.randomInt(100, 999)}`;
+  // The upsert is insert-only, so concurrent initializers cannot overwrite a
+  // counter that another process has already seeded.
+  await Counter.findOneAndUpdate(
+    { key: "orderNumber" },
+    { $setOnInsert: { key: "orderNumber", seq: baseline } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  const counter = await Counter.findOneAndUpdate(
+    { key: "orderNumber" },
+    { $inc: { seq: 1 } },
+    { new: true }
+  ).lean();
+
+  return `ORD-${counter.seq}`;
 };
 
 const selectMenuItemFields = "name price isAvailable available restaurant";

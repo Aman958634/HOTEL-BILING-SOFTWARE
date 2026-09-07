@@ -30,6 +30,9 @@ import {
 import { createGatewayPayment, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
 import { getTables } from "../../services/tableService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
+import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
+import { listPendingOfflineOrders } from "../../utils/offlineOrderQueue";
+import { syncPendingOfflineOrders } from "../../services/offlineOrderSync";
 
 const STATUS_TRANSITIONS = {
   PENDING: ["CONFIRMED", "CANCELLED"],
@@ -111,6 +114,7 @@ const OrderManagement = () => {
   const filtersRef = useRef(filters);
   const createSubmittingRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -309,6 +313,23 @@ const OrderManagement = () => {
       await Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
+      if (!error?.response && orderPayload?.items?.length) {
+        try {
+          const outletId = localStorage.getItem("selectedOutletId") || "";
+          const scope = getOfflineOrderScope({ user, outletId });
+          savePendingOfflineOrder({
+            scope,
+            outletId,
+            userId: user?._id || user?.id,
+            restaurantId: user?.restaurant?._id || user?.restaurant?.id || user?.restaurant,
+            payload: orderPayload,
+            idempotencyKey: _idempotencyKey,
+          });
+          toast.success("Order saved as Pending Sync. Retry it manually when the server is reachable.");
+        } catch (offlineError) {
+          toast.error(offlineError.message || "Unable to save offline order intent");
+        }
+      }
       const message = !error?.response
         ? "Unable to reach the server. Your draft is saved. Try again."
         : error?.response?.status >= 500
@@ -488,6 +509,23 @@ const OrderManagement = () => {
     setCreateOpen(true);
   }, []);
 
+  const refreshOfflineCount = useCallback(() => {
+    const scope = getOfflineOrderScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" });
+    setPendingOfflineCount(scope ? listPendingOfflineOrders(scope).length : 0);
+  }, [user]);
+
+  useEffect(() => { refreshOfflineCount(); }, [refreshOfflineCount]);
+
+  const syncOfflineOrders = useCallback(async () => {
+    const scope = getOfflineOrderScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" });
+    if (!scope) return;
+    const results = await syncPendingOfflineOrders(scope);
+    const synced = results.filter((result) => result.order).length;
+    if (synced) await Promise.all([loadOrders(), loadStats()]);
+    refreshOfflineCount();
+    toast.success(synced ? `${synced} offline order${synced === 1 ? "" : "s"} synced.` : "No offline orders synced.");
+  }, [loadOrders, loadStats, refreshOfflineCount, user]);
+
   const requestDelete = useCallback((order) => setDeleteTarget(order), []);
 
   return (
@@ -503,6 +541,13 @@ const OrderManagement = () => {
       </div>
 
       <OrderStats stats={stats} loading={loadingStats} />
+
+      {pendingOfflineCount ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span>{pendingOfflineCount} order{pendingOfflineCount === 1 ? "" : "s"} pending sync. Server validation is required before creation.</span>
+          <button type="button" onClick={syncOfflineOrders} className="rounded-lg bg-amber-700 px-3 py-2 font-semibold text-white hover:bg-amber-800">Retry Sync</button>
+        </div>
+      ) : null}
 
       <OrderToolbar
         filters={filters}

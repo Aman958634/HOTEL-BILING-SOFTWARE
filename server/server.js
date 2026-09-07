@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import logger from "./utils/logger.js";
 import { validateProductionEnvironment } from "./config/envValidation.js";
+import { markShuttingDown, markStartupComplete } from "./utils/shutdownState.js";
+import { safeErrorContext } from "./utils/safeLog.js";
 
 dotenv.config();
 validateProductionEnvironment();
@@ -20,7 +22,7 @@ const closeHttpServer = () => new Promise((resolve) => {
   if (!httpServer) return resolve();
   return httpServer.close((error) => {
     if (error && error.code !== "ERR_SERVER_NOT_RUNNING") {
-      logger.error(`HTTP server shutdown error: ${error.message}`);
+      logger.error("HTTP server shutdown error", { event: "SHUTDOWN_ERROR", error: safeErrorContext(error) });
     }
     resolve();
   });
@@ -29,6 +31,7 @@ const closeHttpServer = () => new Promise((resolve) => {
 const shutdown = async (signal) => {
   if (shuttingDown) return;
   shuttingDown = true;
+  markShuttingDown();
   logger.info(`${signal} received; closing Socket.IO, HTTP server, and MongoDB connection.`);
 
   const forceExitTimer = setTimeout(() => {
@@ -46,13 +49,22 @@ const shutdown = async (signal) => {
     process.exit(0);
   } catch (error) {
     clearTimeout(forceExitTimer);
-    logger.error(`Graceful shutdown failed: ${error.message}`);
+    logger.error("Graceful shutdown failed", { event: "SHUTDOWN_ERROR", error: safeErrorContext(error) });
     process.exit(1);
   }
 };
 
 process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
 process.once("SIGINT", () => { void shutdown("SIGINT"); });
+process.once("uncaughtException", (error) => {
+  logger.error("Uncaught exception; shutting down", { event: "UNCAUGHT_EXCEPTION", error: safeErrorContext(error) });
+  void shutdown("uncaughtException");
+});
+process.once("unhandledRejection", (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error("Unhandled rejection; shutting down", { event: "UNHANDLED_REJECTION", error: safeErrorContext(error) });
+  void shutdown("unhandledRejection");
+});
 
 const bootstrap = async () => {
   const [{ default: app }, { default: connectDB }, { initSocketServer }] = await Promise.all([
@@ -66,7 +78,7 @@ const bootstrap = async () => {
   try {
     await connectDB();
   } catch (error) {
-    logger.error(`MongoDB connection failed: ${error.message}`);
+    logger.error("MongoDB connection failed", { event: "DB_ERROR", error: safeErrorContext(error) });
     process.exit(1);
   }
 
@@ -77,11 +89,13 @@ const bootstrap = async () => {
   socketServer = initSocketServer(httpServer);
 
   httpServer.listen(port, () => {
-    logger.info(`Server running on port ${port}`);
+    const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
+    logger.info(loadTestMode ? `Load-test server listening on ${port}` : `Server running on port ${port}`);
+    markStartupComplete();
   });
 };
 
 bootstrap().catch((error) => {
-  logger.error(`Bootstrap failed: ${error.message}`);
+  logger.error("Bootstrap failed", { event: "CONFIG_ERROR", error: safeErrorContext(error) });
   process.exit(1);
 });

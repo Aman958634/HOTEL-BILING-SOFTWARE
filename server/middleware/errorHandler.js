@@ -1,6 +1,8 @@
 import logger from "../utils/logger.js";
+import { recordMetric } from "../utils/operationalMetrics.js";
+import { redactSensitive, safeErrorContext } from "../utils/safeLog.js";
 
-export const errorHandler = (err, _req, res, _next) => {
+export const errorHandler = (err, req, res, _next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal server error";
   let code = typeof err.code === "string" ? err.code : null;
@@ -44,12 +46,20 @@ export const errorHandler = (err, _req, res, _next) => {
     message = "Duplicate value found";
   }
 
-  logger.error(err.stack || err.message);
+  recordMetric(statusCode >= 500 ? "http5xxTotal" : "httpErrorsTotal");
+  logger.error("HTTP request failed", {
+    requestId: req.requestId,
+    method: req.method,
+    route: req.originalUrl,
+    status: statusCode,
+    error: safeErrorContext(err),
+    category: code || (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR"),
+  });
   const clientMessage = statusCode >= 500 && statusCode !== 503 ? "Internal server error" : message;
   res.status(statusCode).json({
     success: false,
     message: clientMessage,
     ...(code ? { code } : {}),
-    ...(details ? { details } : {}),
+    ...(details ? { details: redactSensitive(details) } : {}),
   });
 };

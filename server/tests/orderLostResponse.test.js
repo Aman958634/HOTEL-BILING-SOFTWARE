@@ -1,0 +1,67 @@
+import "dotenv/config";
+import assert from "node:assert/strict";
+import http from "node:http";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import app from "../app.js";
+import Restaurant from "../models/Restaurant.js";
+import Outlet from "../models/Outlet.js";
+import User from "../models/User.js";
+import Subscription from "../models/Subscription.js";
+import Category from "../models/Category.js";
+import Food from "../models/Food.js";
+import Table from "../models/Table.js";
+import Order from "../models/Order.js";
+import KotTicket from "../models/KotTicket.js";
+import { requireSafeTestDatabase } from "./testDatabase.js";
+
+const { uri } = requireSafeTestDatabase();
+process.env.JWT_ACCESS_SECRET ||= "order-lost-response-test-secret";
+await mongoose.connect(uri, { autoIndex: false, autoCreate: false });
+const server = http.createServer(app);
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const base = `http://127.0.0.1:${server.address().port}/api/v1`;
+const suffix = `lost-${Date.now()}`;
+const restaurant = await Restaurant.create({ name: `Lost Response ${suffix}`, slug: `lost-response-${suffix}`, branchCode: `LRS-${suffix.slice(-8)}`, address: "Test" });
+const outlet = await Outlet.create({ restaurant: restaurant._id, name: "Main", code: `L-${suffix}`, isDefault: true });
+const user = await User.create({ fullName: "Lost Response User", email: `${suffix}@test.invalid`, password: "release-test-password", role: "admin", restaurant: restaurant._id, defaultOutlet: outlet._id, allOutletsAccess: true, outletAccess: [{ outlet: outlet._id, isActive: true }] });
+await Subscription.create({ restaurant: restaurant._id, planName: "test", status: "active", price: 0 });
+const category = await Category.create({ restaurant: restaurant._id, name: `Category ${suffix}`, slug: `category-${suffix}` });
+const food = await Food.create({ restaurant: restaurant._id, category: category._id, name: `Item ${suffix}`, price: 100, isAvailable: true, available: true });
+const table = await Table.create({ restaurant: restaurant._id, outlet: outlet._id, tableNumber: `T-${suffix}`, capacity: 4, floor: "1", section: "Main" });
+const token = jwt.sign({ id: String(user._id), role: "admin", restaurant: String(restaurant._id) }, process.env.JWT_ACCESS_SECRET, { algorithm: "HS256" });
+const key = `offline-${suffix}`;
+const payload = { orderType: "DINE_IN", orderSource: "DINE_IN", table: String(table._id), items: [{ menuItem: String(food._id), quantity: 1 }], notes: suffix, paymentMethod: "CASH" };
+const request = (body = payload) => fetch(`${base}/orders/`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "X-Outlet-Id": String(outlet._id), "Idempotency-Key": key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+try {
+  const first = await request();
+  assert.equal(first.status, 201);
+  const firstBody = await first.json();
+  const originalId = firstBody.data._id;
+  const originalNumber = firstBody.data.orderNumber;
+  const retry = await request();
+  assert.equal(retry.status, 200);
+  const retryBody = await retry.json();
+  assert.equal(String(retryBody.data._id), String(originalId));
+  assert.equal(retryBody.data.orderNumber, originalNumber);
+  assert.equal(await Order.countDocuments({ notes: suffix }), 1);
+  assert.equal(await KotTicket.countDocuments({ orderId: originalId }), 1);
+  const conflict = await request({ ...payload, items: [{ menuItem: String(food._id), quantity: 2 }] });
+  assert.equal(conflict.status, 409);
+  assert.equal(await Order.countDocuments({ notes: suffix }), 1);
+  assert.equal(await KotTicket.countDocuments({ orderId: originalId }), 1);
+  console.log("Lost-response/idempotent Order to KOT integration test passed.");
+} finally {
+  await server.close();
+  await KotTicket.deleteMany({ restaurant: restaurant._id });
+  await Order.deleteMany({ restaurant: restaurant._id });
+  await Table.deleteMany({ restaurant: restaurant._id });
+  await Food.deleteOne({ _id: food._id });
+  await Category.deleteOne({ _id: category._id });
+  await Subscription.deleteMany({ restaurant: restaurant._id });
+  await User.deleteOne({ _id: user._id });
+  await Outlet.deleteOne({ _id: outlet._id });
+  await Restaurant.deleteOne({ _id: restaurant._id });
+  await mongoose.disconnect();
+}

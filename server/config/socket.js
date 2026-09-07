@@ -4,6 +4,8 @@ import User from "../models/User.js";
 import Outlet from "../models/Outlet.js";
 import { getAllowedOrigins, isOriginAllowed } from "../utils/allowedOrigins.js";
 import { hasAllOutletsAccess } from "../utils/tenantUtils.js";
+import logger from "../utils/logger.js";
+import { socketAuthFailed, socketConnected, socketDisconnected } from "../utils/operationalMetrics.js";
 
 let io;
 
@@ -56,17 +58,22 @@ export const initSocketServer = (httpServer) => {
     try {
       socket.user = await resolveSocketContext(socket.handshake);
       return next();
-    } catch (error) { return next(new Error(error?.message === "Forbidden outlet" ? "Forbidden outlet" : "Unauthorized")); }
+    } catch (error) {
+      socketAuthFailed();
+      logger.warn("Socket authentication rejected", { event: "SOCKET_AUTH_FAILURE", reason: error?.message === "Forbidden outlet" ? "FORBIDDEN_OUTLET" : "UNAUTHORIZED" });
+      return next(new Error(error?.message === "Forbidden outlet" ? "Forbidden outlet" : "Unauthorized"));
+    }
   });
 
   io.on("connection", (socket) => {
+    socketConnected();
     getAuthorizedSocketRooms(socket.user).forEach((room) => socket.join(room));
 
     socket.on("join-room", () => {
       // Client-selected rooms are intentionally ignored. Room membership is server-derived.
     });
 
-    socket.on("disconnect", () => {});
+    socket.on("disconnect", () => { socketDisconnected(); });
   });
 
   return io;

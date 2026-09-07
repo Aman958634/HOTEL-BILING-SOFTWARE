@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { getMongoUri } from "../config/db.js";
 import ApiError from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
+import { safeErrorContext } from "../utils/safeLog.js";
 
 const isProduction = () => process.env.NODE_ENV === "production";
 const isEnabled = (value) => String(value || "").trim().toLowerCase() === "true";
@@ -82,7 +83,7 @@ export const createDatabaseBackup = async () => {
     return { name, createdAt: new Date() };
   } catch (error) {
     await fs.rm(target, { recursive: true, force: true }).catch(() => {});
-    logger.error(`Database backup failed: ${error.message}`);
+    logger.error("Database backup failed", { event: "DB_BACKUP_ERROR", error: safeErrorContext(error) });
     throw new ApiError(500, "Backup failed. Check the server logs for the operation result.");
   }
 };
@@ -96,7 +97,7 @@ export const restoreDatabaseBackup = async (backupName) => {
   try {
     await runMongoTool(process.env.MONGORESTORE_PATH || "mongorestore", ["--uri", uri, "--drop", "--stopOnError", target]);
   } catch (error) {
-    logger.error(`Database restore failed: ${error.message}`);
+    logger.error("Database restore failed", { event: "DB_RESTORE_ERROR", error: safeErrorContext(error) });
     throw new ApiError(500, "Restore failed. Check the server logs for the operation result.");
   } finally {
     restoreInProgress = false;
@@ -126,7 +127,7 @@ export const scheduleDailyBackup = () => {
       const backup = await createDatabaseBackup();
       logger.info(`Daily database backup completed: ${backup.name}`);
     } catch (error) {
-      logger.error(`Daily database backup failed: ${error.message}`);
+      logger.error("Daily database backup failed", { event: "DB_BACKUP_ERROR", error: safeErrorContext(error) });
     }
     scheduleDailyBackup();
   }, delay);

@@ -1,0 +1,121 @@
+{
+  "runId": "load-20260906172930845-vp9mvr",
+  "environment": "local-test",
+  "database": "restosphere_load_test",
+  "scenario": "POS order to KOT",
+  "smoke": {
+    "orders": 1,
+    "kots": 1
+  },
+  "idempotency": {
+    "samePayload": true,
+    "differentPayloadConflict": true
+  },
+  "batches": [
+    {
+      "scenario": 5,
+      "requests": 4,
+      "success": 4,
+      "failures": 0,
+      "p50": 525,
+      "p95": 544,
+      "p99": 544,
+      "rps": 7.352941176470588,
+      "statusCounts": {
+        "201": 4
+      },
+      "expectedOrders": 5,
+      "actualOrders": 5,
+      "expectedKots": 5,
+      "actualKots": 5,
+      "duplicateOrders": 0,
+      "duplicateKots": 0
+    },
+    {
+      "scenario": 10,
+      "requests": 5,
+      "success": 5,
+      "failures": 0,
+      "p50": 765,
+      "p95": 809,
+      "p99": 809,
+      "rps": 6.1804697156983925,
+      "statusCounts": {
+        "201": 5
+      },
+      "expectedOrders": 10,
+      "actualOrders": 10,
+      "expectedKots": 10,
+      "actualKots": 10,
+      "duplicateOrders": 0,
+      "duplicateKots": 0
+    },
+    {
+      "scenario": 20,
+      "requests": 10,
+      "success": 10,
+      "failures": 0,
+      "p50": 2063,
+      "p95": 2114,
+      "p99": 2114,
+      "rps": 4.730368968779565,
+      "statusCounts": {
+        "201": 10
+      },
+      "expectedOrders": 20,
+      "actualOrders": 20,
+      "expectedKots": 20,
+      "actualKots": 20,
+      "duplicateOrders": 0,
+      "duplicateKots": 0
+    },
+    {
+      "scenario": 50,
+      "requests": 30,
+      "success": 30,
+      "failures": 0,
+      "p50": 2370,
+      "p95": 2776,
+      "p99": 2817,
+      "rps": 10.649627263045792,
+      "statusCounts": {
+        "201": 30
+      },
+      "expectedOrders": 50,
+      "actualOrders": 50,
+      "expectedKots": 50,
+      "actualKots": 50,
+      "duplicateOrders": 0,
+      "duplicateKots": 0
+    },
+    {
+      "scenario": 100,
+      "requests": 50,
+      "success": 50,
+      "failures": 0,
+      "p50": 2196,
+      "p95": 2601,
+      "p99": 2664,
+      "rps": 18.76876876876877,
+      "statusCounts": {
+        "201": 50
+      },
+      "expectedOrders": 100,
+      "actualOrders": 100,
+      "expectedKots": 100,
+      "actualKots": 100,
+      "duplicateOrders": 0,
+      "duplicateKots": 0
+    }
+  ],
+  "health": {
+    "success": true,
+    "message": "Server is healthy",
+    "database": "connected",
+    "status": "ok"
+  },
+  "readiness": {
+    "success": true,
+    "status": "ready"
+  }
+}

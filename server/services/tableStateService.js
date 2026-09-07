@@ -75,13 +75,10 @@ export const updateTableStatus = async (tableId) => {
     { status: { $in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] } },
     { status: "SERVED", billingState: { $ne: "SETTLED" } },
   ] };
-  const activeOrders = await Order.countDocuments(activeFilter);
-  const currentOrder = activeOrders > 0
-    ? await Order.findOne(activeFilter)
-        .sort({ createdAt: -1 })
-        .select("_id")
-        .lean()
-    : null;
+  const [activeOrders, currentOrder] = await Promise.all([
+    Order.countDocuments(activeFilter),
+    Order.findOne(activeFilter).sort({ createdAt: -1 }).select("_id").lean(),
+  ]);
 
   const table = await Table.findByIdAndUpdate(
     id,

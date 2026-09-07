@@ -24,6 +24,8 @@
     "migrate:multi-outlet": "node scripts/migrateMultiOutlet.js",
     "migrate:central-kitchen": "node scripts/migrateCentralKitchenIndexes.js",
     "migrate:tenant-categories": "node scripts/migrateTenantCategories.js",
+    "migrate:external-order-index": "node scripts/migrateExternalOrderIdIndex.js",
+    "migrate:order-idempotency-index": "node scripts/migrateOrderIdempotencyIndex.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",
     "test:intelligence": "node tests/intelligenceSignals.test.js",
@@ -35,6 +37,13 @@
     "test:tenant-security": "node tests/tenantOutletSecurity.test.js",
     "test:release-verification": "node tests/releaseVerification.test.js",
     "test:database-safety": "node tests/testDatabaseSafety.test.js",
+    "load:pos": "node load-tests/pos-load-test.mjs",
+    "load:smoke": "node load-tests/pos-load-test.mjs --max=1",
+    "load:pos:5": "node load-tests/pos-load-test.mjs --max=5",
+    "load:pos:10": "node load-tests/pos-load-test.mjs --max=10",
+    "load:pos:20": "node load-tests/pos-load-test.mjs --max=20",
+    "load:pos:50": "node load-tests/pos-load-test.mjs --max=50",
+    "load:pos:100": "node load-tests/pos-load-test.mjs --max=100",
     "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check utils/publicMenuContext.js"
   },
   "dependencies": {
@@ -60,6 +69,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "autocannon": "^8.0.0",
     "kill-port": "^2.0.1",
     "nodemon": "^3.1.10"
   }

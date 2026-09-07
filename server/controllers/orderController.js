@@ -43,6 +43,7 @@ import { resolveGstType } from "../services/gstService.js";
 import { buildOutletQuery as buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
 import { resolvePublicMenuContext } from "../utils/publicMenuContext.js";
+import logger from "../utils/logger.js";
 import {
   emitOrderCancelled,
   emitOrderCreated,
@@ -162,6 +163,8 @@ const resolveOrderGstType = async (restaurantId, billingState) => {
 };
 
 export const createOrder = asyncHandler(async (req, res) => {
+  const profileMark = req.loadTestProfileMark || (() => {});
+  const profileCount = req.loadTestProfileCount || (() => {});
   const role = req.user.role;
   if (!["admin", "manager", "cashier", "waiter", "customer"].includes(role)) {
     throw new ApiError(403, "Forbidden");
@@ -178,6 +181,8 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  profileMark("auth_context");
+  profileCount(2);
   const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
   const idempotencyFingerprint = idempotencyKey ? buildOrderIdempotencyFingerprint({
     orderType,
@@ -193,6 +198,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   }) : null;
   if (idempotencyKey) {
     const existing = await Order.findOne({ restaurant: restaurantId, outlet: req.user.activeOutlet || null, idempotencyKey });
+    profileCount(1);
     if (existing) {
       if (existing.idempotencyFingerprint !== idempotencyFingerprint) throw new ApiError(409, "Idempotency-Key was already used for a different order");
       const normalized = await Order.findById(existing._id).populate("customer", "fullName email phone").populate("table", "tableNumber floor section status").populate("items.menuItem", "name");
@@ -200,9 +206,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     }
   }
   const duplicate = await findExistingExternalOrder({ restaurantId, externalOrderId: req.body.externalOrderId });
+  profileCount(1);
   if (duplicate) {
     return res.status(200).json(new ApiResponse(true, "Existing order returned for this external order id", normalizeOrderOutput(duplicate)));
   }
+  profileMark("idempotency");
 
   // Anonymous dine-in remains supported. When a reliable customer identifier
   // arrives with an order, use the shared CRM identity resolver instead.
@@ -225,7 +233,11 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
+  profileMark("menu_pricing");
+  profileCount(1);
   const orderNumber = await generateOrderNumber();
+  profileMark("order_number");
+  profileCount(2);
   const billingState = req.body.billingState || req.body.customerState || "";
   const calculated = buildCalculatedOrderPayload({
     orderType,
@@ -236,6 +248,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     deliveryCharge: req.body.deliveryCharge,
     gstType: await resolveOrderGstType(restaurantId, billingState),
   });
+  profileMark("pricing_complete");
 
   let order;
   try {
@@ -273,6 +286,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     billingState,
       notes: req.body.notes || "",
     });
+    profileMark("order_write");
+    profileCount(1);
   } catch (error) {
     if (error?.code !== 11000 || !idempotencyKey) throw error;
     const existing = await Order.findOne({ restaurant: restaurantId, outlet: req.user.activeOutlet || null, idempotencyKey })
@@ -284,39 +299,63 @@ export const createOrder = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(true, "Existing order returned for this idempotency key", normalizeOrderOutput(existing)));
   }
 
-  if (orderType === ORDER_TYPES.DINE_IN) {
+  const populatePromise = order.populate([
+    { path: "customer", select: "fullName email phone" },
+    { path: "table", select: "tableNumber floor section status" },
+    { path: "items.menuItem", select: "name" },
+  ]);
+  const tablePromise = orderType === ORDER_TYPES.DINE_IN
+    ? assignTableForDineInOrder(order.table, order._id, { restaurantId, alreadyValidated: true })
+    : Promise.resolve(null);
+  let populated;
+  try {
+    [, populated] = await Promise.all([tablePromise, populatePromise]);
+    if (orderType === ORDER_TYPES.DINE_IN) {
+      profileMark("table_state");
+      profileCount(2);
+    }
+  } catch (error) {
+    await Order.deleteOne({ _id: order._id });
+    throw error;
+  }
+  profileMark("populate_reload");
+  profileCount(1);
+
+  await Promise.all([
+    createOrderAuditLog({ user: req.user, action: "Order Created", order: populated }),
+    createOrderNotifications({
+      title: "New Order Received",
+      message: `New order #${populated.orderNumber} has been received. Amount: ₹${populated.total}.`,
+      actorUserId: req.user._id,
+      type: "NEW_ORDER",
+      restaurantId: populated.restaurant,
+      entityType: "Order",
+      entityId: populated._id,
+      orderNumber: populated.orderNumber,
+      customerName: populated.customer?.fullName || null,
+      total: populated.total,
+      online: isOnlineOrder(populated),
+    }),
+  ]);
+  profileMark("audit_notifications");
+  profileCount(2);
+  profileMark("notifications");
+  profileCount(1);
+
+  // Online orders enter KDS only once a staff member accepts them.
+  if (!isOnlineOrder(populated)) {
     try {
-      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
+      await syncKotForOrder(populated);
     } catch (error) {
-      await Order.deleteOne({ _id: order._id });
+      logger.error("KOT creation failed", { event: "KOT_ERROR", requestId: req.requestId, orderId: populated._id, orderNumber: populated.orderNumber, restaurantId: populated.restaurant, outletId: populated.outlet, tableId: populated.table?._id || populated.table || null, error: { name: error.name, message: error.message } });
       throw error;
     }
   }
-
-  const populated = await Order.findById(order._id)
-    .populate("customer", "fullName email phone")
-    .populate("table", "tableNumber floor section status")
-    .populate("items.menuItem", "name");
-
-  await createOrderAuditLog({ user: req.user, action: "Order Created", order: populated });
-  await createOrderNotifications({
-    title: "New Order Received",
-    message: `New order #${populated.orderNumber} has been received. Amount: ₹${populated.total}.`,
-    actorUserId: req.user._id,
-    type: "NEW_ORDER",
-    restaurantId: populated.restaurant,
-    entityType: "Order",
-    entityId: populated._id,
-    orderNumber: populated.orderNumber,
-    customerName: populated.customer?.fullName || null,
-    total: populated.total,
-    online: isOnlineOrder(populated),
-  });
-
-  // Online orders enter KDS only once a staff member accepts them.
-  if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
+  profileMark("kot");
+  profileCount(2);
   emitOrderCreated(normalizeOrderOutput(populated));
   if (!isOnlineOrder(populated)) emitKitchenTicketCreated(populated);
+  profileMark("realtime");
 
   res.status(201).json(new ApiResponse(true, "Order created", normalizeOrderOutput(populated)));
 });
@@ -414,17 +453,18 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
 
   if (orderType === ORDER_TYPES.DINE_IN) {
     try {
-      await assignTableForDineInOrder(order.table, order._id, { restaurantId });
+      await assignTableForDineInOrder(order.table, order._id, { restaurantId, alreadyValidated: true });
     } catch (error) {
       await Order.deleteOne({ _id: order._id });
       throw error;
     }
   }
 
-  const populated = await Order.findById(order._id)
-    .populate("customer", "fullName email phone")
-    .populate("table", "tableNumber floor section status")
-    .populate("items.menuItem", "name");
+  const populated = await order.populate([
+    { path: "customer", select: "fullName email phone" },
+    { path: "table", select: "tableNumber floor section status" },
+    { path: "items.menuItem", select: "name" },
+  ]);
 
   await createOrderAuditLog({ user: null, action: "Guest Order Created", order: populated });
   await createOrderNotifications({
@@ -440,7 +480,14 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     total: populated.total,
   });
 
-  if (!isOnlineOrder(populated)) await syncKotForOrder(populated);
+  if (!isOnlineOrder(populated)) {
+    try {
+      await syncKotForOrder(populated);
+    } catch (error) {
+      logger.error("KOT creation failed", { event: "KOT_ERROR", requestId: req.requestId, orderId: populated._id, orderNumber: populated.orderNumber, restaurantId: populated.restaurant, outletId: populated.outlet, tableId: populated.table?._id || populated.table || null, error: { name: error.name, message: error.message } });
+      throw error;
+    }
+  }
   emitOrderCreated(normalizeOrderOutput(populated));
   if (!isOnlineOrder(populated)) emitKitchenTicketCreated(populated);
 

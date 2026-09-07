@@ -4,12 +4,17 @@ import User from "../models/User.js";
 import { ensureDefaultPlans } from "../services/planService.js";
 import { ensureRestaurantSubscriptions } from "../services/subscriptionBootstrapService.js";
 import { ensureSuperAdmin, shouldSeedSuperAdmin } from "../services/superAdminSeedService.js";
+import { safeErrorContext } from "../utils/safeLog.js";
 
 /** Fail fast on queries when disconnected — avoids 10s buffering timeouts. */
 mongoose.set("bufferCommands", false);
+mongoose.connection.on("disconnected", () => logger.warn("MongoDB disconnected", { event: "DB_DISCONNECTED" }));
+mongoose.connection.on("reconnected", () => logger.info("MongoDB reconnected", { event: "DB_RECONNECTED" }));
+mongoose.connection.on("error", (error) => logger.error("MongoDB connection error", { event: "DB_ERROR", error: { name: error.name, message: error.message } }));
 
 export const getMongoUri = () => {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
+  const uri = loadTestMode ? process.env.TEST_MONGO_URI : (process.env.MONGO_URI || process.env.MONGODB_URI);
   if (!uri) return null;
   return String(uri).trim();
 };
@@ -31,8 +36,11 @@ export const maskMongoUri = (uri) => {
 
 const connectDB = async () => {
   const mongoUri = getMongoUri();
+  const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
   if (!mongoUri) {
-    throw new Error("MONGO_URI (or MONGODB_URI) is missing in environment variables");
+    throw new Error(String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true"
+      ? "TEST_MONGO_URI is missing in load-test mode"
+      : "MONGO_URI (or MONGODB_URI) is missing in environment variables");
   }
 
   logger.info(`Connecting to MongoDB: ${maskMongoUri(mongoUri)}`);
@@ -46,24 +54,26 @@ const connectDB = async () => {
 
   logger.info(`MongoDB connected successfully: ${conn.connection.host}`);
 
-  const allowStartupDataBootstrap = process.env.NODE_ENV !== "production"
+  const allowStartupDataBootstrap = !loadTestMode && process.env.NODE_ENV !== "production"
     || process.env.RUN_STARTUP_DATA_BOOTSTRAP === "true";
   if (allowStartupDataBootstrap) {
     try {
       await ensureDefaultPlans();
       await ensureRestaurantSubscriptions();
     } catch (error) {
-      logger.error(`Subscription bootstrap failed: ${error.message}`);
+      logger.error("Subscription bootstrap failed", { event: "CONFIG_ERROR", error: safeErrorContext(error) });
     }
   } else {
-    logger.info("Production startup data bootstrap skipped; run only through a planned, explicit maintenance operation.");
+    logger.info(loadTestMode
+      ? "Load-test startup data bootstrap skipped; fixtures are owned by the load-test harness."
+      : "Production startup data bootstrap skipped; run only through a planned, explicit maintenance operation.");
   }
 
-  if (shouldSeedSuperAdmin()) {
+  if (!loadTestMode && shouldSeedSuperAdmin()) {
     try {
       await ensureSuperAdmin(logger);
     } catch (error) {
-      logger.error(`Super admin seed failed: ${error.message}`);
+      logger.error("Super admin seed failed", { event: "CONFIG_ERROR", error: safeErrorContext(error) });
     }
   }
 };

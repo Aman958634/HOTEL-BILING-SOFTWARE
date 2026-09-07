@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import { limiter } from "./middleware/rateLimiter.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { requestContext } from "./middleware/requestContext.js";
 import { requireDb } from "./middleware/dbReady.js";
 import { isDbConnected } from "./config/db.js";
 import { isDatabaseRestoreInProgress } from "./services/backupService.js";
@@ -37,6 +38,10 @@ import reconciliationRoutes from "./routes/reconciliationRoutes.js";
 import outletRoutes from "./routes/outletRoutes.js";
 import centralKitchenRoutes from "./routes/centralKitchenRoutes.js";
 import serviceModeRoutes from "./routes/serviceModeRoutes.js";
+import { finishLoadTestProfile, startLoadTestProfile } from "./utils/loadTestProfiler.js";
+import { isReadyState, isShuttingDown } from "./utils/shutdownState.js";
+import { getOperationalMetrics } from "./utils/operationalMetrics.js";
+import authMiddleware from "./middleware/authMiddleware.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
@@ -50,6 +55,7 @@ const __dirname = path.dirname(__filename);
 const openapiPath = path.join(__dirname, "docs", "openapi.json");
 const openapiSpec = JSON.parse(fs.readFileSync(openapiPath, "utf-8"));
 
+app.use(requestContext);
 app.use(helmet());
 app.use(
   cors({
@@ -65,6 +71,11 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use((req, res, next) => {
+  startLoadTestProfile(req);
+  res.on("finish", () => { void finishLoadTestProfile(req, res); });
+  next();
+});
 app.use(morgan("combined"));
 app.use(limiter);
 
@@ -78,10 +89,15 @@ app.get("/api/v1/health", (_req, res) => {
 });
 
 app.get("/api/v1/ready", (_req, res) => {
-  if (!isDbConnected() || isDatabaseRestoreInProgress()) {
+  if (!isReadyState(isDbConnected()) || isDatabaseRestoreInProgress()) {
     return res.status(503).json({ success: false, status: "not_ready" });
   }
   return res.status(200).json({ success: true, status: "ready" });
+});
+
+app.get("/api/v1/internal/metrics", authMiddleware, (req, res) => {
+  if (req.user?.role !== "super_admin") return res.status(403).json({ success: false, message: "Forbidden" });
+  return res.json({ success: true, data: getOperationalMetrics({ dbConnected: isDbConnected(), shuttingDown: isShuttingDown() }) });
 });
 
 app.get("/api-docs/openapi.json", (_req, res) => {

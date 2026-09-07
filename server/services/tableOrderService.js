@@ -34,14 +34,16 @@ export const reconcileTablesAvailability = async (tables = []) => {
   return Promise.all(list.map((table) => updateTableStatus(table._id)));
 };
 
-export const assignTableForDineInOrder = async (tableId, _orderId, { restaurantId } = {}) => {
+export const assignTableForDineInOrder = async (tableId, _orderId, { restaurantId, alreadyValidated = false } = {}) => {
   if (!tableId) throw new ApiError(422, "Table is required for DINE_IN orders.");
-  const table = await Table.findById(tableId);
-  if (!table) throw new ApiError(404, "Table not found");
-  if (restaurantId && table.restaurant && String(table.restaurant) !== String(restaurantId)) {
-    throw new ApiError(403, "Table does not belong to your restaurant");
+  if (!alreadyValidated) {
+    const table = await Table.findById(tableId).select("restaurant");
+    if (!table) throw new ApiError(404, "Table not found");
+    if (restaurantId && table.restaurant && String(table.restaurant) !== String(restaurantId)) {
+      throw new ApiError(403, "Table does not belong to your restaurant");
+    }
   }
-  return updateTableStatus(table._id);
+  return updateTableStatus(tableId);
 };
 
 export const releaseOrderTableIfNeeded = (order) => {
