@@ -9,13 +9,14 @@ import Log from "../models/Log.js";
 import Sequence from "../models/Sequence.js";
 import ApiError from "../utils/ApiError.js";
 
-export const STAFF_ROLES = ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
+export const STAFF_ROLES = ["ADMIN", "MANAGER", "KITCHEN_MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER", "RECEPTIONIST", "INVENTORY_MANAGER"];
 export const STAFF_DEPARTMENTS = ["Management", "Kitchen", "Service", "Delivery", "Billing", "Reception", "Inventory"];
 export const STAFF_STATUSES = ["ACTIVE", "INACTIVE", "ON_LEAVE", "SUSPENDED"];
 
 const roleToUserRole = {
   ADMIN: "admin",
   MANAGER: "manager",
+  KITCHEN_MANAGER: "kitchen_manager",
   CHEF: "chef",
   WAITER: "waiter",
   DELIVERY: "delivery",
@@ -120,7 +121,7 @@ export const normalizeStaffDocument = (staff) => {
 
 export const buildStaffResponse = async (staff) => {
   const populated = await Staff.findById(staff._id)
-    .populate("user", "fullName email phone role isActive lastLogin")
+    .populate("user", "fullName email phone role isActive lastLogin accessLevel customPermissions")
     .populate("shift", "name startTime endTime isActive");
 
   return normalizeStaffDocument(populated);

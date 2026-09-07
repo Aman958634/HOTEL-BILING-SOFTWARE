@@ -30,6 +30,7 @@ import { notifyNewStaff } from "../services/notificationService.js";
 import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { getAllowedOutlets } from "../services/outletService.js";
 import { createActivity } from "../services/activityService.js";
+import { normalizeAccessLevel, normalizePermissions } from "../config/rolePermissions.js";
 
 const getPagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -219,6 +220,8 @@ export const createStaff = asyncHandler(async (req, res) => {
       defaultOutlet: assignedOutletId,
       outletAccess: assignedOutletId ? [{ outlet: assignedOutletId, role: userRole, isActive: true }] : [],
       allOutletsAccess: userRole === "admin",
+      accessLevel: normalizeAccessLevel(req.body.accessLevel),
+      customPermissions: normalizePermissions(req.body.customPermissions),
     });
   }
 
@@ -285,6 +288,9 @@ export const updateStaff = asyncHandler(async (req, res) => {
   if (req.body.emergencyContact !== undefined) updates.emergencyContact = req.body.emergencyContact;
   if (req.body.status !== undefined) updates.status = normalizeStaffStatus(req.body.status);
 
+  if (req.body.accessLevel !== undefined) updates.accessLevel = normalizeAccessLevel(req.body.accessLevel);
+  if (req.body.customPermissions !== undefined) updates.customPermissions = normalizePermissions(req.body.customPermissions);
+
   if (updates.role !== undefined && req.user.role === "manager" && ["ADMIN", "MANAGER"].includes(updates.role)) {
     throw new ApiError(403, "Managers cannot assign admin or manager roles");
   }
@@ -296,6 +302,13 @@ export const updateStaff = asyncHandler(async (req, res) => {
 
   if (staff.user && (updates.email !== undefined || updates.role !== undefined)) {
     await syncUserForStaff(staff, updates, req.user.role);
+  }
+
+  if (staff.user && (updates.accessLevel !== undefined || updates.customPermissions !== undefined)) {
+    await User.updateOne({ _id: staff.user._id || staff.user }, { $set: {
+      ...(updates.accessLevel !== undefined ? { accessLevel: updates.accessLevel } : {}),
+      ...(updates.customPermissions !== undefined ? { customPermissions: updates.customPermissions } : {}),
+    } });
   }
 
   if (updates.email !== undefined && staff.user && req.user.role !== "admin") {

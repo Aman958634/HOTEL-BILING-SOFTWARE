@@ -1,5 +1,6 @@
 import { body, param, query } from "express-validator";
 import { STAFF_DEPARTMENTS, STAFF_ROLES, STAFF_STATUSES } from "../services/staffService.js";
+import { ACCESS_LEVELS, PERMISSION_KEYS } from "../config/rolePermissions.js";
 
 const optionalEmail = body("email").optional({ values: "falsy" }).isEmail().withMessage("Email must be valid");
 
@@ -27,6 +28,9 @@ export const staffCreateValidation = [
   body("salary").optional().isFloat({ min: 0 }).withMessage("Salary cannot be negative"),
   body("status").optional().isIn(STAFF_STATUSES).withMessage("Invalid status"),
   body("password").optional().isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
+  body("accessLevel").optional().isIn(ACCESS_LEVELS).withMessage("Invalid access level"),
+  body("customPermissions").optional().isArray().withMessage("Custom permissions must be an array"),
+  body("customPermissions.*").optional().isIn(PERMISSION_KEYS).withMessage("Invalid custom permission"),
   body("shift").optional({ values: "falsy" }).isString().withMessage("Invalid shift"),
 ];
 
@@ -41,6 +45,9 @@ export const staffUpdateValidation = [
   body("joiningDate").optional().isISO8601().withMessage("Invalid joining date"),
   body("salary").optional().isFloat({ min: 0 }).withMessage("Salary cannot be negative"),
   body("status").optional().isIn(STAFF_STATUSES).withMessage("Invalid status"),
+  body("accessLevel").optional().isIn(ACCESS_LEVELS).withMessage("Invalid access level"),
+  body("customPermissions").optional().isArray().withMessage("Custom permissions must be an array"),
+  body("customPermissions.*").optional().isIn(PERMISSION_KEYS).withMessage("Invalid custom permission"),
   body("shift").optional({ values: "falsy" }).isString().withMessage("Invalid shift"),
 ];
 

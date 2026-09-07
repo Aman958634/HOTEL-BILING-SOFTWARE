@@ -9,6 +9,7 @@ import { sendEmail } from "../services/emailService.js";
 import Staff from "../models/Staff.js";
 import logger from "../utils/logger.js";
 import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
+import { resolvePermissions } from "../config/rolePermissions.js";
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
@@ -23,7 +24,9 @@ const buildSessionPayload = async (user) => {
       id: safeUser._id,
       outlets: (safeUser.outletAccess || []).filter((entry) => entry.isActive !== false).map((entry) => entry.outlet),
       allOutletsAccess: safeUser.allOutletsAccess === true || restaurantWideRoles.has(String(safeUser.role || "").toLowerCase()),
-      permissions: safeUser.permissions || [],
+      accessLevel: safeUser.accessLevel || "ROLE_DEFAULT",
+      customPermissions: safeUser.customPermissions || [],
+      permissions: resolvePermissions(safeUser),
     },
     authorizedOutlets,
   };

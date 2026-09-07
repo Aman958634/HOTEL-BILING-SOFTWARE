@@ -66,6 +66,7 @@ const loadRazorpayScript = () =>
 const OrderManagement = () => {
   const socket = useSocket();
   const user = useSelector((state) => state.auth.user);
+  const isChef = user?.role === "chef";
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -201,9 +202,11 @@ const OrderManagement = () => {
   }, []);
 
   useEffect(() => {
-    loadStats();
-    loadOrderDependencies();
-  }, [loadStats, loadOrderDependencies]);
+    if (!isChef) {
+      loadStats();
+      loadOrderDependencies();
+    }
+  }, [isChef, loadStats, loadOrderDependencies]);
 
   useEffect(() => {
     loadOrders(filters);
@@ -265,6 +268,7 @@ const OrderManagement = () => {
   }, []);
 
   const openReceipt = async (order) => {
+    if (isChef) return;
     try {
       const { data } = await getPaymentByOrderId(order._id);
       setPaidOrderReceipt(data.data);
@@ -535,25 +539,25 @@ const OrderManagement = () => {
           <h2 className="ui-page-title">Orders</h2>
           <p className="ui-page-description">Review live order status, table context, kitchen progress and payment state.</p>
         </div>
-        <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 lg:hidden">
+        {!isChef && <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 lg:hidden">
           <FiPlus className="h-4 w-4" aria-hidden="true" /> New Order
-        </button>
+        </button>}
       </div>
 
-      <OrderStats stats={stats} loading={loadingStats} />
+      {!isChef && <OrderStats stats={stats} loading={loadingStats} />}
 
-      {pendingOfflineCount ? (
+      {!isChef && pendingOfflineCount ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <span>{pendingOfflineCount} order{pendingOfflineCount === 1 ? "" : "s"} pending sync. Server validation is required before creation.</span>
           <button type="button" onClick={syncOfflineOrders} className="rounded-lg bg-amber-700 px-3 py-2 font-semibold text-white hover:bg-amber-800">Retry Sync</button>
         </div>
       ) : null}
 
-      <OrderToolbar
+      {!isChef && <OrderToolbar
         filters={filters}
         onChange={setFilters}
         onCreate={openCreate}
-      />
+      />}
 
       <OrderTable
         orders={orders}
@@ -563,12 +567,13 @@ const OrderManagement = () => {
         onOpen={openDetails}
         onEdit={openEdit}
         onDelete={requestDelete}
+        kitchenOnly={isChef}
       />
       {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
 
       <TablePagination meta={meta} onPageChange={goToPage} itemLabel="orders" className="ui-card" />
 
-      <CreateOrderModal
+      {!isChef && <CreateOrderModal
         open={createOpen}
         loading={saving}
         menuItems={foods}
@@ -582,9 +587,9 @@ const OrderManagement = () => {
           setCreateInitialTable(null);
         }}
         onSubmit={submitCreate}
-      />
+      />}
 
-      <EditOrderModal
+      {!isChef && <EditOrderModal
         open={editOpen}
         loading={saving}
         menuItems={foods}
@@ -597,7 +602,7 @@ const OrderManagement = () => {
           setEditOrder(null);
         }}
         onSubmit={submitEdit}
-      />
+      />}
 
       <OrderDetailsDrawer
         open={detailsOpen}
@@ -608,19 +613,19 @@ const OrderManagement = () => {
           setDetailsOrder(null);
           setPaidOrderReceipt(null);
         }}
-        onViewReceipt={openReceipt}
-        onPrintReceipt={openReceipt}
+        onViewReceipt={isChef ? undefined : openReceipt}
+        onPrintReceipt={isChef ? undefined : openReceipt}
       />
 
-      <CashPaymentConfirmationModal
+      {!isChef && <CashPaymentConfirmationModal
         open={cashConfirmOpen}
         amount={createdOrder ? formatINR.format(Number(createdOrder.total || 0)) : "₹0"}
         loading={cashConfirmLoading}
         onClose={() => setCashConfirmOpen(false)}
         onConfirm={payCashNow}
-      />
+      />}
 
-      <ConfirmDialog
+      {!isChef && <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete Order?"
         message={`Are you sure you want to delete order #${deleteTarget?.orderNumber || deleteTarget?._id}?\nThis action cannot be undone.`}
@@ -630,7 +635,7 @@ const OrderManagement = () => {
         }}
         onConfirm={confirmDelete}
         loading={saving}
-      />
+      />}
 
       {statusTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">

@@ -23,6 +23,7 @@ import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.
 import { validate } from "../middleware/validate.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { publicOrderLimiter } from "../middleware/rateLimiter.js";
+import { requirePermission, requireAnyPermission } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.post(
   })
 );
 
-router.use(authMiddleware, requireActiveSubscription);
+router.use(authMiddleware, requireActiveSubscription, requireAnyPermission("orders.view", "orders.view_kitchen"));
 
 router.get(
 	"/",
@@ -58,10 +59,10 @@ router.get(
 	listOrders
 );
 
-router.get("/stats", [query("onlineOnly").optional().isBoolean().withMessage("onlineOnly must be a boolean")], validate, getOrderStats);
-router.get("/today", getTodayOrders);
-router.get("/pending", getPendingOrders);
-router.get("/customers", searchOrderCustomers);
+router.get("/stats", requirePermission("orders.view"), [query("onlineOnly").optional().isBoolean().withMessage("onlineOnly must be a boolean")], validate, getOrderStats);
+router.get("/today", requirePermission("orders.view"), getTodayOrders);
+router.get("/pending", requirePermission("orders.view"), getPendingOrders);
+router.get("/customers", requirePermission("orders.view"), searchOrderCustomers);
 router.post(
 	"/customers",
 	[
@@ -90,6 +91,7 @@ router.post(
 		body("customerDetails.phone").optional({ values: "falsy" }).isLength({ min: 7, max: 20 }).withMessage("Customer phone is invalid"),
 	],
 	validate,
+	requirePermission("orders.create"),
 	createOrder
 );
 
@@ -105,10 +107,11 @@ router.put(
 		body("items.*.quantity").optional().isInt({ min: 1 }).withMessage("Item quantity must be at least 1"),
 	],
 	validate,
+	requirePermission("orders.edit"),
 	updateOrder
 );
 
-router.delete("/:id", deleteOrder);
+router.delete("/:id", requirePermission("orders.cancel"), deleteOrder);
 
 router.patch(
 	"/:id/status",
@@ -118,6 +121,7 @@ router.patch(
 		body("rejectionReason").optional().isString().trim().isLength({ max: 500 }).withMessage("Rejection reason is invalid"),
 	],
 	validate,
+	requirePermission("orders.edit"),
 	updateOrderStatus
 );
 
@@ -130,6 +134,7 @@ router.patch(
 		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
+	requirePermission("payments.collect"),
 	updateOrderPayment
 );
 
@@ -142,6 +147,7 @@ router.post(
 		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
+	requirePermission("payments.collect"),
 	payOrder
 );
 
@@ -154,6 +160,7 @@ router.put(
 		body("amount").optional().isFloat({ gt: 0 }).withMessage("Payment amount must be greater than zero"),
 	],
 	validate,
+	requirePermission("payments.collect"),
 	updateOrderPaymentStatus
 );
 

@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import { Outlet, useLocation } from "react-router-dom";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
@@ -30,12 +31,23 @@ const useDesktopLayout = () => {
 };
 
 const AdminModuleLayout = () => {
+  const user = useSelector((state) => state.auth.user);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [blocked, setBlocked] = useState(null);
   const isDesktop = useDesktopLayout();
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
   const location = useLocation();
+  const permissionByPath = [
+    ["/dashboard/admin", "reports.view_full"],
+    ["/orders", "orders.view"], ["/kitchen", "kds.view"], ["/inventory", "inventory.view"],
+    ["/staff", "staff.view"], ["/payments", "payments.view"], ["/reports", "reports.view_basic"],
+    ["/business-intelligence", "reports.view_full"], ["/intelligence", "reports.view_full"],
+  ];
+  const requiredPermission = permissionByPath.find(([path]) => location.pathname.endsWith(path))?.[1];
+  const adminOnlyPaths = ["/menu", "/categories", "/procurement", "/central-kitchen", "/billing", "/my-subscription", "/notifications", "/outlets", "/settings", "/integrations"];
+  const adminOnly = adminOnlyPaths.some((path) => location.pathname.endsWith(path));
+  const denied = user?.role !== "admin" && (adminOnly || (requiredPermission && !user?.permissions?.includes(requiredPermission)));
   const isBilling =
     location.pathname.includes("/billing") ||
     location.pathname.includes("/my-subscription");
@@ -110,9 +122,7 @@ const AdminModuleLayout = () => {
           <main className="min-w-0">
             <div className="app-page-container">
               {!isBilling && <TrialBanner subscription={subscription} />}
-              <Suspense fallback={<RouteSkeleton />}>
-                <Outlet />
-              </Suspense>
+              {denied ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><h1 className="text-lg font-semibold">Access Denied</h1><p className="mt-1 text-sm">Your role does not allow this module.</p></div> : <Suspense fallback={<RouteSkeleton />}><Outlet /></Suspense>}
             </div>
           </main>
         </div>

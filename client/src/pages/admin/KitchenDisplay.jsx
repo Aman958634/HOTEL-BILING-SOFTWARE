@@ -93,7 +93,7 @@ const KitchenDisplay = () => {
   const backoffUntilRef = useRef(0);
   const POLL_INTERVAL = 15000;
 
-  const canUpdate = ["admin", "manager", "chef"].includes(role);
+  const canUpdate = ["admin", "manager", "kitchen_manager", "chef"].includes(role);
   const canComplete = ["admin", "manager"].includes(role);
 
   const playAlert = useCallback(() => {

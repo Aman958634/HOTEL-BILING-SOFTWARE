@@ -9,6 +9,7 @@ const ROLE_ALIASES = {
   manager: ["manager"],
   waiter: ["waiter"],
   chef: ["chef"],
+  kitchen_manager: ["kitchen_manager"],
   cashier: ["cashier"],
   delivery: ["delivery"],
   customer: ["customer"],

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { ACCESS_LEVELS, PERMISSION_KEYS } from "../config/rolePermissions.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -31,7 +32,7 @@ const userSchema = new mongoose.Schema(
     allOutletsAccess: { type: Boolean, default: false },
     role: {
       type: String,
-      enum: ["super_admin", "hotel_admin", "restaurant_admin", "manager", "staff", "cashier", "admin", "chef", "waiter", "delivery", "receptionist", "inventory_manager", "customer"],
+      enum: ["super_admin", "hotel_admin", "restaurant_admin", "manager", "kitchen_manager", "staff", "cashier", "admin", "chef", "waiter", "delivery", "receptionist", "inventory_manager", "customer"],
       default: "customer",
       index: true,
     },
@@ -59,6 +60,8 @@ const userSchema = new mongoose.Schema(
     ],
     isCrmArchived: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true, index: true },
+    accessLevel: { type: String, enum: ACCESS_LEVELS, default: "ROLE_DEFAULT" },
+    customPermissions: { type: [String], enum: PERMISSION_KEYS, default: [] },
     refreshToken: { type: String, default: "" },
     // Password-reset tokens are stored only as a hash so they survive a
     // process restart without making the emailed token recoverable from DB.

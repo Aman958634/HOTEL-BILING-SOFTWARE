@@ -1,4 +1,4 @@
-import { authorize } from "./auth.js";
+import { requirePermission } from "./auth.js";
 
-export const requirePaymentViewAccess = authorize("admin", "manager", "cashier");
-export const requirePaymentAdminAccess = authorize("admin");
+export const requirePaymentViewAccess = requirePermission("payments.view");
+export const requirePaymentAdminAccess = requirePermission("payments.collect");

@@ -10,12 +10,13 @@ import PasswordInput from "../../components/common/PasswordInput";
 const roleRedirectMap = {
   super_admin: "/super-admin/dashboard",
   admin: "/dashboard/admin",
-  chef: "/dashboard/chef",
+  chef: "/dashboard/admin/kitchen",
+  kitchen_manager: "/dashboard/admin/kitchen",
   waiter: "/dashboard/service",
   delivery: "/dashboard/delivery",
   customer: "/dashboard/customer",
-  manager: "/dashboard/service",
-  cashier: "/dashboard/service",
+  manager: "/dashboard/admin",
+  cashier: "/dashboard/admin/orders",
 };
 
 const resolvePostLoginPath = (role, location) => {

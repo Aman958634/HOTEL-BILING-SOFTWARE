@@ -12,7 +12,7 @@ const AdminRoute = ({ children }) => {
     return <p className="p-6 text-center">Loading profile...</p>;
   }
 
-  if (user.role !== "admin") {
+  if (!["admin", "manager", "kitchen_manager", "chef", "cashier"].includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

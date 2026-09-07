@@ -5,6 +5,16 @@ const roleOptions = ["ADMIN", "MANAGER", "CHEF", "WAITER", "DELIVERY", "CASHIER"
 const departmentOptions = ["Management", "Kitchen", "Service", "Delivery", "Billing", "Reception", "Inventory"];
 const statusOptions = ["ACTIVE", "INACTIVE", "ON_LEAVE", "SUSPENDED"];
 const shiftOptions = ["Morning", "Evening", "Night"];
+const permissionGroups = [
+  ["KDS", ["kds.view", "kds.update_status"]],
+  ["Orders", ["orders.view", "orders.create", "orders.edit", "orders.cancel"]],
+  ["Billing", ["billing.view", "billing.generate"]],
+  ["Payments", ["payments.view", "payments.collect", "payments.reconcile"]],
+  ["Inventory", ["inventory.view", "inventory.manage"]],
+  ["Staff", ["staff.view", "staff.manage"]],
+  ["Reports", ["reports.view_basic", "reports.view_full"]],
+];
+const permissionLabels = { "kds.view": "View", "kds.update_status": "Update status", "orders.view": "View", "orders.create": "Create", "orders.edit": "Edit", "orders.cancel": "Cancel", "billing.view": "View", "billing.generate": "Generate", "payments.view": "View", "payments.collect": "Collect", "payments.reconcile": "Reconcile", "inventory.view": "View", "inventory.manage": "Manage", "staff.view": "View", "staff.manage": "Manage", "reports.view_basic": "Basic", "reports.view_full": "Full" };
 
 const initialForm = {
   firstName: "",
@@ -25,6 +35,8 @@ const initialForm = {
   emergencyPhone: "",
   emergencyRelationship: "",
   status: "ACTIVE",
+  accessLevel: "ROLE_DEFAULT",
+  customPermissions: [],
 };
 
 const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
@@ -54,6 +66,8 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         emergencyPhone: initialData.emergencyContact?.phone || "",
         emergencyRelationship: initialData.emergencyContact?.relationship || "",
         status: String(initialData.status || "ACTIVE").toUpperCase(),
+        accessLevel: initialData.user?.accessLevel || "ROLE_DEFAULT",
+        customPermissions: initialData.user?.customPermissions || [],
       });
     } else {
       setForm(initialForm);
@@ -73,7 +87,7 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
     if (!form.department) next.department = "Department is required";
     if (!form.joiningDate) next.joiningDate = "Joining date is required";
     if (!form.status) next.status = "Status is required";
-    if (form.createLoginAccount && !form.password.trim()) next.password = "Password is required for login-enabled staff";
+    if (form.createLoginAccount && !initialData && !form.password.trim()) next.password = "Password is required for login-enabled staff";
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Email must be valid";
     if (form.salary && Number(form.salary) < 0) next.salary = "Salary cannot be negative";
 
@@ -105,6 +119,8 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
         relationship: form.emergencyRelationship.trim(),
       },
       status: form.status,
+      accessLevel: form.accessLevel,
+      customPermissions: form.customPermissions,
     });
   };
 
@@ -194,6 +210,29 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
                 <input type="password" className="mt-1 w-full rounded-xl border border-slate-300 p-2" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password}</p>}
               </div>
+            </div>
+          )}
+          {form.createLoginAccount && (
+            <div className="mt-4">
+              <span className="text-sm font-medium text-slate-700">Access level</span>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {[['ROLE_DEFAULT', 'Role Default'], ['FULL_ACCESS', 'Full Access'], ['CUSTOM_ACCESS', 'Custom Access']].map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="radio" name="accessLevel" value={value} checked={form.accessLevel === value} onChange={(e) => setForm({ ...form, accessLevel: e.target.value })} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {form.accessLevel === "CUSTOM_ACCESS" && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {permissionGroups.map(([group, keys]) => (
+                    <fieldset key={group} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{group}</legend>
+                      {keys.map((key) => <label key={key} className="mt-2 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={form.customPermissions.includes(key)} onChange={(e) => setForm({ ...form, customPermissions: e.target.checked ? [...form.customPermissions, key] : form.customPermissions.filter((permission) => permission !== key) })} />{permissionLabels[key]}</label>)}
+                    </fieldset>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

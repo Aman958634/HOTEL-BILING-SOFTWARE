@@ -102,6 +102,28 @@ const normalizeOrderOutput = (order) => {
   };
 };
 
+export const normalizeKitchenOrderOutput = (order) => {
+  const data = order.toObject ? order.toObject() : order;
+  return {
+    _id: data._id,
+    orderNumber: data.orderNumber,
+    table: data.table ? { _id: data.table._id, tableNumber: data.table.tableNumber, floor: data.table.floor, section: data.table.section } : null,
+    items: (data.items || []).map((item) => ({
+      _id: item._id,
+      name: item.name,
+      quantity: item.quantity,
+      specialInstructions: item.specialInstructions || "",
+      kitchenStatus: item.kitchenStatus || "NEW",
+      menuItem: item.menuItem ? { _id: item.menuItem._id, name: item.menuItem.name } : null,
+    })),
+    notes: data.notes || "",
+    specialInstructions: data.specialInstructions || "",
+    status: data.status,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  };
+};
+
 const resolveOrderRestaurant = async ({ orderType, tableId, user }) => {
   if (orderType === ORDER_TYPES.DINE_IN && tableId) {
     const table = user
@@ -559,7 +581,7 @@ export const listOrders = asyncHandler(async (req, res) => {
     new ApiResponse(
       true,
       "Orders fetched",
-      orders.map(normalizeOrderOutput),
+      orders.map((order) => req.user.role === "chef" ? normalizeKitchenOrderOutput(order) : normalizeOrderOutput(order)),
       {
         page,
         limit,
@@ -582,7 +604,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
   if (!canAccessOrder(req.user, order)) throw new ApiError(403, "Forbidden");
 
-  res.status(200).json(new ApiResponse(true, "Order fetched", normalizeOrderOutput(order)));
+  res.status(200).json(new ApiResponse(true, "Order fetched", req.user.role === "chef" ? normalizeKitchenOrderOutput(order) : normalizeOrderOutput(order)));
 });
 
 export const updateOrder = asyncHandler(async (req, res) => {

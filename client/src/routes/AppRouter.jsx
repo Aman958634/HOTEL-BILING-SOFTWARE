@@ -228,7 +228,7 @@ const AppRouter = () => (
         <Suspense fallback={<PageSkeleton />}>
           <ProtectedRoute>
             <Suspense fallback={<PageSkeleton />}>
-              <RoleRoute roles={["admin", "manager", "chef", "waiter", "cashier"]}>
+              <RoleRoute roles={["admin", "manager", "kitchen_manager", "chef"]}>
                 <AdminModuleLayout />
               </RoleRoute>
             </Suspense>

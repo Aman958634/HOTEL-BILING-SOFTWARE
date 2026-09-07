@@ -19,7 +19,17 @@ const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
-const OrderRow = memo(({ order, onOpen, onEdit, onDelete }) => (
+const OrderRow = memo(({ order, onOpen, onEdit, onDelete, kitchenOnly }) => kitchenOnly ? (
+  <tr className="border-b border-slate-100 text-slate-700">
+    <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
+    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
+    <td className={cellClass}><ul>{order.items?.map((item) => <li key={item._id || item.name}>{item.quantity} x {item.name}</li>)}</ul></td>
+    <td className={cellClass}>{order.notes || order.specialInstructions || "-"}</td>
+    <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
+    <td className={cellClass}>{dateTime(order.createdAt)}</td>
+    <td className={cellClass}><button type="button" onClick={() => onOpen(order)} className={openBtnClass} aria-label={`Open kitchen order ${order.orderNumber}`}><FiEye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> View</button></td>
+  </tr>
+) : (
   <tr className="border-b border-slate-100 text-slate-700">
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
@@ -46,7 +56,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete }) => (
   </tr>
 ));
 
-const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, hasFilters = false }) => {
+const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, hasFilters = false, kitchenOnly = false }) => {
   if (loading) {
     return (
       <>
@@ -73,30 +83,26 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, hasFilte
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
-        <table className="min-w-[1080px] w-full text-sm">
+        <table className={`${kitchenOnly ? "min-w-[800px]" : "min-w-[1080px]"} w-full text-sm`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <th className={`${cellClass} min-w-[100px]`}>Order ID</th>
-              <th className={`${cellClass} min-w-[120px]`}>Customer</th>
-              <th className={`${cellClass} min-w-[80px]`}>Table</th>
-              <th className={`${cellClass} min-w-[70px]`}>Items</th>
-              <th className={`${cellClass} min-w-[90px]`}>Amount</th>
+              {kitchenOnly ? <><th className={`${cellClass} min-w-[100px]`}>Table</th><th className={`${cellClass} min-w-[240px]`}>Items</th><th className={`${cellClass} min-w-[180px]`}>Kitchen notes</th></> : <><th className={`${cellClass} min-w-[120px]`}>Customer</th><th className={`${cellClass} min-w-[80px]`}>Table</th><th className={`${cellClass} min-w-[70px]`}>Items</th><th className={`${cellClass} min-w-[90px]`}>Amount</th></>}
               <th className={`${cellClass} min-w-[110px]`}>Status</th>
-              <th className={`${cellClass} min-w-[100px]`}>Kitchen</th>
-              <th className={`${cellClass} min-w-[140px]`}>Payment</th>
+              {!kitchenOnly && <><th className={`${cellClass} min-w-[100px]`}>Kitchen</th><th className={`${cellClass} min-w-[140px]`}>Payment</th></>}
               <th className={`${cellClass} min-w-[140px]`}>Created</th>
-              <th className={`${cellClass} min-w-[210px]`}>Actions</th>
+              <th className={`${cellClass} min-w-[120px]`}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />)}
+            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} kitchenOnly={kitchenOnly} />)}
           </tbody>
         </table>
       </div>
 
       <div className="grid gap-3 lg:hidden">
         {orders.map((order) => (
-          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} kitchenOnly={kitchenOnly} />
         ))}
       </div>
     </>

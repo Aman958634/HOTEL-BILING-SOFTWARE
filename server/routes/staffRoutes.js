@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import { authorize, protect } from "../middleware/auth.js";
+import { authorize, protect, requirePermission } from "../middleware/auth.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import {
@@ -32,19 +32,19 @@ const router = Router();
 
 router.use(protect, requireActiveSubscription);
 
-router.get("/stats", authorize("admin", "manager"), getStaffStats);
-router.get("/command-center", authorize("admin", "manager"), getStaffCommandCenter);
-router.get("/active", authorize("admin", "manager"), getActiveStaff);
-router.get("/by-role/:role", staffRoleValidation, validate, authorize("admin", "manager"), getStaffByRole);
+router.get("/stats", requirePermission("staff.view"), getStaffStats);
+router.get("/command-center", requirePermission("staff.view"), getStaffCommandCenter);
+router.get("/active", requirePermission("staff.view"), getActiveStaff);
+router.get("/by-role/:role", staffRoleValidation, validate, requirePermission("staff.view"), getStaffByRole);
 router.get("/me", getMyStaffProfile);
-router.get("/", staffListValidation, validate, authorize("admin", "manager"), listStaff);
+router.get("/", staffListValidation, validate, requirePermission("staff.view"), listStaff);
 router.get("/:id", staffIdValidation, validate, getStaffById);
 
 router.post(
   "/",
   staffCreateValidation,
   validate,
-  authorize("admin", "manager"),
+  requirePermission("staff.manage"),
   createStaff
 );
 
@@ -52,7 +52,7 @@ router.put(
   "/:id",
   staffUpdateValidation,
   validate,
-  authorize("admin", "manager"),
+  requirePermission("staff.manage"),
   updateStaff
 );
 
@@ -60,7 +60,7 @@ router.patch(
   "/:id/status",
   staffStatusValidation,
   validate,
-  authorize("admin", "manager"),
+  requirePermission("staff.manage"),
   updateStaffStatus
 );
 
@@ -78,6 +78,6 @@ router.post(
   assignStaffWork
 );
 
-router.delete("/:id", staffDeleteValidation, validate, authorize("admin"), deleteStaff);
+router.delete("/:id", staffDeleteValidation, validate, requirePermission("staff.manage"), deleteStaff);
 
 export default router;

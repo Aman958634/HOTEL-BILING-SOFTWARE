@@ -4,6 +4,7 @@ import Outlet from "../models/Outlet.js";
 import { ensureDefaultOutlet } from "../services/outletService.js";
 import { hasAllOutletsAccess } from "../utils/tenantUtils.js";
 import ApiError from "../utils/ApiError.js";
+import { resolvePermissions } from "../config/rolePermissions.js";
 
 export const protect = async (req, _, next) => {
   try {
@@ -31,7 +32,10 @@ export const protect = async (req, _, next) => {
       defaultOutlet: user.defaultOutlet || null,
       outletAccess: user.outletAccess || [],
       allOutletsAccess: user.allOutletsAccess === true,
+      accessLevel: user.accessLevel || "ROLE_DEFAULT",
+      customPermissions: user.customPermissions || [],
     };
+    req.user.permissions = resolvePermissions(req.user);
     if (user.restaurant) await ensureDefaultOutlet({ _id: user.restaurant });
 
     // Outlet selection is only a requested context. It is authorized here on
@@ -83,4 +87,16 @@ export const authorize = (...roles) => (req, _, next) => {
     return next(new ApiError(403, "Forbidden"));
   }
   next();
+};
+
+export const requirePermission = (permission) => (req, _, next) => {
+  if (!req.user) return next(new ApiError(401, "Unauthorized"));
+  if (req.user.role === "super_admin" || req.user.permissions?.includes(permission)) return next();
+  return next(new ApiError(403, "You do not have permission for this action", "PERMISSION_DENIED"));
+};
+
+export const requireAnyPermission = (...permissions) => (req, _, next) => {
+  if (!req.user) return next(new ApiError(401, "Unauthorized"));
+  if (req.user.role === "super_admin" || permissions.some((permission) => req.user.permissions?.includes(permission))) return next();
+  return next(new ApiError(403, "You do not have permission for this action", "PERMISSION_DENIED"));
 };

@@ -47,7 +47,7 @@ const normalizeKitchenItemStatus = (value) => {
 };
 
 const canUpdateKitchenItem = (role) => {
-  return ["admin", "manager", "chef"].includes(String(role || "").toLowerCase());
+  return ["admin", "manager", "kitchen_manager", "chef"].includes(String(role || "").toLowerCase());
 };
 
 const saveAndEmit = async (order, req, itemIndex, nextItemStatus) => {

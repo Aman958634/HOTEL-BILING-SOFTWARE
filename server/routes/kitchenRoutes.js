@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
+import { requirePermission } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import {
   bulkReadyKitchenItems,
@@ -22,7 +23,7 @@ const router = Router();
 router.use(authMiddleware, requireActiveSubscription);
 // Kitchen queues can change the fulfilment state of an order. They must never
 // be writable by customer accounts merely because they hold a valid session.
-router.use(requireRole("admin", "manager", "chef", "waiter", "cashier"));
+router.use(requirePermission("kds.view"));
 
 router.get(
   "/tickets",
@@ -45,6 +46,7 @@ router.patch(
     body("kitchenStatus").notEmpty().withMessage("Kitchen status is required"),
   ],
   validate,
+  requirePermission("kds.update_status"),
   updateKitchenItemStatus
 );
 
@@ -52,6 +54,7 @@ router.patch(
   "/tickets/:orderId/start",
   [param("orderId").isMongoId().withMessage("Invalid order id")],
   validate,
+  requirePermission("kds.update_status"),
   bulkStartKitchenItems
 );
 
@@ -59,6 +62,7 @@ router.patch(
   "/tickets/:orderId/ready",
   [param("orderId").isMongoId().withMessage("Invalid order id")],
   validate,
+  requirePermission("kds.update_status"),
   bulkReadyKitchenItems
 );
 
@@ -66,6 +70,7 @@ router.patch(
   "/tickets/:orderId/serve",
   [param("orderId").isMongoId().withMessage("Invalid order id")],
   validate,
+  requirePermission("kds.update_status"),
   bulkServeKitchenItems
 );
 
