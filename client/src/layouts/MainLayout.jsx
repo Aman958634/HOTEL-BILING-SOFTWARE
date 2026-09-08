@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiArrowRight, FiChevronRight, FiMenu, FiTag, FiUser, FiX } from "react-icons/fi";
+import { FiArrowRight, FiChevronRight, FiMenu, FiStar, FiTag, FiUser, FiX } from "react-icons/fi";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
@@ -98,10 +98,10 @@ const MainLayout = () => {
             </Link> : null}
           </nav>
           <div className="mobile-nav-cta-card">
-            <p className="text-sm font-semibold text-slate-900">Start Managing</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900"><FiStar className="mobile-nav-sparkle" aria-hidden="true" />Start Managing</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">Simplify your restaurant operations today.</p>
             <Link to="/register" className="mobile-nav-get-started">
-              Get Started <FiArrowRight aria-hidden="true" />
+              Get Started <FiArrowRight className="mobile-nav-get-started-arrow" aria-hidden="true" />
             </Link>
           </div>
         </aside>

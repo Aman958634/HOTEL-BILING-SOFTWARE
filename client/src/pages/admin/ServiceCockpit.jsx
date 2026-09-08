@@ -10,6 +10,7 @@ import OrderStatusBadge from "../../components/admin/orders/OrderStatusBadge";
 import TableDetails from "../../components/admin/tables/TableDetails";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
 import { currency } from "../../utils/format";
+import ModuleIcon from "../../components/common/ModuleIcon";
 
 const BOARD_COLUMNS = [
   { key: "NEW", label: "New", statuses: ["PENDING", "CONFIRMED"] },
@@ -69,7 +70,7 @@ const Kpi = ({ label, value, sub, icon, tone = "slate" }) => {
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl sm:p-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <span className={`flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-base ${tones[tone]}`}>{icon}</span>
+        <ModuleIcon icon={icon} tone={tone} className="!h-9 !w-9" />
       </div>
       <p className={`mt-2 text-xl font-bold tracking-tight sm:text-2xl ${tones[tone]}`}>{value}</p>
       {sub ? <p className="mt-0.5 text-xs text-slate-500">{sub}</p> : null}

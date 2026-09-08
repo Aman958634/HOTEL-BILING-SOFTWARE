@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getRestaurantSettings, updateRestaurantSettings } from "../../services/restaurantService";
 import ToggleSwitch from "../../components/common/ToggleSwitch";
+import { FiSettings } from "react-icons/fi";
+import ModuleIcon from "../../components/common/ModuleIcon";
 
 const defaultSettings = {
   name: "",
@@ -129,7 +131,7 @@ const Settings = () => {
   return (
     <div className="space-y-4 pb-20">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Restaurant Settings</h2>
+        <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiSettings />} module="settings" variant="header" />Restaurant Settings</h2>
         <p className="mt-1 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>
       </div>
 

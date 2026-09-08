@@ -13,14 +13,14 @@ import { getRestaurantSettings } from "../../services/restaurantService";
 const SalesChart = lazy(() => import("../../components/admin/SalesChart"));
 
 const DASHBOARD_ICON_MAP = {
-  totalRevenue: <FiDollarSign />,
-  todayRevenue: <FiTrendingUp />,
-  totalOrders: <FiShoppingBag />,
-  todayOrders: <FiClipboard />,
-  activeReservations: <FiCalendar />,
-  availableTables: <FiGrid />,
-  lowStockItems: <FiAlertCircle />,
-  totalMenuItems: <FiBookOpen />,
+  totalRevenue: { icon: <FiDollarSign />, module: "payments" },
+  todayRevenue: { icon: <FiTrendingUp />, module: "dashboard" },
+  totalOrders: { icon: <FiShoppingBag />, module: "orders" },
+  todayOrders: { icon: <FiClipboard />, module: "onlineOrders" },
+  activeReservations: { icon: <FiCalendar />, module: "loyalty" },
+  availableTables: { icon: <FiGrid />, module: "tables" },
+  lowStockItems: { icon: <FiAlertCircle />, module: "inventory" },
+  totalMenuItems: { icon: <FiBookOpen />, module: "menu" },
 };
 
 const SalesChartSkeleton = () => <div className="h-48 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />;
@@ -261,7 +261,10 @@ const AdminDashboard = () => {
         </div>
       ) : statsError && !stats ? <RequestState message={statsError} onRetry={loadStats} /> : (
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" aria-label="Restaurant metrics">
-          {cards.map((card) => <StatCard key={card.key} {...card} icon={DASHBOARD_ICON_MAP[card.key]} range="today" comparisonType="dashboard" compact />)}
+          {cards.map((card) => {
+            const moduleIcon = DASHBOARD_ICON_MAP[card.key];
+            return <StatCard key={card.key} {...card} icon={moduleIcon?.icon} iconModule={moduleIcon?.module} range="today" comparisonType="dashboard" compact />;
+          })}
         </section>
       )}
 

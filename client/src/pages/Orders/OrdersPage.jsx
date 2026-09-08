@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getOrders } from "../../services/orderService";
 import { currency, dateTime } from "../../utils/format";
+import { FiShoppingBag } from "react-icons/fi";
+import ModuleIcon from "../../components/common/ModuleIcon";
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -11,7 +13,7 @@ const OrdersPage = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">Orders</h2>
+      <h2 className="flex items-center gap-3 text-2xl font-bold"><ModuleIcon icon={<FiShoppingBag />} module="orders" variant="header" />Orders</h2>
       <div className="mt-4 space-y-3">
         {orders.map((order) => (
           <div className="glass rounded-xl p-3" key={order._id}>

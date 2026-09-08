@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { FiPlus, FiSearch } from "react-icons/fi";
+import { FiBookOpen, FiPlus, FiSearch } from "react-icons/fi";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import MenuForm from "../../components/admin/MenuForm";
 import MenuTable from "../../components/admin/MenuTable";
@@ -134,7 +135,7 @@ const MenuManagement = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Menu Management</h2>
+          <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiBookOpen />} module="menu" variant="header" />Menu Management</h2>
           <p className="mt-1 text-sm text-slate-500">Total items: {summary.total} | Available: {summary.available}</p>
         </div>
         <button className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700" onClick={openCreate}>

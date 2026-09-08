@@ -18,17 +18,17 @@ const PaymentStats = ({ stats, loading }) => {
   const todayRevenue = Number(summary.todayRevenue);
 
   const cards = [
-    { label: "Total Revenue", value: Number.isFinite(totalRevenue) ? totalRevenue : 0, icon: <FiDollarSign />, trend: 0 },
-    { label: "Today's Revenue", value: Number.isFinite(todayRevenue) ? todayRevenue : 0, icon: <FiTrendingUp />, trend: 0 },
-    { label: "Successful Payments", value: summary.successfulPayments ?? 0, icon: <FiCheckCircle />, trend: 0 },
-    { label: "Pending Payments", value: summary.pendingPayments ?? 0, icon: <FiRotateCcw />, trend: 0 },
-    { label: "Failed / Refunded", value: summary.failedRefunded ?? 0, icon: <FiAlertCircle />, trend: 0 },
+    { label: "Total Revenue", value: Number.isFinite(totalRevenue) ? totalRevenue : 0, icon: <FiDollarSign />, module: "payments", trend: 0 },
+    { label: "Today's Revenue", value: Number.isFinite(todayRevenue) ? todayRevenue : 0, icon: <FiTrendingUp />, module: "dashboard", trend: 0 },
+    { label: "Successful Payments", value: summary.successfulPayments ?? 0, icon: <FiCheckCircle />, module: "payments", trend: 0 },
+    { label: "Pending Payments", value: summary.pendingPayments ?? 0, icon: <FiRotateCcw />, module: "billing", trend: 0 },
+    { label: "Failed / Refunded", value: summary.failedRefunded ?? 0, icon: <FiAlertCircle />, module: "notifications", trend: 0 },
   ];
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
-        <StatCard key={card.label} icon={card.icon} label={card.label} value={card.value} trend={card.trend} />
+        <StatCard key={card.label} icon={card.icon} iconModule={card.module} label={card.label} value={card.value} trend={card.trend} />
       ))}
     </div>
   );

@@ -2,17 +2,18 @@ import { FiBarChart2, FiCreditCard, FiFileText, FiGrid, FiHome, FiSettings, FiSh
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
+import ModuleIcon from "../common/ModuleIcon";
 
 const links = [
-  { to: "/super-admin/dashboard", label: "Dashboard", icon: <FiHome /> },
-  { to: "/super-admin/restaurants", label: "Restaurants", icon: <FiGrid /> },
-  { to: "/super-admin/users", label: "Users", icon: <FiUsers /> },
-  { to: "/super-admin/subscriptions", label: "Subscriptions", icon: <FiTag /> },
-  { to: "/super-admin/activity-logs", label: "Activity Logs", icon: <FiZap /> },
-  { to: "/super-admin/orders", label: "Orders", icon: <FiShoppingBag /> },
-  { to: "/super-admin/payments", label: "Payments", icon: <FiCreditCard /> },
-  { to: "/super-admin/reports", label: "Reports", icon: <FiFileText /> },
-  { to: "/super-admin/settings", label: "Settings", icon: <FiSettings /> },
+  { to: "/super-admin/dashboard", label: "Dashboard", icon: <FiHome />, tone: "dashboard" },
+  { to: "/super-admin/restaurants", label: "Restaurants", icon: <FiGrid />, tone: "tables" },
+  { to: "/super-admin/users", label: "Users", icon: <FiUsers />, tone: "staff" },
+  { to: "/super-admin/subscriptions", label: "Subscriptions", icon: <FiTag />, tone: "payments" },
+  { to: "/super-admin/activity-logs", label: "Activity Logs", icon: <FiZap />, tone: "reports" },
+  { to: "/super-admin/orders", label: "Orders", icon: <FiShoppingBag />, tone: "orders" },
+  { to: "/super-admin/payments", label: "Payments", icon: <FiCreditCard />, tone: "payments" },
+  { to: "/super-admin/reports", label: "Reports", icon: <FiFileText />, tone: "reports" },
+  { to: "/super-admin/settings", label: "Settings", icon: <FiSettings />, tone: "settings" },
 ];
 
 const SuperAdminSidebar = ({ open, setOpen }) => {
@@ -55,12 +56,12 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
               end
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-3 text-sm min-h-[44px] ${
-                  isActive ? "bg-teal-700 text-white" : "text-slate-300 hover:bg-slate-800"
+                  isActive ? "bg-teal-500/15 text-teal-100 ring-1 ring-inset ring-teal-400/25" : "text-slate-300 hover:bg-slate-800"
                 }`
               }
               onClick={() => setOpen(false)}
             >
-              <span className="shrink-0 text-lg">{link.icon}</span>
+              <ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" />
               <span className="min-w-0 truncate">{link.label}</span>
             </NavLink>
           ))}

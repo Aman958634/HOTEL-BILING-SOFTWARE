@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiAlertTriangle, FiFilter, FiRefreshCw } from "react-icons/fi";
+import { FiAlertTriangle, FiCreditCard, FiFilter, FiRefreshCw } from "react-icons/fi";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import PaymentStats from "../../components/payments/PaymentStats";
 import AdvancedBillingWorkspace from "../../components/payments/AdvancedBillingWorkspace";
 import ReconciliationWorkspace from "../../components/payments/ReconciliationWorkspace";
@@ -347,7 +348,7 @@ const Payments = () => {
     <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Payments</h2>
+          <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiCreditCard />} module="payments" variant="header" />Payments</h2>
           <p className="mt-1 text-sm text-slate-500">Review payment health, exceptions, bills and reconciliation activity.</p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">

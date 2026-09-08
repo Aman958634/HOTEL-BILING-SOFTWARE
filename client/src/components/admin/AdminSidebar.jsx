@@ -3,32 +3,33 @@ import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDolla
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
+import ModuleIcon from "../common/ModuleIcon";
 
 const links = [
-  { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome />, role: ["admin", "manager"] },
-  { group: "Operations", to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout />, role: ["admin", "manager", "cashier"] },
-  { group: "Operations", to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid />, role: ["admin", "manager", "cashier"] },
-  { group: "Operations", to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag />, permission: "orders.view" },
-  { group: "Operations", to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck />, role: ["admin", "manager"] },
-  { group: "Operations", to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee />, permission: "kds.view" },
-  { group: "Menu & Customers", to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen />, role: ["admin"] },
-  { group: "Menu & Customers", to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag />, role: ["admin"] },
-  { group: "Menu & Customers", to: "/dashboard/admin/customers", label: "Customer CRM", icon: <FiUsers />, role: ["admin", "manager", "cashier"] },
-  { group: "Menu & Customers", to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward />, role: ["admin", "manager", "cashier"] },
-  { group: "Management", to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers />, permission: "staff.view" },
-  { group: "Management", to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox />, permission: "inventory.view" },
-  { group: "Management", to: "/dashboard/admin/procurement", label: "Procurement", icon: <FiTruck />, role: ["admin"] },
-  { group: "Management", to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee />, role: ["admin"] },
-  { group: "Finance & Insights", to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard />, permission: "payments.view" },
-  { group: "Finance & Insights", to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText />, role: ["admin"] },
-  { group: "Finance & Insights", to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign />, role: ["admin"] },
-  { group: "Finance & Insights", to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 />, permission: "reports.view_basic" },
-  { group: "Finance & Insights", to: "/dashboard/admin/business-intelligence", label: "Business Intelligence", icon: <FiBarChart2 />, permission: "reports.view_full" },
-  { group: "Finance & Insights", to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward />, permission: "reports.view_full" },
-  { group: "Administration", to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell />, role: ["admin"] },
-  { group: "Administration", to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin />, role: ["admin"] },
-  { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings />, role: ["admin"] },
-  { group: "Administration", to: "/dashboard/admin/integrations", label: "Integrations", icon: <FiWifi />, role: ["admin"] },
+  { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome />, tone: "dashboard", role: ["admin", "manager"] },
+  { group: "Operations", to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout />, tone: "dashboard", role: ["admin", "manager", "cashier"] },
+  { group: "Operations", to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid />, tone: "tables", role: ["admin", "manager", "cashier"] },
+  { group: "Operations", to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag />, tone: "orders", permission: "orders.view" },
+  { group: "Operations", to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck />, tone: "orders", role: ["admin", "manager"] },
+  { group: "Operations", to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee />, tone: "kitchen", permission: "kds.view" },
+  { group: "Menu & Customers", to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen />, tone: "menu", role: ["admin"] },
+  { group: "Menu & Customers", to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag />, tone: "menu", role: ["admin"] },
+  { group: "Menu & Customers", to: "/dashboard/admin/customers", label: "Customer CRM", icon: <FiUsers />, tone: "customers", role: ["admin", "manager", "cashier"] },
+  { group: "Menu & Customers", to: "/dashboard/admin/loyalty", label: "Loyalty & Rewards", icon: <FiAward />, tone: "customers", role: ["admin", "manager", "cashier"] },
+  { group: "Management", to: "/dashboard/admin/staff", label: "Staff", icon: <FiUsers />, tone: "staff", permission: "staff.view" },
+  { group: "Management", to: "/dashboard/admin/inventory", label: "Inventory", icon: <FiBox />, tone: "inventory", permission: "inventory.view" },
+  { group: "Management", to: "/dashboard/admin/procurement", label: "Procurement", icon: <FiTruck />, tone: "procurement", role: ["admin"] },
+  { group: "Management", to: "/dashboard/admin/central-kitchen", label: "Central Kitchen", icon: <FiCoffee />, tone: "kitchen", role: ["admin"] },
+  { group: "Finance & Insights", to: "/dashboard/admin/payments", label: "Payments", icon: <FiCreditCard />, tone: "payments", permission: "payments.view" },
+  { group: "Finance & Insights", to: "/dashboard/admin/billing", label: "Billing & Plans", icon: <FiFileText />, tone: "payments", role: ["admin"] },
+  { group: "Finance & Insights", to: "/dashboard/admin/my-subscription", label: "My Subscription", icon: <FiDollarSign />, tone: "payments", role: ["admin"] },
+  { group: "Finance & Insights", to: "/dashboard/admin/reports", label: "Reports", icon: <FiBarChart2 />, tone: "reports", permission: "reports.view_basic" },
+  { group: "Finance & Insights", to: "/dashboard/admin/business-intelligence", label: "Business Intelligence", icon: <FiBarChart2 />, tone: "reports", permission: "reports.view_full" },
+  { group: "Finance & Insights", to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward />, tone: "reports", permission: "reports.view_full" },
+  { group: "Administration", to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell />, tone: "notifications", role: ["admin"] },
+  { group: "Administration", to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin />, tone: "dashboard", role: ["admin"] },
+  { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings />, tone: "settings", role: ["admin"] },
+  { group: "Administration", to: "/dashboard/admin/integrations", label: "Integrations", icon: <FiWifi />, tone: "settings", role: ["admin"] },
 ];
 
 const linkGroups = Object.entries(
@@ -86,13 +87,13 @@ const AdminSidebar = ({ open, setOpen }) => {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] ${
                   isActive
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
+                    ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-inset ring-emerald-400/25"
                     : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                 }`
               }
               onClick={() => setOpen(false)}
             >
-              <span className="shrink-0 text-base">{link.icon}</span>
+              <ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" />
               <span className="min-w-0 truncate">{link.label}</span>
             </NavLink>
               ))}

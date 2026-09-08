@@ -487,7 +487,7 @@ const KitchenDisplay = () => {
       ) : loading && tickets.length === 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><SkeletonList count={4} className="h-80" /></div>
       ) : visibleTickets.length === 0 ? (
-        <EmptyState title="No kitchen orders yet" description="New kitchen orders will appear here." />
+        <EmptyState icon={<FiCoffee />} iconModule="kitchen" title="No kitchen orders yet" description="New kitchen orders will appear here." />
       ) : (
         <KdsBoard
           groupedTickets={groupedVisibleTickets}

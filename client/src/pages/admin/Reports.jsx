@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { FiDownload, FiFileText, FiFilter, FiRefreshCw, FiUsers, FiDollarSign, FiShoppingBag, FiCheckCircle, FiXCircle, FiTrendingUp } from "react-icons/fi";
+import { FiBarChart2, FiDownload, FiFileText, FiFilter, FiRefreshCw, FiUsers, FiDollarSign, FiShoppingBag, FiCheckCircle, FiXCircle, FiTrendingUp } from "react-icons/fi";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import StatCard from "../../components/admin/StatCard";
 import RequestState from "../../components/common/RequestState";
@@ -264,7 +265,7 @@ const Reports = () => {
     <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Reports & Analytics</h2>
+          <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiBarChart2 />} module="reports" variant="header" />Reports & Analytics</h2>
           <p className="mt-1 text-sm text-slate-500">Real-time revenue, orders, customer and payment insights.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

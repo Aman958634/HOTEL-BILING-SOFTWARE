@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { FiUsers } from "react-icons/fi";
 import EmptyState from "../../components/common/EmptyState";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import { SkeletonList } from "../../components/common/Skeletons";
 import RequestState from "../../components/common/RequestState";
 import TablePagination from "../../components/common/TablePagination";
@@ -224,7 +225,7 @@ const StaffManagement = () => {
     <div className="space-y-4 pb-20 sm:space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Staff</h2>
+          <h2 className="flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiUsers />} module="staff" variant="header" />Staff</h2>
           <p className="mt-1 text-sm text-slate-500">Manage restaurant team records, roles, current status, and operational departments.</p>
         </div>
       </div>
@@ -265,7 +266,8 @@ const StaffManagement = () => {
         <RequestState message={staffError} onRetry={() => loadStaff(filtersRef.current)} />
       ) : (
         <EmptyState
-          icon={<FiUsers className="h-10 w-10" />}
+          icon={<FiUsers />}
+          iconModule="staff"
           title={emptyTitle}
           description={emptyDescription}
           action={!filters.search ? <button onClick={openCreate} className="rounded-xl bg-brand-700 px-4 py-2 text-sm text-white">+ Add Staff</button> : null}
