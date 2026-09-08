@@ -28,7 +28,7 @@ const StatusBadge = ({ status }) => {
   return <span className={`ops-status-badge border ${meta.className}`}>{meta.icon}{meta.label}</span>;
 };
 
-const SummaryCard = ({ label, value, tone = "inventory", icon }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><ModuleIcon icon={icon} tone={tone} className="!h-9 !w-9" /></div><p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</p></article>;
+const SummaryCard = ({ label, value, tone = "inventory", icon }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><ModuleIcon icon={icon} tone={tone} variant="section" /></div><p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</p></article>;
 
 const InventoryPage = () => {
   const [items, setItems] = useState([]);

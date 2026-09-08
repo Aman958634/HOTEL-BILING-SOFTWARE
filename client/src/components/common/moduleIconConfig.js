@@ -2,6 +2,14 @@
 // CSS owns the visual tokens; modules only declare their business meaning.
 export const moduleIconConfig = {
   dashboard: { tone: "emerald" },
+  totalRevenue: { tone: "emerald" },
+  todayRevenue: { tone: "sky" },
+  totalOrders: { tone: "amber" },
+  todayOrders: { tone: "pink" },
+  reservations: { tone: "violet" },
+  availableTables: { tone: "emerald" },
+  lowStock: { tone: "amber" },
+  menuItems: { tone: "sky" },
   serviceCockpit: { tone: "indigo" },
   tables: { tone: "sky" },
   orders: { tone: "amber" },

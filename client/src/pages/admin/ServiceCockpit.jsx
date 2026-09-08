@@ -70,7 +70,7 @@ const Kpi = ({ label, value, sub, icon, tone = "slate" }) => {
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md sm:rounded-2xl sm:p-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-        <ModuleIcon icon={icon} tone={tone} className="!h-9 !w-9" />
+        <ModuleIcon icon={icon} tone={tone} variant="section" />
       </div>
       <p className={`mt-2 text-xl font-bold tracking-tight sm:text-2xl ${tones[tone]}`}>{value}</p>
       {sub ? <p className="mt-0.5 text-xs text-slate-500">{sub}</p> : null}

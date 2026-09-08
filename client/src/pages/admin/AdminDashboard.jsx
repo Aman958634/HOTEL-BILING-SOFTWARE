@@ -13,14 +13,14 @@ import { getRestaurantSettings } from "../../services/restaurantService";
 const SalesChart = lazy(() => import("../../components/admin/SalesChart"));
 
 const DASHBOARD_ICON_MAP = {
-  totalRevenue: { icon: <FiDollarSign />, module: "payments" },
-  todayRevenue: { icon: <FiTrendingUp />, module: "dashboard" },
-  totalOrders: { icon: <FiShoppingBag />, module: "orders" },
-  todayOrders: { icon: <FiClipboard />, module: "onlineOrders" },
-  activeReservations: { icon: <FiCalendar />, module: "loyalty" },
-  availableTables: { icon: <FiGrid />, module: "tables" },
-  lowStockItems: { icon: <FiAlertCircle />, module: "inventory" },
-  totalMenuItems: { icon: <FiBookOpen />, module: "menu" },
+  totalRevenue: { icon: <FiDollarSign />, module: "totalRevenue" },
+  todayRevenue: { icon: <FiTrendingUp />, module: "todayRevenue" },
+  totalOrders: { icon: <FiShoppingBag />, module: "totalOrders" },
+  todayOrders: { icon: <FiClipboard />, module: "todayOrders" },
+  activeReservations: { icon: <FiCalendar />, module: "reservations" },
+  availableTables: { icon: <FiGrid />, module: "availableTables" },
+  lowStockItems: { icon: <FiAlertCircle />, module: "lowStock" },
+  totalMenuItems: { icon: <FiBookOpen />, module: "menuItems" },
 };
 
 const SalesChartSkeleton = () => <div className="h-48 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />;

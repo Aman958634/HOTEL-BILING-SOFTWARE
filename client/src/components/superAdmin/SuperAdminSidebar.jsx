@@ -55,8 +55,8 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
               to={link.to}
               end
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-3 text-sm min-h-[44px] ${
-                  isActive ? "bg-teal-500/15 text-teal-100 ring-1 ring-inset ring-teal-400/25" : "text-slate-300 hover:bg-slate-800"
+                `module-sidebar-link flex items-center gap-3 rounded-lg px-3 py-3 text-sm min-h-[44px] ${
+                  isActive ? "is-active bg-teal-500/15 text-teal-100 ring-1 ring-inset ring-teal-400/25" : "text-slate-300 hover:bg-slate-800"
                 }`
               }
               onClick={() => setOpen(false)}

@@ -7,10 +7,10 @@ import ModuleIcon from "../common/ModuleIcon";
 
 const links = [
   { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome />, tone: "dashboard", role: ["admin", "manager"] },
-  { group: "Operations", to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout />, tone: "dashboard", role: ["admin", "manager", "cashier"] },
+  { group: "Operations", to: "/dashboard/admin/cockpit", label: "Service Cockpit", icon: <FiLayout />, tone: "serviceCockpit", role: ["admin", "manager", "cashier"] },
   { group: "Operations", to: "/dashboard/admin/tables", label: "Tables", icon: <FiGrid />, tone: "tables", role: ["admin", "manager", "cashier"] },
   { group: "Operations", to: "/dashboard/admin/orders", label: "Orders", icon: <FiShoppingBag />, tone: "orders", permission: "orders.view" },
-  { group: "Operations", to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck />, tone: "orders", role: ["admin", "manager"] },
+  { group: "Operations", to: "/dashboard/admin/online-orders", label: "Online Orders", icon: <FiTruck />, tone: "onlineOrders", role: ["admin", "manager"] },
   { group: "Operations", to: "/dashboard/admin/kitchen", label: "Kitchen Display", icon: <FiCoffee />, tone: "kitchen", permission: "kds.view" },
   { group: "Menu & Customers", to: "/dashboard/admin/menu", label: "Menu Management", icon: <FiBookOpen />, tone: "menu", role: ["admin"] },
   { group: "Menu & Customers", to: "/dashboard/admin/categories", label: "Categories", icon: <FiTag />, tone: "menu", role: ["admin"] },
@@ -85,9 +85,9 @@ const AdminSidebar = ({ open, setOpen }) => {
               to={link.to}
               end
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] ${
+                `module-sidebar-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] ${
                   isActive
-                    ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-inset ring-emerald-400/25"
+                    ? "is-active bg-emerald-500/15 text-emerald-100 ring-1 ring-inset ring-emerald-400/25"
                     : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                 }`
               }
