@@ -53,21 +53,21 @@ const AdminSidebar = ({ open, setOpen }) => {
     <aside
       id="admin-navigation-drawer"
       aria-label="Restaurant administration"
-      className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(82vw,300px)] transform overflow-hidden border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:w-72 lg:translate-x-0 ${
+      className={`admin-sidebar fixed inset-y-0 left-0 z-50 h-dvh w-[min(82vw,300px)] transform overflow-hidden border-r transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <div className="flex shrink-0 items-center justify-between px-5 py-5 md:py-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
+            <div className="admin-sidebar__logo flex h-9 w-9 items-center justify-center rounded-xl">
               <FiAward className="h-5 w-5" />
             </div>
-            <span className="text-lg font-bold text-white md:text-xl">RestoSphere</span>
+            <span className="admin-sidebar__brand-name text-lg font-bold md:text-xl">Resto<span>Sphere</span></span>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-300 hover:bg-slate-800 lg:hidden"
+            className="admin-sidebar__close flex h-11 w-11 items-center justify-center rounded-lg border text-sm lg:hidden"
             aria-label="Close menu"
           >
             <FiX className="h-4 w-4" />
@@ -77,7 +77,7 @@ const AdminSidebar = ({ open, setOpen }) => {
         <nav aria-label="Restaurant administration" tabIndex={0} className="sidebar-scroll-region flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
           {visibleGroups.map(([group, groupLinks]) => (
             <div key={group}>
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group}</p>
+              <p className="admin-sidebar__section px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em]">{group}</p>
               <div className="space-y-1">
               {groupLinks.map((link) => (
             <NavLink
@@ -85,10 +85,10 @@ const AdminSidebar = ({ open, setOpen }) => {
               to={link.to}
               end
               className={({ isActive }) =>
-                `module-sidebar-link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] ${
+                `module-sidebar-link admin-sidebar__link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-[44px] ${
                   isActive
-                    ? "is-active bg-emerald-500/15 text-emerald-100 ring-1 ring-inset ring-emerald-400/25"
-                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                    ? "is-active"
+                    : ""
                 }`
               }
               onClick={() => setOpen(false)}
@@ -102,10 +102,10 @@ const AdminSidebar = ({ open, setOpen }) => {
           ))}
         </nav>
 
-        <div className="shrink-0 border-t border-slate-700/50 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="admin-sidebar__footer shrink-0 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={onLogout}
-            className="flex w-full items-center gap-3 rounded-xl border border-slate-700/60 px-3 py-3 text-sm font-medium text-slate-300 transition-colors hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-200 min-h-[44px]"
+            className="admin-sidebar__logout flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium min-h-[44px]"
           >
             <FiLogOut className="text-base" />
             <span>Logout</span>

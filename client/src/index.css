@@ -221,6 +221,44 @@ button:disabled { cursor: not-allowed; }
 .module-icon--indigo { background: #e0e7ff; color: #4f46e5; }
 .module-icon--slate { background: #e2e8f0; color: #475569; }
 
+/* Restaurant administration sidebar tokens keep the light navigation surface consistent. */
+.admin-sidebar {
+  --sidebar-bg: #f8fafc;
+  --sidebar-border: #e2e8f0;
+  --sidebar-text: #334155;
+  --sidebar-muted: #64748b;
+  --sidebar-hover: #f1f5f9;
+  --sidebar-active-bg: #ecfdf5;
+  --sidebar-active-border: #a7f3d0;
+  --sidebar-active-text: #047857;
+  background: var(--sidebar-bg);
+  border-color: var(--sidebar-border);
+  color: var(--sidebar-text);
+}
+.admin-sidebar__logo { background: #059669; color: #fff; box-shadow: 0 2px 5px rgb(5 150 105 / 0.2); }
+.admin-sidebar__brand-name { color: #0f172a; letter-spacing: -0.02em; }
+.admin-sidebar__brand-name span { color: #059669; }
+.admin-sidebar__close { border-color: var(--sidebar-border); color: var(--sidebar-muted); transition: background-color 170ms ease, color 170ms ease; }
+.admin-sidebar__close:hover { background: var(--sidebar-hover); color: var(--sidebar-text); }
+.admin-sidebar__section { color: var(--sidebar-muted); }
+.admin-sidebar__link {
+  border: 1px solid transparent;
+  color: var(--sidebar-text);
+  transition: background-color 170ms ease, border-color 170ms ease, color 170ms ease;
+}
+.admin-sidebar__link:hover { background: var(--sidebar-hover); color: #0f172a; }
+.admin-sidebar__link.is-active { background: var(--sidebar-active-bg); border-color: var(--sidebar-active-border); color: var(--sidebar-active-text); }
+.admin-sidebar .module-sidebar-link:hover .module-icon--sidebar { box-shadow: 0 4px 9px rgb(15 23 42 / 0.14); }
+.admin-sidebar .module-sidebar-link.is-active .module-icon--sidebar { border-color: #6ee7b7; background: #10b981; color: #fff; box-shadow: 0 3px 9px rgb(5 150 105 / 0.24); }
+.admin-sidebar__footer { border-top: 1px solid var(--sidebar-border); }
+.admin-sidebar__logout {
+  border-color: var(--sidebar-border);
+  color: var(--sidebar-text);
+  transition: background-color 170ms ease, border-color 170ms ease, color 170ms ease;
+}
+.admin-sidebar__logout svg { color: #e11d48; }
+.admin-sidebar__logout:hover { background: #fff1f2; border-color: #fecdd3; color: #be123c; }
+
 @media (max-width: 639px) {
   .module-icon--kpi { width: 2.625rem; height: 2.625rem; }
   .module-icon--kpi .module-icon__glyph { width: 1.4375rem; height: 1.4375rem; }
