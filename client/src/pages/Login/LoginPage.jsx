@@ -7,6 +7,7 @@ import { loginThunk, logout } from "../../redux/slices/authSlice";
 import { getSelectedPlan, saveSelectedPlan } from "../../utils/planSelection";
 import PasswordInput from "../../components/common/PasswordInput";
 import { roleLandingPath } from "../../utils/roleLanding";
+import { prefetchWorkspaceForRole } from "../../utils/workspacePreload";
 
 const resolvePostLoginPath = (user, location) => {
   const role = String(user?.role || "").toLowerCase();
@@ -82,6 +83,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
         return;
       }
 
+      void prefetchWorkspaceForRole(role);
       toast.success("Welcome back");
       navigate(resolvePostLoginPath(loggedInUser, location), { replace: true });
     } catch (error) {
