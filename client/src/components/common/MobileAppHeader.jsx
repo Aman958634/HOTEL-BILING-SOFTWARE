@@ -6,14 +6,14 @@ import OutletSwitcher from "../admin/OutletSwitcher";
 import ProfileMenu from "./ProfileMenu";
 import TodayControl from "./TodayControl";
 
-const MobileAppHeader = ({ onMenuClick, sidebarOpen = false, sidebarId, title = "RestoSphere", subtitle = "Restaurant Management", settingsPath = "/dashboard/admin/settings" }) => {
+const MobileAppHeader = ({ onMenuClick, sidebarOpen = false, sidebarId, title = "RestoSphere", subtitle = "Restaurant Management", settingsPath = "/dashboard/admin/settings", premium = false }) => {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-md sm:px-4">
+    <header className={`sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 ${premium ? "py-2.5" : "py-2"} shadow-sm backdrop-blur-md sm:px-4`}>
       <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-1.5">
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 lg:hidden"
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition lg:hidden ${premium ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100" : "text-slate-600 hover:bg-slate-100"}`}
           aria-label="Open menu"
           aria-expanded={sidebarOpen}
           aria-controls={sidebarId}
@@ -23,7 +23,7 @@ const MobileAppHeader = ({ onMenuClick, sidebarOpen = false, sidebarId, title = 
 
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold leading-tight text-slate-900">{title}</h1>
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] leading-tight text-emerald-700 max-[359px]:hidden">{subtitle}</p>
+          <p className={`truncate leading-tight max-[359px]:hidden ${premium ? "text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700" : "text-xs text-slate-500"}`}>{subtitle}</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">

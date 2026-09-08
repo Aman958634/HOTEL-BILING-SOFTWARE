@@ -24,14 +24,14 @@ const OutletSwitcher = ({ className = "", detailed = false }) => {
   if (outletStatus !== "ready" || !outlets.length) return null;
   const activeOutlet = outlets.find((outlet) => outlet._id === activeOutletId) || outlets[0];
   const location = locationFor(activeOutlet);
-  return <label className={`flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-2.5 py-1.5 text-sm text-slate-700 shadow-sm transition hover:border-emerald-200 ${switching ? "opacity-70" : ""} ${className}`}>
+  return <label className={`flex min-h-11 min-w-0 max-w-full items-center ${detailed ? "gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-2.5 shadow-sm transition hover:border-emerald-200" : "gap-1.5 rounded-xl border border-slate-200 bg-white px-2 shadow-sm"} py-1.5 text-sm text-slate-700 ${switching ? "opacity-70" : ""} ${className}`}>
     {switching ? <FiLoader className="shrink-0 animate-spin text-emerald-700" aria-hidden="true" /> : <FiMapPin className="shrink-0 text-emerald-700" aria-hidden="true" />}
     <span className="min-w-0 flex-1">
       {detailed ? <span className="block text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">Current outlet</span> : <span className="sr-only">Current outlet</span>}
-      <select aria-label="Select current outlet" value={activeOutletId} onChange={changeOutlet} disabled={switching} className="block min-w-0 max-w-full bg-transparent text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:cursor-wait" title={switching ? "Switching outlet" : "Current outlet"}>{outlets.map((outlet) => <option key={outlet._id} value={outlet._id}>{outlet.name}</option>)}</select>
+      <select aria-label="Select current outlet" value={activeOutletId} onChange={changeOutlet} disabled={switching} className={`block min-w-0 bg-transparent text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:cursor-wait ${detailed ? "max-w-full text-slate-800" : "max-w-36 flex-1 sm:max-w-48"}`} title={switching ? "Switching outlet" : "Current outlet"}>{outlets.map((outlet) => <option key={outlet._id} value={outlet._id}>{outlet.name}</option>)}</select>
       {detailed && location ? <span className="block truncate text-xs text-slate-500">{location}</span> : null}
     </span>
-    <FiChevronDown className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+    {detailed ? <FiChevronDown className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" /> : null}
     {switching ? <span className="sr-only" role="status">Switching outlet</span> : null}
   </label>;
 };

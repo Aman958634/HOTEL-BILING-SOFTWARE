@@ -15,7 +15,7 @@ const links = [
   { to: "/super-admin/settings", label: "Settings", icon: <FiSettings /> },
 ];
 
-const SuperAdminSidebar = ({ open, setOpen, desktopOpen = true }) => {
+const SuperAdminSidebar = ({ open, setOpen }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -28,7 +28,7 @@ const SuperAdminSidebar = ({ open, setOpen, desktopOpen = true }) => {
     <aside
       id="super-admin-navigation-drawer"
       aria-label="Super administration"
-      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 ${desktopOpen ? "lg:translate-x-0" : "lg:-translate-x-full"} ${
+      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
