@@ -29,11 +29,11 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
     <aside
       id="super-admin-navigation-drawer"
       aria-label="Super administration"
-      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(82vw,300px)] transform overflow-hidden border-r border-slate-200 bg-slate-950 text-slate-100 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex h-dvh flex-col">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <div className="flex shrink-0 items-center justify-between px-4 py-4 md:py-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-teal-300 md:text-sm">Super Admin</p>
@@ -48,7 +48,7 @@ const SuperAdminSidebar = ({ open, setOpen }) => {
           </button>
         </div>
 
-        <nav aria-label="Super administration" className="flex-1 min-h-0 space-y-1 overflow-y-auto overscroll-contain px-4">
+        <nav aria-label="Super administration" tabIndex={0} className="sidebar-scroll-region flex-1 min-h-0 space-y-1 overflow-y-auto overscroll-contain px-4">
           {links.map((link) => (
             <NavLink
               key={link.to}

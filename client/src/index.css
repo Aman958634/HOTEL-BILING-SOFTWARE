@@ -396,6 +396,15 @@ button:disabled { cursor: not-allowed; }
 
 @layer components {
   .app-shell { @apply min-h-dvh w-full min-w-0 bg-slate-100; }
+  .dashboard-shell { @apply h-dvh min-h-0 overflow-hidden; }
+  .sidebar-scroll-region {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .sidebar-scroll-region::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 .app-page-container {
     width: 100%;
     max-width: 100%;

@@ -30,11 +30,11 @@ const SuperAdminModuleLayout = () => {
   }, [location.pathname]);
 
   return (
-    <div className="app-shell">
-      <div className="flex min-h-dvh">
+    <div className="app-shell dashboard-shell">
+      <div className="flex h-dvh overflow-hidden">
         <SuperAdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-        <div className="min-w-0 flex-1 lg:ml-72">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:ml-72">
           <MobileAppHeader
             onMenuClick={() => setSidebarOpen(true)}
             sidebarOpen={sidebarOpen}
@@ -42,7 +42,7 @@ const SuperAdminModuleLayout = () => {
             subtitle="Super Admin"
             settingsPath="/super-admin/settings"
           />
-          <main className="min-w-0">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="app-page-container">
               <Outlet />
             </div>

@@ -113,13 +113,13 @@ const AdminModuleLayout = () => {
   }, [location.pathname]);
 
   return (
-    <div className="app-shell">
-      <div className="flex min-h-dvh">
+    <div className="app-shell dashboard-shell">
+      <div className="flex h-dvh overflow-hidden">
         <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-        <div className="min-w-0 flex-1 lg:ml-72">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:ml-72">
           {isDesktop ? <AdminHeader /> : <MobileAppHeader premium onMenuClick={openSidebar} sidebarOpen={sidebarOpen} sidebarId="admin-navigation-drawer" />}
-          <main className="min-w-0">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="app-page-container">
               {!isBilling && <TrialBanner subscription={subscription} />}
               {denied ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><h1 className="text-lg font-semibold">Access Denied</h1><p className="mt-1 text-sm">Your role does not allow this module.</p></div> : <Suspense fallback={<RouteSkeleton />}><Outlet /></Suspense>}

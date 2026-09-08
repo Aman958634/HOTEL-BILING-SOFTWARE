@@ -53,11 +53,11 @@ const AdminSidebar = ({ open, setOpen }) => {
     <aside
       id="admin-navigation-drawer"
       aria-label="Restaurant administration"
-      className={`fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] transform border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:h-dvh lg:w-72 lg:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(82vw,300px)] transform overflow-hidden border-r border-slate-700/50 bg-[#0B1120] text-slate-300 transition-transform duration-200 lg:fixed lg:top-0 lg:left-0 lg:w-72 lg:translate-x-0 ${
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
-      <div className="flex h-dvh flex-col">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <div className="flex shrink-0 items-center justify-between px-5 py-5 md:py-6">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
@@ -74,7 +74,7 @@ const AdminSidebar = ({ open, setOpen }) => {
           </button>
         </div>
 
-        <nav aria-label="Restaurant administration" className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
+        <nav aria-label="Restaurant administration" tabIndex={0} className="sidebar-scroll-region flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
           {visibleGroups.map(([group, groupLinks]) => (
             <div key={group}>
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{group}</p>
