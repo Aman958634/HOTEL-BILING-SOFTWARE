@@ -6,22 +6,29 @@ import toast from "react-hot-toast";
 import { loginThunk, logout } from "../../redux/slices/authSlice";
 import { getSelectedPlan, saveSelectedPlan } from "../../utils/planSelection";
 import PasswordInput from "../../components/common/PasswordInput";
-import { isRestaurantStaff, roleLandingPath } from "../../utils/roleLanding";
+import { roleLandingPath } from "../../utils/roleLanding";
 
 const resolvePostLoginPath = (user, location) => {
   const role = String(user?.role || "").toLowerCase();
-  const fromPath = location.state?.from?.pathname;
   const selectedPlan = location.state?.selectedPlan || getSelectedPlan();
-  if (selectedPlan) saveSelectedPlan(selectedPlan);
 
-  // A saved plan belongs to restaurant-owner checkout only. Staff already have
-  // a restaurant and inherit that restaurant's subscription; sending them to
-  // owner onboarding would incorrectly create a second tenant.
-  if (isRestaurantStaff(user)) return roleLandingPath(role);
-  if (selectedPlan && role === "admin") {
+  // Checkout is only valid for a new owner who has not yet created a restaurant.
+  // Existing restaurant users always land on their operational dashboard.
+  if (selectedPlan && role === "admin" && !user?.restaurant) {
+    saveSelectedPlan(selectedPlan);
     return "/subscribe/checkout";
   }
-  return fromPath || roleLandingPath(role);
+  return roleLandingPath(role);
+};
+
+let adminDashboardPrefetch;
+const prefetchAdminDashboard = () => {
+  if (!adminDashboardPrefetch) {
+    adminDashboardPrefetch = Promise.all([
+      import("../../pages/admin/AdminModuleLayout"),
+      import("../../pages/admin/AdminDashboard"),
+    ]).catch(() => null);
+  }
 };
 
 const LoginPage = ({ superAdminOnly = false }) => {
@@ -104,7 +111,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
               <p className="mt-2 text-sm text-[#64748B]">Login to your account to continue</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} onFocus={prefetchAdminDashboard} className="mt-6 space-y-4">
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#172033]">
                   Email Address

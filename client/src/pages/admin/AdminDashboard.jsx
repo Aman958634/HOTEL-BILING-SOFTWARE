@@ -128,15 +128,20 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getRestaurantSettings(), getMyOutlets()])
-      .then(([restaurantResponse, outletResponse]) => {
-        if (!active) return;
-        setSetup({ loading: false, error: false, restaurant: restaurantResponse.data?.data || null, outlets: outletResponse.data?.data || [] });
-      })
-      .catch(() => {
-        if (active) setSetup((current) => ({ ...current, loading: false, error: true }));
-      });
-    return () => { active = false; };
+    const deferredSetup = window.setTimeout(() => {
+      Promise.all([getRestaurantSettings(), getMyOutlets()])
+        .then(([restaurantResponse, outletResponse]) => {
+          if (!active) return;
+          setSetup({ loading: false, error: false, restaurant: restaurantResponse.data?.data || null, outlets: outletResponse.data?.data || [] });
+        })
+        .catch(() => {
+          if (active) setSetup((current) => ({ ...current, loading: false, error: true }));
+        });
+    }, 600);
+    return () => {
+      active = false;
+      window.clearTimeout(deferredSetup);
+    };
   }, []);
 
   useEffect(() => { setChartReady(true); }, []);
