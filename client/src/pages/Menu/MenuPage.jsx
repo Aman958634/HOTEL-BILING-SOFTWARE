@@ -101,7 +101,7 @@ const MenuPage = () => {
       )}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Menu</h2>
+          <h2 className="text-2xl font-bold">{publicMenuContext?.restaurantName || "Menu"}</h2>
           <p className="mt-1 text-sm text-slate-500">Browse available dishes from the restaurant menu.</p>
         </div>
 

@@ -8,6 +8,7 @@ import Restaurant from "../models/Restaurant.js";
 import Table from "../models/Table.js";
 import { createPublicMenuContext, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
 import { listPublicMenu, resolvePublicRestaurantContext } from "../services/publicMenuService.js";
+import { allocateRestaurantSlug, slugifyRestaurantName } from "../utils/restaurantSlug.js";
 import { requireSafeTestDatabase } from "./testDatabase.js";
 
 const { uri } = requireSafeTestDatabase();
@@ -25,6 +26,8 @@ await mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000 });
     Restaurant.create({ name: `Public B ${suffix}`, slug: `public-b-${suffix}`, branchCode: `PB${suffix}`, address: "Test" }),
   ]);
   created.restaurants.push(restaurantA._id, restaurantB._id);
+  assert.equal(slugifyRestaurantName("Public A & Kitchen"), "public-a-kitchen");
+  assert.equal(await allocateRestaurantSlug(restaurantA.name), `${restaurantA.slug}-2`);
 
   const [outletA, outletB] = await Promise.all([
     Outlet.create({ restaurant: restaurantA._id, name: "A Main", code: "A-MAIN", isDefault: true }),

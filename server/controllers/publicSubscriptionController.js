@@ -1,4 +1,3 @@
-import Restaurant from "../models/Restaurant.js";
 import User from "../models/User.js";
 import Subscription from "../models/Subscription.js";
 import SaasPayment from "../models/SaasPayment.js";
@@ -15,6 +14,8 @@ import {
 } from "../utils/subscriptionUtils.js";
 import { buildSaasPaymentReceiptBuffer } from "../utils/saasPaymentPdf.js";
 import mongoose from "mongoose";
+import { createRestaurantWithStableSlug } from "../utils/restaurantSlug.js";
+import { ensureDefaultOutlet } from "../services/outletService.js";
 
 const PUBLIC_PLAN_KEYS = ["basic", "professional", "enterprise"];
 
@@ -89,16 +90,10 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid plan selected");
   }
 
-  const slugBase = String(restaurantName)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  const slug = `${slugBase}-${Date.now().toString().slice(-4)}`;
   const branchCode = `B${Date.now().toString().slice(-6)}`;
 
-  const restaurant = await Restaurant.create({
+  const restaurant = await createRestaurantWithStableSlug({
     name: String(restaurantName).trim(),
-    slug,
     branchCode,
     email: String(email).toLowerCase().trim(),
     phone: String(phone).trim(),
@@ -106,6 +101,7 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     city: city ? String(city).trim() : "",
     isActive: true,
   });
+  await ensureDefaultOutlet(restaurant);
 
   const user = await User.create({
     fullName: String(fullName).trim(),

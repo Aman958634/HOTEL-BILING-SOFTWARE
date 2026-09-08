@@ -3,17 +3,9 @@ import Restaurant from "../models/Restaurant.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { isValidRestaurantSlug, slugifyRestaurantName } from "../utils/restaurantSlug.js";
 
 const IMMUTABLE_FIELDS = ["_id", "id", "createdAt", "updatedAt", "__v"];
-
-const slugify = (value) =>
-  String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
 
 /** Resolve tenant-scoped query — admin users use JWT restaurant id. */
 const getRestaurantQueryForUser = (user) => {
@@ -65,12 +57,12 @@ const normalizePayload = (body = {}) => {
     payload.onlineOrdersEnabled !== undefined ? Boolean(payload.onlineOrdersEnabled) : true;
 
   if (!payload.slug || !String(payload.slug).trim()) {
-    payload.slug = slugify(payload.name);
+    payload.slug = slugifyRestaurantName(payload.name);
   } else {
-    payload.slug = slugify(payload.slug);
+    payload.slug = slugifyRestaurantName(payload.slug);
   }
 
-  if (!payload.slug) {
+  if (!isValidRestaurantSlug(payload.slug)) {
     throw new ApiError(400, "Invalid restaurant slug");
   }
 
@@ -97,7 +89,15 @@ export const updateRestaurantSettings = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not have permission to access these settings.");
   }
 
+  const currentRestaurant = await Restaurant.findOne(query).select("slug").lean();
   const payload = normalizePayload(req.body);
+
+  if (isValidRestaurantSlug(currentRestaurant?.slug)) {
+    if (payload.slug !== currentRestaurant.slug) {
+      throw new ApiError(409, "Public menu slug cannot be changed from restaurant settings");
+    }
+    payload.slug = currentRestaurant.slug;
+  }
 
   if (req.user?.hotelId) {
     payload.hotelId = req.user.hotelId;

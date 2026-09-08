@@ -73,6 +73,8 @@ Production-ready full-stack restaurant management platform with role-based acces
 - **Super Admin bootstrap:** production seeding is disabled by default. Set `SUPER_ADMIN_SEED=true` only for a planned, credentialed first-run operation, or use `npm run seed:super-admin` explicitly.
 - Verify: `GET /api/v1/public/seed-status` → `{ exists: true }`
 - Public browse menus use `/menu/<restaurant-slug>` and the server resolves that active restaurant and its requested/default outlet. Plain `/menu` is an intentional no-context landing state. Signed table QR URLs remain `/menu?qr=<signed-context>` for table ordering.
+- Existing records with no valid slug can be assessed with `cd server && node scripts/backfillRestaurantPublicSlugs.js`; apply only after reviewing its dry-run output with `npm run migrate:restaurant-public-slugs`.
+- To make the marketing Menu link open a demo menu, configure `VITE_PUBLIC_DEMO_RESTAURANT_SLUG` to an existing production `Restaurant.slug` and redeploy the Vercel client. It deliberately has no fallback or generated value.
 
 ### Database
 - Create MongoDB Atlas cluster

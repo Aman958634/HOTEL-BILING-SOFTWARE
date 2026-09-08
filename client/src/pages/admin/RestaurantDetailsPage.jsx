@@ -31,6 +31,18 @@ const RestaurantDetailsPage = () => {
   if (!data) return <SkeletonPage cards={4} rows={2} columns={2} />;
 
   const { restaurant, admin, subscription, ordersCount, usersCount } = data;
+  const publicMenuUrl = restaurant?.slug && typeof window !== "undefined"
+    ? `${window.location.origin}/menu/${encodeURIComponent(restaurant.slug)}`
+    : "";
+  const copyPublicMenuUrl = async () => {
+    if (!publicMenuUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicMenuUrl);
+      toast.success("Public menu link copied");
+    } catch {
+      toast.error("Unable to copy the public menu link");
+    }
+  };
 
   return (
     <div>
@@ -58,6 +70,8 @@ const RestaurantDetailsPage = () => {
           <p>Email: {restaurant.email || "-"}</p>
           <p>Address: {restaurant.address || "-"}</p>
           <p>Created: {new Date(restaurant.createdAt).toLocaleString()}</p>
+          <p className="mt-3 text-sm font-semibold text-slate-700">Public menu slug: {restaurant.slug || "Not set"}</p>
+          {publicMenuUrl ? <div className="mt-2 space-y-2"><p className="break-all text-xs text-slate-500">{publicMenuUrl}</p><div className="flex flex-wrap gap-2"><button type="button" onClick={copyPublicMenuUrl} className="min-h-9 rounded-lg border border-brand-200 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-50">Copy Link</button><a href={publicMenuUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-lg bg-brand-700 px-3 text-xs font-semibold text-white">Open Menu</a></div></div> : null}
         </div>
         <div className="ui-card p-5">
           <h4 className="font-bold">Admin Information</h4>

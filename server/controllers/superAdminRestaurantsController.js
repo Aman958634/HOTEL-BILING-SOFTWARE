@@ -6,6 +6,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { resolvePlan } from "../services/planService.js";
 import { calculateTrialEndDate, calculateRenewalDate, toSubscriptionView } from "../utils/subscriptionUtils.js";
+import { createRestaurantWithStableSlug } from "../utils/restaurantSlug.js";
+import { ensureDefaultOutlet } from "../services/outletService.js";
 
 // GET /super-admin/restaurants
 export const listRestaurants = asyncHandler(async (req, res) => {
@@ -61,13 +63,10 @@ export const createRestaurant = asyncHandler(async (req, res) => {
   const existingAdmin = await User.findOne({ email: adminEmail });
   if (existingAdmin) throw new ApiResponse(false, "Admin email already in use");
 
-  // create restaurant
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Date.now().toString().slice(-4);
   const branchCode = `B${Date.now().toString().slice(-6)}`;
 
-  const restaurant = await Restaurant.create({
+  const restaurant = await createRestaurantWithStableSlug({
     name,
-    slug,
     branchCode,
     email: adminEmail,
     phone,
@@ -76,6 +75,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     logoUrl: logoUrl || "",
     isActive: status !== "suspended",
   });
+  await ensureDefaultOutlet(restaurant);
 
   // create admin user and bind to restaurant server-side
   const user = await User.create({ fullName: adminFullName, email: adminEmail, password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`, role: "admin", restaurant: restaurant._id });
@@ -188,6 +188,7 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const update = { ...req.body };
   delete update.restaurant; // prevent changing tenant association from client
+  delete update.slug; // customer-facing menu links remain stable after creation
   const restaurant = await Restaurant.findByIdAndUpdate(id, update, { new: true }).lean();
   if (!restaurant) throw new ApiResponse(false, "Restaurant not found");
 

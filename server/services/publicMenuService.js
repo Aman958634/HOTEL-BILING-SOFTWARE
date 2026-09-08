@@ -110,7 +110,7 @@ export const listPublicMenu = async ({ context, query = {} }) => {
 
   return {
     ...(context.table ? { table: { _id: context.table._id, tableNumber: context.table.tableNumber, floor: context.table.floor, section: context.table.section } } : {}),
-    restaurant: { _id: context.restaurant._id, name: context.restaurant.name, slug: context.restaurant.slug, branchCode: context.restaurant.branchCode },
+    restaurant: { _id: context.restaurant._id, name: context.restaurant.name, slug: context.restaurant.slug, logoUrl: context.restaurant.logoUrl || "", branchCode: context.restaurant.branchCode },
     outlet: { _id: context.outlet._id, name: context.outlet.name, code: context.outlet.code },
     categories,
     items,

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { PUBLIC_DEMO_MENU_PATH } from "../../utils/constants";
 
 const HomePage = () => (
   <div className="landing-page space-y-16">
@@ -25,7 +26,7 @@ const HomePage = () => (
             View Pricing →
           </Link>
           <Link
-            to="/menu"
+            to={PUBLIC_DEMO_MENU_PATH}
             className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition duration-200 hover:border-slate-400"
           >
             Browse Menu
