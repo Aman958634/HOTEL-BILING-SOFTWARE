@@ -22,7 +22,8 @@ const AUTH_SKIP_REFRESH_PATHS = ["/auth/login", "/auth/register", "/auth/refresh
 const shouldSkipRefresh = (url = "") =>
   AUTH_SKIP_REFRESH_PATHS.some((path) => url.includes(path));
 
-const shouldSkipOutletHeader = (url = "") => String(url).includes("/auth/") || String(url).startsWith("/outlets");
+const isPublicRequest = (url = "") => String(url).includes("/public/");
+const shouldSkipOutletHeader = (url = "") => isPublicRequest(url) || String(url).includes("/auth/") || String(url).startsWith("/outlets");
 
 const isOutletAccessDenied = (error) =>
   error?.response?.status === 403 &&
@@ -68,9 +69,12 @@ if (typeof window !== "undefined") {
 }
 
 api.interceptors.request.use((config) => {
+  const url = String(config.url || "");
   const token = localStorage.getItem("accessToken");
-  if (token) {
+  if (token && !isPublicRequest(url)) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else if (isPublicRequest(url)) {
+    delete config.headers.Authorization;
   }
   // This is intentionally read at request time. It must never capture an
   // outlet selected by a previous user session.
@@ -78,7 +82,6 @@ api.interceptors.request.use((config) => {
   const outletId = localStorage.getItem("selectedOutletId");
   if (outletId && !shouldSkipOutletHeader(config.url || "")) config.headers["X-Outlet-Id"] = outletId;
   const method = String(config.method || "get").toLowerCase();
-  const url = String(config.url || "");
   if (!config.signal && !shouldSkipOutletHeader(url)) {
     const controller = new AbortController();
     config.signal = controller.signal;

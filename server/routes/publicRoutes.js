@@ -1,13 +1,10 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import Food from "../models/Food.js";
-import Category from "../models/Category.js";
 import User from "../models/User.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getPagination } from "../utils/pagination.js";
 import { getPublicMenuContextToken, resolvePublicMenuContext } from "../utils/publicMenuContext.js";
+import { listPublicMenu, resolvePublicRestaurantContext } from "../services/publicMenuService.js";
 import { signupLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
 import {
@@ -36,53 +33,45 @@ router.post(
   publicSubscribeSignup
 );
 
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const getPublicMenu = async (req) => {
-  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
-  const { page, limit, skip } = getPagination(req.query);
-  const sortFields = new Set(["createdAt", "price", "name"]);
-  const sortBy = sortFields.has(req.query.sortBy) ? req.query.sortBy : "createdAt";
-  const sort = { [sortBy]: req.query.order === "asc" ? 1 : -1 };
-  const filters = { restaurant: context.restaurant._id, isAvailable: true };
-
-  if (req.query.search) {
-    const search = escapeRegex(req.query.search);
-    filters.$or = [{ name: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }];
-  }
-  if (req.query.category) {
-    const category = await Category.findOne({ _id: req.query.category, restaurant: context.restaurant._id, isActive: true }).select("_id").lean();
-    if (!category) throw new ApiError(404, "Menu category not found");
-    filters.category = category._id;
-  }
-  if (req.query.isVeg !== undefined) filters.isVeg = req.query.isVeg === "true";
-
-  const [items, total, categories] = await Promise.all([
-    Food.find(filters).populate("category", "name slug").sort(sort).skip(skip).limit(limit).lean(),
-    Food.countDocuments(filters),
-    Category.find({ restaurant: context.restaurant._id, isActive: true }).sort({ name: 1 }).lean(),
-  ]);
-  return {
-    table: { _id: context.table._id, tableNumber: context.table.tableNumber, floor: context.table.floor, section: context.table.section },
-    restaurant: { _id: context.restaurant._id, name: context.restaurant.name, branchCode: context.restaurant.branchCode },
-    outlet: { _id: context.outlet._id, name: context.outlet.name, code: context.outlet.code },
-    categories,
-    items,
-    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+const getPublicMenu = async (req, context) => listPublicMenu({ context, query: req.query });
+const recordPublicMenuContext = (req, context, source) => {
+  req.publicMenuContext = {
+    source,
+    restaurantId: context?.restaurant?._id ? String(context.restaurant._id) : null,
+    outletId: context?.outlet?._id ? String(context.outlet._id) : null,
+    tableId: context?.table?._id ? String(context.table._id) : null,
   };
 };
 
+router.get("/menu", asyncHandler(async (req, res) => {
+  req.publicMenuContext = { source: "browse", restaurantSlug: String(req.query.restaurant || "").slice(0, 120) || null };
+  const context = await resolvePublicRestaurantContext(req.query.restaurant);
+  recordPublicMenuContext(req, context, "browse");
+  const menu = await getPublicMenu(req, context);
+  res.status(200).json(new ApiResponse(true, "Public menu fetched", menu, menu.meta));
+}));
+
 router.get("/menu/:qrToken", asyncHandler(async (req, res) => {
-  const menu = await getPublicMenu(req);
+  req.publicMenuContext = { source: "table_qr" };
+  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
+  recordPublicMenuContext(req, context, "table_qr");
+  const menu = await getPublicMenu(req, context);
   res.status(200).json(new ApiResponse(true, "Public menu fetched", menu, menu.meta));
 }));
 
 router.get("/foods", asyncHandler(async (req, res) => {
-  const menu = await getPublicMenu(req);
+  req.publicMenuContext = { source: "table_qr" };
+  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
+  recordPublicMenuContext(req, context, "table_qr");
+  const menu = await getPublicMenu(req, context);
   res.status(200).json(new ApiResponse(true, "Public foods fetched", menu.items, menu.meta));
 }));
 
 router.get("/categories", asyncHandler(async (req, res) => {
-  const menu = await getPublicMenu(req);
+  req.publicMenuContext = { source: "table_qr" };
+  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
+  recordPublicMenuContext(req, context, "table_qr");
+  const menu = await getPublicMenu(req, context);
   res.status(200).json(new ApiResponse(true, "Public categories fetched", menu.categories));
 }));
 

@@ -19,38 +19,46 @@ const MenuPage = () => {
   const [error, setError] = useState("");
 
   const qrToken = searchParams.get("qr");
+  const restaurantSlug = searchParams.get("restaurant");
+  const canOrderFromTable = Boolean(qrToken);
 
   const fetchMenu = useCallback(async () => {
     setLoading(true);
     setError("");
-    if (!qrToken) {
-      setFoods([]);
-      setCategories([]);
-      setError("This menu requires a valid table QR code.");
-      setLoading(false);
-      return;
-    }
     try {
       const params = { limit: 100, search: search.trim() || undefined };
       if (selectedCategory) params.category = selectedCategory;
-      const { data } = await getPublicMenu(qrToken, params);
+      const { data } = await getPublicMenu({ qrToken, restaurant: restaurantSlug }, params);
       const menu = data.data || {};
       setFoods(menu.items || []);
       setCategories(menu.categories || []);
       dispatch(setPublicMenuContext({
-        qrToken,
+        qrToken: qrToken || "",
         tableNumber: menu.table?.tableNumber || "",
         restaurantName: menu.restaurant?.name || "",
         outletName: menu.outlet?.name || "",
       }));
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load this menu.");
+      if (import.meta.env.DEV) {
+        console.warn("Public menu request failed", {
+          status: err.response?.status,
+          code: err.response?.data?.code,
+        });
+      }
+      const publicContextError = [
+        "PUBLIC_MENU_RESTAURANT_REQUIRED",
+        "PUBLIC_MENU_RESTAURANT_INVALID",
+        "PUBLIC_MENU_RESTAURANT_NOT_FOUND",
+        "PUBLIC_MENU_OUTLET_REQUIRED",
+        "PUBLIC_MENU_OUTLET_NOT_FOUND",
+      ].includes(err.response?.data?.code);
+      setError(publicContextError ? err.response?.data?.message : "Please try again or check back soon.");
       setFoods([]);
       setCategories([]);
     } finally {
       setLoading(false);
     }
-  }, [dispatch, qrToken, selectedCategory, search]);
+  }, [dispatch, qrToken, restaurantSlug, selectedCategory, search]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -126,7 +134,7 @@ const MenuPage = () => {
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
           <p className="text-lg font-semibold text-rose-900">Unable to load menu.</p>
-          <p className="mt-2 text-sm text-rose-700">Please try again or check back soon.</p>
+          <p className="mt-2 text-sm text-rose-700">{error}</p>
           <button
             type="button"
             onClick={fetchMenu}
@@ -186,7 +194,7 @@ const MenuPage = () => {
                     <span className="text-[19px] font-bold text-[#087F70]">{currency(food.price)}</span>
                     <button
                       type="button"
-                      disabled={!food.isAvailable}
+                      disabled={!food.isAvailable || !canOrderFromTable}
                       onClick={() => handleAddToCart(food)}
                       className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#087F70] px-3 text-sm font-semibold text-white transition duration-200 hover:bg-[#066359] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                     >
@@ -195,7 +203,7 @@ const MenuPage = () => {
                         <circle cx="9" cy="20" r="1" />
                         <circle cx="18" cy="20" r="1" />
                       </svg>
-                      {food.isAvailable ? "Add to Cart" : "Unavailable"}
+                      {!food.isAvailable ? "Unavailable" : canOrderFromTable ? "Add to Cart" : "Scan table QR to order"}
                     </button>
                   </div>
                 </div>
@@ -204,7 +212,7 @@ const MenuPage = () => {
           })}
         </div>
       )}
-      {cartCount > 0 ? <div className="sticky bottom-3 z-20"><Link to={`/cart${qrToken ? `?qr=${encodeURIComponent(qrToken)}` : ""}`} className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-lg shadow-brand-900/20"><span>{cartCount} {cartCount === 1 ? "item" : "items"} in cart</span><span>{currency(cartTotal)} · View cart</span></Link></div> : null}
+      {canOrderFromTable && cartCount > 0 ? <div className="sticky bottom-3 z-20"><Link to={`/cart?qr=${encodeURIComponent(qrToken)}`} className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-brand-700 px-4 text-sm font-semibold text-white shadow-lg shadow-brand-900/20"><span>{cartCount} {cartCount === 1 ? "item" : "items"} in cart</span><span>{currency(cartTotal)} · View cart</span></Link></div> : null}
     </div>
   );
 };

@@ -54,6 +54,7 @@ export const errorHandler = (err, req, res, _next) => {
     status: statusCode,
     error: safeErrorContext(err),
     category: code || (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR"),
+    publicMenuContext: req.publicMenuContext || undefined,
   });
   const clientMessage = statusCode >= 500 && statusCode !== 503 ? "Internal server error" : message;
   res.status(statusCode).json({

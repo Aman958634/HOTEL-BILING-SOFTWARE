@@ -52,7 +52,7 @@
 
 ### Critical
 
-`MONGO_URI` or `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`, and `PUBLIC_MENU_CONTEXT_SECRET` when public menu context is enabled.
+`MONGO_URI` or `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`, and `PUBLIC_MENU_CONTEXT_SECRET` when public menu context is enabled. Set `PUBLIC_MENU_DEFAULT_RESTAURANT_SLUG` when plain `/menu` should resolve a specific public restaurant in a multi-tenant deployment.
 
 ### Optional
 

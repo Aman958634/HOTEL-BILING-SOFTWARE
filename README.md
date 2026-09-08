@@ -72,6 +72,7 @@ Production-ready full-stack restaurant management platform with role-based acces
 - MongoDB snapshots/PITR and retention are provider-side controls; see the recovery runbook before production launch.
 - **Super Admin bootstrap:** production seeding is disabled by default. Set `SUPER_ADMIN_SEED=true` only for a planned, credentialed first-run operation, or use `npm run seed:super-admin` explicitly.
 - Verify: `GET /api/v1/public/seed-status` → `{ exists: true }`
+- Public browse menu: `/menu?restaurant=<restaurant-slug>`. Plain `/menu` uses `PUBLIC_MENU_DEFAULT_RESTAURANT_SLUG` when configured, or only the single active restaurant; signed table QR URLs remain `/menu?qr=<signed-context>`.
 
 ### Database
 - Create MongoDB Atlas cluster
