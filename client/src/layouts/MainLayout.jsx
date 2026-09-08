@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
-import { PUBLIC_DEMO_MENU_PATH } from "../utils/constants";
 
 const MainLayout = () => {
   const { isAuthenticated, user, profileLoading } = useAuth();
@@ -40,9 +39,6 @@ const MainLayout = () => {
 
           <div className="flex items-center gap-3 md:gap-6">
             <div className="desktop-nav-links items-center gap-6 text-sm font-medium text-slate-600">
-              <NavLink to={PUBLIC_DEMO_MENU_PATH} className={({ isActive }) => (isActive ? "text-slate-900" : "hover:text-slate-900")}>
-                Menu
-              </NavLink>
               <NavLink to="/pricing" className={({ isActive }) => (isActive ? "text-slate-900" : "hover:text-slate-900")}>
                 Pricing
               </NavLink>
@@ -70,7 +66,6 @@ const MainLayout = () => {
         </nav>
         {mobileMenuOpen ? (
           <div id="mobile-site-navigation" className="mobile-nav-panel" aria-label="Mobile navigation">
-            <NavLink to={PUBLIC_DEMO_MENU_PATH} onClick={() => setMobileMenuOpen(false)}>Menu</NavLink>
             <NavLink to="/pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
             {!profileLoading ? <Link to={accountPath} onClick={() => setMobileMenuOpen(false)}>{accountLabel}</Link> : null}
           </div>
