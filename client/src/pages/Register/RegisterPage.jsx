@@ -41,10 +41,10 @@ const RegisterPage = () => {
           <div className="rounded-[20px] bg-white px-8 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.10)] sm:px-10">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E31B23]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600">
                   <span className="text-xl font-bold text-white">R</span>
                 </div>
-                <span className="text-[24px] font-bold text-[#172033]">RestoSphere</span>
+                <span className="text-[24px] font-bold text-[#172033]">Resto<span className="text-brand-600">Sphere</span></span>
               </div>
               <p className="mt-1.5 text-[13px] text-[#64748B]">Restaurant Management Simplified</p>
             </div>
@@ -70,7 +70,7 @@ const RegisterPage = () => {
                       id="fullName"
                       type="text"
                       placeholder="Enter your full name"
-                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#E31B23] focus:ring-[3px] focus:ring-[#E31B23]/10"
+                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("fullName", {
                         required: "Full name is required",
                         minLength: { value: 2, message: "Name must be at least 2 characters" },
@@ -94,7 +94,7 @@ const RegisterPage = () => {
                       id="email"
                       type="email"
                       placeholder="Enter your email address"
-                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#E31B23] focus:ring-[3px] focus:ring-[#E31B23]/10"
+                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("email", {
                         required: "Email is required",
                         pattern: {
@@ -122,7 +122,7 @@ const RegisterPage = () => {
                       id="phone"
                       type="tel"
                       placeholder="Enter your phone number"
-                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#E31B23] focus:ring-[3px] focus:ring-[#E31B23]/10"
+                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("phone", {
                         required: "Phone is required",
                         pattern: {
@@ -148,7 +148,7 @@ const RegisterPage = () => {
                     <PasswordInput
                       id="password"
                       placeholder="Enter your password"
-                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#E31B23] focus:ring-[3px] focus:ring-[#E31B23]/10"
+                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("password", {
                         required: "Password is required",
                         minLength: { value: 8, message: "Password must be at least 8 characters" },
@@ -171,7 +171,7 @@ const RegisterPage = () => {
                     <PasswordInput
                       id="confirmPassword"
                       placeholder="Re-enter your password"
-                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-[#E31B23] focus:ring-[3px] focus:ring-[#E31B23]/10"
+                      className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("confirmPassword", {
                         required: "Please confirm your password",
                         validate: (value) => value === passwordValue || "Passwords do not match",
@@ -185,7 +185,7 @@ const RegisterPage = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-5 flex h-[54px] w-full items-center justify-center rounded-[10px] bg-[#E31B23] text-[15px] font-semibold text-white shadow-[0_6px_16px_rgba(227,27,35,0.20)] transition-all hover:bg-[#C9141C] hover:shadow-[0_8px_20px_rgba(227,27,35,0.25)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-5 flex h-[54px] w-full items-center justify-center rounded-[10px] bg-brand-600 text-[15px] font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -206,7 +206,7 @@ const RegisterPage = () => {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="font-semibold text-[#E31B23] transition-colors hover:text-[#C9141C]"
+                className="font-semibold text-brand-700 transition-colors hover:text-brand-800"
               >
                 Login
               </button>
