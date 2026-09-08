@@ -10,13 +10,7 @@ const HomePage = () => (
 
         <div className="hero-copy">
           <h1 className="hero-title text-5xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-6xl">
-            <span className="hero-title-desktop">Enterprise Restaurant <span className="text-brand-700">Management</span> for Modern Teams</span>
-            <span className="hero-title-mobile" aria-hidden="true">
-              <span>Enterprise</span>
-              <span>Restaurant</span>
-              <span className="text-brand-700">Management</span>
-              <span>for Modern Teams</span>
-            </span>
+            Enterprise Restaurant <span className="text-brand-700">Management</span> for Modern Teams
           </h1>
           <p className="hero-description mx-auto max-w-2xl text-lg leading-8 text-slate-600">
             Manage orders, tables, kitchen, inventory, staff and delivery through one powerful SaaS platform.

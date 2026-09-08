@@ -1,53 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 const MainLayout = () => {
   const { isAuthenticated, user, profileLoading } = useAuth();
   const isAdmin = isAuthenticated && user?.role === "admin";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const menuButtonRef = useRef(null);
-  const closeButtonRef = useRef(null);
-  const location = useLocation();
+  const headerRef = useRef(null);
   const accountPath = isAdmin ? "/dashboard/admin" : "/login";
   const accountLabel = isAdmin ? "Dashboard" : "Login";
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    const menuButton = menuButtonRef.current;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-
+    const closeForOutsidePress = (event) => {
+      if (!headerRef.current?.contains(event.target)) setMobileMenuOpen(false);
+    };
     const closeForEscape = (event) => {
       if (event.key === "Escape") setMobileMenuOpen(false);
     };
 
+    document.addEventListener("pointerdown", closeForOutsidePress);
     document.addEventListener("keydown", closeForEscape);
     return () => {
+      document.removeEventListener("pointerdown", closeForOutsidePress);
       document.removeEventListener("keydown", closeForEscape);
-      document.body.style.overflow = previousOverflow;
-      menuButton?.focus();
     };
   }, [mobileMenuOpen]);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname, location.search, location.hash]);
-
-  const closeMobileMenu = () => setMobileMenuOpen(false);
-
   return (
     <div className="app-shell bg-slate-50 text-slate-900">
-      <header className="site-header sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 shadow-sm shadow-slate-900/[0.03] backdrop-blur-md">
-        <nav className="site-nav mx-auto flex h-16 max-w-7xl min-w-0 items-center justify-between gap-3 px-4 md:px-6 lg:px-8" aria-label="Primary navigation">
-          <Link to="/" className="site-logo min-w-0 truncate text-xl font-bold tracking-tight text-slate-900" onClick={closeMobileMenu}>
+      <header ref={headerRef} className="site-header sticky top-0 z-30 bg-white/95 shadow-sm backdrop-blur-md">
+        <nav className="site-nav mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6 lg:px-8">
+          <Link to="/" className="site-logo text-xl font-bold tracking-tight text-slate-900">
             RestoSphere
           </Link>
 
-          <div className="flex shrink-0 items-center gap-3 md:gap-6">
+          <div className="flex items-center gap-3 md:gap-6">
             <div className="desktop-nav-links items-center gap-6 text-sm font-medium text-slate-600">
               <NavLink to="/pricing" className={({ isActive }) => (isActive ? "text-slate-900" : "hover:text-slate-900")}>
                 Pricing
@@ -63,7 +53,6 @@ const MainLayout = () => {
               </Link>
             )}
             <button
-              ref={menuButtonRef}
               type="button"
               className="mobile-menu-button"
               aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
@@ -75,30 +64,13 @@ const MainLayout = () => {
             </button>
           </div>
         </nav>
+        {mobileMenuOpen ? (
+          <div id="mobile-site-navigation" className="mobile-nav-panel" aria-label="Mobile navigation">
+            <NavLink to="/pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
+            {!profileLoading ? <Link to={accountPath} onClick={() => setMobileMenuOpen(false)}>{accountLabel}</Link> : null}
+          </div>
+        ) : null}
       </header>
-      {mobileMenuOpen ? (
-        <div className="mobile-nav-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closeMobileMenu(); }}>
-          <aside
-            id="mobile-site-navigation"
-            className="mobile-nav-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mobile-navigation-title"
-          >
-            <div className="mobile-nav-panel-header">
-              <span id="mobile-navigation-title" className="min-w-0 truncate text-lg font-bold tracking-tight text-slate-900">RestoSphere</span>
-              <button ref={closeButtonRef} type="button" className="mobile-nav-close-button" aria-label="Close navigation menu" onClick={closeMobileMenu}>
-                <FiX aria-hidden="true" />
-              </button>
-            </div>
-            <nav className="mobile-nav-links" aria-label="Mobile navigation">
-              <NavLink to="/pricing">Pricing</NavLink>
-              {!profileLoading ? <Link to={accountPath}>{accountLabel}</Link> : null}
-              <a href="mailto:contact@restosphere.com" onClick={closeMobileMenu}>Contact Us</a>
-            </nav>
-          </aside>
-        </div>
-      ) : null}
       <main className="app-page-container mx-auto max-w-7xl">
         <Outlet />
       </main>
