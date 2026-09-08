@@ -35,10 +35,10 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F7F8FA]">
-      <div className="flex min-h-screen w-full items-center justify-center px-4 py-10">
+    <div className="h-dvh w-full overflow-hidden bg-[#F7F8FA]">
+      <div className="flex h-dvh w-full items-center justify-center overflow-hidden px-4 py-4">
         <div className="w-full max-w-[480px]">
-          <div className="rounded-[20px] bg-white px-8 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.10)] sm:px-10">
+          <div className="auth-card auth-register-card rounded-[20px] bg-white px-6 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.10)] sm:px-10 sm:py-8">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600">
@@ -49,13 +49,13 @@ const RegisterPage = () => {
               <p className="mt-1.5 text-[13px] text-[#64748B]">Restaurant Management Simplified</p>
             </div>
 
-            <div className="mt-7 text-center">
+            <div className="mt-5 text-center">
               <h1 className="text-[28px] font-bold text-[#172033]">Create your account</h1>
               <p className="mt-1.5 text-sm text-[#64748B]">Join RestoSphere and start managing your restaurant effortlessly.</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-7">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-5">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label htmlFor="fullName" className="mb-1.5 block text-[13px] font-semibold text-[#172033]">
                     Full Name
@@ -158,7 +158,7 @@ const RegisterPage = () => {
                   {errors.password && <p className="mt-1.5 text-xs text-rose-600">{errors.password.message}</p>}
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className="col-span-2">
                   <label htmlFor="confirmPassword" className="mb-1.5 block text-[13px] font-semibold text-[#172033]">
                     Confirm Password
                   </label>
@@ -185,7 +185,7 @@ const RegisterPage = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-5 flex h-[54px] w-full items-center justify-center rounded-[10px] bg-brand-600 text-[15px] font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-4 flex h-[54px] w-full items-center justify-center rounded-[10px] bg-brand-600 text-[15px] font-semibold text-white shadow-lg shadow-brand-600/20 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -201,7 +201,7 @@ const RegisterPage = () => {
               </button>
             </form>
 
-            <p className="mt-5 text-center text-sm text-[#64748B]">
+            <p className="mt-4 text-center text-sm text-[#64748B]">
               Already have an account?{" "}
               <button
                 type="button"

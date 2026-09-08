@@ -85,10 +85,10 @@ const LoginPage = ({ superAdminOnly = false }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#F8FAFC]">
-      <div className="flex min-h-screen w-full items-center justify-center px-4 py-10">
+    <div className="h-dvh w-full overflow-hidden bg-[#F8FAFC]">
+      <div className="flex h-dvh w-full items-center justify-center overflow-hidden px-4 py-4">
         <div className="w-full max-w-[500px]">
-          <div className="rounded-[20px] bg-white px-8 py-10 shadow-[0_25px_60px_-12px_rgba(15,23,42,0.08)] sm:px-10">
+          <div className="auth-card rounded-[20px] bg-white px-6 py-7 shadow-[0_25px_60px_-12px_rgba(15,23,42,0.08)] sm:px-10 sm:py-8">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600">
@@ -99,12 +99,12 @@ const LoginPage = ({ superAdminOnly = false }) => {
               <p className="mt-2 text-sm text-[#64748B]">Restaurant Management Simplified</p>
             </div>
 
-            <div className="mt-9 text-center">
+            <div className="mt-7 text-center">
               <h1 className="text-[32px] font-bold text-[#172033]">Welcome Back!</h1>
               <p className="mt-2 text-sm text-[#64748B]">Login to your account to continue</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#172033]">
                   Email Address
@@ -188,13 +188,13 @@ const LoginPage = ({ superAdminOnly = false }) => {
               </button>
             </form>
 
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-[#E2E8F0]" />
               <span className="text-xs text-[#94A3B8]">or continue with</span>
               <div className="h-px flex-1 bg-[#E2E8F0]" />
             </div>
 
-            <p className="mt-6 text-center text-sm text-[#475569]">
+            <p className="mt-5 text-center text-sm text-[#475569]">
               Don&apos;t have an account?{" "}
               <button
                 type="button"

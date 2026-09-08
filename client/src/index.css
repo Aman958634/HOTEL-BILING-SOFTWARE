@@ -259,6 +259,18 @@ button:disabled { cursor: not-allowed; }
 .admin-sidebar__logout svg { color: #e11d48; }
 .admin-sidebar__logout:hover { background: #fff1f2; border-color: #fecdd3; color: #be123c; }
 
+/* Auth pages stay complete within the viewport instead of introducing page scroll. */
+@media (max-height: 640px) {
+  .auth-card { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .auth-card > :first-child p { margin-top: 0.25rem; }
+  .auth-register-card > :nth-child(2) { margin-top: 0.75rem; }
+  .auth-register-card form { margin-top: 0.75rem; }
+  .auth-register-card form > div { gap: 0.5rem; }
+  .auth-register-card label { margin-bottom: 0.25rem; }
+  .auth-register-card input { height: 2.75rem; }
+  .auth-register-card button[type="submit"] { height: 2.875rem; margin-top: 0.75rem; }
+}
+
 @media (max-width: 639px) {
   .module-icon--kpi { width: 2.625rem; height: 2.625rem; }
   .module-icon--kpi .module-icon__glyph { width: 1.4375rem; height: 1.4375rem; }
