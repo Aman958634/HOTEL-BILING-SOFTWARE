@@ -4,13 +4,14 @@ import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 import { getSuperAdminStats } from "../../services/superAdminService";
 import StatCard from "../../components/admin/StatCard";
+import ModuleIcon from "../../components/common/ModuleIcon";
 
 const statMap = [
-  { key: "totalRestaurants", label: "Total Restaurants/Hotels", icon: <FiLayers /> },
-  { key: "activeRestaurants", label: "Active Restaurants/Hotels", icon: <FiHome /> },
-  { key: "totalUsers", label: "Total Users", icon: <FiUsers /> },
-  { key: "totalOrders", label: "Total Orders", icon: <FiShoppingBag /> },
-  { key: "totalRevenue", label: "Total Revenue", icon: <FiDollarSign /> },
+  { key: "totalRestaurants", label: "Total Restaurants/Hotels", icon: <FiLayers />, module: "dashboard" },
+  { key: "activeRestaurants", label: "Active Restaurants/Hotels", icon: <FiHome />, module: "dashboard" },
+  { key: "totalUsers", label: "Total Users", icon: <FiUsers />, module: "staff" },
+  { key: "totalOrders", label: "Total Orders", icon: <FiShoppingBag />, module: "orders" },
+  { key: "totalRevenue", label: "Total Revenue", icon: <FiDollarSign />, module: "totalRevenue" },
 ];
 
 const SuperAdminDashboard = () => {
@@ -55,7 +56,7 @@ const SuperAdminDashboard = () => {
         {statMap.map((stat) => (
           <div key={stat.key} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="rounded-xl bg-slate-100 p-2 text-teal-600">{stat.icon}</div>
+              <ModuleIcon icon={stat.icon} module={stat.module} variant="kpi" />
               <p className="truncate text-xs uppercase tracking-wide text-slate-500">{stat.label}</p>
             </div>
             <div className="mt-3">

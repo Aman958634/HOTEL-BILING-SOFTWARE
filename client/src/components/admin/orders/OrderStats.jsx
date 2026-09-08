@@ -1,14 +1,15 @@
 import { FiDollarSign, FiPackage, FiXCircle, FiClock, FiTool, FiCheckCircle } from "react-icons/fi";
 import { currency } from "../../../utils/format";
+import ModuleIcon from "../../common/ModuleIcon";
 
 const cards = [
-  { key: "totalOrders", label: "Total Orders", icon: <FiPackage /> },
-  { key: "pending", label: "Pending", icon: <FiClock /> },
-  { key: "preparing", label: "Preparing", icon: <FiTool /> },
-  { key: "ready", label: "Ready", icon: <FiCheckCircle /> },
-  { key: "completed", label: "Completed", icon: <FiCheckCircle /> },
-  { key: "cancelled", label: "Cancelled", icon: <FiXCircle /> },
-  { key: "todayRevenue", label: "Today's Revenue", icon: <FiDollarSign />, money: true },
+  { key: "totalOrders", label: "Total Orders", icon: <FiPackage />, module: "orders" },
+  { key: "pending", label: "Pending", icon: <FiClock />, module: "orders" },
+  { key: "preparing", label: "Preparing", icon: <FiTool />, module: "kitchen" },
+  { key: "ready", label: "Ready", icon: <FiCheckCircle />, module: "menu" },
+  { key: "completed", label: "Completed", icon: <FiCheckCircle />, module: "dashboard" },
+  { key: "cancelled", label: "Cancelled", icon: <FiXCircle />, module: "notifications" },
+  { key: "todayRevenue", label: "Today's Revenue", icon: <FiDollarSign />, module: "todayRevenue", money: true },
 ];
 
 const OrderStats = ({ stats, loading }) => {
@@ -28,7 +29,7 @@ const OrderStats = ({ stats, loading }) => {
         <div key={card.key} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
           <div className="flex min-w-0 items-center justify-between gap-2 text-slate-500">
             <p className="truncate text-xs uppercase tracking-wide">{card.label}</p>
-            <span className="text-sm">{card.icon}</span>
+            <ModuleIcon icon={card.icon} module={card.module} variant="section" />
           </div>
           <p className="mt-1 break-words text-xl font-bold text-slate-900 sm:mt-2">
             {card.money ? currency(stats?.[card.key] || 0) : stats?.[card.key] || 0}

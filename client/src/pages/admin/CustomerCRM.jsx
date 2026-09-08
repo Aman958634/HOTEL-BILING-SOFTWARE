@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FiClock, FiEdit2, FiMail, FiPlus, FiSearch, FiTag, FiUser, FiUsers, FiX } from "react-icons/fi";
 import EmptyState from "../../components/common/EmptyState";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import RequestState from "../../components/common/RequestState";
 import { archiveCustomer, createCustomer, getCustomerProfile, getCustomers, updateCustomer } from "../../services/customerService";
 import { currency, dateTime } from "../../utils/format";
@@ -11,7 +12,7 @@ const emptyForm = { fullName: "", phone: "", email: "", address: "", tags: "", n
 const label = (value) => String(value || "").replaceAll("_", " ");
 const isReturning = (customer) => Number(customer?.totalOrders || 0) > 1;
 
-const CrmCard = ({ title, value, icon, tone = "text-emerald-700" }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><span className={`shrink-0 ${tone}`}>{icon}</span></div></article>;
+const CrmCard = ({ title, value, icon, tone = "customers" }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><ModuleIcon icon={icon} tone={tone.startsWith("text-") ? "customers" : tone} variant="section" /></div></article>;
 
 const CustomerForm = ({ value, saving, onClose, onSave, title }) => {
   const [form, setForm] = useState(value || emptyForm);

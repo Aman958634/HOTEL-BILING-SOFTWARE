@@ -3,12 +3,12 @@ import StatCard from "../StatCard";
 
 const StaffStats = ({ stats, loading }) => {
   const cards = [
-    { key: "totalStaff", label: "Total Staff", icon: <FiUsers /> },
-    { key: "activeStaff", label: "Active Staff", icon: <FiUserCheck /> },
-    { key: "inactiveStaff", label: "Inactive Staff", icon: <FiUserMinus /> },
-    { key: "chefs", label: "Chefs", icon: <FiCoffee /> },
-    { key: "waiters", label: "Waiters", icon: <FiUser /> },
-    { key: "deliveryStaff", label: "Delivery Staff", icon: <FiTruck /> },
+    { key: "totalStaff", label: "Total Staff", icon: <FiUsers />, module: "staff" },
+    { key: "activeStaff", label: "Active Staff", icon: <FiUserCheck />, module: "staff" },
+    { key: "inactiveStaff", label: "Inactive Staff", icon: <FiUserMinus />, module: "notifications" },
+    { key: "chefs", label: "Chefs", icon: <FiCoffee />, module: "kitchen" },
+    { key: "waiters", label: "Waiters", icon: <FiUser />, module: "staff" },
+    { key: "deliveryStaff", label: "Delivery Staff", icon: <FiTruck />, module: "onlineOrders" },
   ];
 
   if (loading) {
@@ -24,7 +24,7 @@ const StaffStats = ({ stats, loading }) => {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
-        <StatCard key={card.key} icon={card.icon} label={card.label} value={stats?.[card.key] ?? 0} showComparison={false} />
+        <StatCard key={card.key} icon={card.icon} iconModule={card.module} label={card.label} value={stats?.[card.key] ?? 0} showComparison={false} />
       ))}
     </div>
   );
