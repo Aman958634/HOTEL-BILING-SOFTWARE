@@ -16,8 +16,10 @@ if (import.meta.env.PROD && (!configuredApiUrl || !configuredSocketUrl || isLoca
   throw new Error("Production frontend configuration requires VITE_API_URL and VITE_SOCKET_URL.");
 }
 
-const developmentApiUrl = "http://localhost:5002/api/v1";
-const developmentSocketUrl = "http://localhost:5002";
+// Keep local fallback URLs out of production output entirely. Production has
+// already failed fast above if its public endpoints are not configured.
+const developmentApiUrl = import.meta.env.DEV ? "http://localhost:5002/api/v1" : "";
+const developmentSocketUrl = import.meta.env.DEV ? "http://localhost:5002" : "";
 const normalizeApiUrl = (url) => /\/api\/v1$/i.test(url) ? url : `${url}/api/v1`;
 
 export const API_URL = normalizeApiUrl(configuredApiUrl || developmentApiUrl);
