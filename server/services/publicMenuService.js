@@ -11,8 +11,25 @@ const activeCategoryFilter = { active: { $ne: false }, isActive: { $ne: false } 
 const activeOutletFilter = { isActive: true };
 
 const publicRestaurantError = (message, code) => new ApiError(400, message, code);
+const assertPublicMenuEnabled = () => {
+  if (String(process.env.PUBLIC_MENU_ENABLED || "true").toLowerCase() === "false") {
+    throw new ApiError(404, "Public menus are not available", "PUBLIC_MENU_DISABLED");
+  }
+};
 
-const resolvePublicOutlet = async (restaurantId) => {
+const resolvePublicOutlet = async (restaurantId, outletCode = "") => {
+  const requestedCode = String(outletCode || "").trim().toUpperCase();
+  if (requestedCode) {
+    if (!/^[A-Z0-9_-]{1,40}$/.test(requestedCode)) {
+      throw publicRestaurantError("The outlet context is invalid", "PUBLIC_MENU_OUTLET_INVALID");
+    }
+    const outlet = await Outlet.findOne({ restaurant: restaurantId, ...activeOutletFilter, code: requestedCode }).lean();
+    if (!outlet) {
+      throw new ApiError(404, "The requested outlet is not available for this restaurant", "PUBLIC_MENU_OUTLET_NOT_FOUND");
+    }
+    return outlet;
+  }
+
   const defaultOutlet = await Outlet.findOne({ restaurant: restaurantId, ...activeOutletFilter, isDefault: true }).lean();
   if (defaultOutlet) return defaultOutlet;
 
@@ -26,41 +43,26 @@ const resolvePublicOutlet = async (restaurantId) => {
   throw publicRestaurantError("This restaurant needs a default public outlet", "PUBLIC_MENU_OUTLET_REQUIRED");
 };
 
-export const resolvePublicRestaurantContext = async (restaurantSlug = "") => {
+export const resolvePublicRestaurantContext = async (restaurantSlug = "", outletCode = "") => {
+  assertPublicMenuEnabled();
   const requestedSlug = String(restaurantSlug || "").trim().toLowerCase();
-  let restaurant;
-
-  if (requestedSlug) {
-    if (!/^[a-z0-9-]{1,120}$/.test(requestedSlug)) {
-      throw publicRestaurantError("The restaurant context is invalid", "PUBLIC_MENU_RESTAURANT_INVALID");
-    }
-    restaurant = await Restaurant.findOne({ slug: requestedSlug, isActive: true }).lean();
-    if (!restaurant) {
-      throw new ApiError(404, "The requested restaurant is not available", "PUBLIC_MENU_RESTAURANT_NOT_FOUND");
-    }
-  } else {
-    const configuredSlug = String(process.env.PUBLIC_MENU_DEFAULT_RESTAURANT_SLUG || "").trim().toLowerCase();
-    if (configuredSlug) {
-      restaurant = await Restaurant.findOne({ slug: configuredSlug, isActive: true }).lean();
-      if (!restaurant) {
-        throw new ApiError(503, "The default public menu is not available", "PUBLIC_MENU_DEFAULT_UNAVAILABLE");
-      }
-    } else {
-      // Plain /menu is supported for a single-restaurant demo only. Once more
-      // than one active tenant exists, a slug is mandatory to prevent leakage.
-      const restaurants = await Restaurant.find({ isActive: true }).sort({ _id: 1 }).limit(2).lean();
-      if (restaurants.length !== 1) {
-        throw publicRestaurantError("A restaurant context is required for this menu", "PUBLIC_MENU_RESTAURANT_REQUIRED");
-      }
-      [restaurant] = restaurants;
-    }
+  if (!requestedSlug) {
+    throw publicRestaurantError("A restaurant context is required for this menu", "PUBLIC_MENU_RESTAURANT_REQUIRED");
+  }
+  if (!/^[a-z0-9-]{1,120}$/.test(requestedSlug)) {
+    throw publicRestaurantError("The restaurant context is invalid", "PUBLIC_MENU_RESTAURANT_INVALID");
+  }
+  const restaurant = await Restaurant.findOne({ slug: requestedSlug, isActive: true }).lean();
+  if (!restaurant) {
+    throw new ApiError(404, "The requested restaurant is not available", "PUBLIC_MENU_RESTAURANT_NOT_FOUND");
   }
 
-  const outlet = await resolvePublicOutlet(restaurant._id);
+  const outlet = await resolvePublicOutlet(restaurant._id, outletCode);
   return { restaurant, outlet, table: null, source: "browse" };
 };
 
 export const listPublicMenu = async ({ context, query = {} }) => {
+  assertPublicMenuEnabled();
   const { page, limit, skip } = getPagination(query);
   const sortFields = new Set(["createdAt", "price", "name"]);
   const sortBy = sortFields.has(query.sortBy) ? query.sortBy : "createdAt";

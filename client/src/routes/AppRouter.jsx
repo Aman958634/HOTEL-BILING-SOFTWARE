@@ -113,6 +113,11 @@ const AppRouter = () => (
           <MenuPage />
         </Suspense>
       } />
+      <Route path="/menu/:restaurantSlug" element={
+        <Suspense fallback={<PageSkeleton />}>
+          <MenuPage />
+        </Suspense>
+      } />
       <Route path="/reservation" element={
         <Suspense fallback={<PageSkeleton />}>
           <ProtectedRoute>

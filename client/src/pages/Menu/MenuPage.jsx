@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart, setPublicMenuContext } from "../../redux/slices/cartSlice";
@@ -11,22 +11,32 @@ const MenuPage = () => {
   const cartItems = useSelector((state) => state.cart.items);
   const publicMenuContext = useSelector((state) => state.cart.publicMenuContext);
   const [searchParams] = useSearchParams();
+  const { restaurantSlug: routeRestaurantSlug } = useParams();
   const [foods, setFoods] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(searchParams.get("qr") || routeRestaurantSlug));
   const [error, setError] = useState("");
 
   const qrToken = searchParams.get("qr");
-  const restaurantSlug = searchParams.get("restaurant");
+  const restaurantSlug = routeRestaurantSlug || "";
+  const outletCode = searchParams.get("outlet") || "";
   const canOrderFromTable = Boolean(qrToken);
+  const hasPublicContext = Boolean(qrToken || restaurantSlug);
 
   const fetchMenu = useCallback(async () => {
+    if (!hasPublicContext) {
+      setFoods([]);
+      setCategories([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const params = { limit: 100, search: search.trim() || undefined };
+      const params = { limit: 100, search: search.trim() || undefined, ...(outletCode ? { outlet: outletCode } : {}) };
       if (selectedCategory) params.category = selectedCategory;
       const { data } = await getPublicMenu({ qrToken, restaurant: restaurantSlug }, params);
       const menu = data.data || {};
@@ -45,28 +55,32 @@ const MenuPage = () => {
           code: err.response?.data?.code,
         });
       }
+      const restaurantNotFound = err.response?.data?.code === "PUBLIC_MENU_RESTAURANT_NOT_FOUND";
       const publicContextError = [
-        "PUBLIC_MENU_RESTAURANT_REQUIRED",
         "PUBLIC_MENU_RESTAURANT_INVALID",
-        "PUBLIC_MENU_RESTAURANT_NOT_FOUND",
+        "PUBLIC_MENU_OUTLET_INVALID",
         "PUBLIC_MENU_OUTLET_REQUIRED",
         "PUBLIC_MENU_OUTLET_NOT_FOUND",
       ].includes(err.response?.data?.code);
-      setError(publicContextError ? err.response?.data?.message : "Please try again or check back soon.");
+      setError(restaurantNotFound ? "Restaurant menu not found." : publicContextError ? "Restaurant menu link is missing or invalid." : "Please try again or check back soon.");
       setFoods([]);
       setCategories([]);
     } finally {
       setLoading(false);
     }
-  }, [dispatch, qrToken, restaurantSlug, selectedCategory, search]);
+  }, [dispatch, hasPublicContext, outletCode, qrToken, restaurantSlug, selectedCategory, search]);
 
   useEffect(() => {
+    if (!hasPublicContext) {
+      fetchMenu();
+      return undefined;
+    }
     const timer = setTimeout(() => {
       fetchMenu();
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [fetchMenu]);
+  }, [fetchMenu, hasPublicContext]);
 
   const availableFoods = useMemo(() => foods || [], [foods]);
   const cartCount = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -117,7 +131,12 @@ const MenuPage = () => {
         </div>
       </div>
 
-      {loading ? (
+      {!hasPublicContext ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <p className="text-xl font-semibold text-slate-900">Restaurant menu link is missing or invalid.</p>
+          <p className="mt-2 text-sm text-slate-500">Open your restaurant&apos;s menu link or scan its table QR code.</p>
+        </div>
+      ) : loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <article key={index} className="glass rounded-3xl p-4">
@@ -133,20 +152,19 @@ const MenuPage = () => {
         </div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-lg font-semibold text-rose-900">Unable to load menu.</p>
+          <p className="text-lg font-semibold text-rose-900">{error === "Restaurant menu not found." ? error : "Unable to load menu."}</p>
           <p className="mt-2 text-sm text-rose-700">{error}</p>
-          <button
+          {error !== "Restaurant menu not found." && error !== "Restaurant menu link is missing or invalid." ? <button
             type="button"
             onClick={fetchMenu}
             className="mt-4 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
           >
             Retry
-          </button>
+          </button> : null}
         </div>
       ) : availableFoods.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <p className="text-xl font-semibold text-slate-900">No menu items available</p>
-          <p className="mt-2 text-sm text-slate-500">Please check back soon for our latest dishes.</p>
+          <p className="text-xl font-semibold text-slate-900">No menu items are available right now.</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

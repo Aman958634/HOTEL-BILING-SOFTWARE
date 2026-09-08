@@ -43,18 +43,18 @@ const recordPublicMenuContext = (req, context, source) => {
   };
 };
 
-router.get("/menu", asyncHandler(async (req, res) => {
-  req.publicMenuContext = { source: "browse", restaurantSlug: String(req.query.restaurant || "").slice(0, 120) || null };
-  const context = await resolvePublicRestaurantContext(req.query.restaurant);
-  recordPublicMenuContext(req, context, "browse");
+router.get("/menu/qr/:qrToken", asyncHandler(async (req, res) => {
+  req.publicMenuContext = { source: "table_qr" };
+  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
+  recordPublicMenuContext(req, context, "table_qr");
   const menu = await getPublicMenu(req, context);
   res.status(200).json(new ApiResponse(true, "Public menu fetched", menu, menu.meta));
 }));
 
-router.get("/menu/:qrToken", asyncHandler(async (req, res) => {
-  req.publicMenuContext = { source: "table_qr" };
-  const context = await resolvePublicMenuContext(getPublicMenuContextToken(req));
-  recordPublicMenuContext(req, context, "table_qr");
+router.get("/menu/:restaurantSlug", asyncHandler(async (req, res) => {
+  req.publicMenuContext = { source: "browse", restaurantSlug: String(req.params.restaurantSlug || "").slice(0, 120) || null };
+  const context = await resolvePublicRestaurantContext(req.params.restaurantSlug, req.query.outlet);
+  recordPublicMenuContext(req, context, "browse");
   const menu = await getPublicMenu(req, context);
   res.status(200).json(new ApiResponse(true, "Public menu fetched", menu, menu.meta));
 }));

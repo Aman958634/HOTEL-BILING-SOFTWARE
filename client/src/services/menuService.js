@@ -1,8 +1,8 @@
 import api from "./api";
 
 export const getPublicMenu = ({ qrToken, restaurant } = {}, params = {}) => {
-  if (qrToken) return api.get(`/public/menu/${encodeURIComponent(qrToken)}`, { params });
-  return api.get("/public/menu", { params: { ...params, ...(restaurant ? { restaurant } : {}) } });
+  if (qrToken) return api.get(`/public/menu/qr/${encodeURIComponent(qrToken)}`, { params });
+  return api.get(`/public/menu/${encodeURIComponent(restaurant)}`, { params });
 };
 
 export const getAdminMenu = (params = {}) => api.get("/menu", { params });

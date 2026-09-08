@@ -69,10 +69,17 @@ const toSavePayload = (settings) => {
   };
 };
 
+const getPublicMenuUrl = (slug) => {
+  const normalizedSlug = String(slug || "").trim();
+  if (!normalizedSlug || typeof window === "undefined") return "";
+  return `${window.location.origin}/menu/${encodeURIComponent(normalizedSlug)}`;
+};
+
 const Settings = () => {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const publicMenuUrl = getPublicMenuUrl(settings.slug);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -106,6 +113,16 @@ const Settings = () => {
       toast.error(getSettingsErrorMessage(error, "Unable to save settings"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const copyPublicMenuUrl = async () => {
+    if (!publicMenuUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicMenuUrl);
+      toast.success("Public menu link copied");
+    } catch {
+      toast.error("Unable to copy the public menu link");
     }
   };
 
@@ -270,6 +287,18 @@ const Settings = () => {
               <p><strong>Reservations:</strong> {settings.reservationsEnabled ? "Enabled" : "Disabled"}</p>
               <p><strong>Online orders:</strong> {settings.onlineOrdersEnabled ? "Enabled" : "Disabled"}</p>
             </div>
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Public Menu Link</h2>
+            {publicMenuUrl ? <>
+              <p className="break-all text-sm text-slate-600">{publicMenuUrl}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={copyPublicMenuUrl} className="min-h-10 rounded-xl border border-brand-200 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50">Copy Link</button>
+                <a href={publicMenuUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-xl bg-brand-700 px-3 text-sm font-semibold text-white hover:bg-brand-800">Open Menu</a>
+              </div>
+              <p className="text-xs text-slate-500">Use table QR codes for table-specific ordering.</p>
+            </> : <p className="text-sm text-slate-500">Save a restaurant slug to create its public menu link.</p>}
           </div>
 
           <button

@@ -18,7 +18,7 @@ const suffix = crypto.randomBytes(6).toString("hex");
 const created = { restaurants: [], outlets: [], tables: [], categories: [], foods: [] };
 
 try {
-  await mongoose.connect(uri);
+await mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000 });
 
   const [restaurantA, restaurantB] = await Promise.all([
     Restaurant.create({ name: `Public A ${suffix}`, slug: `public-a-${suffix}`, branchCode: `PA${suffix}`, address: "Test" }),
@@ -27,8 +27,8 @@ try {
   created.restaurants.push(restaurantA._id, restaurantB._id);
 
   const [outletA, outletB] = await Promise.all([
-    Outlet.create({ restaurant: restaurantA._id, name: "A Main", code: "MAIN", isDefault: true }),
-    Outlet.create({ restaurant: restaurantB._id, name: "B Main", code: "MAIN", isDefault: true }),
+    Outlet.create({ restaurant: restaurantA._id, name: "A Main", code: "A-MAIN", isDefault: true }),
+    Outlet.create({ restaurant: restaurantB._id, name: "B Main", code: "B-MAIN", isDefault: true }),
   ]);
   created.outlets.push(outletA._id, outletB._id);
 
@@ -58,6 +58,10 @@ try {
   assert.deepEqual(menuA.items.map((item) => String(item._id)), [String(visibleA._id)]);
   assert.deepEqual(menuA.categories.map((category) => String(category._id)).sort(), [String(activeA._id), String(emptyA._id)].sort());
 
+  const browseB = await resolvePublicRestaurantContext(restaurantB.slug);
+  const menuB = await listPublicMenu({ context: browseB, query: { limit: 100 } });
+  assert.deepEqual(menuB.items.map((item) => String(item._id)), [String(visibleB._id)]);
+
   const emptyMenu = await listPublicMenu({ context: browseA, query: { category: String(emptyA._id) } });
   assert.equal(emptyMenu.items.length, 0);
   assert.equal(emptyMenu.meta.total, 0);
@@ -70,6 +74,10 @@ try {
   await assert.rejects(
     () => resolvePublicRestaurantContext("missing-restaurant"),
     (error) => error?.statusCode === 404 && error?.code === "PUBLIC_MENU_RESTAURANT_NOT_FOUND"
+  );
+  await assert.rejects(
+    () => resolvePublicRestaurantContext(restaurantA.slug, outletB.code),
+    (error) => error?.statusCode === 404 && error?.code === "PUBLIC_MENU_OUTLET_NOT_FOUND"
   );
   await assert.rejects(
     () => resolvePublicRestaurantContext(),
