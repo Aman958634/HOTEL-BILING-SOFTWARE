@@ -24,7 +24,7 @@ const StaffStats = ({ stats, loading }) => {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {cards.map((card) => (
-        <StatCard key={card.key} icon={card.icon} iconModule={card.module} label={card.label} value={stats?.[card.key] ?? 0} showComparison={false} />
+        <StatCard key={card.key} icon={card.icon} iconModule={card.module} iconVariant="section" label={card.label} value={stats?.[card.key] ?? 0} showComparison={false} />
       ))}
     </div>
   );

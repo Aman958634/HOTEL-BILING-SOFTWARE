@@ -12,7 +12,8 @@ const emptyForm = { fullName: "", phone: "", email: "", address: "", tags: "", n
 const label = (value) => String(value || "").replaceAll("_", " ");
 const isReturning = (customer) => Number(customer?.totalOrders || 0) > 1;
 
-const CrmCard = ({ title, value, icon, tone = "customers" }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><ModuleIcon icon={icon} tone={tone.startsWith("text-") ? "customers" : tone} variant="section" /></div></article>;
+const CRM_TONES = { "text-sky-700": "staff", "text-violet-700": "loyalty", "text-amber-700": "orders", "text-rose-700": "payments" };
+const CrmCard = ({ title, value, icon, tone = "customers" }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><ModuleIcon icon={icon} tone={CRM_TONES[tone] || tone} variant="section" /></div></article>;
 
 const CustomerForm = ({ value, saving, onClose, onSave, title }) => {
   const [form, setForm] = useState(value || emptyForm);

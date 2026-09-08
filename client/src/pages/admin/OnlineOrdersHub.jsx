@@ -7,6 +7,7 @@ import { bulkReadyKitchenItems, bulkStartKitchenItems } from "../../services/kit
 import { getOrderById, getOrderStats, getOrders, updateOrderStatus } from "../../services/orderService";
 import { currency, dateTime } from "../../utils/format";
 import { paymentBadgeClasses, paymentStatusLabel } from "../../utils/paymentUtils";
+import ModuleIcon from "../../components/common/ModuleIcon";
 
 const STATUS_OPTIONS = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "COMPLETED", "CANCELLED", "REJECTED"];
 const SOURCE_OPTIONS = ["ONLINE", "DELIVERY", "PICKUP"];
@@ -26,7 +27,7 @@ const HubStat = ({ label: title, value, tone, icon }) => (
   <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0"><p className="truncate text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><p className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">{value ?? "—"}</p></div>
-      <span className={`shrink-0 rounded-xl p-2 ${tone}`} aria-hidden="true">{icon}</span>
+      <ModuleIcon icon={icon} module="onlineOrders" variant="section" />
     </div>
   </article>
 );

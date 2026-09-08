@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiAward, FiGift, FiRefreshCw, FiSettings, FiUsers } from "react-icons/fi";
 import EmptyState from "../../components/common/EmptyState";
+import ModuleIcon from "../../components/common/ModuleIcon";
 import RequestState from "../../components/common/RequestState";
 import { getLoyaltyMembers, getLoyaltySettings, getLoyaltyTransactions } from "../../services/loyaltyService";
 import { dateTime } from "../../utils/format";
 
-const Card = ({ icon, label, value, tone = "text-emerald-700" }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><span className={`shrink-0 ${tone}`}>{icon}</span></div></article>;
+const Card = ({ icon, label, value }) => <article className="ops-card min-w-0 p-3 sm:p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 truncate text-2xl font-bold text-slate-900">{value}</p></div><ModuleIcon icon={icon} module="loyalty" variant="kpi" /></div></article>;
 
 const LoyaltyManagement = () => {
   const [members, setMembers] = useState([]); const [transactions, setTransactions] = useState([]); const [settings, setSettings] = useState(null); const [total, setTotal] = useState(0); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
