@@ -28,7 +28,9 @@ export const calculateCommissionSplit = ({ grossAmountPaise, commissionType = "N
   const fixed = Number(fixedAmountPaise || 0);
   if (!["NONE", "PERCENTAGE", "FIXED"].includes(type)) throw new ApiError(422, "Commission type is invalid");
   if (!Number.isSafeInteger(bps) || bps < 0 || bps > 10000 || !Number.isSafeInteger(fixed) || fixed < 0) throw new ApiError(422, "Commission configuration is invalid");
-  const platformSharePaise = type === "PERCENTAGE" ? Math.floor((grossAmountPaise * bps) / 10000) : type === "FIXED" ? fixed : 0;
+  // All operands are paise/basis-point integers. Add half of the denominator
+  // before division to round a half paise up without floating point money.
+  const platformSharePaise = type === "PERCENTAGE" ? Math.floor(((grossAmountPaise * bps) + 5000) / 10000) : type === "FIXED" ? fixed : 0;
   if (platformSharePaise > grossAmountPaise) throw new ApiError(422, "Commission exceeds this Cashfree payment", "COMMISSION_EXCEEDS_PAYMENT");
   const vendorSharePaise = grossAmountPaise - platformSharePaise;
   if (vendorSharePaise < 0 || vendorSharePaise + platformSharePaise !== grossAmountPaise) throw new ApiError(422, "Settlement split invariant failed");
@@ -71,10 +73,12 @@ const ensurePaidCashfreePayment = async (paymentLike) => {
 
 export const safeSettlementTransaction = (transaction) => transaction ? {
   id: transaction._id,
-  restaurant: transaction.restaurant,
+  restaurant: transaction.restaurant?._id || transaction.restaurant,
   outlet: transaction.outlet,
-  order: transaction.order,
-  payment: transaction.payment,
+  order: transaction.order?._id || transaction.order,
+  orderNumber: transaction.order?.orderNumber || "",
+  payment: transaction.payment?._id || transaction.payment,
+  paymentReference: transaction.payment?.paymentId || "",
   provider: transaction.provider,
   providerVendorId: transaction.providerVendorId,
   cashfreeOrderId: transaction.cashfreeOrderId,
@@ -87,6 +91,9 @@ export const safeSettlementTransaction = (transaction) => transaction ? {
   platformShare: fromPaise(transaction.platformSharePaise),
   commissionType: transaction.commissionType,
   commissionBps: transaction.commissionBps,
+  commissionValue: transaction.commissionType === "PERCENTAGE"
+    ? Number((transaction.commissionBps / 100).toFixed(2))
+    : fromPaise(transaction.fixedAmountPaise),
   fixedAmount: fromPaise(transaction.fixedAmountPaise),
   splitStatus: transaction.splitStatus,
   settlementStatus: transaction.settlementStatus,
@@ -99,6 +106,32 @@ export const safeSettlementTransaction = (transaction) => transaction ? {
   updatedAt: transaction.updatedAt,
 } : null;
 
+const commissionEffectiveFrom = (commission) => commission?.effectiveFrom || commission?.updatedAt || commission?.createdAt || null;
+
+const recordCommissionIneligibleAllocation = async ({ payment, profile, existing, reason }) => {
+  if (existing) return existing;
+  const split = calculateCommissionSplit({ grossAmountPaise: toPaise(payment.amount) });
+  const transaction = await SettlementTransaction.create({
+    restaurant: payment.restaurant,
+    outlet: payment.outlet || null,
+    order: payment.orderId,
+    payment: payment._id,
+    provider: "CASHFREE",
+    providerVendorId: profile.providerVendorId,
+    cashfreeOrderId: payment.cashfreeOrderId,
+    cashfreePaymentId: payment.cashfreePaymentId || "",
+    ...split,
+    splitStatus: "FAILED",
+    settlementStatus: "NOT_SCHEDULED",
+    providerStatus: "NOT_ELIGIBLE",
+    providerIdempotencyKey: crypto.randomUUID(),
+    failureCode: reason,
+    failureMessageSafe: "No Cashfree allocation was sent because the payment was not eligible under the commission configuration active at verification.",
+  });
+  await createActivity({ action: "CASHFREE_SPLIT_NOT_ELIGIBLE", description: "Cashfree payment was not eligible for allocation", restaurantId: payment.restaurant, targetId: transaction._id, targetType: "SettlementTransaction", metadata: { cashfreeOrderId: payment.cashfreeOrderId, reason } });
+  return transaction;
+};
+
 export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requestId = "" }) => {
   if (!isPhaseTwoEnabled()) return { skipped: true, reason: "EASY_SPLIT_PAYMENTS_DISABLED" };
   const payment = await ensurePaidCashfreePayment(paymentLike);
@@ -107,6 +140,17 @@ export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requ
 
   const profile = await profileForRestaurant(payment.restaurant);
   const commission = await RestaurantCommissionConfig.findOne({ restaurant: payment.restaurant }).lean();
+  const verifiedAt = payment.verifiedAt || payment.paidAt;
+  const effectiveFrom = commissionEffectiveFrom(commission);
+  const commissionReason = !commission || commission.commissionType === "NONE"
+    ? "COMMISSION_CONFIGURATION_REQUIRED"
+    : !verifiedAt || !effectiveFrom || new Date(verifiedAt) < new Date(effectiveFrom)
+      ? "COMMISSION_NOT_EFFECTIVE_AT_PAYMENT_VERIFICATION"
+      : "";
+  if (commissionReason) {
+    const transaction = await recordCommissionIneligibleAllocation({ payment, profile, existing, reason: commissionReason });
+    return { transaction, skipped: true, reason: commissionReason, idempotent: Boolean(existing) };
+  }
   const split = calculateCommissionSplit({
     grossAmountPaise: toPaise(payment.amount),
     commissionType: commission?.commissionType || "NONE",

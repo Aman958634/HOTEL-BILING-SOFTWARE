@@ -8,6 +8,10 @@ const commissionConfigSchema = new mongoose.Schema(
     // depend on JavaScript floating point arithmetic.
     commissionBps: { type: Number, default: 0, min: 0, max: 10000 },
     fixedAmountPaise: { type: Number, default: 0, min: 0 },
+    // A payment can only use a commission configuration that existed when
+    // Cashfree success was verified. This prevents a later configuration
+    // change from retroactively allocating an old customer payment.
+    effectiveFrom: { type: Date, default: Date.now, required: true },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }

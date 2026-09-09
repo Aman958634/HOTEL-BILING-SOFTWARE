@@ -12,6 +12,8 @@ try {
   assert.equal(percentage.platformSharePaise, 2750);
   assert.equal(percentage.vendorSharePaise, 97250);
   assert.equal(percentage.vendorSharePaise + percentage.platformSharePaise, percentage.grossAmountPaise);
+  const roundedHalfPaise = calculateCommissionSplit({ grossAmountPaise: 1, commissionType: "PERCENTAGE", commissionBps: 5000 });
+  assert.equal(roundedHalfPaise.platformSharePaise, 1, "percentage allocation rounds a half paise up");
   const fixed = calculateCommissionSplit({ grossAmountPaise: 100000, commissionType: "FIXED", fixedAmountPaise: 117 });
   assert.equal(fixed.platformSharePaise, 117);
   assert.throws(() => calculateCommissionSplit({ grossAmountPaise: 100, commissionType: "FIXED", fixedAmountPaise: 101 }), (error) => error?.code === "COMMISSION_EXCEEDS_PAYMENT");

@@ -40,9 +40,9 @@ try {
   assert.equal(await SettlementTransaction.countDocuments({ restaurant: restaurantB, payment: paymentA }), 0, "payment allocation cannot cross tenants");
   await assert.rejects(() => SettlementTransaction.create({ restaurant: restaurantA, order: orderA, payment: paymentA, providerVendorId: "RESTO_TEST_A", cashfreeOrderId: "order_test_a_retry", grossAmountPaise: 10000, vendorSharePaise: 9750, platformSharePaise: 250, commissionType: "PERCENTAGE", commissionBps: 250, providerIdempotencyKey: "16fa2ce1-30bf-4054-88db-437bd4b8a37a" }), (error) => error?.code === 11000);
 
-  const allocationPayment = await Payment.create({ paymentId: "EASY-SPLIT-PAYMENT-A", orderId: new mongoose.Types.ObjectId(), restaurant: allocationRestaurant, amount: 1000, totalAmount: 1000, paymentMethod: "CASHFREE", paymentStatus: "PAID", provider: "cashfree", cashfreeOrderId: "order_split_mock_a", cashfreePaymentId: "cf_split_mock_a", idempotencyKey: "easy-split-payment-a", transactionId: "CF-cf_split_mock_a" });
+  const allocationPayment = await Payment.create({ paymentId: "EASY-SPLIT-PAYMENT-A", orderId: new mongoose.Types.ObjectId(), restaurant: allocationRestaurant, amount: 1000, totalAmount: 1000, paymentMethod: "CASHFREE", paymentStatus: "PAID", provider: "cashfree", cashfreeOrderId: "order_split_mock_a", cashfreePaymentId: "cf_split_mock_a", idempotencyKey: "easy-split-payment-a", transactionId: "CF-cf_split_mock_a", verifiedAt: new Date(Date.now() + 1000) });
   await RestaurantSettlementProfile.create({ restaurant: allocationRestaurant, providerVendorId: "RESTO_TEST_ALLOCATION_A", payoutMethod: "BANK", vendorStatus: "ACTIVE", providerStatus: "ACTIVE", bankVerificationStatus: "VERIFIED", settlementStatus: "ACTIVE", maskedAccountNumber: "••••1191" });
-  await RestaurantCommissionConfig.create({ restaurant: allocationRestaurant, commissionType: "PERCENTAGE", commissionBps: 250, fixedAmountPaise: 0 });
+  await RestaurantCommissionConfig.create({ restaurant: allocationRestaurant, commissionType: "PERCENTAGE", commissionBps: 250, fixedAmountPaise: 0, effectiveFrom: new Date() });
   Object.assign(process.env, { CASHFREE_ENV: "sandbox", CASHFREE_APP_ID: "sandbox-id", CASHFREE_SECRET_KEY: "sandbox-secret", CASHFREE_EASY_SPLIT_ENABLED: "true", CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED: "true" });
   let providerCalls = 0;
   global.fetch = async () => { providerCalls += 1; return new Response(JSON.stringify({ status: "OK", message: "Order split created" }), { status: 200 }); };
@@ -52,6 +52,27 @@ try {
   assert.equal(repeated.idempotent, true);
   assert.equal(providerCalls, 1, "duplicate payment verification cannot create another provider allocation");
   assert.equal(await SettlementTransaction.countDocuments({ payment: allocationPayment._id }), 1);
+  const paymentVerifiedBeforeCommission = await Payment.create({
+    paymentId: "EASY-SPLIT-PAYMENT-BEFORE-COMMISSION",
+    orderId: new mongoose.Types.ObjectId(),
+    restaurant: allocationRestaurant,
+    amount: 177,
+    totalAmount: 177,
+    paymentMethod: "CASHFREE",
+    paymentStatus: "PAID",
+    provider: "cashfree",
+    cashfreeOrderId: "order_split_before_commission",
+    cashfreePaymentId: "cf_split_before_commission",
+    idempotencyKey: "easy-split-before-commission",
+    transactionId: "CF-cf_split_before_commission",
+    verifiedAt: new Date(Date.now() - 60_000),
+  });
+  const ineligible = await ensureCashfreeSplitAllocation({ payment: paymentVerifiedBeforeCommission });
+  assert.equal(ineligible.skipped, true, "a later commission configuration must not allocate an earlier payment");
+  assert.equal(ineligible.transaction.failureCode, "COMMISSION_NOT_EFFECTIVE_AT_PAYMENT_VERIFICATION");
+  assert.equal(ineligible.transaction.splitStatus, "FAILED");
+  assert.equal(providerCalls, 1, "an ineligible historic payment must not call the provider");
+  assert.equal((await Payment.findById(paymentVerifiedBeforeCommission._id)).paymentStatus, "PAID", "allocation ineligibility must not roll back customer payment");
   const webhook = { type: "VENDOR_SETTLEMENT_SUCCESS", data: { order_id: "order_split_mock_a", vendor_id: "RESTO_TEST_ALLOCATION_A", settlement_id: "vendor-settlement-mock-a", status: "SUCCESS" } };
   const webhookFirst = await processCashfreeSettlementWebhook({ event: webhook, rawBody: JSON.stringify(webhook) });
   const webhookRepeat = await processCashfreeSettlementWebhook({ event: webhook, rawBody: JSON.stringify(webhook) });

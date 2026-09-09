@@ -18,7 +18,11 @@ const safeCommission = (config) => ({
   commissionType: config.commissionType,
   commissionBps: config.commissionBps,
   commissionPercentage: Number((config.commissionBps / 100).toFixed(2)),
+  commissionValue: config.commissionType === "PERCENTAGE"
+    ? Number((config.commissionBps / 100).toFixed(2))
+    : fromPaise(config.fixedAmountPaise),
   fixedAmount: fromPaise(config.fixedAmountPaise),
+  effectiveFrom: config.effectiveFrom || config.updatedAt || config.createdAt || null,
   updatedAt: config.updatedAt,
 });
 
@@ -50,7 +54,7 @@ export const updateCommissionConfig = asyncHandler(async (req, res) => {
   const fixedAmountPaise = commissionType === "FIXED" ? toPaise(req.body.fixedAmount) : 0;
   const config = await RestaurantCommissionConfig.findOneAndUpdate(
     { restaurant: restaurantId },
-    { $set: { commissionType, commissionBps, fixedAmountPaise, updatedBy: req.user._id } },
+    { $set: { commissionType, commissionBps, fixedAmountPaise, effectiveFrom: new Date(), updatedBy: req.user._id } },
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
   await createActivity({ action: "RESTAURANT_COMMISSION_CONFIG_UPDATED", description: "Restaurant Cashfree commission configuration updated", performedBy: req.user._id, restaurantId, targetId: config._id, targetType: "RestaurantCommissionConfig", metadata: { commissionType, commissionBps, fixedAmount: fromPaise(fixedAmountPaise) } });
@@ -60,7 +64,27 @@ export const updateCommissionConfig = asyncHandler(async (req, res) => {
 export const listSettlementTransactions = asyncHandler(async (req, res) => {
   const restaurantId = req.query.restaurantId ? requireRestaurantId(req.query.restaurantId) : null;
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-  const filter = { ...(restaurantId ? { restaurant: restaurantId } : {}), ...(req.query.status ? { settlementStatus: String(req.query.status).toUpperCase() } : {}) };
-  const rows = await SettlementTransaction.find(filter).sort({ createdAt: -1 }).limit(limit).populate("restaurant", "name").lean();
-  res.json(new ApiResponse(true, "Settlement allocations fetched", rows.map((item) => ({ ...safeSettlementTransaction(item), restaurantName: item.restaurant?.name || "" }))));
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const status = req.query.status ? String(req.query.status).toUpperCase() : "";
+  if (status && !["NOT_SCHEDULED", "PENDING", "PROCESSING", "SETTLED", "FAILED", "REVERSED", "ON_HOLD"].includes(status)) {
+    throw new ApiError(422, "Settlement status filter is invalid");
+  }
+  const filter = { ...(restaurantId ? { restaurant: restaurantId } : {}), ...(status ? { settlementStatus: status } : {}) };
+  const [rows, total] = await Promise.all([
+    SettlementTransaction.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("restaurant", "name")
+      .populate("order", "orderNumber")
+      .populate("payment", "paymentId paymentMethod")
+      .lean(),
+    SettlementTransaction.countDocuments(filter),
+  ]);
+  res.json(new ApiResponse(
+    true,
+    "Settlement allocations fetched",
+    rows.map((item) => ({ ...safeSettlementTransaction(item), restaurantName: item.restaurant?.name || "" })),
+    { page, limit, total, pages: Math.ceil(total / limit) }
+  ));
 });
