@@ -45,6 +45,7 @@ import authMiddleware from "./middleware/authMiddleware.js";
 
 import searchRoutes from "./routes/searchRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
+import { cashfreeWebhook } from "./controllers/cashfreeController.js";
 
 const app = express();
 // Render terminates TLS and forwards the original client IP through one proxy hop.
@@ -68,6 +69,9 @@ app.use(
     credentials: true,
   })
 );
+// Cashfree signs the exact body bytes, so its webhook must be parsed before
+// the application JSON parser changes decimal formatting or key ordering.
+app.post("/api/webhooks/cashfree", express.raw({ type: "application/json", limit: "2mb" }), cashfreeWebhook);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

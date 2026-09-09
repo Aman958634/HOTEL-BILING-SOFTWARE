@@ -8,6 +8,7 @@ const PAYMENT_METHODS = [
   "NET_BANKING",
   "WALLET",
   "RAZORPAY",
+  "CASHFREE",
   "OTHER",
 ];
 
@@ -44,10 +45,17 @@ const paymentSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true, min: 0 },
     paymentMethod: { type: String, enum: PAYMENT_METHODS, required: true, index: true },
     gateway: { type: String, default: "", trim: true, index: true },
+    provider: { type: String, default: "", trim: true, index: true },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: "PENDING", index: true },
     transactionId: { type: String, default: "", trim: true, index: true, sparse: true, unique: true },
     razorpayOrderId: { type: String, default: "", trim: true, index: true, sparse: true },
     razorpayPaymentId: { type: String, default: "", trim: true, index: true, sparse: true },
+    cashfreeOrderId: { type: String, trim: true, index: true, sparse: true, unique: true },
+    cashfreePaymentId: { type: String, trim: true, index: true, sparse: true, unique: true },
+    paymentSessionId: { type: String, trim: true, select: false },
+    providerStatus: { type: String, default: "", trim: true, index: true },
+    verifiedAt: { type: Date, default: null, index: true },
+    webhookProcessedAt: { type: Date, default: null },
     // Supplied by the caller (Idempotency-Key header) or derived from a
     // provider payment id. It makes a retry return the original payment
     // rather than recording money twice.

@@ -11,8 +11,9 @@ import {
 	getPaymentStats,
 	listPayments,
 	refundPayment,
-	verifyPayment,
+  verifyPayment,
 } from "../controllers/paymentController.js";
+import { createCashfreeCheckoutOrder, getCashfreePaymentStatus } from "../controllers/cashfreeController.js";
 import { protect } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { requirePaymentAdminAccess, requirePaymentViewAccess } from "../middleware/paymentAuth.js";
@@ -48,6 +49,8 @@ router.post(
 );
 router.post("/intent", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
 router.post("/create-order", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
+router.post("/cashfree/create-order", protect, paymentLimiter, [body("orderId").isMongoId().withMessage("Invalid order id")], validate, createCashfreeCheckoutOrder);
+router.get("/cashfree/:orderId/status", protect, paymentLimiter, [param("orderId").isString().isLength({ min: 8, max: 80 }).withMessage("Invalid Cashfree order id")], validate, getCashfreePaymentStatus);
 router.post("/verify", protect, paymentLimiter, verifyPaymentValidation, validate, verifyPayment);
 router.get("/stats", protect, requirePaymentViewAccess, getPaymentStats);
 router.get("/export", protect, requirePaymentViewAccess, exportPayments);

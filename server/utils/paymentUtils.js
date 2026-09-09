@@ -9,6 +9,7 @@ export const PAYMENT_METHOD_LABELS = {
   NET_BANKING: "Net Banking",
   WALLET: "Wallet",
   RAZORPAY: "Razorpay",
+  CASHFREE: "Cashfree",
   OTHER: "Other",
 };
 
@@ -44,6 +45,7 @@ const paymentMethodAliases = {
   netbanking: "NET_BANKING",
   wallet: "WALLET",
   razorpay: "RAZORPAY",
+  cashfree: "CASHFREE",
   stripe: "OTHER",
   online: "OTHER",
   other: "OTHER",
@@ -111,6 +113,7 @@ export const gatewayLabel = (payment = {}) => {
   if (!gateway) return "—";
   const lower = gateway.toLowerCase();
   if (lower === "razorpay") return "Razorpay";
+  if (lower === "cashfree") return "Cashfree";
   if (lower === "stripe") return "Stripe";
   return gateway;
 };

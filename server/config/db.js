@@ -14,9 +14,20 @@ mongoose.connection.on("error", (error) => logger.error("MongoDB connection erro
 
 export const getMongoUri = () => {
   const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
-  const uri = loadTestMode ? process.env.TEST_MONGO_URI : (process.env.MONGO_URI || process.env.MONGODB_URI);
+  const isolatedTestMode = process.env.NODE_ENV === "test";
+  const uri = (loadTestMode || isolatedTestMode) ? process.env.TEST_MONGO_URI : (process.env.MONGO_URI || process.env.MONGODB_URI);
   if (!uri) return null;
   return String(uri).trim();
+};
+
+const assertIsolatedTestDatabase = (uri) => {
+  try {
+    const databaseName = new URL(uri.replace(/^mongodb(\+srv)?:\/\//, "http://")).pathname.replace(/^\//, "").split("/")[0];
+    if (databaseName !== "restosphere_cashfree_test") throw new Error("NODE_ENV=test requires TEST_MONGO_URI database restosphere_cashfree_test");
+  } catch (error) {
+    if (String(error?.message || "").includes("restosphere_cashfree_test")) throw error;
+    throw new Error("NODE_ENV=test requires a valid TEST_MONGO_URI for restosphere_cashfree_test");
+  }
 };
 
 export const isDbConnected = () => mongoose.connection.readyState === 1;
@@ -37,11 +48,13 @@ export const maskMongoUri = (uri) => {
 const connectDB = async () => {
   const mongoUri = getMongoUri();
   const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
+  const isolatedTestMode = process.env.NODE_ENV === "test";
   if (!mongoUri) {
     throw new Error(String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true"
       ? "TEST_MONGO_URI is missing in load-test mode"
       : "MONGO_URI (or MONGODB_URI) is missing in environment variables");
   }
+  if (isolatedTestMode) assertIsolatedTestDatabase(mongoUri);
 
   logger.info(`Connecting to MongoDB: ${maskMongoUri(mongoUri)}`);
 
@@ -54,7 +67,7 @@ const connectDB = async () => {
 
   logger.info(`MongoDB connected successfully: ${conn.connection.host}`);
 
-  const allowStartupDataBootstrap = !loadTestMode && process.env.NODE_ENV !== "production"
+  const allowStartupDataBootstrap = !loadTestMode && !isolatedTestMode && process.env.NODE_ENV !== "production"
     || process.env.RUN_STARTUP_DATA_BOOTSTRAP === "true";
   if (allowStartupDataBootstrap) {
     try {
@@ -64,12 +77,12 @@ const connectDB = async () => {
       logger.error("Subscription bootstrap failed", { event: "CONFIG_ERROR", error: safeErrorContext(error) });
     }
   } else {
-    logger.info(loadTestMode
-      ? "Load-test startup data bootstrap skipped; fixtures are owned by the load-test harness."
+    logger.info((loadTestMode || isolatedTestMode)
+      ? "Test startup data bootstrap skipped; fixtures are owned by the test harness."
       : "Production startup data bootstrap skipped; run only through a planned, explicit maintenance operation.");
   }
 
-  if (!loadTestMode && shouldSeedSuperAdmin()) {
+  if (!loadTestMode && !isolatedTestMode && shouldSeedSuperAdmin()) {
     try {
       await ensureSuperAdmin(logger);
     } catch (error) {

@@ -52,6 +52,7 @@ const normalizeGateway = (value) => {
   if (!raw) return "";
   const lower = raw.toLowerCase();
   if (lower === "razorpay") return "Razorpay";
+  if (lower === "cashfree") return "Cashfree";
   if (lower === "stripe") return "Stripe";
   if (lower === "cash") return "Cash";
   return raw;
@@ -499,6 +500,9 @@ export const recordOrderPayment = async (order, options = {}) => {
         paymentMethod: method, gateway: normalizeGateway(options.gateway), paymentStatus: status, receivedBy: options.receivedBy || null,
         transactionId: options.transactionId || `PAY-${idempotencyKey}`, idempotencyKey, metadata: { ...(options.metadata || {}) },
         razorpayOrderId: options.razorpayOrderId || "", razorpayPaymentId: options.razorpayPaymentId || "",
+        ...(options.cashfreeOrderId ? { cashfreeOrderId: options.cashfreeOrderId } : {}),
+        ...(options.paymentSessionId ? { paymentSessionId: options.paymentSessionId } : {}),
+        provider: options.provider || options.metadata?.provider || "", providerStatus: options.providerStatus || "",
         paidAt: status === "PAID" ? new Date(options.paidAt || Date.now()) : null,
       });
       payment.timeline = buildPaymentTimeline(orderDoc, payment, status, options.note || "Payment recorded");
@@ -518,6 +522,70 @@ export const recordOrderPayment = async (order, options = {}) => {
     await session.endSession();
   }
   if (!result.idempotent) emitPaymentCreated(serializePayment(result.payment));
+  return result;
+};
+
+/**
+ * Cashfree callbacks are authenticated separately. This settles the original
+ * gateway ledger entry rather than creating another record for the same sale.
+ */
+export const settleCashfreePayment = async ({ order, paymentId, externalPayment, providerStatus, fromWebhook = false }) => {
+  const orderId = order?._id || order;
+  const externalStatus = String(providerStatus || "PENDING").toUpperCase();
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const orderDoc = await buildOrderLookup(orderId, session);
+      const payment = await Payment.findOne({ _id: paymentId, orderId: orderDoc?._id }).session(session);
+      if (!orderDoc || !payment) throw new ApiError(404, "Cashfree payment not found");
+      if (normalizePaymentStatus(payment.paymentStatus) === "PAID") {
+        const settlement = await deriveOrderPaymentState(orderDoc, session);
+        result = { order: orderDoc, payment, ...settlement, idempotent: true };
+        return;
+      }
+
+      const amount = Number(externalPayment?.payment_amount ?? externalPayment?.order_amount ?? payment.amount);
+      if (externalStatus === "SUCCESS" && (!Number.isFinite(amount) || Math.abs(amount - Number(payment.amount || 0)) > 0.01)) {
+        throw new ApiError(422, "Cashfree verified amount does not match the outstanding balance");
+      }
+      const cfPaymentId = String(externalPayment?.cf_payment_id || "").trim();
+      payment.provider = "cashfree";
+      payment.gateway = "Cashfree";
+      payment.providerStatus = externalStatus;
+      if (cfPaymentId) payment.cashfreePaymentId = cfPaymentId;
+      payment.webhookProcessedAt = fromWebhook ? new Date() : payment.webhookProcessedAt;
+
+      if (externalStatus === "SUCCESS") {
+        if (normalizePaymentStatus(orderDoc.paymentStatus) === "PAID") throw new ApiError(409, "Order balance is already settled");
+        payment.paymentStatus = "PAID";
+        payment.transactionId = cfPaymentId ? `CF-${cfPaymentId}` : payment.transactionId;
+        payment.idempotencyKey = cfPaymentId ? `cashfree-payment:${cfPaymentId}` : payment.idempotencyKey;
+        payment.paidAt = new Date(externalPayment?.payment_time || Date.now());
+        payment.verifiedAt = new Date();
+        payment.metadata = { ...(payment.metadata || {}), provider: "cashfree", verified: true };
+      } else if (externalStatus === "FAILED" || externalStatus === "CANCELLED") {
+        payment.paymentStatus = "FAILED";
+      } else {
+        payment.paymentStatus = "PENDING";
+      }
+      payment.timeline = buildPaymentTimeline(orderDoc, payment, payment.paymentStatus, `Cashfree ${externalStatus.toLowerCase()}`);
+      await payment.save({ session });
+      const settlement = await applyOrderPaymentMirror(orderDoc, payment, session);
+      if (externalStatus === "SUCCESS" && settlement.fullyPaid) await generateInvoice(orderDoc, { session });
+      result = { order: orderDoc, payment, ...settlement, idempotent: false };
+    });
+  } catch (error) {
+    if (String(error?.message || "").includes("Transaction numbers are only allowed")) {
+      throw new ApiError(503, "Payments require MongoDB replica-set transactions.");
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
+  if (result.fullyPaid) await awardPointsForPaidOrder({ order: result.order, payment: result.payment });
+  if (!result.idempotent) emitPaymentUpdated(serializePayment(result.payment));
   return result;
 };
 

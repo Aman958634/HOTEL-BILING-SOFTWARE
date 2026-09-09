@@ -4,6 +4,7 @@ import MainLayout from "../layouts/MainLayout";
 import HomePage from "../pages/Home/HomePage";
 import NotFoundPage from "../pages/NotFound/NotFoundPage";
 import ProtectedRoute from "../components/common/ProtectedRoute";
+import CashfreeReturnPage from "../pages/Payments/CashfreeReturnPage";
 import AdminRoute from "../components/common/AdminRoute";
 import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
 import { clearChunkRecoveryAttempt } from "../utils/chunkRecovery";
@@ -156,6 +157,7 @@ const AppRouter = () => (
           </ProtectedRoute>
         </Suspense>
       } />
+      <Route path="/payment/cashfree/return" element={<ProtectedRoute><CashfreeReturnPage /></ProtectedRoute>} />
       <Route path="/pricing" element={
         <Suspense fallback={<PageSkeleton />}>
           <PricingPage />

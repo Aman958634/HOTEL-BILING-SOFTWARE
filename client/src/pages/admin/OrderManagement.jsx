@@ -27,7 +27,8 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "../../services/orderService";
-import { createGatewayPayment, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
+import { createCashfreePayment, createGatewayPayment, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
+import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
@@ -441,6 +442,11 @@ const OrderManagement = () => {
 
     setPaymentProcessing(true);
     try {
+      if (paymentMethod === "CASHFREE") {
+        const { data } = await createCashfreePayment(createdOrder._id);
+        await openCashfreeCheckout(data?.data?.paymentSessionId);
+        return;
+      }
       const { data } = await createGatewayPayment({
         orderId: createdOrder._id,
         provider: "razorpay",

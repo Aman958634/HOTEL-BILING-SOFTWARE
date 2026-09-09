@@ -11,6 +11,7 @@ export const PAYMENT_METHODS = [
   { value: "CREDIT_CARD", label: "Card" },
   { value: "UPI", label: "UPI" },
   { value: "RAZORPAY", label: "Razorpay" },
+  { value: "CASHFREE", label: "Cashfree / Online" },
   { value: "OTHER", label: "Other" },
 ];
 

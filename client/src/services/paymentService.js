@@ -10,6 +10,8 @@ export const deletePayment = (id) => api.delete(`/payments/${id}`);
 export const exportPayments = (params = {}) => api.get("/payments/export", { params, responseType: "blob" });
 export const createGatewayPayment = (payload) => api.post("/payments/create-order", payload);
 export const verifyGatewayPayment = (payload) => api.post("/payments/verify", payload);
+export const createCashfreePayment = (orderId) => api.post("/payments/cashfree/create-order", { orderId });
+export const getCashfreePaymentStatus = (cashfreeOrderId) => api.get(`/payments/cashfree/${encodeURIComponent(cashfreeOrderId)}/status`);
 export const getReconciliationSummary = () => api.get("/reconciliation/summary");
 export const getReconciliationBills = (params = {}) => api.get("/reconciliation/bills", { params });
 export const getCashReconciliationPreview = () => api.get("/reconciliation/cash/preview");
