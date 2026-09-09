@@ -7,6 +7,7 @@ import {
 	exportPayments,
 	getPaymentById,
 	getPaymentByOrderId,
+	getOrderPaymentSummary,
 	getPaymentReceipt,
 	getPaymentStats,
 	listPayments,
@@ -47,14 +48,15 @@ router.post(
 	validate,
 	createPayment
 );
-router.post("/intent", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
-router.post("/create-order", protect, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
-router.post("/cashfree/create-order", protect, paymentLimiter, [body("orderId").isMongoId().withMessage("Invalid order id")], validate, createCashfreeCheckoutOrder);
+router.post("/intent", protect, requirePaymentAdminAccess, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
+router.post("/create-order", protect, requirePaymentAdminAccess, paymentLimiter, paymentIntentValidation, validate, createPaymentIntent);
+router.post("/cashfree/create-order", protect, requirePaymentAdminAccess, paymentLimiter, [body("orderId").isMongoId().withMessage("Invalid order id")], validate, createCashfreeCheckoutOrder);
 router.get("/cashfree/:orderId/status", protect, paymentLimiter, [param("orderId").isString().isLength({ min: 8, max: 80 }).withMessage("Invalid Cashfree order id")], validate, getCashfreePaymentStatus);
-router.post("/verify", protect, paymentLimiter, verifyPaymentValidation, validate, verifyPayment);
+router.post("/verify", protect, requirePaymentAdminAccess, paymentLimiter, verifyPaymentValidation, validate, verifyPayment);
 router.get("/stats", protect, requirePaymentViewAccess, getPaymentStats);
 router.get("/export", protect, requirePaymentViewAccess, exportPayments);
 router.get("/:id/receipt", protect, requirePaymentViewAccess, [param("id").isMongoId().withMessage("Invalid payment id")], validate, getPaymentReceipt);
+router.get("/order/:orderId/summary", protect, requirePaymentViewAccess, [param("orderId").isMongoId().withMessage("Invalid order id")], validate, getOrderPaymentSummary);
 router.get("/order/:orderId", protect, requirePaymentViewAccess, [param("orderId").isMongoId().withMessage("Invalid order id")], validate, getPaymentByOrderId);
 router.get("/:id", protect, requirePaymentViewAccess, [param("id").isMongoId().withMessage("Invalid payment id")], validate, getPaymentById);
 router.get("/", protect, requirePaymentViewAccess, listPayments);

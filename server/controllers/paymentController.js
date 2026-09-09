@@ -23,6 +23,7 @@ import {
   buildPaymentReceipt,
   recordVerifiedPayment,
   recordOrderPayment,
+  deriveOrderPaymentState,
   deleteUnsettledOrderPayment,
   getRazorpayClient,
   serializePayment,
@@ -308,20 +309,25 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
 
   const resolvedMethod = normalizePaymentMethod(paymentMethod || providerToMethod[provider] || provider || order.paymentMethod);
-  if (normalizePaymentStatus(order.paymentStatus) === "PAID") {
+  const settlement = await deriveOrderPaymentState(order);
+  if (settlement.fullyPaid || normalizePaymentStatus(order.paymentStatus) === "PAID") {
     throw new ApiError(409, "Payment already completed.");
   }
+  const amountDue = settlement.remainingAmount;
+  if (amountDue <= 0) throw new ApiError(409, "Order balance is already settled.");
+  const requestedAttemptKey = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
 
   if (provider === "stripe") {
     if (!stripe) throw new ApiError(500, "Stripe not configured");
     const intent = await stripe.paymentIntents.create({
-      amount: Math.round(order.total * 100),
+      amount: Math.round(amountDue * 100),
       currency: "inr",
       metadata: { orderId: String(order._id) },
     });
     await recordOrderPayment(order, {
+      amount: amountDue,
       transactionId: intent.id,
-      idempotencyKey: `stripe-intent:${intent.id}`,
+      idempotencyKey: requestedAttemptKey || `stripe-intent:${intent.id}`,
       paymentStatus: "PROCESSING",
       paymentMethod: resolvedMethod,
       metadata: { provider: "stripe", gateway: "Stripe", paymentMethod: resolvedMethod, clientSecret: intent.client_secret, currency: "INR" },
@@ -336,16 +342,32 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
       throw new ApiError(503, "Razorpay payment service is unavailable. Please try another method or contact support.");
     }
 
-    logger.info(`Razorpay create-order requested for order=${order.orderNumber} amount=${order.total} method=${resolvedMethod}`);
+    const localAttemptKey = requestedAttemptKey || `razorpay-order:${crypto.randomUUID()}`;
+    const priorAttempt = requestedAttemptKey
+      ? await Payment.findOne(await buildRestaurantQuery({ orderId: order._id, idempotencyKey: localAttemptKey, razorpayOrderId: { $ne: "" } }, req.user))
+      : null;
+    if (priorAttempt) {
+      return res.status(200).json(new ApiResponse(true, "Existing Razorpay order returned", {
+        keyId: process.env.RAZORPAY_KEY_ID || "",
+        razorpayOrderId: priorAttempt.razorpayOrderId,
+        amount: Math.round(Number(priorAttempt.amount || amountDue) * 100),
+        currency: "INR",
+        paymentId: priorAttempt.paymentId,
+        orderId: order.orderNumber,
+      }));
+    }
+
+    logger.info(`Razorpay create-order requested for order=${order.orderNumber} amount=${amountDue} method=${resolvedMethod}`);
 
     const razorOrder = await razorpayClient.orders.create({
-      amount: Math.round(order.total * 100),
+      amount: Math.round(amountDue * 100),
       currency: "INR",
       receipt: String(order.orderNumber),
     });
     const paymentResult = await recordOrderPayment(order, {
+      amount: amountDue,
       transactionId: razorOrder.id,
-      idempotencyKey: `razorpay-order:${razorOrder.id}`,
+      idempotencyKey: localAttemptKey,
       razorpayOrderId: razorOrder.id,
       paymentStatus: "PROCESSING",
       paymentMethod: resolvedMethod,
@@ -370,8 +392,9 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
 
   const transactionId = `PENDING-${Date.now()}`;
   const paymentResult = await recordOrderPayment(order, {
+    amount: amountDue,
     transactionId,
-    idempotencyKey: String(req.get("Idempotency-Key") || transactionId),
+    idempotencyKey: requestedAttemptKey || transactionId,
     paymentStatus: "PENDING",
     paymentMethod: resolvedMethod,
     metadata: { provider: provider || resolvedMethod.toLowerCase(), gateway: provider || resolvedMethod.toLowerCase(), paymentMethod: resolvedMethod, currency: "INR" },
@@ -481,6 +504,37 @@ export const getPaymentByOrderId = asyncHandler(async (req, res) => {
   const detail = mapPaymentDetail(payment);
   detail.refunds = await Refund.find({ payment: payment._id }).select("amount reason status method processedAt createdAt initiatedBy").populate("initiatedBy", "fullName role").sort({ createdAt: -1 }).lean();
   res.status(200).json(new ApiResponse(true, "Payment fetched", detail));
+});
+
+/** Read-only, outlet-scoped ledger view used by Orders-page payment retries. */
+export const getOrderPaymentSummary = asyncHandler(async (req, res) => {
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user))
+    .populate("customer", "fullName email phone")
+    .populate("table", "tableNumber");
+  if (!order) throw new ApiError(404, "Order not found");
+
+  const settlement = await deriveOrderPaymentState(order);
+  const payments = await Payment.find(await buildRestaurantQuery({ orderId: order._id }, req.user))
+    .sort({ createdAt: -1 })
+    .select("paymentId amount totalAmount paymentMethod gateway provider paymentStatus providerStatus transactionId cashfreeOrderId razorpayOrderId createdAt paidAt refundAmount");
+
+  res.status(200).json(new ApiResponse(true, "Order payment summary fetched", {
+    order: {
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      total: order.total,
+      paymentStatus: settlement.paymentStatus,
+      customer: order.customer,
+      table: order.table,
+    },
+    settlement: {
+      totalAmount: Number(order.total || 0),
+      alreadyPaid: settlement.collectedAmount,
+      amountDue: settlement.remainingAmount,
+      fullyPaid: settlement.fullyPaid,
+    },
+    payments: payments.map(serializePayment),
+  }));
 });
 
 export const listPayments = asyncHandler(async (req, res) => {

@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { FiEdit2, FiEye, FiShoppingBag, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiEye, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { paymentMethodLabel } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
@@ -19,7 +19,7 @@ const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
-const OrderRow = memo(({ order, onOpen, onEdit, onDelete, kitchenOnly }) => kitchenOnly ? (
+const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, kitchenOnly }) => kitchenOnly ? (
   <tr className="border-b border-slate-100 text-slate-700">
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
@@ -38,7 +38,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, kitchenOnly }) => kitc
     <td className={`${cellClass} font-semibold text-slate-900`}>{currency(order.total)}</td>
     <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
     <td className={cellClass}>{order.kitchenStatus ? String(order.kitchenStatus).replaceAll("_", " ") : "-"}</td>
-    <td className={cellClass}>{paymentText(order.paymentStatus)} · {paymentMethodLabel(order.paymentMethod)}</td>
+    <td className={`${cellClass} whitespace-normal`}><div>{paymentText(order.paymentStatus)} · {paymentMethodLabel(order.paymentMethod)}</div>{canCollectPayments && ["FAILED", "PENDING", "UNPAID"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" /> Retry Payment</button> : null}</td>
     <td className={cellClass}>{dateTime(order.createdAt)}</td>
     <td className={cellClass}>
       <div className="flex flex-nowrap gap-2">
@@ -56,7 +56,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, kitchenOnly }) => kitc
   </tr>
 ));
 
-const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, hasFilters = false, kitchenOnly = false }) => {
+const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, hasFilters = false, kitchenOnly = false }) => {
   if (loading) {
     return (
       <>
@@ -95,14 +95,14 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, hasFilte
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} kitchenOnly={kitchenOnly} />)}
+            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />)}
           </tbody>
         </table>
       </div>
 
       <div className="grid gap-3 lg:hidden">
-        {orders.map((order) => (
-          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} kitchenOnly={kitchenOnly} />
+          {orders.map((order) => (
+          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />
         ))}
       </div>
     </>

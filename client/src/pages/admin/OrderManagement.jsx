@@ -9,6 +9,7 @@ import CreateOrderModal from "../../components/admin/orders/CreateOrderModal";
 import EditOrderModal from "../../components/admin/orders/EditOrderModal";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
 import OrderPaymentPromptModal from "../../components/admin/orders/OrderPaymentPromptModal";
+import RetryPaymentModal from "../../components/admin/orders/RetryPaymentModal";
 import OrderStats from "../../components/admin/orders/OrderStats";
 import OrderTable from "../../components/admin/orders/OrderTable";
 import OrderToolbar from "../../components/admin/orders/OrderToolbar";
@@ -27,7 +28,7 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "../../services/orderService";
-import { createCashfreePayment, createGatewayPayment, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
+import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
@@ -113,10 +114,19 @@ const OrderManagement = () => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [cashConfirmOpen, setCashConfirmOpen] = useState(false);
   const [cashConfirmLoading, setCashConfirmLoading] = useState(false);
+  const [retryTarget, setRetryTarget] = useState(null);
+  const [retrySettlement, setRetrySettlement] = useState(null);
+  const [retryMethod, setRetryMethod] = useState("CASH");
+  const [retryProcessing, setRetryProcessing] = useState(false);
   const filtersRef = useRef(filters);
   const createSubmittingRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+
+  const canCollectPayments = ["admin", "restaurant_admin", "hotel_admin", "manager", "cashier"].includes(String(user?.role || "").toLowerCase())
+    || String(user?.accessLevel || "").toUpperCase() === "FULL_ACCESS"
+    || user?.customPermissions?.includes("payments.collect")
+    || user?.permissions?.includes("payments.collect");
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -278,6 +288,96 @@ const OrderManagement = () => {
       setDetailsOrder(data.data.order || order);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load payment receipt");
+    }
+  };
+
+  const openRetryPayment = async (order) => {
+    if (!canCollectPayments || !order?._id) return;
+    try {
+      const { data } = await getOrderPaymentSummary(order._id);
+      const summary = data.data?.settlement || {};
+      if (summary.fullyPaid || Number(summary.amountDue || 0) <= 0) {
+        toast.success("This order is already paid");
+        await loadOrders();
+        return;
+      }
+      setRetryTarget({ ...order, ...(data.data?.order || {}) });
+      setRetrySettlement(summary);
+      setRetryMethod("CASH");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to load the outstanding payment");
+    }
+  };
+
+  const closeRetryPayment = () => {
+    if (retryProcessing) return;
+    setRetryTarget(null);
+    setRetrySettlement(null);
+  };
+
+  const processRetryPayment = async () => {
+    if (!retryTarget?._id || retryProcessing) return;
+    const amountDue = Number(retrySettlement?.amountDue || 0);
+    if (amountDue <= 0) return;
+    const idempotencyKey = `retry-payment:${retryTarget._id}:${crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
+    setRetryProcessing(true);
+    try {
+      if (retryMethod === "CASH") {
+        await payOrder(retryTarget._id, {
+          amount: amountDue,
+          paymentMethod: "CASH",
+          paymentStatus: "PAID",
+          gateway: "CASH",
+          transactionId: `CASH-${retryTarget.orderNumber}-${idempotencyKey}`,
+          paidAt: new Date().toISOString(),
+        }, idempotencyKey);
+        toast.success(`Payment successful. ${formatINR.format(amountDue)} collected for #${retryTarget.orderNumber}`);
+        setRetryProcessing(false);
+        setRetryTarget(null);
+        setRetrySettlement(null);
+        await Promise.all([loadOrders(), loadStats()]);
+        return;
+      }
+
+      if (retryMethod === "CASHFREE") {
+        const { data } = await createCashfreePayment(retryTarget._id, idempotencyKey);
+        await openCashfreeCheckout(data?.data?.paymentSessionId);
+        return;
+      }
+
+      const { data } = await createGatewayPayment({ orderId: retryTarget._id, provider: "razorpay", paymentMethod: retryMethod }, idempotencyKey);
+      const checkout = data.data;
+      await loadRazorpayScript();
+      const rzp = new window.Razorpay({
+        key: checkout.keyId,
+        amount: checkout.amount,
+        currency: checkout.currency || "INR",
+        name: "RestoSphere",
+        description: `Order ${checkout.orderId}`,
+        order_id: checkout.razorpayOrderId,
+        handler: async (response) => {
+          try {
+            await verifyGatewayPayment({ orderId: retryTarget._id, provider: "razorpay", paymentMethod: retryMethod, razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature }, idempotencyKey);
+            toast.success(`Payment successful. ${formatINR.format(amountDue)} collected for #${retryTarget.orderNumber}`);
+            setRetryTarget(null);
+            setRetrySettlement(null);
+            await Promise.all([loadOrders(), loadStats()]);
+          } catch (error) {
+            toast.error(error?.response?.data?.message || "Payment verification failed");
+          } finally {
+            setRetryProcessing(false);
+          }
+        },
+        modal: { ondismiss: () => { toast.error("Payment cancelled. You can retry again."); setRetryProcessing(false); } },
+        prefill: { name: retryTarget.customer?.fullName || "Guest", email: retryTarget.customer?.email || "", contact: retryTarget.customer?.phone || "" },
+        notes: { orderId: retryTarget.orderNumber },
+        theme: { color: "#0f766e" },
+      });
+      rzp.on("payment.failed", () => { toast.error("Payment failed. You can retry again."); setRetryProcessing(false); });
+      rzp.open();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Unable to start payment");
+      setRetryProcessing(false);
     }
   };
 
@@ -573,6 +673,8 @@ const OrderManagement = () => {
         onOpen={openDetails}
         onEdit={openEdit}
         onDelete={requestDelete}
+        onRetryPayment={openRetryPayment}
+        canCollectPayments={canCollectPayments}
         kitchenOnly={isChef}
       />
       {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
@@ -621,6 +723,17 @@ const OrderManagement = () => {
         }}
         onViewReceipt={isChef ? undefined : openReceipt}
         onPrintReceipt={isChef ? undefined : openReceipt}
+      />
+
+      <RetryPaymentModal
+        open={Boolean(retryTarget)}
+        order={retryTarget}
+        settlement={retrySettlement}
+        method={retryMethod}
+        onMethodChange={setRetryMethod}
+        loading={retryProcessing}
+        onClose={closeRetryPayment}
+        onConfirm={processRetryPayment}
       />
 
       {!isChef && <CashPaymentConfirmationModal

@@ -33,7 +33,10 @@ export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Payment already completed");
   }
 
-  const existing = await activeCashfreePayment(order._id, req.user);
+  const requestedAttemptKey = String(req.get("Idempotency-Key") || req.body.idempotencyKey || "").trim();
+  const existing = requestedAttemptKey
+    ? await Payment.findOne(await buildOutletQuery({ orderId: order._id, provider: "cashfree", idempotencyKey: requestedAttemptKey }, req.user)).select("_id cashfreeOrderId paymentSessionId providerStatus amount")
+    : await activeCashfreePayment(order._id, req.user);
   if (existing?.paymentSessionId) {
     return res.status(200).json(new ApiResponse(true, "Existing Cashfree checkout returned", safeCheckoutPayload(existing)));
   }
@@ -48,7 +51,7 @@ export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {
     providerStatus: "CREATED",
     cashfreeOrderId,
     transactionId: `CF-ORDER-${cashfreeOrderId}`,
-    idempotencyKey: `cashfree-order:${String(order._id)}`,
+    idempotencyKey: requestedAttemptKey || `cashfree-order:${String(order._id)}:${cashfreeOrderId}`,
     metadata: { provider: "cashfree", gateway: "Cashfree", internalOrderId: String(order._id) },
     receivedBy: req.user._id,
     note: "Cashfree checkout created",

@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { FiEdit2, FiEye, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiEye, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { paymentBadgeClasses, paymentStatusLabel } from "../../../utils/paymentUtils";
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -15,7 +15,7 @@ const elapsedTime = (value) => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-const OrderCard = ({ order, onOpen, onEdit, onDelete, kitchenOnly = false }) => (
+const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, kitchenOnly = false }) => (
   <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
@@ -48,7 +48,7 @@ const OrderCard = ({ order, onOpen, onEdit, onDelete, kitchenOnly = false }) => 
       {order.kitchenStatus ? <><span aria-hidden="true">·</span><span>Kitchen: {String(order.kitchenStatus).replaceAll("_", " ")}</span></> : null}
       {elapsedTime(order.createdAt) ? <><span aria-hidden="true">·</span><span>{elapsedTime(order.createdAt)}</span></> : null}
     </div>
-    {!kitchenOnly && <p className="mt-2"><span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{paymentStatusLabel(order.paymentStatus)}</span></p>}
+    {!kitchenOnly && <div className="mt-2"><span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{paymentStatusLabel(order.paymentStatus)}</span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" /> Retry Payment</button> : null}</div>}
 
     <button type="button" onClick={() => onOpen(order)} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-brand-700 px-3 text-sm font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30" aria-label={`Open order ${order.orderNumber}`}>
       <FiEye className="h-4 w-4 shrink-0" aria-hidden="true" /> Open Order

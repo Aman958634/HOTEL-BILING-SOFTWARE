@@ -8,7 +8,7 @@ export const updateOrder = (id, payload) => api.put(`/orders/${id}`, payload);
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
 export const updateOrderStatus = (id, status, payload = {}) => api.patch(`/orders/${id}/status`, { status, ...payload });
 export const updateOrderPayment = (id, payload) => api.patch(`/orders/${id}/payment`, payload);
-export const payOrder = (id, payload) => api.post(`/orders/${id}/pay`, payload);
+export const payOrder = (id, payload, idempotencyKey) => api.post(`/orders/${id}/pay`, payload, { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {} });
 export const updateOrderPaymentStatus = (id, payload) => api.put(`/orders/${id}/payment-status`, payload);
 
 export const getOrderStats = (params = {}) => api.get("/orders/stats", { params });
