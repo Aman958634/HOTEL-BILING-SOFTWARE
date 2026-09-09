@@ -11,6 +11,14 @@ export const assertEasySplitAvailable = () => {
   return config;
 };
 
+export const assertEasySplitPaymentsAvailable = () => {
+  const config = assertEasySplitAvailable();
+  if (!config.easySplitPaymentsEnabled) {
+    throw new ApiError(503, "Easy Split payment allocation is disabled", "EASY_SPLIT_PAYMENTS_DISABLED");
+  }
+  return config;
+};
+
 export const generateProviderVendorId = (restaurantId) => `RESTO_${crypto.createHash("sha256").update(String(restaurantId)).digest("hex").slice(0, 20).toUpperCase()}`;
 
 const digitsOnlyPhone = (value) => String(value || "").replace(/\D/g, "");
@@ -57,8 +65,8 @@ export const mapCashfreeVendorStatus = (status) => {
   };
 };
 
-const easySplitRequest = async (path, { method = "GET", body, idempotencyKey } = {}) => {
-  const config = assertEasySplitAvailable();
+const easySplitRequest = async (path, { method = "GET", body, idempotencyKey, splitPayment = false } = {}) => {
+  const config = splitPayment ? assertEasySplitPaymentsAvailable() : assertEasySplitAvailable();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
@@ -67,7 +75,7 @@ const easySplitRequest = async (path, { method = "GET", body, idempotencyKey } =
       signal: controller.signal,
       headers: {
         "content-type": "application/json",
-        "x-api-version": config.easySplitApiVersion,
+        "x-api-version": splitPayment ? config.easySplitSplitApiVersion : config.easySplitApiVersion,
         "x-client-id": config.appId,
         "x-client-secret": config.secretKey,
         "x-request-id": crypto.randomUUID(),
@@ -76,12 +84,12 @@ const easySplitRequest = async (path, { method = "GET", body, idempotencyKey } =
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError(response.status >= 500 ? 503 : 422, "Cashfree vendor onboarding request was rejected", "EASY_SPLIT_PROVIDER_REJECTED");
+    if (!response.ok) throw new ApiError(response.status >= 500 ? 503 : 422, "Cashfree Easy Split request was rejected", "EASY_SPLIT_PROVIDER_REJECTED");
     return { payload, providerRequestId: response.headers.get("x-request-id") || "" };
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    if (error?.name === "AbortError") throw new ApiError(504, "Cashfree vendor onboarding timed out", "EASY_SPLIT_TIMEOUT");
-    throw new ApiError(503, "Cashfree vendor onboarding is unavailable", "EASY_SPLIT_UNAVAILABLE");
+    if (error?.name === "AbortError") throw new ApiError(504, "Cashfree Easy Split request timed out", "EASY_SPLIT_TIMEOUT");
+    throw new ApiError(503, "Cashfree Easy Split is unavailable", "EASY_SPLIT_UNAVAILABLE");
   } finally {
     clearTimeout(timeout);
   }
@@ -89,3 +97,29 @@ const easySplitRequest = async (path, { method = "GET", body, idempotencyKey } =
 
 export const createEasySplitVendor = ({ payload, idempotencyKey }) => easySplitRequest("/easy-split/vendors", { method: "POST", body: payload, idempotencyKey });
 export const getEasySplitVendor = (vendorId) => easySplitRequest(`/easy-split/vendors/${encodeURIComponent(vendorId)}`);
+
+// Cashfree's documented Split After Payment endpoint accepts the order amount
+// in INR (with up to two decimal places). Only the restaurant/vendor share is
+// sent: the remainder stays with the platform account as its commission.
+export const createEasySplitAfterPayment = ({ cashfreeOrderId, vendorId, vendorSharePaise, idempotencyKey }) => {
+  if (!cashfreeOrderId || !vendorId || !Number.isSafeInteger(vendorSharePaise) || vendorSharePaise <= 0) {
+    throw new ApiError(422, "A valid Cashfree order, vendor, and vendor share are required");
+  }
+  return easySplitRequest(`/easy-split/orders/${encodeURIComponent(cashfreeOrderId)}/split`, {
+    method: "POST",
+    idempotencyKey,
+    splitPayment: true,
+    body: {
+      split: [{ vendor_id: vendorId, amount: Number((vendorSharePaise / 100).toFixed(2)) }],
+      disable_split: true,
+    },
+  });
+};
+
+// Cashfree's published Payment Gateway OpenAPI contract documents this as
+// "Get Settlements by Order ID". It is intentionally read-only and never
+// creates a settlement, payout, or transfer.
+export const getEasySplitOrderDetails = (cashfreeOrderId) => easySplitRequest(
+  `/orders/${encodeURIComponent(cashfreeOrderId)}/settlements`,
+  { method: "GET", splitPayment: true }
+);

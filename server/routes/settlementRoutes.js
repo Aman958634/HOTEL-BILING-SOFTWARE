@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { requirePermission } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { createSettlementVendor, getSettlementProfile, refreshSettlementVendor } from "../controllers/settlementController.js";
+import { createSettlementVendor, getSettlementProfile, getSettlementSplitSummary, refreshSettlementSplit, refreshSettlementVendor } from "../controllers/settlementController.js";
 
 const router = Router();
 router.use(authMiddleware, requireActiveSubscription);
@@ -21,4 +21,6 @@ router.post("/cashfree/vendor", requirePermission("settlements.manage"), [
   body("upiVpa").optional().isString().isLength({ min: 3, max: 200 }),
 ], validate, createSettlementVendor);
 router.post("/cashfree/vendor/refresh", requirePermission("settlements.manage"), refreshSettlementVendor);
+router.get("/cashfree/splits", requirePermission("settlements.view"), getSettlementSplitSummary);
+router.post("/cashfree/splits/:id/refresh", requirePermission("settlements.manage"), [param("id").isMongoId()], validate, refreshSettlementSplit);
 export default router;

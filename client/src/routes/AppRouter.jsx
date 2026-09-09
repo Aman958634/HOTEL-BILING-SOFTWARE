@@ -66,6 +66,7 @@ const SubscriptionsPage = lazy(() => import("../pages/admin/SubscriptionsPage"))
 const ActivityLogsPage = lazy(() => import("../pages/admin/ActivityLogsPage"));
 const BillingPage = lazy(() => import("../pages/admin/BillingPage"));
 const SuperAdminPaymentsPage = lazy(() => import("../pages/admin/SuperAdminPaymentsPage"));
+const SuperAdminSettlementsPage = lazy(() => import("../pages/admin/SuperAdminSettlementsPage"));
 const MySubscriptionPage = lazy(() => import("../pages/admin/MySubscriptionPage"));
 const KitchenDisplay = lazy(() => import("../pages/admin/KitchenDisplay"));
 const InventoryPage = lazy(() => import("../pages/admin/InventoryPage"));
@@ -274,6 +275,7 @@ const AppRouter = () => (
       <Route path="activity-logs" element={<ActivityLogsPage />} />
       <Route path="orders" element={<AdminPlaceholderPage title="Orders" />} />
       <Route path="payments" element={<SuperAdminPaymentsPage />} />
+      <Route path="settlements" element={<SuperAdminSettlementsPage />} />
       <Route path="reports" element={<AdminPlaceholderPage title="Reports" />} />
       <Route path="settings" element={<AdminPlaceholderPage title="Settings" />} />
       <Route path="*" element={<Navigate to="dashboard" replace />} />

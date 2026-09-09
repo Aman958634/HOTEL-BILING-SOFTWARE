@@ -4,6 +4,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import Restaurant from "../models/Restaurant.js";
 import RestaurantSettlementProfile from "../models/RestaurantSettlementProfile.js";
+import SettlementTransaction from "../models/SettlementTransaction.js";
 import { createActivity } from "../services/activityService.js";
 import { getCashfreeEasySplitStatus } from "../config/cashfree.js";
 import {
@@ -14,6 +15,7 @@ import {
   getEasySplitVendor,
   mapCashfreeVendorStatus,
 } from "../services/cashfreeEasySplitService.js";
+import { refreshCashfreeSettlementTransaction, safeSettlementTransaction } from "../services/easySplitSettlementService.js";
 
 const restaurantIdFor = (user) => user?.restaurant && mongoose.isValidObjectId(user.restaurant) ? user.restaurant : null;
 const maskAccount = (value) => {
@@ -170,4 +172,34 @@ export const refreshSettlementVendor = asyncHandler(async (req, res) => {
   await profile.save();
   await createActivity({ action: "CASHFREE_VENDOR_STATUS_REFRESHED", description: "Cashfree settlement vendor status refreshed", performedBy: req.user._id, restaurantId, targetId: profile._id, targetType: "RestaurantSettlementProfile", metadata: { provider: "CASHFREE", providerVendorId: profile.providerVendorId, vendorStatus: profile.vendorStatus } });
   res.json(new ApiResponse(true, "Settlement vendor status refreshed", safeProfile(profile)));
+});
+
+export const getSettlementSplitSummary = asyncHandler(async (req, res) => {
+  const restaurantId = restaurantIdFor(req.user);
+  if (!restaurantId) throw new ApiError(403, "Settlement account requires a restaurant context");
+  const activeOutlet = req.user.activeOutlet || req.user.defaultOutlet;
+  const transactions = await SettlementTransaction.find({ restaurant: restaurantId, ...(activeOutlet ? { outlet: activeOutlet } : {}) })
+    .sort({ createdAt: -1 }).limit(100).lean();
+  const summary = transactions.reduce((acc, item) => {
+    acc.grossAmount += item.grossAmountPaise || 0;
+    acc.vendorShare += item.vendorSharePaise || 0;
+    acc.platformShare += item.platformSharePaise || 0;
+    acc.statuses[item.settlementStatus] = (acc.statuses[item.settlementStatus] || 0) + 1;
+    return acc;
+  }, { grossAmount: 0, vendorShare: 0, platformShare: 0, statuses: {} });
+  res.json(new ApiResponse(true, "Settlement allocation history fetched", {
+    summary: { grossAmount: summary.grossAmount / 100, vendorShare: summary.vendorShare / 100, platformShare: summary.platformShare / 100, statuses: summary.statuses },
+    transactions: transactions.map(safeSettlementTransaction),
+  }));
+});
+
+export const refreshSettlementSplit = asyncHandler(async (req, res) => {
+  const restaurantId = restaurantIdFor(req.user);
+  if (!restaurantId) throw new ApiError(403, "Settlement account requires a restaurant context");
+  const activeOutlet = req.user.activeOutlet || req.user.defaultOutlet;
+  const transaction = await SettlementTransaction.findOne({ _id: req.params.id, restaurant: restaurantId, ...(activeOutlet ? { outlet: activeOutlet } : {}) });
+  if (!transaction) throw new ApiError(404, "Settlement allocation not found");
+  const refreshed = await refreshCashfreeSettlementTransaction(transaction);
+  await createActivity({ action: "CASHFREE_SETTLEMENT_STATUS_REFRESHED", description: "Cashfree settlement allocation status refreshed", performedBy: req.user._id, restaurantId, targetId: refreshed._id, targetType: "SettlementTransaction", metadata: { cashfreeOrderId: refreshed.cashfreeOrderId, providerVendorId: refreshed.providerVendorId, providerStatus: refreshed.providerStatus } });
+  res.json(new ApiResponse(true, "Settlement allocation status refreshed", safeSettlementTransaction(refreshed)));
 });

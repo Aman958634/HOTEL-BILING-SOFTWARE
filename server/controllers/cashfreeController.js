@@ -8,6 +8,7 @@ import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { getCashfreeConfig } from "../config/cashfree.js";
 import { deriveOrderPaymentState, recordOrderPayment, settleCashfreePayment, serializePayment } from "../services/paymentService.js";
 import { cashfreePaymentState, createCashfreeOrder, getCashfreePayments, makeCashfreeOrderId, verifyCashfreeWebhook } from "../services/cashfreeService.js";
+import { ensureCashfreeSplitAllocation, processCashfreeSettlementWebhook, safeSettlementTransaction } from "../services/easySplitSettlementService.js";
 
 const activeCashfreePayment = async (orderId, user) => Payment.findOne(await buildOutletQuery({
   orderId,
@@ -86,7 +87,17 @@ export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {
 const verifyPaymentForRecord = async ({ payment, fromWebhook = false }) => {
   const remotePayments = await getCashfreePayments(payment.cashfreeOrderId);
   const { status, payment: externalPayment } = cashfreePaymentState(remotePayments);
-  return settleCashfreePayment({ order: payment.orderId, paymentId: payment._id, externalPayment, providerStatus: status, fromWebhook });
+  const result = await settleCashfreePayment({ order: payment.orderId, paymentId: payment._id, externalPayment, providerStatus: status, fromWebhook });
+  let settlement = null;
+  if (result.payment.paymentStatus === "PAID") {
+    try {
+      settlement = await ensureCashfreeSplitAllocation({ payment: result.payment });
+    } catch (error) {
+      // Customer payment status is never rolled back by a settlement failure.
+      logger.warn("Cashfree Easy Split allocation deferred", { restaurantId: String(result.payment.restaurant), outletId: String(result.payment.outlet || ""), internalOrderId: String(result.payment.orderId), cashfreeOrderId: result.payment.cashfreeOrderId, providerStatus: result.payment.providerStatus, code: error?.code || "EASY_SPLIT_ALLOCATION_FAILED" });
+    }
+  }
+  return { ...result, settlement };
 };
 
 export const getCashfreePaymentStatus = asyncHandler(async (req, res) => {
@@ -99,6 +110,7 @@ export const getCashfreePaymentStatus = asyncHandler(async (req, res) => {
     orderId: payment.cashfreeOrderId,
     status: result.payment.paymentStatus,
     payment: serializePayment(result.payment),
+    settlement: safeSettlementTransaction(result.settlement?.transaction),
   }));
 });
 
@@ -112,6 +124,8 @@ export const cashfreeWebhook = asyncHandler(async (req, res) => {
 
   let event;
   try { event = JSON.parse(rawBody); } catch { throw new ApiError(400, "Invalid Cashfree webhook payload"); }
+  const settlementWebhook = await processCashfreeSettlementWebhook({ event, rawBody });
+  if (settlementWebhook.handled) return res.status(200).json({ success: true });
   const cashfreeOrderId = String(event?.data?.order?.order_id || event?.order?.order_id || event?.order_id || "").trim();
   if (!cashfreeOrderId) throw new ApiError(400, "Cashfree webhook is missing order id");
   const payment = await Payment.findOne({ cashfreeOrderId, provider: "cashfree" });

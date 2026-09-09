@@ -7,6 +7,7 @@ import * as subscriptionsCtrl from "../controllers/superAdminSubscriptionsContro
 import * as activityCtrl from "../controllers/superAdminActivityController.js";
 import * as usersCtrl from "../controllers/superAdminUsersController.js";
 import * as paymentsCtrl from "../controllers/superAdminPaymentsController.js";
+import * as settlementsCtrl from "../controllers/superAdminSettlementController.js";
 import {
   userListValidation,
   userIdValidation,
@@ -61,5 +62,11 @@ router.get("/payments/summary", paymentsCtrl.getSaasPaymentSummary);
 router.get("/payments/:id/pdf", paymentsCtrl.downloadSaasPaymentPdf);
 router.get("/payments/:id", paymentsCtrl.getSaasPaymentById);
 router.delete("/payments/:id", paymentsCtrl.deleteSaasPayment);
+
+// Cashfree Easy Split commercial controls. The router itself is guarded by
+// requireSuperAdmin, so a restaurant admin cannot alter another tenant's fee.
+router.get("/settlements/commission", settlementsCtrl.getCommissionConfig);
+router.put("/settlements/commission/:restaurantId", settlementsCtrl.updateCommissionConfig);
+router.get("/settlements/transactions", settlementsCtrl.listSettlementTransactions);
 
 export default router;

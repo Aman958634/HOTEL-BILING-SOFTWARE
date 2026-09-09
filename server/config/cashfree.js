@@ -28,6 +28,10 @@ export const getCashfreeConfig = () => {
   return {
     enabled: String(process.env.CASHFREE_ENABLED || "").trim().toLowerCase() === "true",
     easySplitEnabled: String(process.env.CASHFREE_EASY_SPLIT_ENABLED || "false").trim().toLowerCase() === "true",
+    // Payment allocation is intentionally a separate opt-in from Phase 1 vendor
+    // onboarding.  This prevents an account-verification deployment from ever
+    // changing how customer payments are settled.
+    easySplitPaymentsEnabled: String(process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED || "false").trim().toLowerCase() === "true",
     environment,
     baseUrl: CASHFREE_ENVIRONMENTS[environment] || "",
     appId,
@@ -35,6 +39,10 @@ export const getCashfreeConfig = () => {
     configured: Boolean(environment && appId && secretKey),
     apiVersion: String(process.env.CASHFREE_API_VERSION || "2026-01-01").trim(),
     easySplitApiVersion: String(process.env.CASHFREE_EASY_SPLIT_API_VERSION || "2023-08-01").trim(),
+    // Cashfree documents Split After Payment with this contract version.  Keep
+    // it separate from vendor onboarding so a verified onboarding version is
+    // not silently changed.
+    easySplitSplitApiVersion: String(process.env.CASHFREE_EASY_SPLIT_SPLIT_API_VERSION || "2022-09-01").trim(),
   };
 };
 
@@ -56,7 +64,9 @@ export const getCashfreeEasySplitStatus = () => {
     sandboxOnly,
     status: available ? "SANDBOX_ENABLED" : "ACTIVATION_REQUIRED",
     message: available
-      ? "Cashfree Easy Split sandbox onboarding is enabled. No payment distribution is enabled."
+      ? (config.easySplitPaymentsEnabled
+        ? "Cashfree Easy Split sandbox payment allocation is enabled."
+        : "Cashfree Easy Split sandbox onboarding is enabled. Payment allocation is disabled.")
       : "Cashfree Easy Split sandbox activation and backend credentials are required before settlement onboarding can be used.",
   };
 };

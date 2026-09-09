@@ -12,6 +12,7 @@ const links = [
   { to: "/super-admin/activity-logs", label: "Activity Logs", icon: <FiZap />, tone: "reports" },
   { to: "/super-admin/orders", label: "Orders", icon: <FiShoppingBag />, tone: "orders" },
   { to: "/super-admin/payments", label: "Payments", icon: <FiCreditCard />, tone: "payments" },
+  { to: "/super-admin/settlements", label: "Settlements", icon: <FiCreditCard />, tone: "payments" },
   { to: "/super-admin/reports", label: "Reports", icon: <FiFileText />, tone: "reports" },
   { to: "/super-admin/settings", label: "Settings", icon: <FiSettings />, tone: "settings" },
 ];
