@@ -35,6 +35,7 @@
     "test:realtime-scope": "node tests/realtimeScope.test.js",
     "test:security": "node tests/paymentSecurity.test.js",
     "test:cashfree": "node tests/cashfreePayment.test.js",
+    "test:easy-split": "node tests/easySplitVendor.test.js && node tests/easySplitVendorDb.test.js",
     "seed:cashfree-test": "node scripts/seedCashfreeTestFixture.js",
     "prepare:cashfree-partial-test": "node scripts/prepareCashfreePartialFixture.js",
     "test:tenant-isolation": "node tests/tenantIsolation.test.js",
@@ -49,7 +50,7 @@
     "load:pos:20": "node load-tests/pos-load-test.mjs --max=20",
     "load:pos:50": "node load-tests/pos-load-test.mjs --max=50",
     "load:pos:100": "node load-tests/pos-load-test.mjs --max=100",
-    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check routes/paymentRoutes.js && node --check controllers/paymentController.js && node --check controllers/cashfreeController.js && node --check controllers/restaurantController.js && node --check controllers/superAdminRestaurantsController.js && node --check controllers/publicSubscriptionController.js && node --check services/paymentService.js && node --check services/cashfreeService.js && node --check config/cashfree.js && node --check utils/publicMenuContext.js && node --check utils/restaurantSlug.js && node --check scripts/backfillRestaurantPublicSlugs.js"
+    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check routes/paymentRoutes.js && node --check routes/settlementRoutes.js && node --check controllers/paymentController.js && node --check controllers/cashfreeController.js && node --check controllers/settlementController.js && node --check controllers/restaurantController.js && node --check controllers/superAdminRestaurantsController.js && node --check controllers/publicSubscriptionController.js && node --check services/paymentService.js && node --check services/cashfreeService.js && node --check services/cashfreeEasySplitService.js && node --check config/cashfree.js && node --check utils/publicMenuContext.js && node --check utils/restaurantSlug.js && node --check scripts/backfillRestaurantPublicSlugs.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

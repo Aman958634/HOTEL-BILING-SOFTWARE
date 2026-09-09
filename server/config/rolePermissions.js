@@ -5,6 +5,7 @@ export const PERMISSION_KEYS = Object.freeze([
   "orders.view", "orders.view_kitchen", "orders.create", "orders.edit", "orders.cancel",
   "billing.view", "billing.generate",
   "payments.view", "payments.collect", "payments.reconcile",
+  "settlements.view", "settlements.manage",
   "inventory.view", "inventory.manage",
   "staff.view", "staff.manage",
   "reports.view_basic", "reports.view_full",

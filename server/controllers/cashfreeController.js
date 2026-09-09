@@ -13,6 +13,7 @@ const activeCashfreePayment = async (orderId, user) => Payment.findOne(await bui
   orderId,
   provider: "cashfree",
   paymentStatus: { $in: ["PENDING", "PROCESSING"] },
+  providerStatus: { $nin: ["FAILED", "CANCELLED"] },
   cashfreeOrderId: { $ne: "" },
 }, user)).select("_id cashfreeOrderId paymentSessionId providerStatus amount");
 

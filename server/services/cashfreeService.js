@@ -46,6 +46,12 @@ const safePhone = (phone) => {
 
 export const makeCashfreeOrderId = () => `RS_CF_${crypto.randomUUID().replace(/-/g, "")}`;
 
+export const cashfreeAmount = (value) => {
+  const amount = Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(422, "Cashfree payment amount must be greater than zero");
+  return amount.toFixed(2);
+};
+
 export const createCashfreeOrder = async ({ cashfreeOrderId, amount, customer, order }) => {
   const phone = safePhone(customer?.phone);
   if (!phone) throw new ApiError(422, "Cashfree requires a customer phone number");
@@ -64,7 +70,7 @@ export const createCashfreeOrder = async ({ cashfreeOrderId, amount, customer, o
     idempotencyKey: crypto.randomUUID(),
     body: {
       order_id: cashfreeOrderId,
-      order_amount: Number(amount).toFixed(2),
+      order_amount: cashfreeAmount(amount),
       order_currency: "INR",
       customer_details: customerDetails,
       order_meta: { return_url: getCashfreeReturnUrl() },
@@ -91,6 +97,8 @@ export const cashfreePaymentState = (payments = []) => {
   if (successful) return { status: "SUCCESS", payment: successful };
   const pending = list.find((payment) => ["PENDING", "NOT_ATTEMPTED", "ACTIVE", "USER_DROPPED"].includes(String(payment?.payment_status || "").toUpperCase()));
   if (pending) return { status: "PENDING", payment: pending };
-  const failed = list.find((payment) => ["FAILED", "CANCELLED"].includes(String(payment?.payment_status || "").toUpperCase()));
+  const cancelled = list.find((payment) => String(payment?.payment_status || "").toUpperCase() === "CANCELLED");
+  if (cancelled) return { status: "CANCELLED", payment: cancelled };
+  const failed = list.find((payment) => String(payment?.payment_status || "").toUpperCase() === "FAILED");
   return { status: failed ? "FAILED" : "PENDING", payment: failed || list[0] || null };
 };

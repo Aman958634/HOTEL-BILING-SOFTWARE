@@ -23,6 +23,7 @@ import {
 import notificationRoutes from "./notificationRoutes.js";
 import restaurantRoutes from "./restaurantRoutes.js";
 import { createBackup, listBackups, restoreBackup } from "../controllers/backupController.js";
+import settlementRoutes from "./settlementRoutes.js";
 
 const router = Router();
 
@@ -62,5 +63,6 @@ router.get("/reports/export", exportReports);
 
 router.use("/notifications", notificationRoutes);
 router.use("/restaurant", restaurantRoutes);
+router.use("/settlement", settlementRoutes);
 
 export default router;

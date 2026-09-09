@@ -14,6 +14,10 @@ logger.info("Cashfree configuration detected", {
   cashfreeConfigured: cashfreeConfig.configured,
   cashfreeEnvironment: cashfreeConfig.environment || "not-set",
 });
+logger.info("Cashfree Easy Split configuration detected", {
+  easySplitEnabled: cashfreeConfig.easySplitEnabled,
+  easySplitSandboxOnly: cashfreeConfig.environment === "sandbox",
+});
 
 let httpServer;
 let socketServer;

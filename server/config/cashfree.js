@@ -27,12 +27,14 @@ export const getCashfreeConfig = () => {
 
   return {
     enabled: String(process.env.CASHFREE_ENABLED || "").trim().toLowerCase() === "true",
+    easySplitEnabled: String(process.env.CASHFREE_EASY_SPLIT_ENABLED || "false").trim().toLowerCase() === "true",
     environment,
     baseUrl: CASHFREE_ENVIRONMENTS[environment] || "",
     appId,
     secretKey,
     configured: Boolean(environment && appId && secretKey),
     apiVersion: String(process.env.CASHFREE_API_VERSION || "2026-01-01").trim(),
+    easySplitApiVersion: String(process.env.CASHFREE_EASY_SPLIT_API_VERSION || "2023-08-01").trim(),
   };
 };
 
@@ -42,6 +44,21 @@ export const assertCashfreeConfiguration = () => {
     throw new Error("Cashfree is enabled but CASHFREE_ENV, CASHFREE_APP_ID, or CASHFREE_SECRET_KEY is missing");
   }
   return config;
+};
+
+export const getCashfreeEasySplitStatus = () => {
+  const config = getCashfreeConfig();
+  const sandboxOnly = config.environment === "sandbox";
+  const available = config.easySplitEnabled && config.configured && sandboxOnly;
+  return {
+    enabled: config.easySplitEnabled,
+    available,
+    sandboxOnly,
+    status: available ? "SANDBOX_ENABLED" : "ACTIVATION_REQUIRED",
+    message: available
+      ? "Cashfree Easy Split sandbox onboarding is enabled. No payment distribution is enabled."
+      : "Cashfree Easy Split sandbox activation and backend credentials are required before settlement onboarding can be used.",
+  };
 };
 
 export const getCashfreeReturnUrl = () => {

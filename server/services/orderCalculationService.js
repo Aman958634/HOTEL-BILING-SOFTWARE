@@ -8,6 +8,8 @@ const toNumber = (value, fallback = 0) => {
 
 const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
+export const roundCurrency = round2;
+
 export const calculateOrderAmounts = ({
   items,
   discount = 0,

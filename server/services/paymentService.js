@@ -539,7 +539,22 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
       const orderDoc = await buildOrderLookup(orderId, session);
       const payment = await Payment.findOne({ _id: paymentId, orderId: orderDoc?._id }).session(session);
       if (!orderDoc || !payment) throw new ApiError(404, "Cashfree payment not found");
+      const providerPaymentId = String(externalPayment?.cf_payment_id || "").trim();
+      if (providerPaymentId) {
+        const duplicatePayment = await Payment.findOne({ cashfreePaymentId: providerPaymentId, _id: { $ne: payment._id } }).session(session);
+        if (duplicatePayment) {
+          if (String(duplicatePayment.orderId) !== String(orderDoc._id)) throw new ApiError(409, "Cashfree payment is already linked to another order");
+          const settlement = await deriveOrderPaymentState(orderDoc, session);
+          result = { order: orderDoc, payment: duplicatePayment, ...settlement, idempotent: true };
+          return;
+        }
+      }
       if (normalizePaymentStatus(payment.paymentStatus) === "PAID") {
+        const settlement = await deriveOrderPaymentState(orderDoc, session);
+        result = { order: orderDoc, payment, ...settlement, idempotent: true };
+        return;
+      }
+      if (["FAILED", "CANCELLED"].includes(externalStatus) && payment.providerStatus === externalStatus) {
         const settlement = await deriveOrderPaymentState(orderDoc, session);
         result = { order: orderDoc, payment, ...settlement, idempotent: true };
         return;
@@ -549,7 +564,7 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
       if (externalStatus === "SUCCESS" && (!Number.isFinite(amount) || Math.abs(amount - Number(payment.amount || 0)) > 0.01)) {
         throw new ApiError(422, "Cashfree verified amount does not match the outstanding balance");
       }
-      const cfPaymentId = String(externalPayment?.cf_payment_id || "").trim();
+      const cfPaymentId = providerPaymentId;
       payment.provider = "cashfree";
       payment.gateway = "Cashfree";
       payment.providerStatus = externalStatus;
@@ -564,8 +579,10 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
         payment.paidAt = new Date(externalPayment?.payment_time || Date.now());
         payment.verifiedAt = new Date();
         payment.metadata = { ...(payment.metadata || {}), provider: "cashfree", verified: true };
-      } else if (externalStatus === "FAILED" || externalStatus === "CANCELLED") {
+      } else if (externalStatus === "FAILED") {
         payment.paymentStatus = "FAILED";
+      } else if (externalStatus === "CANCELLED") {
+        payment.paymentStatus = "PENDING";
       } else {
         payment.paymentStatus = "PENDING";
       }
