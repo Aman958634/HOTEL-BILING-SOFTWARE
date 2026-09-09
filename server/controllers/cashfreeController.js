@@ -5,6 +5,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import logger from "../utils/logger.js";
 import { buildOutletQuery } from "../utils/tenantUtils.js";
+import { getCashfreeConfig } from "../config/cashfree.js";
 import { deriveOrderPaymentState, recordOrderPayment, settleCashfreePayment, serializePayment } from "../services/paymentService.js";
 import { cashfreePaymentState, createCashfreeOrder, getCashfreePayments, makeCashfreeOrderId, verifyCashfreeWebhook } from "../services/cashfreeService.js";
 
@@ -20,6 +21,7 @@ const safeCheckoutPayload = (payment) => ({
   provider: "cashfree",
   orderId: payment.cashfreeOrderId,
   paymentSessionId: payment.paymentSessionId,
+  environment: getCashfreeConfig().environment,
 });
 
 export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {

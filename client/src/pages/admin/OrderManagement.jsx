@@ -341,7 +341,7 @@ const OrderManagement = () => {
 
       if (retryMethod === "CASHFREE") {
         const { data } = await createCashfreePayment(retryTarget._id, idempotencyKey);
-        await openCashfreeCheckout(data?.data?.paymentSessionId);
+        await openCashfreeCheckout(data?.data?.paymentSessionId, data?.data?.environment);
         return;
       }
 
@@ -544,7 +544,7 @@ const OrderManagement = () => {
     try {
       if (paymentMethod === "CASHFREE") {
         const { data } = await createCashfreePayment(createdOrder._id);
-        await openCashfreeCheckout(data?.data?.paymentSessionId);
+        await openCashfreeCheckout(data?.data?.paymentSessionId, data?.data?.environment);
         return;
       }
       const { data } = await createGatewayPayment({
