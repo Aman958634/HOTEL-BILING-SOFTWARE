@@ -3,11 +3,24 @@ const CASHFREE_ENVIRONMENTS = {
   production: "https://api.cashfree.com/pg",
 };
 
+const CASHFREE_ENVIRONMENT_ALIASES = {
+  sandbox: "sandbox",
+  test: "sandbox",
+  production: "production",
+  prod: "production",
+  live: "production",
+};
+
+export const normalizeCashfreeEnvironment = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  const environment = CASHFREE_ENVIRONMENT_ALIASES[normalized];
+  if (!environment) throw new Error("CASHFREE_ENV must be sandbox, test, production, prod, or live");
+  return environment;
+};
+
 export const getCashfreeConfig = () => {
-  const environment = String(process.env.CASHFREE_ENV || "").trim().toLowerCase();
-  if (environment && !CASHFREE_ENVIRONMENTS[environment]) {
-    throw new Error("CASHFREE_ENV must be either sandbox or production");
-  }
+  const configuredEnvironment = String(process.env.CASHFREE_ENV || "").trim();
+  const environment = configuredEnvironment ? normalizeCashfreeEnvironment(configuredEnvironment) : "";
 
   const appId = String(process.env.CASHFREE_APP_ID || "").trim();
   const secretKey = String(process.env.CASHFREE_SECRET_KEY || "").trim();

@@ -21,7 +21,7 @@ const safeCheckoutPayload = (payment) => ({
   provider: "cashfree",
   orderId: payment.cashfreeOrderId,
   paymentSessionId: payment.paymentSessionId,
-  environment: getCashfreeConfig().environment,
+  cashfreeEnvironment: getCashfreeConfig().environment,
 });
 
 export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {
@@ -71,7 +71,8 @@ export const createCashfreeCheckoutOrder = asyncHandler(async (req, res) => {
     paymentRecord.paymentSessionId = cashfreeOrder.payment_session_id;
     paymentRecord.providerStatus = String(cashfreeOrder.order_status || "ACTIVE").toUpperCase();
     await paymentRecord.save();
-    logger.info("Cashfree checkout created", { requestId: req.requestId, restaurantId: String(order.restaurant), outletId: String(order.outlet || ""), internalOrderId: String(order._id), cashfreeOrderId: paymentRecord.cashfreeOrderId, providerStatus: paymentRecord.providerStatus });
+    const cashfreeEnvironment = getCashfreeConfig().environment;
+    logger.info("Cashfree checkout created", { requestId: req.requestId, cashfreeEnvironment, paymentSessionPresent: true, paymentSessionType: typeof cashfreeOrder.payment_session_id, restaurantId: String(order.restaurant), outletId: String(order.outlet || ""), internalOrderId: String(order._id), cashfreeOrderId: paymentRecord.cashfreeOrderId, providerStatus: paymentRecord.providerStatus });
     return res.status(201).json(new ApiResponse(true, "Cashfree checkout created", safeCheckoutPayload(paymentRecord)));
   } catch (error) {
     paymentRecord.paymentStatus = "FAILED";

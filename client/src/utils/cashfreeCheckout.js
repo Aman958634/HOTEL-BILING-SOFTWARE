@@ -16,12 +16,12 @@ const loadCashfreeScript = () => new Promise((resolve, reject) => {
   document.head.appendChild(script);
 });
 
-export const openCashfreeCheckout = async (paymentSessionId, backendEnvironment = "") => {
+export const openCashfreeCheckout = async (paymentSessionId, cashfreeEnvironment) => {
   if (typeof paymentSessionId !== "string" || !paymentSessionId.trim()) throw new Error("Cashfree payment session is missing or invalid");
+  if (!["sandbox", "production"].includes(String(cashfreeEnvironment || "").toLowerCase())) throw new Error("Cashfree payment environment is missing or invalid");
   const Cashfree = await loadCashfreeScript();
-  const configuredMode = String(import.meta.env.VITE_CASHFREE_ENV || (import.meta.env.DEV ? "sandbox" : "production")).trim().toLowerCase();
-  if (!["sandbox", "production"].includes(configuredMode)) throw new Error("Cashfree checkout environment is invalid");
-  if (backendEnvironment && String(backendEnvironment).toLowerCase() !== configuredMode) throw new Error("Cashfree checkout environment does not match the payment session");
-  const cashfree = Cashfree({ mode: configuredMode });
+  const mode = String(cashfreeEnvironment).toLowerCase();
+  console.info("Cashfree frontend mode:", mode, "payment session present:", true, "payment session type:", typeof paymentSessionId);
+  const cashfree = Cashfree({ mode });
   return cashfree.checkout({ paymentSessionId, redirectTarget: "_self" });
 };

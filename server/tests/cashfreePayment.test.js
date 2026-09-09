@@ -7,11 +7,16 @@ process.env.CASHFREE_SECRET_KEY = "cashfree-test-secret";
 process.env.CLIENT_URL = "http://localhost:5173";
 
 const { cashfreePaymentState, verifyCashfreeWebhook } = await import("../services/cashfreeService.js");
-const { getCashfreeConfig, getCashfreeReturnUrl } = await import("../config/cashfree.js");
+const { getCashfreeConfig, getCashfreeReturnUrl, normalizeCashfreeEnvironment } = await import("../config/cashfree.js");
 const { PAYMENT_METHODS, normalizePaymentMethod } = await import("../services/orderService.js");
 
 assert.equal(normalizePaymentMethod("cashfree"), PAYMENT_METHODS.CASHFREE);
 assert.equal(normalizePaymentMethod("CASHFREE"), PAYMENT_METHODS.CASHFREE);
+assert.equal(normalizeCashfreeEnvironment("sandbox"), "sandbox");
+assert.equal(normalizeCashfreeEnvironment("test"), "sandbox");
+assert.equal(normalizeCashfreeEnvironment("prod"), "production");
+assert.equal(normalizeCashfreeEnvironment("live"), "production");
+assert.throws(() => normalizeCashfreeEnvironment("staging"), /CASHFREE_ENV/);
 assert.equal(getCashfreeConfig().environment, "sandbox");
 assert.equal(getCashfreeConfig().baseUrl, "https://sandbox.cashfree.com/pg");
 process.env.CASHFREE_ENV = "production";
