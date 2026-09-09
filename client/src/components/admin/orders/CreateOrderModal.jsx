@@ -59,7 +59,7 @@ const buildInitialState = (initialData, menuItems, categories) => {
     serviceChargePercent: derivePercent(initialData?.serviceCharge, taxableBase),
     deliveryCharge: initialData?.deliveryCharge ?? "",
     deliveryAddress: initialData?.deliveryAddress || "",
-    paymentMethod: initialData?.paymentMethod || "CASH",
+    paymentMethod: String(initialData?.paymentMethod || "").toUpperCase() === "CASHFREE" ? "cashfree" : initialData?.paymentMethod || "CASH",
     paymentStatus: initialData?.paymentStatus || "PENDING",
     idempotencyKey: initialData?.idempotencyKey || "",
   };
@@ -350,6 +350,9 @@ const CreateOrderModal = ({
     if (form.orderType === "DELIVERY" && !form.deliveryAddress.trim()) {
       next.deliveryAddress = "Delivery address is required.";
     }
+    if (String(form.paymentMethod).toLowerCase() === "cashfree" && !String(form.customer?.phone || "").trim()) {
+      next.customer = "Cashfree requires a customer with a phone number.";
+    }
     setErrors(next);
     if (Object.keys(next).length) {
       toast.error("Please fix the highlighted fields.");
@@ -380,7 +383,9 @@ const CreateOrderModal = ({
       deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
       deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
       paymentMethod: form.paymentMethod,
-      paymentStatus: form.paymentStatus,
+      // Provider-backed Cashfree orders must enter the checkout flow unpaid.
+      // The server independently enforces this invariant before persistence.
+      paymentStatus: String(form.paymentMethod).toLowerCase() === "cashfree" ? "PENDING" : form.paymentStatus,
       _idempotencyKey: form.idempotencyKey,
     });
   };

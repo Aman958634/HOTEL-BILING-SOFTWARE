@@ -178,7 +178,13 @@ const OrderDetailsSection = ({
           id="payment-method"
           className={fieldClass}
           value={form.paymentMethod}
-          onChange={(e) => onPatch({ paymentMethod: e.target.value })}
+          onChange={(e) => {
+            const paymentMethod = e.target.value;
+            onPatch({
+              paymentMethod,
+              ...(String(paymentMethod).toLowerCase() === "cashfree" ? { paymentStatus: "PENDING" } : {}),
+            });
+          }}
         >
           {PAYMENT_METHODS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -192,12 +198,15 @@ const OrderDetailsSection = ({
           className={fieldClass}
           value={form.paymentStatus}
           onChange={(e) => onPatch({ paymentStatus: e.target.value })}
-          disabled={isEdit}
+          disabled={isEdit || String(form.paymentMethod).toLowerCase() === "cashfree"}
         >
-          {PAYMENT_STATUSES.map((s) => (
+          {PAYMENT_STATUSES.filter((s) => String(form.paymentMethod).toLowerCase() !== "cashfree" || s.value !== "PAID").map((s) => (
             <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
+        {!isEdit && String(form.paymentMethod).toLowerCase() === "cashfree" ? (
+          <p className="mt-1 text-xs text-slate-500">Cashfree stays pending until the server verifies the provider payment.</p>
+        ) : null}
         {!isEdit && form.paymentStatus === "PAID" ? (
           <p className="mt-1 text-xs text-slate-500">Payment recorded immediately after order creation.</p>
         ) : null}

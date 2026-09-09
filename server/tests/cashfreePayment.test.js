@@ -8,6 +8,10 @@ process.env.CLIENT_URL = "http://localhost:5173";
 
 const { cashfreePaymentState, verifyCashfreeWebhook } = await import("../services/cashfreeService.js");
 const { getCashfreeReturnUrl } = await import("../config/cashfree.js");
+const { PAYMENT_METHODS, normalizePaymentMethod } = await import("../services/orderService.js");
+
+assert.equal(normalizePaymentMethod("cashfree"), PAYMENT_METHODS.CASHFREE);
+assert.equal(normalizePaymentMethod("CASHFREE"), PAYMENT_METHODS.CASHFREE);
 
 assert.equal(getCashfreeReturnUrl(), "http://localhost:5173/payment/cashfree/return?order_id={order_id}");
 assert.deepEqual(cashfreePaymentState([

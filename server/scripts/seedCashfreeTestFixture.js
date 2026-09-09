@@ -10,13 +10,18 @@ const databaseName = (() => {
 })();
 if (databaseName !== "restosphere_cashfree_test") throw new Error("Refusing fixture write: TEST_MONGO_URI must target restosphere_cashfree_test");
 
-const [{ default: Restaurant }, { default: Outlet }, { default: User }, { default: Category }, { default: Food }, { default: Table }, { default: Order }] = await Promise.all([
-  import("../models/Restaurant.js"), import("../models/Outlet.js"), import("../models/User.js"), import("../models/Category.js"), import("../models/Food.js"), import("../models/Table.js"), import("../models/Order.js"),
+const [{ default: Restaurant }, { default: Outlet }, { default: User }, { default: Category }, { default: Food }, { default: Table }, { default: Order }, { default: Subscription }] = await Promise.all([
+  import("../models/Restaurant.js"), import("../models/Outlet.js"), import("../models/User.js"), import("../models/Category.js"), import("../models/Food.js"), import("../models/Table.js"), import("../models/Order.js"), import("../models/Subscription.js"),
 ]);
 
 await mongoose.connect(TEST_URI, { serverSelectionTimeoutMS: 10000 });
 try {
   const restaurant = await Restaurant.findOneAndUpdate({ slug: "cashfree-sandbox-test" }, { $set: { name: "Cashfree Sandbox Test Restaurant", slug: "cashfree-sandbox-test", branchCode: "CFTEST", address: "Isolated local fixture", city: "Test City", isActive: true } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  await Subscription.findOneAndUpdate(
+    { restaurant: restaurant._id },
+    { $set: { planName: "cashfree-sandbox-test", price: 0, status: "active", startDate: new Date(), renewalDate: null, metadata: { isolatedTestFixture: true } } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
   const outlet = await Outlet.findOneAndUpdate({ restaurant: restaurant._id, code: "CFTEST" }, { $set: { name: "Cashfree Test Outlet", address: "Isolated local fixture", isActive: true, isDefault: true } }, { upsert: true, new: true, setDefaultsOnInsert: true });
   const manager = await User.findOneAndUpdate({ email: "cashfree.manager@test.invalid" }, { $set: { fullName: "Cashfree Test Manager", phone: "9999999999", role: "manager", restaurant: restaurant._id, defaultOutlet: outlet._id, outletAccess: [{ outlet: outlet._id, role: "manager", isActive: true }], allOutletsAccess: false, isActive: true } }, { upsert: true, new: true, setDefaultsOnInsert: true });
   const managerWithPassword = await User.findById(manager._id).select("+password");

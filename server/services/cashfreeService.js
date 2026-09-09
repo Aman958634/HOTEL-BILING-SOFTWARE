@@ -45,15 +45,17 @@ const safePhone = (phone) => {
 export const makeCashfreeOrderId = () => `RS_CF_${crypto.randomUUID().replace(/-/g, "")}`;
 
 export const createCashfreeOrder = async ({ cashfreeOrderId, amount, customer, order }) => {
+  const phone = safePhone(customer?.phone);
+  if (!phone) throw new ApiError(422, "Cashfree requires a customer phone number");
+
   const customerDetails = {
     customer_id: customer?._id ? `rs_customer_${String(customer._id)}` : `rs_guest_${String(order._id)}`,
+    customer_phone: phone,
   };
   const name = String(customer?.fullName || "").trim();
   const email = String(customer?.email || "").trim();
-  const phone = safePhone(customer?.phone);
   if (name) customerDetails.customer_name = name;
   if (email) customerDetails.customer_email = email;
-  if (phone) customerDetails.customer_phone = phone;
 
   return request("/orders", {
     method: "POST",
