@@ -7,11 +7,20 @@ process.env.CASHFREE_SECRET_KEY = "cashfree-test-secret";
 process.env.CLIENT_URL = "http://localhost:5173";
 
 const { cashfreePaymentState, verifyCashfreeWebhook } = await import("../services/cashfreeService.js");
-const { getCashfreeReturnUrl } = await import("../config/cashfree.js");
+const { getCashfreeConfig, getCashfreeReturnUrl } = await import("../config/cashfree.js");
 const { PAYMENT_METHODS, normalizePaymentMethod } = await import("../services/orderService.js");
 
 assert.equal(normalizePaymentMethod("cashfree"), PAYMENT_METHODS.CASHFREE);
 assert.equal(normalizePaymentMethod("CASHFREE"), PAYMENT_METHODS.CASHFREE);
+assert.equal(getCashfreeConfig().environment, "sandbox");
+assert.equal(getCashfreeConfig().baseUrl, "https://sandbox.cashfree.com/pg");
+process.env.CASHFREE_ENV = "production";
+assert.equal(getCashfreeConfig().baseUrl, "https://api.cashfree.com/pg");
+process.env.CASHFREE_ENV = "sandbox";
+const originalSecret = process.env.CASHFREE_SECRET_KEY;
+delete process.env.CASHFREE_SECRET_KEY;
+assert.equal(getCashfreeConfig().configured, false);
+process.env.CASHFREE_SECRET_KEY = originalSecret;
 
 assert.equal(getCashfreeReturnUrl(), "http://localhost:5173/payment/cashfree/return?order_id={order_id}");
 assert.deepEqual(cashfreePaymentState([

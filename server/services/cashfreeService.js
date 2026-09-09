@@ -4,7 +4,9 @@ import { assertCashfreeConfiguration, getCashfreeConfig, getCashfreeReturnUrl } 
 
 const request = async (path, { method = "GET", body, idempotencyKey } = {}) => {
   const config = assertCashfreeConfiguration();
-  if (!config.appId || !config.secretKey) throw new ApiError(503, "Cashfree payment service is not configured");
+  if (!config.configured) {
+    throw new ApiError(503, "Cashfree payment service is not configured. Configure CASHFREE_ENV, CASHFREE_APP_ID, and CASHFREE_SECRET_KEY on the backend.");
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);

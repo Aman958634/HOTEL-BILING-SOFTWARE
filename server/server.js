@@ -9,7 +9,11 @@ import { safeErrorContext } from "./utils/safeLog.js";
 
 dotenv.config();
 validateProductionEnvironment();
-assertCashfreeConfiguration();
+const cashfreeConfig = assertCashfreeConfiguration();
+logger.info("Cashfree configuration detected", {
+  cashfreeConfigured: cashfreeConfig.configured,
+  cashfreeEnvironment: cashfreeConfig.environment || "not-set",
+});
 
 let httpServer;
 let socketServer;
