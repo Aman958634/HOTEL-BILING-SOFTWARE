@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { calculateCommissionSplit } from "../services/easySplitSettlementService.js";
+import { calculateCommissionSplit, mapCashfreeSettlementStatus } from "../services/easySplitSettlementService.js";
+assert.equal(mapCashfreeSettlementStatus("PENDING"), "PENDING");
+assert.equal(mapCashfreeSettlementStatus("PROCESSING"), "PROCESSING");
+assert.equal(mapCashfreeSettlementStatus("SUCCESS"), "SETTLED");
+assert.equal(mapCashfreeSettlementStatus("REVERSED"), "REVERSED");
+assert.equal(mapCashfreeSettlementStatus("UNKNOWN_PROVIDER_STATE", "PROCESSING"), "PROCESSING");
 import { createEasySplitAfterPayment } from "../services/cashfreeEasySplitService.js";
 
 const originalEnv = { ...process.env };
@@ -32,8 +37,9 @@ try {
   assert.equal(request.options.headers["x-api-version"], "2022-09-01");
   assert.deepEqual(JSON.parse(request.options.body), { split: [{ vendor_id: "RESTO_VENDOR", amount: 972.5 }], disable_split: true });
   process.env.CASHFREE_ENV = "production";
-  await assert.rejects(() => createEasySplitAfterPayment({ cashfreeOrderId: "order_123", vendorId: "RESTO_VENDOR", vendorSharePaise: 100, idempotencyKey: "f0d42b34-dcfe-4e12-91a7-12457171e20b" }), (error) => error?.code === "EASY_SPLIT_SANDBOX_ONLY");
-  console.log("easySplitSettlement.test.js passed: paise invariants, commission boundaries, provider payload, and sandbox gate");
+  await createEasySplitAfterPayment({ cashfreeOrderId: "order_123", vendorId: "RESTO_VENDOR", vendorSharePaise: 100, idempotencyKey: "f0d42b34-dcfe-4e12-91a7-12457171e20b" });
+  assert.equal(request.url, "https://api.cashfree.com/pg/easy-split/orders/order_123/split");
+  console.log("easySplitSettlement.test.js passed: paise invariants, commission boundaries, provider payload, and explicit production endpoint mapping");
 } finally {
   global.fetch = originalFetch;
   for (const key of Object.keys(process.env)) if (!(key in originalEnv)) delete process.env[key];

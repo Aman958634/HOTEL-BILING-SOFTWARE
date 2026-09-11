@@ -1,8 +1,9 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { requireCashfreeFixtureEnvironment } from "../utils/cashfreeFixtureGuard.js";
 
 dotenv.config();
-process.env.NODE_ENV = "test";
+requireCashfreeFixtureEnvironment();
 
 const testUri = String(process.env.TEST_MONGO_URI || "").trim();
 const databaseName = (() => {

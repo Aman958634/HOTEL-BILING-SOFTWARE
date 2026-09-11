@@ -36,10 +36,10 @@ try {
   process.env.CASHFREE_ENV = "production";
   process.env.CASHFREE_APP_ID = "test";
   process.env.CASHFREE_SECRET_KEY = "test";
-  assert.throws(() => assertEasySplitAvailable(), (error) => error?.code === "EASY_SPLIT_SANDBOX_ONLY");
+  assert.equal(assertEasySplitAvailable().environment, "production");
   process.env.CASHFREE_ENV = "sandbox";
   assert.equal(assertEasySplitAvailable().environment, "sandbox");
-  console.log("easySplitVendor.test.js passed: payloads, state mapping, and sandbox gate");
+  console.log("easySplitVendor.test.js passed: payloads, state mapping, and explicit environment gate");
 } finally {
   for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key];
   for (const [key, value] of Object.entries(original)) process.env[key] = value;

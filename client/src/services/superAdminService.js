@@ -42,3 +42,4 @@ export const getSuperAdminStats = () => api.get("/super-admin/dashboard/stats");
 export const getRestaurantCommission = (restaurantId) => api.get("/super-admin/settlements/commission", { params: { restaurantId } });
 export const updateRestaurantCommission = (restaurantId, payload) => api.put(`/super-admin/settlements/commission/${restaurantId}`, payload);
 export const fetchSettlementTransactions = (params) => api.get("/super-admin/settlements/transactions", { params });
+export const refreshSettlementTransaction = (id) => api.post(`/super-admin/settlements/transactions/${id}/refresh`);

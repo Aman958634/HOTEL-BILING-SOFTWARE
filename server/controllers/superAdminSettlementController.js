@@ -6,7 +6,7 @@ import Restaurant from "../models/Restaurant.js";
 import RestaurantCommissionConfig from "../models/RestaurantCommissionConfig.js";
 import SettlementTransaction from "../models/SettlementTransaction.js";
 import { createActivity } from "../services/activityService.js";
-import { fromPaise, safeSettlementTransaction, toPaise } from "../services/easySplitSettlementService.js";
+import { fromPaise, reconcileCashfreeSettlement, safeSettlementTransaction, toPaise } from "../services/easySplitSettlementService.js";
 
 const requireRestaurantId = (value) => {
   if (!mongoose.isValidObjectId(value)) throw new ApiError(422, "A valid restaurant id is required");
@@ -77,7 +77,7 @@ export const listSettlementTransactions = asyncHandler(async (req, res) => {
       .limit(limit)
       .populate("restaurant", "name")
       .populate("order", "orderNumber")
-      .populate("payment", "paymentId paymentMethod")
+      .populate("payment", "paymentId paymentMethod paymentStatus")
       .lean(),
     SettlementTransaction.countDocuments(filter),
   ]);
@@ -87,4 +87,9 @@ export const listSettlementTransactions = asyncHandler(async (req, res) => {
     rows.map((item) => ({ ...safeSettlementTransaction(item), restaurantName: item.restaurant?.name || "" })),
     { page, limit, total, pages: Math.ceil(total / limit) }
   ));
+});
+
+export const refreshSettlementTransaction = asyncHandler(async (req, res) => {
+  const refreshed = await reconcileCashfreeSettlement(req.params.id, { source: "super_admin_refresh", actorId: req.user._id });
+  res.json(new ApiResponse(true, "Settlement allocation reconciled", safeSettlementTransaction(refreshed)));
 });

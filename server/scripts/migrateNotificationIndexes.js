@@ -1,18 +1,20 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
+import { ensureIndexesNonDestructively } from "../utils/nonDestructiveIndexes.js";
 
 dotenv.config();
 const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!uri) throw new Error("MONGO_URI (or MONGODB_URI) is missing");
 
-await mongoose.connect(uri);
+await mongoose.connect(uri, { autoIndex: false, autoCreate: false });
 try {
-  // Existing explicit null values participate in the sparse unique index.
-  // Remove only that legacy representation; real non-empty dedupe keys stay.
-  await Notification.updateMany({ dedupeKey: null }, { $unset: { dedupeKey: "" } });
-  await Notification.syncIndexes();
-  console.log("Notification indexes migrated successfully.");
+  const result = await ensureIndexesNonDestructively(Notification.collection, Notification.schema.indexes(), { verifyOnly: process.argv.includes("--verify") });
+  console.log(JSON.stringify({ collection: "notifications", ...result }));
+  if (process.argv.includes("--verify") && result.missing.length) process.exitCode = 1;
+} catch (error) {
+  console.error(JSON.stringify({ code: error.code || "INDEX_VERIFICATION_FAILED", conflicts: error.conflicts || [], message: "Index verification failed; existing indexes and data preserved. Review manually." }));
+  process.exitCode = 1;
 } finally {
   await mongoose.disconnect();
 }

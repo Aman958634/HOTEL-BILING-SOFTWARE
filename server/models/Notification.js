@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -46,9 +47,9 @@ const notificationSchema = new mongoose.Schema(
     entityType: { type: String, required: false, index: true },
     entityId: { type: mongoose.Schema.Types.ObjectId, required: false, index: true },
     route: { type: String, default: "" },
-    // Keep this field absent when no deduplication is requested. MongoDB sparse
-    // unique indexes still index explicit null values, which would otherwise
-    // prevent a user from receiving more than one unrelated notification.
+    // Explicit event dedupe keys are retained. New unrelated notifications
+    // receive a unique key at validation; the compound sparse index includes
+    // every document with a user, even when dedupeKey is absent.
     dedupeKey: { type: String, default: undefined },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     isRead: { type: Boolean, default: false, index: true },
@@ -57,6 +58,10 @@ const notificationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+notificationSchema.pre("validate", function () {
+  if (this.isNew && !this.dedupeKey) this.dedupeKey = `notification:${crypto.randomUUID()}`;
+});
 
 notificationSchema.index({ restaurantId: 1, createdAt: -1 });
 notificationSchema.index({ user: 1, type: 1, createdAt: -1 });

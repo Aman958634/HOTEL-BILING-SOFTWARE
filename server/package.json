@@ -44,6 +44,7 @@
     "test:tenant-security": "node tests/tenantOutletSecurity.test.js",
     "test:release-verification": "node tests/releaseVerification.test.js",
     "test:database-safety": "node tests/testDatabaseSafety.test.js",
+    "test:phase5": "node scripts/verifyPhase5.js",
     "load:pos": "node load-tests/pos-load-test.mjs",
     "load:smoke": "node load-tests/pos-load-test.mjs --max=1",
     "load:pos:5": "node load-tests/pos-load-test.mjs --max=5",

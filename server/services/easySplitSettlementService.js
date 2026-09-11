@@ -3,12 +3,15 @@ import ApiError from "../utils/ApiError.js";
 import logger from "../utils/logger.js";
 import { getCashfreeConfig } from "../config/cashfree.js";
 import Payment from "../models/Payment.js";
+import Restaurant from "../models/Restaurant.js";
 import RestaurantSettlementProfile from "../models/RestaurantSettlementProfile.js";
 import RestaurantCommissionConfig from "../models/RestaurantCommissionConfig.js";
 import SettlementTransaction from "../models/SettlementTransaction.js";
 import SettlementWebhookEvent from "../models/SettlementWebhookEvent.js";
 import { createActivity } from "./activityService.js";
 import { createEasySplitAfterPayment, getEasySplitOrderDetails } from "./cashfreeEasySplitService.js";
+import { cashfreePaymentState, getCashfreePayments } from "./cashfreeService.js";
+import { ORDER_CREATION_SPLIT, reconcileOrderCreationSplit } from "./cashfreeOrderSplitService.js";
 
 export const toPaise = (amount) => {
   const raw = String(amount ?? "").trim();
@@ -30,7 +33,7 @@ export const calculateCommissionSplit = ({ grossAmountPaise, commissionType = "N
   if (!Number.isSafeInteger(bps) || bps < 0 || bps > 10000 || !Number.isSafeInteger(fixed) || fixed < 0) throw new ApiError(422, "Commission configuration is invalid");
   // All operands are paise/basis-point integers. Add half of the denominator
   // before division to round a half paise up without floating point money.
-  const platformSharePaise = type === "PERCENTAGE" ? Math.floor(((grossAmountPaise * bps) + 5000) / 10000) : type === "FIXED" ? fixed : 0;
+  const platformSharePaise = type === "PERCENTAGE" ? Number((BigInt(grossAmountPaise) * BigInt(bps) + 5000n) / 10000n) : type === "FIXED" ? fixed : 0;
   if (platformSharePaise > grossAmountPaise) throw new ApiError(422, "Commission exceeds this Cashfree payment", "COMMISSION_EXCEEDS_PAYMENT");
   const vendorSharePaise = grossAmountPaise - platformSharePaise;
   if (vendorSharePaise < 0 || vendorSharePaise + platformSharePaise !== grossAmountPaise) throw new ApiError(422, "Settlement split invariant failed");
@@ -39,21 +42,25 @@ export const calculateCommissionSplit = ({ grossAmountPaise, commissionType = "N
 
 const isPhaseTwoEnabled = () => {
   const config = getCashfreeConfig();
-  return config.easySplitEnabled && config.easySplitPaymentsEnabled && config.configured && config.environment === "sandbox";
+  return config.easySplitEnabled && config.easySplitPaymentsEnabled && config.configured && ["sandbox", "production"].includes(config.environment);
 };
 
 const providerStatusFrom = (payload = {}) => String(payload.status || payload.split_status || payload.settlement_status || "PENDING").toUpperCase();
-const settlementStatusFrom = (status) => {
-  if (/SUCCESS|SETTLED|PAID/.test(status)) return "SETTLED";
-  if (/FAIL|REJECT|CANCEL/.test(status)) return "FAILED";
-  if (/REVER/.test(status)) return "REVERSED";
-  if (/HOLD/.test(status)) return "ON_HOLD";
-  if (/PROCESS|INITIAT/.test(status)) return "PROCESSING";
-  return "PENDING";
+export const mapCashfreeSettlementStatus = (status, previous = "PENDING") => {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (/REVER|REVERT/.test(normalized)) return "REVERSED";
+  if (normalized === "ON_HOLD") return "ON_HOLD";
+  if (/FAIL|REJECT|CANCEL/.test(normalized)) return "FAILED";
+  if (/PROCESS|INITIAT|IN_PROGRESS/.test(normalized)) return "PROCESSING";
+  if (/SUCCESS|SETTLED|COMPLETED|PAID/.test(normalized)) return "SETTLED";
+  if (/PENDING|SCHEDULE|ELIGIB|QUEUED|CREATED/.test(normalized)) return "PENDING";
+  logger.warn("Unknown Cashfree settlement status preserved", { providerStatus: normalized || "EMPTY", previousStatus: previous });
+  return ["NOT_SCHEDULED", "PENDING", "PROCESSING", "SETTLED", "FAILED", "REVERSED", "ON_HOLD"].includes(previous) ? previous : "PENDING";
 };
 
 const safeProviderReference = (payload = {}) => String(payload.split_id || payload.split_reference || payload.order_split_id || "").trim();
 const safeSettlementReference = (payload = {}) => String(payload.settlement_id || payload.vendor_settlement_id || "").trim();
+const safeUtr = (payload = {}) => String(payload.utr || payload.utr_number || payload.bank_reference || "").trim();
 
 const profileForRestaurant = async (restaurantId) => {
   const profile = await RestaurantSettlementProfile.findOne({ restaurant: restaurantId, provider: "CASHFREE" });
@@ -71,6 +78,24 @@ const ensurePaidCashfreePayment = async (paymentLike) => {
   return payment;
 };
 
+const verifiedCashfreePaymentForAllocation = async ({ payment, providerPayment }) => {
+  const externalPayment = providerPayment || cashfreePaymentState(await getCashfreePayments(payment.cashfreeOrderId)).payment;
+  if (String(externalPayment?.payment_status || "").toUpperCase() !== "SUCCESS") {
+    throw new ApiError(409, "Cashfree payment is not provider-verified as successful", "CASHFREE_PAYMENT_NOT_VERIFIED");
+  }
+  const providerPaymentId = String(externalPayment?.cf_payment_id || "").trim();
+  if (payment.cashfreePaymentId && providerPaymentId && payment.cashfreePaymentId !== providerPaymentId) {
+    throw new ApiError(409, "Cashfree provider payment does not match the local payment", "CASHFREE_PAYMENT_MISMATCH");
+  }
+  return externalPayment;
+};
+
+const activeRestaurantForAllocation = async (restaurantId) => {
+  const restaurant = await Restaurant.findOne({ _id: restaurantId, isActive: true }).select("_id").lean();
+  if (!restaurant) throw new ApiError(409, "Restaurant is not active for Cashfree settlement", "SETTLEMENT_RESTAURANT_NOT_ACTIVE");
+  return restaurant;
+};
+
 export const safeSettlementTransaction = (transaction) => transaction ? {
   id: transaction._id,
   restaurant: transaction.restaurant?._id || transaction.restaurant,
@@ -80,11 +105,21 @@ export const safeSettlementTransaction = (transaction) => transaction ? {
   payment: transaction.payment?._id || transaction.payment,
   paymentReference: transaction.payment?.paymentId || "",
   provider: transaction.provider,
+  allocationStrategy: transaction.allocationStrategy || "POST_PAYMENT_SPLIT",
+  paymentStatus: transaction.payment?.paymentStatus || "",
   providerVendorId: transaction.providerVendorId,
   cashfreeOrderId: transaction.cashfreeOrderId,
   cashfreePaymentId: transaction.cashfreePaymentId,
   providerSplitReference: transaction.providerSplitReference,
   providerSettlementId: transaction.providerSettlementId,
+  providerAllocationReference: transaction.providerAllocationReference || transaction.providerSplitReference,
+  providerSettlementReference: transaction.providerSettlementReference || transaction.providerSettlementId,
+  providerSettlementStatus: transaction.providerSettlementStatus,
+  settlementAmount: transaction.settlementAmountPaise == null ? null : fromPaise(transaction.settlementAmountPaise),
+  settlementInitiatedAt: transaction.settlementInitiatedAt,
+  settledAt: transaction.settledAt,
+  providerUtr: transaction.providerUtr,
+  lastReconciledAt: transaction.lastReconciledAt,
   currency: transaction.currency,
   grossAmount: fromPaise(transaction.grossAmountPaise),
   vendorShare: fromPaise(transaction.vendorSharePaise),
@@ -102,6 +137,10 @@ export const safeSettlementTransaction = (transaction) => transaction ? {
   settlementUpdatedAt: transaction.settlementUpdatedAt,
   failureCode: transaction.failureCode,
   failureMessage: transaction.failureMessageSafe,
+  providerHttpStatus: transaction.providerHttpStatus,
+  providerErrorCode: transaction.providerErrorCode,
+  providerErrorType: transaction.providerErrorType,
+  providerErrorMessage: transaction.providerErrorMessage,
   createdAt: transaction.createdAt,
   updatedAt: transaction.updatedAt,
 } : null;
@@ -132,14 +171,28 @@ const recordCommissionIneligibleAllocation = async ({ payment, profile, existing
   return transaction;
 };
 
-export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requestId = "" }) => {
+/**
+ * The only Phase 2 allocation entry point.  Webhook and return verification
+ * call it immediately with their fresh server-side Cashfree SUCCESS payload.
+ * Background recovery may omit that payload; it is then read from Cashfree.
+ */
+export const processCashfreeEasySplitAllocation = async ({ paymentId, providerPayment = null, requestId = "" }) => {
   if (!isPhaseTwoEnabled()) return { skipped: true, reason: "EASY_SPLIT_PAYMENTS_DISABLED" };
-  const payment = await ensurePaidCashfreePayment(paymentLike);
+  const payment = await ensurePaidCashfreePayment(paymentId);
+  // Strategy guard precedes every legacy allocation branch, including retries.
+  if (payment.allocationStrategy === ORDER_CREATION_SPLIT) return reconcileOrderCreationSplit(payment._id);
+  await verifiedCashfreePaymentForAllocation({ payment, providerPayment });
+  await activeRestaurantForAllocation(payment.restaurant);
   const existing = await SettlementTransaction.findOne({ payment: payment._id, provider: "CASHFREE" });
   if (existing && ["ALLOCATED", "PROCESSING"].includes(existing.splitStatus)) return { transaction: existing, idempotent: true };
+  // Automatic callers never retry a rejected split.  This retains the audit
+  // trail for payments that have aged out of Cashfree's eligibility window.
+  if (existing?.splitStatus === "FAILED") return { transaction: existing, idempotent: true, skipped: true, reason: "ALLOCATION_PREVIOUSLY_FAILED" };
 
   const profile = await profileForRestaurant(payment.restaurant);
-  const commission = await RestaurantCommissionConfig.findOne({ restaurant: payment.restaurant }).lean();
+  // New payments carry the snapshot written in the provider-success
+  // transaction. Legacy payments fall back to the effective-time guard below.
+  const commission = payment.metadata?.easySplitCommission || await RestaurantCommissionConfig.findOne({ restaurant: payment.restaurant }).lean();
   const verifiedAt = payment.verifiedAt || payment.paidAt;
   const effectiveFrom = commissionEffectiveFrom(commission);
   const commissionReason = !commission || commission.commissionType === "NONE"
@@ -176,6 +229,10 @@ export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requ
     transaction.splitStatus = "PROCESSING";
     transaction.failureCode = "";
     transaction.failureMessageSafe = "";
+    transaction.providerHttpStatus = null;
+    transaction.providerErrorCode = "";
+    transaction.providerErrorType = "";
+    transaction.providerErrorMessage = "";
     await transaction.save();
   }
 
@@ -198,19 +255,30 @@ export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requ
     });
     const status = providerStatusFrom(providerResult.payload);
     transaction.providerStatus = status;
+    transaction.providerHttpStatus = providerResult.providerHttpStatus || null;
+    transaction.providerErrorCode = "";
+    transaction.providerErrorType = "";
+    transaction.providerErrorMessage = "";
     transaction.providerSplitReference = safeProviderReference(providerResult.payload) || transaction.providerSplitReference;
     transaction.providerRequestId = providerResult.providerRequestId || transaction.providerRequestId;
     transaction.splitStatus = /FAIL|REJECT/.test(status) ? "FAILED" : "ALLOCATED";
-    transaction.settlementStatus = transaction.splitStatus === "ALLOCATED" ? settlementStatusFrom(status) : "NOT_SCHEDULED";
+    transaction.settlementStatus = transaction.splitStatus === "ALLOCATED" ? "PENDING" : "NOT_SCHEDULED";
+    transaction.providerSettlementStatus = transaction.splitStatus === "ALLOCATED" ? "PENDING" : "";
+    transaction.providerAllocationReference = transaction.providerSplitReference;
     transaction.splitCreatedAt = transaction.splitStatus === "ALLOCATED" ? new Date() : null;
     await transaction.save();
   } catch (error) {
+    const providerError = error?.details && typeof error.details === "object" ? error.details : {};
     transaction.splitStatus = "FAILED";
     transaction.providerStatus = "FAILED";
     transaction.failureCode = String(error?.code || "EASY_SPLIT_REQUEST_FAILED").slice(0, 120);
-    transaction.failureMessageSafe = "Cashfree allocation could not be confirmed. Retry is safe.";
+    transaction.failureMessageSafe = String(providerError.providerErrorMessage || "Cashfree allocation could not be confirmed. Retry is safe.").slice(0, 500);
+    transaction.providerHttpStatus = Number.isInteger(providerError.providerHttpStatus) ? providerError.providerHttpStatus : null;
+    transaction.providerErrorCode = String(providerError.providerErrorCode || "").slice(0, 120);
+    transaction.providerErrorType = String(providerError.providerErrorType || "").slice(0, 120);
+    transaction.providerErrorMessage = String(providerError.providerErrorMessage || "").slice(0, 500);
     await transaction.save();
-    logger.warn("Cashfree Easy Split allocation failed", { requestId, restaurantId: String(payment.restaurant), outletId: String(payment.outlet || ""), internalOrderId: String(payment.orderId), cashfreeOrderId: payment.cashfreeOrderId, providerStatus: transaction.providerStatus });
+    logger.warn("Cashfree Easy Split allocation failed", { requestId, restaurantId: String(payment.restaurant), outletId: String(payment.outlet || ""), internalOrderId: String(payment.orderId), cashfreeOrderId: payment.cashfreeOrderId, providerStatus: transaction.providerStatus, providerHttpStatus: transaction.providerHttpStatus, providerErrorCode: transaction.providerErrorCode, providerErrorType: transaction.providerErrorType });
     throw error;
   }
 
@@ -218,18 +286,66 @@ export const ensureCashfreeSplitAllocation = async ({ payment: paymentLike, requ
   return { transaction, idempotent: false };
 };
 
+// Compatibility for unit-level service callers. Runtime entry points use the
+// explicit verified-payment orchestration function above.
+export const ensureCashfreeSplitAllocation = ({ payment, providerPayment = null, requestId = "" }) =>
+  processCashfreeEasySplitAllocation({ paymentId: payment?._id || payment, providerPayment, requestId });
+
 const updateTransactionFromProvider = async (transaction, payload) => {
   const status = providerStatusFrom(payload);
+  const nextSettlementStatus = mapCashfreeSettlementStatus(status, transaction.settlementStatus);
+  const previousStatus = transaction.settlementStatus;
   transaction.providerStatus = status;
   transaction.providerSplitReference = safeProviderReference(payload) || transaction.providerSplitReference;
+  transaction.providerAllocationReference = transaction.providerSplitReference;
   transaction.providerSettlementId = safeSettlementReference(payload) || transaction.providerSettlementId;
-  transaction.settlementStatus = settlementStatusFrom(status);
+  transaction.providerSettlementReference = transaction.providerSettlementId;
+  transaction.providerSettlementStatus = status;
+  transaction.providerUtr = safeUtr(payload) || transaction.providerUtr;
+  if (payload.settlement_amount != null || payload.amount != null) {
+    try { transaction.settlementAmountPaise = toPaise(String(payload.settlement_amount ?? payload.amount)); } catch {}
+  }
+  transaction.settlementStatus = nextSettlementStatus;
   transaction.settlementUpdatedAt = new Date();
+  transaction.lastReconciledAt = new Date();
+  if (nextSettlementStatus === "SETTLED" && !transaction.settledAt) transaction.settledAt = new Date();
   await transaction.save();
+  if (previousStatus !== nextSettlementStatus) {
+    await createActivity({ action: "SETTLEMENT_STATUS_CHANGED", description: "Cashfree settlement status changed", restaurantId: transaction.restaurant, targetId: transaction._id, targetType: "SettlementTransaction", metadata: { oldSettlementStatus: previousStatus, newSettlementStatus: nextSettlementStatus, providerReference: transaction.providerSettlementReference || transaction.providerAllocationReference, source: "provider_refresh" } });
+  }
   return transaction;
 };
 
+export const reconcileCashfreeSettlement = async (settlementTransactionId, { source = "manual_refresh", actorId = null } = {}) => {
+  const transaction = await SettlementTransaction.findById(settlementTransactionId);
+  if (!transaction) throw new ApiError(404, "Settlement allocation not found");
+  if (!isPhaseTwoEnabled()) throw new ApiError(503, "Easy Split payment allocation is disabled", "EASY_SPLIT_PAYMENTS_DISABLED");
+  await createActivity({ action: "SETTLEMENT_RECONCILIATION_REQUESTED", description: "Cashfree settlement reconciliation requested", performedBy: actorId, restaurantId: transaction.restaurant, targetId: transaction._id, targetType: "SettlementTransaction", metadata: { providerReference: transaction.providerSettlementReference || transaction.providerAllocationReference, source } });
+  try {
+    const refreshed = transaction.allocationStrategy === ORDER_CREATION_SPLIT
+      ? (await reconcileOrderCreationSplit(transaction.payment)).transaction
+      : await refreshCashfreeSettlementTransaction(transaction);
+    refreshed.lastReconciledAt = new Date();
+    await refreshed.save();
+    return SettlementTransaction.findById(refreshed._id)
+      .populate("order", "orderNumber")
+      .populate("payment", "paymentId paymentStatus")
+      .lean();
+  } catch (error) {
+    const details = error?.details && typeof error.details === "object" ? error.details : {};
+    transaction.providerHttpStatus = Number.isInteger(details.providerHttpStatus) ? details.providerHttpStatus : transaction.providerHttpStatus;
+    transaction.providerErrorCode = String(details.providerErrorCode || error?.code || "PROVIDER_REQUEST_FAILED").slice(0, 120);
+    transaction.providerErrorType = String(details.providerErrorType || "").slice(0, 120);
+    transaction.providerErrorMessage = String(details.providerErrorMessage || "Cashfree settlement reconciliation failed.").slice(0, 500);
+    transaction.lastReconciledAt = new Date();
+    await transaction.save();
+    await createActivity({ action: "SETTLEMENT_RECONCILIATION_FAILED", description: "Cashfree settlement reconciliation failed", performedBy: actorId, restaurantId: transaction.restaurant, targetId: transaction._id, targetType: "SettlementTransaction", metadata: { providerReference: transaction.providerSettlementReference || transaction.providerAllocationReference, source, errorCode: String(error?.code || "PROVIDER_REQUEST_FAILED").slice(0, 120) } });
+    throw error;
+  }
+};
+
 export const refreshCashfreeSettlementTransaction = async (transaction) => {
+  if (transaction.allocationStrategy === ORDER_CREATION_SPLIT) return (await reconcileOrderCreationSplit(transaction.payment)).transaction;
   if (!isPhaseTwoEnabled()) throw new ApiError(503, "Easy Split payment allocation is disabled", "EASY_SPLIT_PAYMENTS_DISABLED");
   const result = await getEasySplitOrderDetails(transaction.cashfreeOrderId);
   const payload = result.payload?.data || result.payload || {};
@@ -243,6 +359,9 @@ export const processCashfreeSettlementWebhook = async ({ event, rawBody }) => {
   const cashfreeOrderId = String(payload.order_id || event?.data?.order?.order_id || "").trim();
   const providerVendorId = String(payload.vendor_id || "").trim();
   const providerSettlementId = safeSettlementReference(payload);
+  // Vendor-level aggregate events without an order cannot safely target a
+  // single order. Never select the most recent transaction as a fallback.
+  if (!cashfreeOrderId || !providerVendorId) return { handled: true, unknown: true };
   const eventKey = crypto.createHash("sha256").update(`${eventType}:${providerSettlementId || cashfreeOrderId}:${rawBody}`).digest("hex");
   let transaction = await SettlementTransaction.findOne({ ...(cashfreeOrderId ? { cashfreeOrderId } : {}), ...(providerVendorId ? { providerVendorId } : {}) }).sort({ createdAt: -1 });
   try {
@@ -252,6 +371,11 @@ export const processCashfreeSettlementWebhook = async ({ event, rawBody }) => {
     throw error;
   }
   if (!transaction) return { handled: true, unknown: true };
+  if (transaction.allocationStrategy === ORDER_CREATION_SPLIT) {
+    // Repeated signed events re-read provider state; the unique payment index
+    // keeps a single allocation even if webhook and return arrive together.
+    return { handled: true, ...(await reconcileCashfreeSettlement(transaction._id, { source: "cashfree_webhook" })) };
+  }
   transaction = await updateTransactionFromProvider(transaction, { ...payload, status: payload.status || eventType });
   await createActivity({ action: "CASHFREE_VENDOR_SETTLEMENT_STATUS_UPDATED", description: "Cashfree vendor settlement status updated", restaurantId: transaction.restaurant, targetId: transaction._id, targetType: "SettlementTransaction", metadata: { cashfreeOrderId: transaction.cashfreeOrderId, providerVendorId: transaction.providerVendorId, providerStatus: transaction.providerStatus } });
   return { handled: true, transaction };

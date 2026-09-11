@@ -15,7 +15,7 @@ import {
   getEasySplitVendor,
   mapCashfreeVendorStatus,
 } from "../services/cashfreeEasySplitService.js";
-import { refreshCashfreeSettlementTransaction, safeSettlementTransaction } from "../services/easySplitSettlementService.js";
+import { reconcileCashfreeSettlement, safeSettlementTransaction } from "../services/easySplitSettlementService.js";
 
 const restaurantIdFor = (user) => user?.restaurant && mongoose.isValidObjectId(user.restaurant) ? user.restaurant : null;
 const maskAccount = (value) => {
@@ -179,6 +179,8 @@ export const getSettlementSplitSummary = asyncHandler(async (req, res) => {
   if (!restaurantId) throw new ApiError(403, "Settlement account requires a restaurant context");
   const activeOutlet = req.user.activeOutlet || req.user.defaultOutlet;
   const transactions = await SettlementTransaction.find({ restaurant: restaurantId, ...(activeOutlet ? { outlet: activeOutlet } : {}) })
+    .populate("order", "orderNumber")
+    .populate("payment", "paymentId paymentStatus")
     .sort({ createdAt: -1 }).limit(100).lean();
   const summary = transactions.reduce((acc, item) => {
     acc.grossAmount += item.grossAmountPaise || 0;
@@ -199,7 +201,7 @@ export const refreshSettlementSplit = asyncHandler(async (req, res) => {
   const activeOutlet = req.user.activeOutlet || req.user.defaultOutlet;
   const transaction = await SettlementTransaction.findOne({ _id: req.params.id, restaurant: restaurantId, ...(activeOutlet ? { outlet: activeOutlet } : {}) });
   if (!transaction) throw new ApiError(404, "Settlement allocation not found");
-  const refreshed = await refreshCashfreeSettlementTransaction(transaction);
+  const refreshed = await reconcileCashfreeSettlement(transaction._id, { source: "restaurant_admin_refresh", actorId: req.user._id });
   await createActivity({ action: "CASHFREE_SETTLEMENT_STATUS_REFRESHED", description: "Cashfree settlement allocation status refreshed", performedBy: req.user._id, restaurantId, targetId: refreshed._id, targetType: "SettlementTransaction", metadata: { cashfreeOrderId: refreshed.cashfreeOrderId, providerVendorId: refreshed.providerVendorId, providerStatus: refreshed.providerStatus } });
   res.json(new ApiResponse(true, "Settlement allocation status refreshed", safeSettlementTransaction(refreshed)));
 });

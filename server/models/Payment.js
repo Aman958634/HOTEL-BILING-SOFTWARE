@@ -54,6 +54,10 @@ const paymentSchema = new mongoose.Schema(
     cashfreePaymentId: { type: String, trim: true, index: true, sparse: true, unique: true },
     paymentSessionId: { type: String, trim: true, select: false },
     providerStatus: { type: String, default: "", trim: true, index: true },
+    allocationStrategy: { type: String, enum: ["POST_PAYMENT_SPLIT", "ORDER_CREATION_SPLIT"], default: "POST_PAYMENT_SPLIT" },
+    providerOrderIdempotencyKey: { type: String, default: "" },
+    cashfreeCreateLockUntil: { type: Date, default: null },
+    cashfreeOrderRequest: { type: mongoose.Schema.Types.Mixed, select: false },
     verifiedAt: { type: Date, default: null, index: true },
     webhookProcessedAt: { type: Date, default: null },
     // Supplied by the caller (Idempotency-Key header) or derived from a

@@ -26,7 +26,7 @@ export const getCashfreeConfig = () => {
   const secretKey = String(process.env.CASHFREE_SECRET_KEY || "").trim();
 
   return {
-    enabled: String(process.env.CASHFREE_ENABLED || "").trim().toLowerCase() === "true",
+    enabled: String(process.env.CASHFREE_PAYMENTS_ENABLED ?? process.env.CASHFREE_ENABLED ?? "").trim().toLowerCase() === "true",
     easySplitEnabled: String(process.env.CASHFREE_EASY_SPLIT_ENABLED || "false").trim().toLowerCase() === "true",
     // Payment allocation is intentionally a separate opt-in from Phase 1 vendor
     // onboarding.  This prevents an account-verification deployment from ever
@@ -57,12 +57,12 @@ export const assertCashfreeConfiguration = () => {
 export const getCashfreeEasySplitStatus = () => {
   const config = getCashfreeConfig();
   const sandboxOnly = config.environment === "sandbox";
-  const available = config.easySplitEnabled && config.configured && sandboxOnly;
+  const available = config.easySplitEnabled && config.configured && ["sandbox", "production"].includes(config.environment);
   return {
     enabled: config.easySplitEnabled,
     available,
     sandboxOnly,
-    status: available ? "SANDBOX_ENABLED" : "ACTIVATION_REQUIRED",
+    status: available ? (sandboxOnly ? "SANDBOX_ENABLED" : "PRODUCTION_ENABLED") : "ACTIVATION_REQUIRED",
     message: available
       ? (config.easySplitPaymentsEnabled
         ? "Cashfree Easy Split sandbox payment allocation is enabled."
@@ -76,8 +76,13 @@ export const getCashfreeReturnUrl = () => {
   const clientUrl = String(process.env.CLIENT_URL || "").trim().replace(/\/$/, "");
   const baseUrl = configured || (clientUrl ? `${clientUrl}/payment/cashfree/return` : "");
   if (!baseUrl) throw new Error("CASHFREE_RETURN_URL or CLIENT_URL is required for Cashfree checkout");
-  if (getCashfreeConfig().environment === "production" && /^http:\/\/localhost/i.test(baseUrl)) {
-    throw new Error("Cashfree production return URL cannot use localhost");
-  }
-  return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}order_id={order_id}`;
+  if (baseUrl.includes(",") || /^(javascript|data|file):/i.test(baseUrl)) throw new Error("Cashfree return URL must be a single HTTP(S) URL");
+  let parsed;
+  try { parsed = new URL(baseUrl); } catch { throw new Error("Cashfree return URL must be a valid URL"); }
+  if (parsed.protocol !== "https:" && getCashfreeConfig().environment === "production") throw new Error("Cashfree production return URL must use HTTPS");
+  if (getCashfreeConfig().environment === "production" && ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname.toLowerCase())) throw new Error("Cashfree return URL cannot use localhost or loopback addresses");
+  if (parsed.username || parsed.password) throw new Error("Cashfree return URL cannot contain credentials");
+  const canonical = `${parsed.origin}${parsed.pathname}`.replace(/\/$/, "");
+  if (!/\/payment\/cashfree\/return$/i.test(canonical)) throw new Error("Cashfree return URL must use the canonical payment return path");
+  return `${canonical}?order_id={order_id}`;
 };

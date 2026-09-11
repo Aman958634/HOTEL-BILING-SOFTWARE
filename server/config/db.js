@@ -12,6 +12,15 @@ mongoose.connection.on("disconnected", () => logger.warn("MongoDB disconnected",
 mongoose.connection.on("reconnected", () => logger.info("MongoDB reconnected", { event: "DB_RECONNECTED" }));
 mongoose.connection.on("error", (error) => logger.error("MongoDB connection error", { event: "DB_ERROR", error: { name: error.name, message: error.message } }));
 
+const isLocalMongoHostname = (uri) => {
+  try {
+    const parsed = new URL(String(uri).replace(/^mongodb(\+srv)?:\/\//i, "http://"));
+    return ["localhost", "127.0.0.1", "::1"].includes(String(parsed.hostname || "").toLowerCase());
+  } catch {
+    return false;
+  }
+};
+
 export const getMongoUri = () => {
   const loadTestMode = String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
   const isolatedTestMode = process.env.NODE_ENV === "test";
@@ -27,6 +36,14 @@ const assertIsolatedTestDatabase = (uri) => {
   } catch (error) {
     if (String(error?.message || "").includes("restosphere_cashfree_test")) throw error;
     throw new Error("NODE_ENV=test requires a valid TEST_MONGO_URI for restosphere_cashfree_test");
+  }
+};
+
+export const assertProductionMongoUri = (uri) => {
+  if (process.env.NODE_ENV !== "production") return;
+  if (!uri) throw new Error("Production requires MONGO_URI or MONGODB_URI");
+  if (isLocalMongoHostname(uri) || String(uri).includes("TEST_MONGO_URI") || String(uri).includes("127.0.0.1") || String(uri).includes("localhost")) {
+    throw new Error("Production MongoDB URL must not use localhost or a test database URI");
   }
 };
 
@@ -55,6 +72,7 @@ const connectDB = async () => {
       : "MONGO_URI (or MONGODB_URI) is missing in environment variables");
   }
   if (isolatedTestMode) assertIsolatedTestDatabase(mongoUri);
+  assertProductionMongoUri(mongoUri);
 
   logger.info(`Connecting to MongoDB: ${maskMongoUri(mongoUri)}`);
 

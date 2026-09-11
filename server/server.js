@@ -16,12 +16,13 @@ logger.info("Cashfree configuration detected", {
 });
 logger.info("Cashfree Easy Split configuration detected", {
   easySplitEnabled: cashfreeConfig.easySplitEnabled,
-  easySplitSandboxOnly: cashfreeConfig.environment === "sandbox",
+  easySplitEnvironment: cashfreeConfig.environment || "not-set",
 });
 
 let httpServer;
 let socketServer;
 let shuttingDown = false;
+let settlementWorker;
 
 const closeSocketServer = () => new Promise((resolve) => {
   if (!socketServer) return resolve();
@@ -51,6 +52,7 @@ const shutdown = async (signal) => {
   forceExitTimer.unref?.();
 
   try {
+    await settlementWorker?.stop();
     await closeSocketServer();
     await closeHttpServer();
     if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
@@ -94,6 +96,9 @@ const bootstrap = async () => {
 
   const { scheduleDailyBackup } = await import("./services/backupService.js");
   scheduleDailyBackup();
+  const { createSettlementReconciliationWorker } = await import("./services/settlementReconciliationWorker.js");
+  settlementWorker = createSettlementReconciliationWorker();
+  settlementWorker.start();
 
   httpServer = http.createServer(app);
   socketServer = initSocketServer(httpServer);

@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => {
 
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const isLocalUrl = (url) => /(^|\/\/)(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url || "");
-  if (mode === "production" && (!env.VITE_API_URL || !env.VITE_SOCKET_URL || isLocalUrl(env.VITE_API_URL) || isLocalUrl(env.VITE_SOCKET_URL))) {
+  const isHttpsUrl = (url) => /^https:\/\/[^/]+/i.test(url || "");
+  if (mode === "production" && (!env.VITE_API_URL || !env.VITE_SOCKET_URL || isLocalUrl(env.VITE_API_URL) || isLocalUrl(env.VITE_SOCKET_URL) || !isHttpsUrl(env.VITE_API_URL) || !isHttpsUrl(env.VITE_SOCKET_URL))) {
     throw new Error("Production frontend configuration requires VITE_API_URL and VITE_SOCKET_URL.");
   }
 

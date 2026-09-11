@@ -3,6 +3,7 @@ import { body, param } from "express-validator";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { requirePermission } from "../middleware/auth.js";
+import { settlementRefreshLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validate.js";
 import { createSettlementVendor, getSettlementProfile, getSettlementSplitSummary, refreshSettlementSplit, refreshSettlementVendor } from "../controllers/settlementController.js";
 
@@ -20,7 +21,7 @@ router.post("/cashfree/vendor", requirePermission("settlements.manage"), [
   body("ifsc").optional().isString().isLength({ min: 4, max: 20 }),
   body("upiVpa").optional().isString().isLength({ min: 3, max: 200 }),
 ], validate, createSettlementVendor);
-router.post("/cashfree/vendor/refresh", requirePermission("settlements.manage"), refreshSettlementVendor);
+router.post("/cashfree/vendor/refresh", requirePermission("settlements.manage"), settlementRefreshLimiter, refreshSettlementVendor);
 router.get("/cashfree/splits", requirePermission("settlements.view"), getSettlementSplitSummary);
-router.post("/cashfree/splits/:id/refresh", requirePermission("settlements.manage"), [param("id").isMongoId()], validate, refreshSettlementSplit);
+router.post("/cashfree/splits/:id/refresh", requirePermission("settlements.manage"), settlementRefreshLimiter, [param("id").isMongoId()], validate, refreshSettlementSplit);
 export default router;

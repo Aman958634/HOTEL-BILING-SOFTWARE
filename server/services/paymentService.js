@@ -7,6 +7,7 @@ import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import RestaurantCommissionConfig from "../models/RestaurantCommissionConfig.js";
 import ApiError from "../utils/ApiError.js";
 import {
   buildReceiptBuffer,
@@ -503,6 +504,9 @@ export const recordOrderPayment = async (order, options = {}) => {
         ...(options.cashfreeOrderId ? { cashfreeOrderId: options.cashfreeOrderId } : {}),
         ...(options.paymentSessionId ? { paymentSessionId: options.paymentSessionId } : {}),
         provider: options.provider || options.metadata?.provider || "", providerStatus: options.providerStatus || "",
+        allocationStrategy: options.allocationStrategy || "POST_PAYMENT_SPLIT",
+        providerOrderIdempotencyKey: options.providerOrderIdempotencyKey || "",
+        cashfreeOrderRequest: options.cashfreeOrderRequest,
         paidAt: status === "PAID" ? new Date(options.paidAt || Date.now()) : null,
       });
       payment.timeline = buildPaymentTimeline(orderDoc, payment, status, options.note || "Payment recorded");
@@ -575,10 +579,30 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
         if (normalizePaymentStatus(orderDoc.paymentStatus) === "PAID") throw new ApiError(409, "Order balance is already settled");
         payment.paymentStatus = "PAID";
         payment.transactionId = cfPaymentId ? `CF-${cfPaymentId}` : payment.transactionId;
-        payment.idempotencyKey = cfPaymentId ? `cashfree-payment:${cfPaymentId}` : payment.idempotencyKey;
+        if (payment.allocationStrategy !== "ORDER_CREATION_SPLIT") payment.idempotencyKey = cfPaymentId ? `cashfree-payment:${cfPaymentId}` : payment.idempotencyKey;
         payment.paidAt = new Date(externalPayment?.payment_time || Date.now());
         payment.verifiedAt = new Date();
-        payment.metadata = { ...(payment.metadata || {}), provider: "cashfree", verified: true };
+        // Capture commercial terms with provider success so a later settings
+        // change cannot affect the allocation for this customer payment.
+        const commission = await RestaurantCommissionConfig.findOne({ restaurant: payment.restaurant })
+          .session(session)
+          .lean();
+        const effectiveFrom = commission?.effectiveFrom || commission?.updatedAt || commission?.createdAt || null;
+        const commissionSnapshot = commission && effectiveFrom && new Date(effectiveFrom) <= payment.verifiedAt
+          ? {
+            commissionType: commission.commissionType,
+            commissionBps: commission.commissionBps,
+            fixedAmountPaise: commission.fixedAmountPaise,
+            effectiveFrom: new Date(effectiveFrom),
+            capturedAt: payment.verifiedAt,
+          }
+          : null;
+        payment.metadata = {
+          ...(payment.metadata || {}),
+          provider: "cashfree",
+          verified: true,
+          ...(payment.allocationStrategy !== "ORDER_CREATION_SPLIT" && commissionSnapshot ? { easySplitCommission: commissionSnapshot } : {}),
+        };
       } else if (externalStatus === "FAILED") {
         payment.paymentStatus = "FAILED";
       } else if (externalStatus === "CANCELLED") {

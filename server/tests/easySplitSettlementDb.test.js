@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import { requireSafeTestDatabase } from "./testDatabase.js";
 import RestaurantCommissionConfig from "../models/RestaurantCommissionConfig.js";
+import Restaurant from "../models/Restaurant.js";
 import SettlementTransaction from "../models/SettlementTransaction.js";
 import SettlementWebhookEvent from "../models/SettlementWebhookEvent.js";
 import RestaurantSettlementProfile from "../models/RestaurantSettlementProfile.js";
@@ -20,11 +21,13 @@ const orderB = new mongoose.Types.ObjectId();
 const allocationRestaurant = new mongoose.Types.ObjectId();
 const originalEnv = { ...process.env };
 const originalFetch = global.fetch;
+const commissionEffectiveAt = new Date(Date.now() - 60000);
 
 try {
   await mongoose.connect(uri, { autoIndex: true, serverSelectionTimeoutMS: 10000 });
   await SettlementTransaction.init();
   await SettlementWebhookEvent.init();
+  await Restaurant.create({ _id: allocationRestaurant, name: "Allocation Test Restaurant", slug: `allocation-${allocationRestaurant}`, branchCode: "ALLOC", address: "Test" });
   await SettlementTransaction.deleteMany({ restaurant: { $in: [restaurantA, restaurantB] } });
   await RestaurantCommissionConfig.deleteMany({ restaurant: { $in: [restaurantA, restaurantB] } });
   await RestaurantSettlementProfile.deleteMany({ restaurant: { $in: [restaurantA, restaurantB] } });
@@ -42,12 +45,13 @@ try {
 
   const allocationPayment = await Payment.create({ paymentId: "EASY-SPLIT-PAYMENT-A", orderId: new mongoose.Types.ObjectId(), restaurant: allocationRestaurant, amount: 1000, totalAmount: 1000, paymentMethod: "CASHFREE", paymentStatus: "PAID", provider: "cashfree", cashfreeOrderId: "order_split_mock_a", cashfreePaymentId: "cf_split_mock_a", idempotencyKey: "easy-split-payment-a", transactionId: "CF-cf_split_mock_a", verifiedAt: new Date(Date.now() + 1000) });
   await RestaurantSettlementProfile.create({ restaurant: allocationRestaurant, providerVendorId: "RESTO_TEST_ALLOCATION_A", payoutMethod: "BANK", vendorStatus: "ACTIVE", providerStatus: "ACTIVE", bankVerificationStatus: "VERIFIED", settlementStatus: "ACTIVE", maskedAccountNumber: "••••1191" });
-  await RestaurantCommissionConfig.create({ restaurant: allocationRestaurant, commissionType: "PERCENTAGE", commissionBps: 250, fixedAmountPaise: 0, effectiveFrom: new Date() });
+  await RestaurantCommissionConfig.create({ restaurant: allocationRestaurant, commissionType: "PERCENTAGE", commissionBps: 250, fixedAmountPaise: 0, effectiveFrom: commissionEffectiveAt });
   Object.assign(process.env, { CASHFREE_ENV: "sandbox", CASHFREE_APP_ID: "sandbox-id", CASHFREE_SECRET_KEY: "sandbox-secret", CASHFREE_EASY_SPLIT_ENABLED: "true", CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED: "true" });
   let providerCalls = 0;
   global.fetch = async () => { providerCalls += 1; return new Response(JSON.stringify({ status: "OK", message: "Order split created" }), { status: 200 }); };
-  const allocated = await ensureCashfreeSplitAllocation({ payment: allocationPayment });
-  const repeated = await ensureCashfreeSplitAllocation({ payment: allocationPayment });
+  const providerPayment = { payment_status: "SUCCESS", cf_payment_id: "cf_split_mock_a" };
+  const allocated = await ensureCashfreeSplitAllocation({ payment: allocationPayment, providerPayment });
+  const repeated = await ensureCashfreeSplitAllocation({ payment: allocationPayment, providerPayment });
   assert.equal(allocated.transaction.splitStatus, "ALLOCATED");
   assert.equal(repeated.idempotent, true);
   assert.equal(providerCalls, 1, "duplicate payment verification cannot create another provider allocation");
@@ -65,9 +69,9 @@ try {
     cashfreePaymentId: "cf_split_before_commission",
     idempotencyKey: "easy-split-before-commission",
     transactionId: "CF-cf_split_before_commission",
-    verifiedAt: new Date(Date.now() - 60_000),
+    verifiedAt: new Date(commissionEffectiveAt.getTime() - 60_000),
   });
-  const ineligible = await ensureCashfreeSplitAllocation({ payment: paymentVerifiedBeforeCommission });
+  const ineligible = await ensureCashfreeSplitAllocation({ payment: paymentVerifiedBeforeCommission, providerPayment: { payment_status: "SUCCESS", cf_payment_id: "cf_split_before_commission" } });
   assert.equal(ineligible.skipped, true, "a later commission configuration must not allocate an earlier payment");
   assert.equal(ineligible.transaction.failureCode, "COMMISSION_NOT_EFFECTIVE_AT_PAYMENT_VERIFICATION");
   assert.equal(ineligible.transaction.splitStatus, "FAILED");
@@ -95,6 +99,7 @@ try {
     await SettlementTransaction.deleteMany({ restaurant: allocationRestaurant });
     await RestaurantCommissionConfig.deleteMany({ restaurant: allocationRestaurant });
     await Payment.deleteMany({ restaurant: allocationRestaurant });
+    await Restaurant.deleteOne({ _id: allocationRestaurant });
     await mongoose.disconnect();
   }
   global.fetch = originalFetch;

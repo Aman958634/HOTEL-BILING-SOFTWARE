@@ -56,11 +56,11 @@ export const errorHandler = (err, req, res, _next) => {
     category: code || (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR"),
     publicMenuContext: req.publicMenuContext || undefined,
   });
-  const clientMessage = statusCode >= 500 && statusCode !== 503 ? "Internal server error" : message;
+  const clientMessage = statusCode >= 500 && statusCode !== 503 ? "Internal server error" : redactSensitive(message);
   res.status(statusCode).json({
     success: false,
     message: clientMessage,
     ...(code ? { code } : {}),
-    ...(details ? { details: redactSensitive(details) } : {}),
+    ...(details && statusCode < 500 ? { details: redactSensitive(details) } : {}),
   });
 };

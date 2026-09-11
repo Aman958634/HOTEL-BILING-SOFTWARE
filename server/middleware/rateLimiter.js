@@ -77,3 +77,14 @@ export const paymentLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Too many payment attempts. Please try again shortly." },
 });
+
+// Only manual refresh routes, after authorization. Changing IDs/outlets cannot
+// evade a user's provider-read budget. Webhooks never mount this limiter.
+export const settlementRefreshLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => String(req.user._id),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many settlement refreshes. Please try again shortly." },
+});

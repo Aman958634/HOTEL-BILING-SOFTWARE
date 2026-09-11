@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import ApiError from "../utils/ApiError.js";
+import { safeCashfreeError } from "../utils/cashfreeDiagnostics.js";
 import { assertCashfreeConfiguration, getCashfreeConfig, getCashfreeReturnUrl } from "../config/cashfree.js";
 
 const request = async (path, { method = "GET", body, idempotencyKey } = {}) => {
@@ -26,8 +27,8 @@ const request = async (path, { method = "GET", body, idempotencyKey } = {}) => {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const message = String(payload?.message || payload?.type || "Cashfree request failed");
-      throw new ApiError(response.status >= 500 ? 503 : 422, message);
+      const details = safeCashfreeError(response.status, payload);
+      throw new ApiError(response.status >= 500 ? 503 : 422, details.providerErrorMessage || "Cashfree request failed", "CASHFREE_PROVIDER_REJECTED", details);
     }
     return payload;
   } catch (error) {
@@ -52,7 +53,7 @@ export const cashfreeAmount = (value) => {
   return amount.toFixed(2);
 };
 
-export const createCashfreeOrder = async ({ cashfreeOrderId, amount, customer, order }) => {
+export const buildCashfreeOrderPayload = ({ cashfreeOrderId, amount, customer, order, orderSplits = [] }) => {
   const phone = safePhone(customer?.phone);
   if (!phone) throw new ApiError(422, "Cashfree requires a customer phone number");
 
@@ -65,19 +66,21 @@ export const createCashfreeOrder = async ({ cashfreeOrderId, amount, customer, o
   if (name) customerDetails.customer_name = name;
   if (email) customerDetails.customer_email = email;
 
-  return request("/orders", {
-    method: "POST",
-    idempotencyKey: crypto.randomUUID(),
-    body: {
+  return {
       order_id: cashfreeOrderId,
-      order_amount: cashfreeAmount(amount),
+      order_amount: Number(cashfreeAmount(amount)),
       order_currency: "INR",
       customer_details: customerDetails,
       order_meta: { return_url: getCashfreeReturnUrl() },
       order_note: `RestoSphere ${String(order.orderNumber || "order").slice(0, 80)}`,
-    },
-  });
+      ...(orderSplits.length ? { order_splits: orderSplits } : {}),
+  };
 };
+
+export const createCashfreeOrder = ({ idempotencyKey, payload, ...options }) => request("/orders", {
+  method: "POST", idempotencyKey: idempotencyKey || crypto.randomUUID(),
+  body: payload || buildCashfreeOrderPayload(options),
+});
 
 export const getCashfreeOrder = (cashfreeOrderId) => request(`/orders/${encodeURIComponent(cashfreeOrderId)}`);
 export const getCashfreePayments = (cashfreeOrderId) => request(`/orders/${encodeURIComponent(cashfreeOrderId)}/payments`);

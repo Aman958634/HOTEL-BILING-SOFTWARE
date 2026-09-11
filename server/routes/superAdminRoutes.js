@@ -8,6 +8,7 @@ import * as activityCtrl from "../controllers/superAdminActivityController.js";
 import * as usersCtrl from "../controllers/superAdminUsersController.js";
 import * as paymentsCtrl from "../controllers/superAdminPaymentsController.js";
 import * as settlementsCtrl from "../controllers/superAdminSettlementController.js";
+import { param } from "express-validator";
 import {
   userListValidation,
   userIdValidation,
@@ -16,6 +17,7 @@ import {
   userStatusValidation,
 } from "../validators/superAdminUserValidator.js";
 import { validate } from "../middleware/validate.js";
+import { settlementRefreshLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -68,5 +70,6 @@ router.delete("/payments/:id", paymentsCtrl.deleteSaasPayment);
 router.get("/settlements/commission", settlementsCtrl.getCommissionConfig);
 router.put("/settlements/commission/:restaurantId", settlementsCtrl.updateCommissionConfig);
 router.get("/settlements/transactions", settlementsCtrl.listSettlementTransactions);
+router.post("/settlements/transactions/:id/refresh", settlementRefreshLimiter, [param("id").isMongoId()], validate, settlementsCtrl.refreshSettlementTransaction);
 
 export default router;
