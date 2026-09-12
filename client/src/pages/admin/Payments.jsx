@@ -8,7 +8,7 @@ import ReconciliationWorkspace from "../../components/payments/ReconciliationWor
 import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
-import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment } from "../../services/paymentService";
+import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment, sendOrderReceiptWhatsApp } from "../../services/paymentService";
 import { formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
 
 const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
@@ -46,6 +46,7 @@ const Payments = () => {
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundTarget, setRefundTarget] = useState(null);
   const [processingRefund, setProcessingRefund] = useState(false);
+  const [whatsAppSendingPaymentId, setWhatsAppSendingPaymentId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [reconciliationRefreshVersion, setReconciliationRefreshVersion] = useState(0);
@@ -258,6 +259,21 @@ const Payments = () => {
     }
   };
 
+  const sendWhatsAppReceipt = async (payment) => {
+    const orderId = payment?.order?._id || payment?.orderId;
+    const deliveryId = String(payment?._id || payment?.paymentId || "");
+    if (!orderId || !deliveryId) return toast.error("Order details are unavailable");
+    setWhatsAppSendingPaymentId(deliveryId);
+    try {
+      await sendOrderReceiptWhatsApp(orderId);
+      toast.success("Receipt sent on WhatsApp");
+      await openDetails(payment);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to send WhatsApp receipt");
+    } finally {
+      setWhatsAppSendingPaymentId((current) => current === deliveryId ? "" : current);
+    }
+  };
   const submitReconciliation = async (payment) => {
     try {
       await reconcilePayment(payment._id || payment.paymentId);
@@ -414,6 +430,8 @@ const Payments = () => {
           onReceipt={openReceipt}
           onRefund={openRefund}
           onReconcile={submitReconciliation}
+          onWhatsApp={sendWhatsAppReceipt}
+          whatsAppSending={whatsAppSendingPaymentId === String(selectedPayment?._id || selectedPayment?.paymentId || "")}
         />
       </Suspense>
 

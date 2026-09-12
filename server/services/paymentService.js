@@ -21,6 +21,7 @@ import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
 import { generateInvoice } from "./invoiceService.js";
 import { awardPointsForPaidOrder } from "./loyaltyService.js";
+import { triggerSuccessfulPaymentSideEffects } from "./whatsappService.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -460,6 +461,7 @@ export const recordVerifiedPayment = async (
   await payment.populate("tableId", "tableNumber floor section");
   // earn:<orderId> makes this safe for gateway retries and recovery runs.
   if (fullyPaid) await awardPointsForPaidOrder({ order: committedOrder, payment });
+  await triggerSuccessfulPaymentSideEffects({ order: committedOrder, payment, fullyPaid });
   if (!idempotent) emitPaymentCreated(serializePayment(payment));
   return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
 };
@@ -626,6 +628,7 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
   }
 
   if (result.fullyPaid) await awardPointsForPaidOrder({ order: result.order, payment: result.payment });
+  await triggerSuccessfulPaymentSideEffects({ order: result.order, payment: result.payment, fullyPaid: result.fullyPaid });
   if (!result.idempotent) emitPaymentUpdated(serializePayment(result.payment));
   return result;
 };

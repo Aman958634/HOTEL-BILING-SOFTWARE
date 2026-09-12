@@ -17,6 +17,17 @@ const PAYMENT_STATUSES = ["PENDING", "PROCESSING", "PAID", "FAILED", "REFUNDED",
 const REFUND_STATUSES = ["PARTIALLY_REFUNDED", "REFUNDED"];
 const RECONCILIATION_STATUSES = ["UNRECONCILED", "MATCHED", "MISMATCHED", "UNDERPAID", "OVERPAID", "REFUND_PENDING", "RECONCILED"];
 
+const whatsappReceiptSchema = new mongoose.Schema({
+  status: { type: String, enum: ["NOT_SENT", "PENDING", "SENT", "FAILED"], default: "NOT_SENT" },
+  automaticSent: { type: Boolean, default: false },
+  messageId: { type: String, default: "", trim: true },
+  sentAt: { type: Date, default: null },
+  lastAttemptAt: { type: Date, default: null },
+  attemptCount: { type: Number, default: 0, min: 0 },
+  errorCode: { type: String, default: "", trim: true, maxlength: 120 },
+  errorMessage: { type: String, default: "", trim: true, maxlength: 500 },
+}, { _id: false, timestamps: false });
+
 const paymentTimelineSchema = new mongoose.Schema(
   {
     status: { type: String, required: true, trim: true },
@@ -76,6 +87,7 @@ const paymentSchema = new mongoose.Schema(
     reconciledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reconciliationNote: { type: String, default: "", trim: true, maxlength: 1000 },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    whatsappReceipt: { type: whatsappReceiptSchema, default: () => ({}) },
     timeline: { type: [paymentTimelineSchema], default: [] },
   },
   { timestamps: true }

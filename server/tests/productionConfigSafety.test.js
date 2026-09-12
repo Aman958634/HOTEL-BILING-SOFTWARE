@@ -20,6 +20,11 @@ const original = {
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
   CASHFREE_RETURN_URL: process.env.CASHFREE_RETURN_URL,
   RELEASE_VERIFICATION_MONGO_URI: process.env.RELEASE_VERIFICATION_MONGO_URI,
+  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED,
+  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
+  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
+  WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION,
+  WHATSAPP_RECEIPT_TEMPLATE_NAME: process.env.WHATSAPP_RECEIPT_TEMPLATE_NAME,
 };
 
 try {
@@ -34,6 +39,12 @@ try {
   process.env.CASHFREE_API_VERSION = "2026-01-01";
   process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED = "false";
   process.env.CASHFREE_EASY_SPLIT_ENABLED = "false";
+  process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED = "false";
+  process.env.WHATSAPP_ENABLED = "false";
+  delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+  delete process.env.WHATSAPP_ACCESS_TOKEN;
+  delete process.env.WHATSAPP_API_VERSION;
+  delete process.env.WHATSAPP_RECEIPT_TEMPLATE_NAME;
   process.env.MONGO_URI = "mongodb+srv://user:pass@cluster.example.mongodb.net/restosphere_prod";
   process.env.CLIENT_URL = "https://app.example.com";
   process.env.ALLOWED_ORIGINS = "https://app.example.com";
@@ -55,6 +66,14 @@ try {
 
   process.env.CASHFREE_RETURN_URL = "https://app.example.com/payment/cashfree/return";
   assert.doesNotThrow(() => validateProductionEnvironment());
+  process.env.WHATSAPP_ENABLED = "true";
+  assert.throws(() => validateProductionEnvironment(), /WHATSAPP_PHONE_NUMBER_ID/i);
+  process.env.WHATSAPP_PHONE_NUMBER_ID = "phone-number-id";
+  process.env.WHATSAPP_ACCESS_TOKEN = "test-token";
+  process.env.WHATSAPP_API_VERSION = "v22.0";
+  process.env.WHATSAPP_RECEIPT_TEMPLATE_NAME = "payment_receipt";
+  assert.doesNotThrow(() => validateProductionEnvironment());
+  process.env.WHATSAPP_ENABLED = "false";
   assert.doesNotThrow(() => assertCashfreeConfiguration());
   assert.equal(getCashfreeConfig().environment, "production");
   assert.equal(getCashfreeReturnUrl(), "https://app.example.com/payment/cashfree/return?order_id={order_id}");
@@ -63,6 +82,12 @@ try {
   assert.equal(assertEasySplitAvailable().environment, "production");
   assert.equal(assertEasySplitPaymentsAvailable().environment, "production");
   process.env.CASHFREE_EASY_SPLIT_ENABLED = "false";
+  process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED = "false";
+  process.env.WHATSAPP_ENABLED = "false";
+  delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+  delete process.env.WHATSAPP_ACCESS_TOKEN;
+  delete process.env.WHATSAPP_API_VERSION;
+  delete process.env.WHATSAPP_RECEIPT_TEMPLATE_NAME;
   process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED = "false";
 
   assert.throws(() => assertProductionMongoUri("mongodb://localhost:27017/restosphere"), /localhost|test database URI/i);

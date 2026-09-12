@@ -7,10 +7,12 @@ import App from "./App";
 import { store } from "./redux/store";
 import { setupAuthInterceptor } from "./services/api";
 import ErrorBoundary from "./components/common/ErrorBoundary";
+import { registerPWAServiceWorker } from "./utils/registerPWAServiceWorker";
 import { SocketProvider } from "./context/SocketContext";
 import "./index.css";
 
 setupAuthInterceptor(store);
+registerPWAServiceWorker();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

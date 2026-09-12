@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
+import Payment from "../models/Payment.js";
 import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
@@ -42,6 +43,7 @@ import { syncKotForOrder } from "../services/kotService.js";
 import { resolveGstType } from "../services/gstService.js";
 import { buildOutletQuery as buildRestaurantQuery, resolveRestaurantForUser } from "../utils/tenantUtils.js";
 import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
+import { sendPaymentReceiptWhatsApp } from "../services/whatsappService.js";
 import { resolvePublicMenuContext } from "../utils/publicMenuContext.js";
 import logger from "../utils/logger.js";
 import {
@@ -1137,6 +1139,17 @@ export const addOrderCustomer = asyncHandler(async (req, res) => {
   const message = created ? "Customer created" : "Existing customer found";
 
   res.status(created ? 201 : 200).json(new ApiResponse(true, message, customer));
+});
+
+export const sendOrderReceiptWhatsApp = asyncHandler(async (req, res) => {
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id, paymentStatus: "PAID" }, req.user));
+  if (!order) throw new ApiError(404, "Final paid order not found");
+  const payment = await Payment.findOne(await buildRestaurantQuery({ orderId: order._id, paymentStatus: "PAID" }, req.user)).sort({ paidAt: -1, createdAt: -1 });
+  if (!payment) throw new ApiError(409, "Final payment receipt is not available");
+  const result = await sendPaymentReceiptWhatsApp({ paymentId: payment._id, automatic: false });
+  if (result.skipped && result.reason === "WHATSAPP_DISABLED") throw new ApiError(503, "WhatsApp receipt delivery is disabled", "WHATSAPP_DISABLED");
+  if (result.skipped) throw new ApiError(409, "WhatsApp receipt delivery is already in progress", "WHATSAPP_SEND_IN_PROGRESS");
+  return res.status(200).json(new ApiResponse(true, "Payment receipt sent on WhatsApp", { status: "SENT", messageId: result.messageId }));
 });
 
 export const downloadInvoice = asyncHandler(async (req, res) => {

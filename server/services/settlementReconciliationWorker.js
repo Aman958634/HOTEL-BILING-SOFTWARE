@@ -8,7 +8,7 @@ import { safeErrorContext } from "../utils/safeLog.js";
 // vendor creation, or the post-payment split API. Explicitly opt-in.
 export const createSettlementReconciliationWorker = ({
   model = SettlementTransaction, reconcile = reconcileCashfreeSettlement,
-  config = getCashfreeConfig, enabled = () => process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED === "true",
+  config = getCashfreeConfig, enabled = () => getCashfreeConfig().settlementReconciliationEnabled,
   now = () => Date.now(), intervalMs = 60000, batchSize = 20,
   onError = (error) => logger.warn("Background settlement reconciliation failed", { error: safeErrorContext(error) }),
 } = {}) => {

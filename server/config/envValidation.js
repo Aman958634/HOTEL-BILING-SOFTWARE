@@ -15,6 +15,9 @@ const isLocalMongoUri = (uri) => {
 export const validateProductionEnvironment = () => {
   if (process.env.NODE_ENV !== "production") return;
 
+  const whatsappEnabled = String(process.env.WHATSAPP_ENABLED || "false").trim().toLowerCase();
+  if (!["true", "false"].includes(whatsappEnabled)) throw new Error("WHATSAPP_ENABLED must be explicitly true or false");
+
   const required = [
     "JWT_ACCESS_SECRET",
     "JWT_REFRESH_SECRET",
@@ -28,7 +31,12 @@ export const validateProductionEnvironment = () => {
     "CASHFREE_PAYMENTS_ENABLED",
     "CASHFREE_EASY_SPLIT_ENABLED",
     "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED",
+    "CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED",
   ];
+
+  if (whatsappEnabled === "true") {
+    required.push("WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_API_VERSION", "WHATSAPP_RECEIPT_TEMPLATE_NAME");
+  }
 
   if (String(process.env.PUBLIC_MENU_ENABLED || "true").toLowerCase() !== "false") {
     required.push("PUBLIC_MENU_CONTEXT_SECRET");

@@ -6,6 +6,7 @@ export const getPaymentByOrderId = (orderId) => api.get(`/payments/order/${order
 export const getOrderPaymentSummary = (orderId) => api.get(`/payments/order/${orderId}/summary`);
 export const getPaymentStats = (params = {}) => api.get("/payments/stats", { params });
 export const getPaymentReceipt = (id) => api.get(`/payments/${id}/receipt`, { responseType: "blob" });
+export const sendOrderReceiptWhatsApp = (orderId) => api.post(`/orders/${orderId}/receipt/whatsapp`);
 export const refundPayment = (id, payload, idempotencyKey) => api.post(`/payments/${id}/refund`, payload, { headers: { "Idempotency-Key": idempotencyKey } });
 export const deletePayment = (id) => api.delete(`/payments/${id}`);
 export const exportPayments = (params = {}) => api.get("/payments/export", { params, responseType: "blob" });

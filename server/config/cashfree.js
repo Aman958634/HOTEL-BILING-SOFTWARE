@@ -32,6 +32,7 @@ export const getCashfreeConfig = () => {
     // onboarding.  This prevents an account-verification deployment from ever
     // changing how customer payments are settled.
     easySplitPaymentsEnabled: String(process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED || "false").trim().toLowerCase() === "true",
+    settlementReconciliationEnabled: String(process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED || "false").trim().toLowerCase() === "true",
     environment,
     baseUrl: CASHFREE_ENVIRONMENTS[environment] || "",
     appId,

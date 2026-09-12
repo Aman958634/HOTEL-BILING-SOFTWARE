@@ -23,7 +23,7 @@ const TimelineItem = ({ item, last }) => (
   </div>
 );
 
-const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRefund, onReconcile }) => {
+const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRefund, onReconcile, onWhatsApp, whatsAppSending = false }) => {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => { if (event.key === "Escape") onClose?.(); };
@@ -133,6 +133,12 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
               </div>
             </Section>
 
+            <Section title="WhatsApp Receipt">
+              <p><strong>Status:</strong> {(payment.whatsappReceipt?.status || "NOT_SENT").replaceAll("_", " ")}</p>
+              {payment.whatsappReceipt?.sentAt ? <p className="text-xs text-slate-500">Sent at {formatPaymentDate(payment.whatsappReceipt.sentAt)}</p> : null}
+              {payment.whatsappReceipt?.errorMessage ? <p className="text-xs text-rose-600">{payment.whatsappReceipt.errorMessage}</p> : null}
+            </Section>
+
             <Section title="Refund History">
               {(payment.refunds || []).length ? (payment.refunds || []).map((refund) => (
                 <div key={refund._id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -142,6 +148,11 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
             </Section>
 
             <div className="flex flex-wrap justify-end gap-2">
+              {payment.paymentStatus === "PAID" && order?._id && (order?.customer?.phone || payment.customer?.phone || payment.customerPhone) ? (
+                <button type="button" disabled={whatsAppSending} aria-busy={whatsAppSending} onClick={() => onWhatsApp?.(payment)} className="min-h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
+                  <FiPhone className="inline-block -translate-y-px" /> {whatsAppSending ? "Sending Receipt..." : payment.whatsappReceipt?.status === "SENT" ? "Resend Receipt" : "Send Receipt on WhatsApp"}
+                </button>
+              ) : null}
               <button onClick={() => onReceipt(payment)} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
                 <FiFileText className="inline-block -translate-y-px" /> View Receipt
               </button>

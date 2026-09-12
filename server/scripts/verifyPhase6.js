@@ -13,7 +13,7 @@ const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
 const repoRoot = path.resolve(serverRoot, "..");
 const isolatedTestMongoUri = "mongodb://127.0.0.1:27027/restosphere_cashfree_test?replicaSet=rsCashfreeTest";
 const productionFrontend = "https://hotel-biling-software.vercel.app";
-const productionBackend = "https://hotel-billing-software.onrender.com";
+const productionBackend = "https://hotel-biling-software.onrender.com";
 
 const originalEnv = { ...process.env };
 const restoreEnv = () => {
@@ -37,6 +37,7 @@ const assertProductionContract = () => {
     CASHFREE_PAYMENTS_ENABLED: "false",
     CASHFREE_EASY_SPLIT_ENABLED: "true",
     CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED: "true",
+    CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED: "false",
     CASHFREE_RETURN_URL: `${productionFrontend}/payment/cashfree/return`,
   });
 
@@ -80,7 +81,10 @@ const assertDeploymentConfig = () => {
   assert.ok(vercel.rewrites?.some((rewrite) => rewrite.destination === "/index.html"));
   assert.ok(fs.existsSync(path.join(repoRoot, "Dockerfile.server")));
   assert.match(fs.readFileSync(path.join(repoRoot, "Dockerfile.server"), "utf8"), /CMD \["node", "server\.js"\]/);
-  assert.equal(fs.existsSync(path.join(repoRoot, "render.yaml")), false);
+  const render = fs.readFileSync(path.join(repoRoot, "render.yaml"), "utf8");
+  assert.match(render, /name:\s*hotel-biling-software/);
+  assert.match(render, /rootDir:\s*server/);
+  assert.match(render, /healthCheckPath:\s*\/api\/v1\/health/);
 };
 
 const assertRouteContracts = () => {
@@ -94,8 +98,8 @@ const assertRouteContracts = () => {
   assert.match(cashfreeController, /processCashfreeSettlementWebhook/);
   assert.match(worker, /limit\(batchSize\)/);
   assert.match(worker, /already_running/);
-  assert.match(worker, /CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED/);
-  assert.equal(`${productionBackend}/api/webhooks/cashfree`, "https://hotel-billing-software.onrender.com/api/webhooks/cashfree");
+  assert.match(worker, /settlementReconciliationEnabled/);
+  assert.equal(`${productionBackend}/api/webhooks/cashfree`, "https://hotel-biling-software.onrender.com/api/webhooks/cashfree");
 };
 
 const runHealthProbe = async () => {

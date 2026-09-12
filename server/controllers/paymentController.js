@@ -283,6 +283,7 @@ const mapPaymentDetail = (payment) => {
     refundedAt: paymentObject.refundedAt || null,
     refundedBy: paymentObject.refundedBy || null,
     metadata: paymentObject.metadata || {},
+    whatsappReceipt: paymentObject.whatsappReceipt || { status: "NOT_SENT" },
     timeline: paymentObject.timeline || [],
   };
 };

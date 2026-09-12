@@ -12,6 +12,7 @@ import {
 	getTodayOrders,
 	listOrders,
 	searchOrderCustomers,
+	sendOrderReceiptWhatsApp,
 	payOrder,
 	updateOrder,
 	updateOrderPayment,
@@ -164,6 +165,7 @@ router.put(
 	updateOrderPaymentStatus
 );
 
+router.post("/:id/receipt/whatsapp", [param("id").isMongoId().withMessage("Invalid order id")], validate, requirePermission("payments.collect"), sendOrderReceiptWhatsApp);
 router.get("/:id/invoice", downloadInvoice);
 
 export default router;

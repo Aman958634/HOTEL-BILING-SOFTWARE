@@ -30,15 +30,16 @@ try {
   process.env.CASHFREE_PAYMENTS_ENABLED = "false";
   process.env.CASHFREE_EASY_SPLIT_ENABLED = "false";
   process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED = "false";
+  process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED = "false";
   process.env.CASHFREE_RETURN_URL = "https://app.example.com/payment/cashfree/return";
   validateProductionEnvironment();
   assert.equal(getCashfreeConfig().baseUrl, "https://api.cashfree.com/pg");
   assert.equal(getCashfreeReturnUrl(), "https://app.example.com/payment/cashfree/return?order_id={order_id}");
 
-  for (const key of ["CASHFREE_ENV", "CASHFREE_APP_ID", "CASHFREE_SECRET_KEY", "CASHFREE_PAYMENTS_ENABLED", "CASHFREE_EASY_SPLIT_ENABLED", "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED"]) {
+  for (const key of ["CASHFREE_ENV", "CASHFREE_APP_ID", "CASHFREE_SECRET_KEY", "CASHFREE_PAYMENTS_ENABLED", "CASHFREE_EASY_SPLIT_ENABLED", "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED", "CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED"]) {
     delete process.env[key];
     assert.throws(() => validateProductionEnvironment(), /missing|CASHFREE_ENV/i, `missing ${key} must fail`);
-    process.env[key] = original[key] || ({ CASHFREE_ENV: "production", CASHFREE_APP_ID: "production-app-id", CASHFREE_SECRET_KEY: "production-secret-key", CASHFREE_PAYMENTS_ENABLED: "false", CASHFREE_EASY_SPLIT_ENABLED: "false", CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED: "false" }[key]);
+    process.env[key] = original[key] || ({ CASHFREE_ENV: "production", CASHFREE_APP_ID: "production-app-id", CASHFREE_SECRET_KEY: "production-secret-key", CASHFREE_PAYMENTS_ENABLED: "false", CASHFREE_EASY_SPLIT_ENABLED: "false", CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED: "false", CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED: "false" }[key]);
   }
 } finally {
   for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key];

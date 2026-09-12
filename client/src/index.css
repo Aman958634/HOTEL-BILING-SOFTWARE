@@ -98,6 +98,10 @@ button:disabled { cursor: not-allowed; }
 .desktop-login-action:hover { background: #047857; box-shadow: 0 7px 18px rgb(5 150 105 / 0.28); }
 .desktop-login-action:active { transform: translateY(1px) scale(.98); box-shadow: 0 3px 9px rgb(5 150 105 / 0.22); }
 .desktop-login-arrow { transition: transform 180ms ease; }
+.desktop-install-action { border: 1px solid #ccefe0; background: #f0fdf8; color: #047857; }
+.desktop-install-action:hover { transform: translateY(-1px); border-color: #6ee7b7; background: #dcfce7; box-shadow: 0 5px 14px rgb(5 150 105 / 0.10); }
+.desktop-install-action:active { transform: translateY(0) scale(.98); }
+.desktop-install-action:disabled, .mobile-install-action:disabled { opacity: 0.65; }
 .desktop-login-action:hover .desktop-login-arrow { transform: translateX(3px); }
 .site-tagline { display: none; border-left: 1px solid #dbe4e1; padding-left: 0.75rem; color: #64748b; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap; }
 .landing-hero-content > * + * { margin-top: 2rem; }
@@ -191,6 +195,7 @@ button:disabled { cursor: not-allowed; }
   .mobile-nav-link:active { transform: scale(.98); }
   .mobile-nav-chevron { margin-left: auto; transition: transform 180ms ease; }
   .mobile-nav-link:hover .mobile-nav-chevron { transform: translateX(3px); }
+  .mobile-install-action { width: 100%; background: #f0fdf8; font-family: inherit; text-align: left; }
   .mobile-nav-cta-card { margin: 0.25rem 1rem 1rem; border: 1px solid #ccefe0; border-radius: 1rem; background: #f0fdf8; padding: 0.875rem 1rem; }
   .mobile-nav-sparkle { color: #059669; }
   .mobile-nav-get-started { display: inline-flex; min-height: 40px; align-items: center; gap: 0.5rem; margin-top: 0.875rem; border-radius: 0.75rem; background: #059669; padding: 0.5rem 0.75rem; color: #fff; font-size: 0.8125rem; font-weight: 700; transition: background-color 180ms ease, box-shadow 180ms ease; }
