@@ -7,6 +7,7 @@ import { getCashfreeConfig, getCashfreeReturnUrl } from "../config/cashfree.js";
 import { validateProductionEnvironment } from "../config/envValidation.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const isolatedTestMongoUri = "mongodb://127.0.0.1:27027/restosphere_cashfree_test?replicaSet=rsCashfreeTest";
 const requiredDocs = [
   path.resolve(root, "../docs/PHASE5_PRODUCTION_ACTIVATION_PREPARATION.md"),
   path.resolve(root, "../docs/PRODUCTION_PAYMENT_READINESS.md"),
@@ -46,7 +47,8 @@ try {
 
 const suites = [
   "productionConfigSafety", "cashfreePayment", "paymentSecurity", "paymentState", "paymentIdempotency",
-  "webhookSecurity", "easySplitVendor", "easySplitSettlement", "settlementLifecycle", "commissionSafety",
+  "webhookSecurity", "easySplitVendor", "easySplitVendorDb", "easySplitSettlement", "easySplitSettlementDb",
+  "cashfreeAllocationTriggerDb", "cashfreeOrderCreationSplitDb", "settlementLifecycle", "commissionSafety",
   "tenantIsolation", "tenantOutletSecurity", "rolePermissions", "fixtureGuard", "settlementRateLimit",
   "operationalSafety", "errorHandling", "indexMigrationSafety", "backgroundReconciliation", "killSwitches",
   "releaseVerification",
@@ -54,7 +56,11 @@ const suites = [
 const missing = suites.filter((name) => !fs.existsSync(path.join(root, "tests", `${name}.test.js`)));
 if (missing.length) throw new Error(`Phase 5 verifier requires these focused suites: ${missing.join(", ")}`);
 for (const name of suites) {
-  const result = spawnSync(process.execPath, ["--import", "./tests/phase4NetworkGuard.js", `tests/${name}.test.js`], { cwd: root, env: { ...process.env, NODE_ENV: "test" }, encoding: "utf8" });
+  const result = spawnSync(process.execPath, ["--import", "./tests/phase4NetworkGuard.js", `tests/${name}.test.js`], {
+    cwd: root,
+    env: { ...process.env, NODE_ENV: "test", TEST_MONGO_URI: isolatedTestMongoUri },
+    encoding: "utf8",
+  });
   if (result.status !== 0) {
     process.stderr.write(result.stdout || "");
     process.stderr.write(result.stderr || "");

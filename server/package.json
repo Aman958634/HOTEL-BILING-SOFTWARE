@@ -4,6 +4,9 @@
   "description": "Enterprise Restaurant Management System Backend",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "kill-port 5002 && nodemon server.js",
     "start": "node server.js",
@@ -45,6 +48,7 @@
     "test:release-verification": "node tests/releaseVerification.test.js",
     "test:database-safety": "node tests/testDatabaseSafety.test.js",
     "test:phase5": "node scripts/verifyPhase5.js",
+    "test:phase6": "node scripts/verifyPhase6.js",
     "load:pos": "node load-tests/pos-load-test.mjs",
     "load:smoke": "node load-tests/pos-load-test.mjs --max=1",
     "load:pos:5": "node load-tests/pos-load-test.mjs --max=5",
