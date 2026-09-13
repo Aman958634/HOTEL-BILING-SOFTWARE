@@ -103,6 +103,10 @@ button:disabled { cursor: not-allowed; }
 .desktop-install-action:active { transform: translateY(0) scale(.98); }
 .desktop-install-action:disabled, .mobile-install-action:disabled { opacity: 0.65; }
 .desktop-login-action:hover .desktop-login-arrow { transform: translateX(3px); }
+.site-logo { gap: 0.75rem; }
+.navbar-brand { display: flex; min-width: 0; align-items: center; gap: 0.5rem; }
+.brand-logo { width: 44px; height: 44px; flex: 0 0 auto; object-fit: contain; }
+.brand-name { min-width: 0; }
 .site-tagline { display: none; border-left: 1px solid #dbe4e1; padding-left: 0.75rem; color: #64748b; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap; }
 .landing-hero-content > * + * { margin-top: 2rem; }
 .hero-copy > * + * { margin-top: 1.25rem; }
@@ -124,6 +128,7 @@ button:disabled { cursor: not-allowed; }
     padding: 10px 18px;
   }
   .site-logo { font-size: 1.125rem; }
+  .brand-logo { width: 34px; height: 34px; }
   .desktop-actions { display: none; }
   .mobile-menu-button {
     display: inline-flex;

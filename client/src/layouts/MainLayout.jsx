@@ -46,8 +46,19 @@ const MainLayout = () => {
     <div className="app-shell bg-slate-50 text-slate-900">
       <header className="site-header sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 shadow-sm shadow-slate-950/[0.03] backdrop-blur-md">
         <nav className="site-nav mx-auto flex h-16 max-w-7xl min-w-0 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
-          <Link to="/" className="site-logo flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight text-slate-900" onClick={closeMobileMenu}>
-            <span className="truncate">RestoSphere</span>
+          <Link to="/" className="site-logo flex min-w-0 items-center text-xl font-bold tracking-tight text-slate-900" onClick={closeMobileMenu}>
+            <span className="navbar-brand">
+              <img
+                src="/restosphere-logo.png"
+                alt="RestoSphere logo"
+                className="brand-logo"
+                width="44"
+                height="44"
+                decoding="async"
+                fetchPriority="high"
+              />
+              <span className="brand-name truncate">RestoSphere</span>
+            </span>
             <span className="site-tagline">ALL-IN-ONE RESTAURANT MANAGEMENT</span>
           </Link>
 
