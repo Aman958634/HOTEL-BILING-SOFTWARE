@@ -550,3 +550,11 @@ button:disabled { cursor: not-allowed; }
   .brand-logo { width: auto; height: 38px; }
   .brand-name { font-size: 19px; }
 }
+@media (max-width: 1023px) {
+  .outlet-switcher-select:focus,
+  .outlet-switcher-select:focus-visible {
+    outline: 2px solid #cbd5e1;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px rgb(148 163 184 / 0.16);
+  }
+}
