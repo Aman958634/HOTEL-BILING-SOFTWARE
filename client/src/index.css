@@ -219,8 +219,8 @@ button:disabled { cursor: not-allowed; }
 .module-icon--card, .module-icon--section { width: 2.75rem; height: 2.75rem; }
 .module-icon--header { width: 2.75rem; height: 2.75rem; }
 .module-icon--empty { width: 2.75rem; height: 2.75rem; opacity: 0.78; }
-.module-icon--sidebar { width: 2.25rem; height: 2.25rem; border-radius: 0.625rem; box-shadow: 0 2px 5px rgb(15 23 42 / 0.16); }
-.module-icon--sidebar .module-icon__glyph { width: 1.25rem; height: 1.25rem; stroke-width: 2.3; }
+.module-icon--sidebar { width: 2.375rem; height: 2.375rem; border-radius: 0.75rem; box-shadow: 0 2px 5px rgb(15 23 42 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.5); }
+.module-icon--sidebar .module-icon__glyph { width: 1.3125rem; height: 1.3125rem; stroke-width: 2.3; }
 .module-sidebar-link:hover .module-icon--sidebar { transform: translateY(-1px) scale(1.03); box-shadow: 0 4px 9px rgb(15 23 42 / 0.24); }
 .module-sidebar-link.is-active .module-icon--sidebar { border-color: rgb(255 255 255 / 0.28); background: #10b981; color: #fff; box-shadow: 0 3px 9px rgb(5 150 105 / 0.34); }
 .module-icon--emerald { background: #d1fae5; color: #047857; }
@@ -259,7 +259,7 @@ button:disabled { cursor: not-allowed; }
   transition: background-color 170ms ease, border-color 170ms ease, color 170ms ease;
 }
 .admin-sidebar__link:hover { background: var(--sidebar-hover); color: #0f172a; }
-.admin-sidebar__link.is-active { background: var(--sidebar-active-bg); border-color: var(--sidebar-active-border); color: var(--sidebar-active-text); }
+.admin-sidebar__link.is-active { background: var(--sidebar-active-bg); border-color: var(--sidebar-active-border); color: var(--sidebar-active-text); box-shadow: 0 1px 2px rgb(5 150 105 / 0.08); }
 .admin-sidebar .module-sidebar-link:hover .module-icon--sidebar { box-shadow: 0 4px 9px rgb(15 23 42 / 0.14); }
 .admin-sidebar .module-sidebar-link.is-active .module-icon--sidebar { border-color: #6ee7b7; background: #10b981; color: #fff; box-shadow: 0 3px 9px rgb(5 150 105 / 0.24); }
 .admin-sidebar__footer { border-top: 1px solid var(--sidebar-border); }
@@ -270,6 +270,14 @@ button:disabled { cursor: not-allowed; }
 }
 .admin-sidebar__logout svg { color: #e11d48; }
 .admin-sidebar__logout:hover { background: #fff1f2; border-color: #fecdd3; color: #be123c; }
+
+/* The standard admin shell owns the desktop header rhythm for every module. */
+.admin-header { min-height: 68px; }
+.admin-header__inner { min-height: 44px; flex-wrap: nowrap; }
+.admin-header__actions { flex-wrap: nowrap; }
+.admin-header__context { max-width: 24rem; }
+.admin-module-main { background: #f1f5f9; }
+.admin-module-content { padding-top: 1rem; }
 
 /* Auth pages stay complete within the viewport instead of introducing page scroll. */
 @media (max-height: 640px) {
@@ -288,6 +296,13 @@ button:disabled { cursor: not-allowed; }
   .module-icon--kpi .module-icon__glyph { width: 1.4375rem; height: 1.4375rem; }
   .module-icon--sidebar { width: 2.125rem; height: 2.125rem; }
   .module-icon--sidebar .module-icon__glyph { width: 1.1875rem; height: 1.1875rem; }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .admin-header__actions { gap: 0.5rem; }
+  .admin-header__search { min-width: 10rem; }
+  .admin-header__outlet { width: 9rem; }
+  .admin-header__date { width: 7.25rem; }
 }
 
 @media (max-width: 480px) {

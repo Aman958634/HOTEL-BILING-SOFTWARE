@@ -36,24 +36,24 @@ const AdminHeader = ({ title, subtitle }) => {
   const resolvedTitle = title || matchedMeta?.[1] || "Dashboard";
   const resolvedSubtitle = subtitle || matchedMeta?.[2] || "Today’s restaurant performance at a glance.";
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <div className="hidden min-w-0 xl:block">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
-          <p className="text-sm text-slate-500">{resolvedSubtitle}</p>
+    <header className="admin-header sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
+      <div className="admin-header__inner mx-auto flex min-w-0 items-center gap-3">
+        <div className="admin-header__context hidden min-w-0 flex-1 xl:block">
+          <h1 className="truncate text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
+          <p className="truncate text-sm text-slate-500">{resolvedSubtitle}</p>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-start gap-2 md:justify-end md:gap-3">
-          <GlobalSearch className="order-first w-full min-w-0 sm:w-auto sm:flex-[1_1_16rem] sm:max-w-64 xl:order-none" />
-          <OutletSwitcher />
+        <div className="admin-header__actions ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 xl:flex-none xl:gap-2.5">
+          <GlobalSearch className="admin-header__search min-w-0 flex-1 xl:w-[clamp(10rem,15vw,15rem)] xl:flex-none" />
+          <OutletSwitcher className="admin-header__outlet w-[9.5rem] shrink-0" />
 
-          <TodayControl />
+          <TodayControl className="admin-header__date w-[7.75rem] shrink-0" />
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <NotificationBell />
           </div>
 
-          <ProfileMenu profilePath="/profile" settingsPath="/dashboard/admin/settings" />
+          <ProfileMenu header profilePath="/profile" settingsPath="/dashboard/admin/settings" />
         </div>
       </div>
     </header>

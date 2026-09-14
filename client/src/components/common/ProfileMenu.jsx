@@ -7,7 +7,7 @@ import { logoutThunk } from "../../redux/slices/authSlice";
 
 const displayNameFor = (user) => user?.fullName || user?.name || user?.firstName || user?.email || "Account";
 
-const ProfileMenu = ({ compact = false, profilePath = "/profile", settingsPath }) => {
+const ProfileMenu = ({ compact = false, header = false, profilePath = "/profile", settingsPath }) => {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
   const menuId = useId();
@@ -55,7 +55,7 @@ const ProfileMenu = ({ compact = false, profilePath = "/profile", settingsPath }
           {displayName.charAt(0).toUpperCase()}
         </span>
         {!compact && (
-          <span className="hidden min-w-0 text-left md:block">
+          <span className={`hidden min-w-0 text-left ${header ? "xl:block" : "md:block"}`}>
             <span className="block max-w-28 truncate text-sm font-medium leading-tight text-slate-900">{displayName}</span>
             <span className="block max-w-28 truncate text-xs capitalize leading-tight text-slate-500">{role}</span>
           </span>

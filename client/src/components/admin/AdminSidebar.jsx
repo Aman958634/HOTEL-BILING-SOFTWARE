@@ -90,7 +90,7 @@ const AdminSidebar = ({ open, setOpen }) => {
               to={link.to}
               end
               className={({ isActive }) =>
-                `module-sidebar-link admin-sidebar__link flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-[44px] ${
+                `module-sidebar-link admin-sidebar__link flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium min-h-[48px] ${
                   isActive
                     ? "is-active"
                     : ""
