@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiAlertCircle, FiArrowRight, FiBookOpen, FiCalendar, FiCheckCircle, FiClipboard, FiDollarSign, FiGrid, FiHome, FiMapPin, FiRefreshCw, FiShoppingBag, FiTrendingDown, FiTrendingUp, FiUsers } from "react-icons/fi";
 import toast from "react-hot-toast";
@@ -144,7 +144,28 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  useEffect(() => { setChartReady(true); }, []);
+  useEffect(() => {
+    let active = true;
+    const revealChart = () => {
+      if (active) startTransition(() => setChartReady(true));
+    };
+
+    // Recharts is a 400KB+ non-critical chunk. Loading it immediately after mount can
+    // occupy the main thread just as the dashboard navigation becomes interactive.
+    if (typeof window.requestIdleCallback === "function") {
+      const idleCallback = window.requestIdleCallback(revealChart, { timeout: 2500 });
+      return () => {
+        active = false;
+        window.cancelIdleCallback?.(idleCallback);
+      };
+    }
+
+    const fallbackTimer = window.setTimeout(revealChart, 750);
+    return () => {
+      active = false;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialRangeLoad.current) {
