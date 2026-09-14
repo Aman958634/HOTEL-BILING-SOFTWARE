@@ -1,5 +1,5 @@
 import { Component } from "react";
-import { clearChunkRecoveryAttempt, isChunkLoadError, markChunkRecoveryAttempt } from "../../utils/chunkRecovery";
+import { clearChunkRecoveryAttempt, isChunkLoadError, recoverPwaAppShell } from "../../utils/chunkRecovery";
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,11 +14,11 @@ class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     if (import.meta.env.DEV) {
       console.error("RestoSphere render error:", error, info);
+    } else {
+      console.error("RestoSphere app render failed.", { category: isChunkLoadError(error) ? "PWA_CHUNK_LOAD_FAILURE" : "APP_RENDER_FAILURE" });
     }
 
-    if (isChunkLoadError(error) && markChunkRecoveryAttempt()) {
-      window.location.reload();
-    }
+    if (isChunkLoadError(error)) recoverPwaAppShell("react-lazy-chunk");
   }
 
   handleReset = () => {

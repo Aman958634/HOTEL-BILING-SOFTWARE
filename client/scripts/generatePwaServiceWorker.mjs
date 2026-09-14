@@ -8,10 +8,12 @@ const result = await generateSW({
   globIgnores: ["sw.js", "workbox-*.js"],
   swDest: resolve(dist, "sw.js"),
   cleanupOutdatedCaches: true,
-  clientsClaim: false,
+  // Do not skip a live client mid-workflow. Once an old client closes, the
+  // activated worker claims the next app shell and removes obsolete precache entries.
+  clientsClaim: true,
   skipWaiting: false,
   navigateFallback: "/index.html",
-  navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/socket\.io\//],
+  navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/socket\.io\//, /^\/webhooks?\//],
   runtimeCaching: [],
 });
 

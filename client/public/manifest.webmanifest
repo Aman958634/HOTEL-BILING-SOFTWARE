@@ -1,6 +1,7 @@
 {
     "name":  "RestoSphere",
     "short_name":  "RestoSphere",
+    "id":  "/",
     "description":  "All-in-one restaurant management platform",
     "start_url":  "/",
     "scope":  "/",

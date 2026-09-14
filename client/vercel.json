@@ -11,7 +11,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/((?!api(?:/|$)|auth(?:/|$)|socket\\.io(?:/|$)|webhooks?(?:/|$)|assets(?:/|$)).*)",
       "destination": "/index.html"
     }
   ]

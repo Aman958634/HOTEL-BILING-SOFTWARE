@@ -19,10 +19,20 @@ const persistTokens = (accessToken, refreshToken) => {
   }
 };
 
+const readStoredToken = (key) => {
+  try {
+    return localStorage.getItem(key) || "";
+  } catch {
+    // A restricted WebView must still boot to the public/login shell.
+    console.warn("RestoSphere stored session is unavailable.");
+    return "";
+  }
+};
+
 const initialState = {
   user: null,
-  accessToken: localStorage.getItem("accessToken") || "",
-  refreshToken: localStorage.getItem("refreshToken") || "",
+  accessToken: readStoredToken("accessToken"),
+  refreshToken: readStoredToken("refreshToken"),
   loading: false,
   profileLoading: false,
   profileError: "",

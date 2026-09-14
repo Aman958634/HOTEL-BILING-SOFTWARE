@@ -25,4 +25,13 @@ export const markChunkRecoveryAttempt = () => {
 
 export const clearChunkRecoveryAttempt = () => {
   storage()?.removeItem(RECOVERY_KEY);
+  window.__restosphereClearPwaShellRecovery?.();
+};
+
+export const recoverPwaAppShell = (reason) => {
+  const recovery = window.__restosphereRecoverPwaShell;
+  if (typeof recovery === "function") return recovery(reason);
+  if (!markChunkRecoveryAttempt()) return false;
+  window.location.reload();
+  return true;
 };
