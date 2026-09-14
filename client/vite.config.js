@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import legacy from "@vitejs/plugin-legacy";
 
 export default defineConfig(({ mode }) => {
   // Vite's production mode must always use React's production runtime. Some
@@ -16,12 +17,28 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // OPPO A7-era WebViews support ES modules but can miss newer runtime
+      // APIs. Keep the modern bundle while supplying only its required
+      // compatibility polyfills before application startup.
+      legacy({
+        modernTargets: ["Chrome >= 61", "Android >= 8"],
+        modernPolyfills: [
+          "es.global-this",
+          "es.object.from-entries",
+          "es.promise.all-settled",
+        ],
+        // Android 8.1 already supports ES modules. Avoid shipping a complete
+        // duplicate legacy application bundle; this plugin is only needed to
+        // inject the missing runtime API polyfills before the modern entry.
+        renderLegacyChunks: false,
+      }),
+    ],
     server: {
       port: 5173,
     },
     build: {
-      target: "es2015",
       cssCodeSplit: true,
       chunkSizeWarningLimit: 600,
       rollupOptions: {

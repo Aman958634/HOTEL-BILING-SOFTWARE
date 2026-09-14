@@ -18,6 +18,11 @@ let outletAccessToastShown = false;
 const outletRequestControllers = new Set();
 
 const AUTH_SKIP_REFRESH_PATHS = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"];
+const supportsAbortController = typeof AbortController === "function";
+const createClientIdempotencyKey = () => {
+  const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : null;
+  return cryptoApi?.randomUUID?.() || `payment-${Date.now()}-${Math.random()}`;
+};
 
 const shouldSkipRefresh = (url = "") =>
   AUTH_SKIP_REFRESH_PATHS.some((path) => url.includes(path));
@@ -82,7 +87,7 @@ api.interceptors.request.use((config) => {
   const outletId = localStorage.getItem("selectedOutletId");
   if (outletId && !shouldSkipOutletHeader(config.url || "")) config.headers["X-Outlet-Id"] = outletId;
   const method = String(config.method || "get").toLowerCase();
-  if (!config.signal && !shouldSkipOutletHeader(url)) {
+  if (!config.signal && !shouldSkipOutletHeader(url) && supportsAbortController) {
     const controller = new AbortController();
     config.signal = controller.signal;
     config._outletRequestController = controller;
@@ -93,7 +98,7 @@ api.interceptors.request.use((config) => {
     /\/payments\/verify$/.test(url) ||
     /\/payments\/[^/]+\/refund$/.test(url);
   if (["post", "put", "patch"].includes(method) && isPaymentWrite && !config.headers["Idempotency-Key"]) {
-    config.headers["Idempotency-Key"] = globalThis.crypto?.randomUUID?.() || `payment-${Date.now()}-${Math.random()}`;
+    config.headers["Idempotency-Key"] = createClientIdempotencyKey();
   }
   return config;
 });
