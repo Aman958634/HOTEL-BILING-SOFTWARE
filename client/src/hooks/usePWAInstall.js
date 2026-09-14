@@ -5,27 +5,31 @@ const iosDevice = () => {
   if (typeof navigator === "undefined") return false;
   return /iPad|iPhone|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 };
+const iosSafari = () => iosDevice() && /Safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA/i.test(navigator.userAgent);
 
 const usePWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [installed, setInstalled] = useState(standaloneMode);
   const [isPrompting, setIsPrompting] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
-  const [showUnsupportedMessage, setShowUnsupportedMessage] = useState(false);
 
   useEffect(() => {
     const displayMode = window.matchMedia?.("(display-mode: standalone)");
     const onBeforeInstallPrompt = (event) => {
       event.preventDefault();
+      if (standaloneMode()) return;
       setDeferredPrompt(event);
     };
     const onInstalled = () => {
       setDeferredPrompt(null);
       setInstalled(true);
       setShowIOSInstructions(false);
-      setShowUnsupportedMessage(false);
     };
-    const onDisplayModeChange = (event) => setInstalled(event.matches || window.navigator.standalone === true);
+    const onDisplayModeChange = (event) => {
+      const isStandalone = event.matches || window.navigator.standalone === true;
+      setInstalled(isStandalone);
+      if (isStandalone) setDeferredPrompt(null);
+    };
 
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onInstalled);
@@ -40,34 +44,30 @@ const usePWAInstall = () => {
   const requestInstall = useCallback(async () => {
     if (installed || isPrompting) return;
     if (deferredPrompt) {
+      const prompt = deferredPrompt;
       setIsPrompting(true);
       try {
-        await deferredPrompt.prompt();
-        const choice = await deferredPrompt.userChoice;
-        if (choice?.outcome === "accepted") setInstalled(true);
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        if (choice?.outcome === "accepted" && standaloneMode()) setInstalled(true);
+      } catch (error) {
+        console.warn("RestoSphere install prompt could not be opened.", error);
       } finally {
-        setDeferredPrompt(null);
+        setDeferredPrompt((currentPrompt) => currentPrompt === prompt ? null : currentPrompt);
         setIsPrompting(false);
       }
       return;
     }
-    if (iosDevice()) {
-      setShowIOSInstructions(true);
-      return;
-    }
-    setShowUnsupportedMessage(true);
+    if (iosSafari()) setShowIOSInstructions(true);
   }, [deferredPrompt, installed, isPrompting]);
 
   return {
     installed,
     isPrompting,
+    showInstallAction: !installed && (Boolean(deferredPrompt) || iosSafari()),
     requestInstall,
     showIOSInstructions,
-    showUnsupportedMessage,
-    closeInstallHelp: () => {
-      setShowIOSInstructions(false);
-      setShowUnsupportedMessage(false);
-    },
+    closeInstallHelp: () => setShowIOSInstructions(false),
   };
 };
 

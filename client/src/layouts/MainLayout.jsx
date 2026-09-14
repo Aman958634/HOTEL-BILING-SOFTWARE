@@ -74,7 +74,7 @@ const MainLayout = () => {
                   <span>{accountLabel}</span>
                   <FiArrowRight className="desktop-login-arrow" aria-hidden="true" />
                 </Link>
-                {!pwa.installed ? <button type="button" className="desktop-action desktop-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { void pwa.requestInstall(); }}>
+                {pwa.showInstallAction ? <button type="button" className="desktop-action desktop-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { void pwa.requestInstall(); }}>
                   <FiDownload aria-hidden="true" />
                   <span>{pwa.isPrompting ? "Preparing..." : "Install App"}</span>
                 </button> : null}
@@ -113,7 +113,7 @@ const MainLayout = () => {
               <span>{accountLabel}</span>
               <FiChevronRight className="mobile-nav-chevron" aria-hidden="true" />
             </Link> : null}
-            {!pwa.installed ? <button type="button" className="mobile-nav-link mobile-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { closeMobileMenu(); void pwa.requestInstall(); }}>
+            {pwa.showInstallAction ? <button type="button" className="mobile-nav-link mobile-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { closeMobileMenu(); void pwa.requestInstall(); }}>
               <FiDownload aria-hidden="true" />
               <span>{pwa.isPrompting ? "Preparing..." : "Install App"}</span>
               <FiChevronRight className="mobile-nav-chevron" aria-hidden="true" />
@@ -131,12 +131,12 @@ const MainLayout = () => {
       <main className="app-page-container mx-auto max-w-7xl">
         <Outlet />
       </main>
-      {(pwa.showIOSInstructions || pwa.showUnsupportedMessage) ? <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 sm:items-center sm:justify-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) pwa.closeInstallHelp(); }}>
+      {pwa.showIOSInstructions ? <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/35 p-3 sm:items-center sm:justify-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) pwa.closeInstallHelp(); }}>
         <section className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="pwa-install-title" className="text-lg font-bold text-slate-900">Install RestoSphere</h2>
-              {pwa.showIOSInstructions ? <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600"><li>Tap the Share button in Safari.</li><li>Choose <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong> to install RestoSphere.</li></ol> : <p className="mt-3 text-sm leading-6 text-slate-600">Install RestoSphere from your browser&apos;s Add to Home Screen or Install App option.</p>}
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600"><li>Tap the Share button in Safari.</li><li>Choose <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong> to install RestoSphere.</li></ol>
             </div>
             <button type="button" className="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-slate-600 hover:bg-slate-100" onClick={pwa.closeInstallHelp}>Close</button>
           </div>

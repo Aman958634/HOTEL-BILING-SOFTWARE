@@ -5,9 +5,10 @@ export const registerPWAServiceWorker = () => {
     try {
       const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       // Detect a deployed update without forcing a refresh during a payment or order workflow.
-      registration.update().catch(() => {});
-    } catch {
+      registration.update().catch((error) => console.warn("RestoSphere service-worker update check failed.", error));
+    } catch (error) {
       // Installation support must never affect login, billing, or API traffic.
+      console.warn("RestoSphere service worker could not be registered.", error);
     }
   };
 
