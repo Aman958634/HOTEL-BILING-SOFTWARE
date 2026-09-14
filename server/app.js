@@ -15,6 +15,7 @@ import { requireDb } from "./middleware/dbReady.js";
 import { isDbConnected } from "./config/db.js";
 import { isDatabaseRestoreInProgress } from "./services/backupService.js";
 import { isOriginAllowed } from "./utils/allowedOrigins.js";
+import { safeRequestPath } from "./utils/safeLog.js";
 import authRoutes from "./routes/authRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -80,7 +81,8 @@ app.use((req, res, next) => {
   res.on("finish", () => { void finishLoadTestProfile(req, res); });
   next();
 });
-app.use(morgan("combined"));
+morgan.token("safe-url", (req) => safeRequestPath(req.originalUrl));
+app.use(morgan(":remote-addr [:date[clf]] \":method :safe-url HTTP/:http-version\" :status :res[content-length] :response-time ms"));
 app.use(limiter);
 
 app.get("/api/v1/health", (_req, res) => {

@@ -1,8 +1,9 @@
 import rateLimit from "express-rate-limit";
 import logger from "../utils/logger.js";
+import { safeRequestPath } from "../utils/safeLog.js";
 
 const rateLimitHandler = (req, res) => {
-  logger.warn("Rate limit exceeded", { event: "RATE_LIMIT", requestId: req.requestId, method: req.method, route: req.originalUrl });
+  logger.warn("Rate limit exceeded", { event: "RATE_LIMIT", requestId: req.requestId, method: req.method, route: safeRequestPath(req.originalUrl) });
   res.status(429).json({ success: false, message: "Too many requests, try again later." });
 };
 

@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { safeRequestPath } from "./safeLog.js";
 
 const enabled = () => String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
 const resultPath = () => path.resolve("load-tests", "results", "profiles.jsonl");
@@ -10,7 +11,7 @@ export const startLoadTestProfile = (req) => {
   const profile = {
     runId: String(req.body?.notes || "unknown"),
     method: req.method,
-    route: req.originalUrl,
+    route: safeRequestPath(req.originalUrl),
     startedAt: new Date().toISOString(),
     marks: {},
     dbOperations: 0,

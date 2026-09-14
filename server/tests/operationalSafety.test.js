@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { redactSensitive, safeErrorContext } from "../utils/safeLog.js";
+import { redactSensitive, safeErrorContext, safeRequestPath } from "../utils/safeLog.js";
 import { isReadyState, markShuttingDown, markStartupComplete, resetForTests } from "../utils/shutdownState.js";
 import { errorHandler } from "../middleware/errorHandler.js";
+import { notFound } from "../middleware/notFound.js";
 import { safeCashfreeError } from "../utils/cashfreeDiagnostics.js";
 
 test("redacts nested credentials and tokens", () => {
@@ -24,6 +25,21 @@ test("readiness becomes true only after startup and false during shutdown", () =
   markShuttingDown();
   assert.equal(isReadyState(true), false);
   resetForTests();
+});
+
+test("request diagnostics redact path tokens and omit query strings", () => {
+  assert.equal(safeRequestPath("/api/v1/auth/reset-password/reset-token?utm_source=email"), "/api/v1/auth/reset-password/[REDACTED]");
+  assert.equal(safeRequestPath("/api/v1/public/menu/qr/signed-qr-context?cache=1"), "/api/v1/public/menu/qr/[REDACTED]");
+  assert.equal(safeRequestPath("/api/v1/orders?search=customer@example.com"), "/api/v1/orders");
+});
+
+test("not-found responses never reflect a requested URL", () => {
+  let responseBody;
+  notFound(
+    { originalUrl: "/api/v1/auth/reset-password/reset-token" },
+    { status() { return this; }, json(body) { responseBody = body; } }
+  );
+  assert.deepEqual(responseBody, { success: false, message: "Route not found" });
 });
 
 test("redacts payment identity fields, provider credentials and sensitive error text", () => {

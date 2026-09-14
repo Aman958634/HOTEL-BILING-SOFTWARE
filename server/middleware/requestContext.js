@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import logger from "../utils/logger.js";
 import { recordMetric } from "../utils/operationalMetrics.js";
+import { safeRequestPath } from "../utils/safeLog.js";
 
 const SLOW_REQUEST_MS = Number(process.env.SLOW_REQUEST_MS || 1000);
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -19,7 +20,7 @@ export const requestContext = (req, res, next) => {
       logger.warn("Slow HTTP request", {
         requestId,
         method: req.method,
-        route: req.originalUrl,
+        route: safeRequestPath(req.originalUrl),
         status: res.statusCode,
         durationMs: Math.round(durationMs),
       });

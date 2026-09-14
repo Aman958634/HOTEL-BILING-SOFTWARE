@@ -1,5 +1,13 @@
 const secretKey = /(authorization|cookie|password|token|jwt|otp|secret|api[_-]?key|signature|privateKey|mongoUri|smtpPassword|account[_-]?(number|no)|bank|^pan$|upi|vpa|sessionId|client[_-]?id|app[_-]?id)/i;
 
+// Keep bearer-style route parameters out of access, error, and diagnostic logs.
+// Query strings are intentionally excluded as they can contain user-entered data
+// or credentials supplied by third-party clients.
+export const safeRequestPath = (value) => String(value || "")
+  .split(/[?#]/, 1)[0]
+  .replace(/(\/api\/v1\/auth\/reset-password\/)[^/]+/i, "$1[REDACTED]")
+  .replace(/(\/api\/v1\/public\/menu\/qr\/)[^/]+/i, "$1[REDACTED]");
+
 export const redactLogText = (value) => {
   let text = String(value);
   for (const key of ["CASHFREE_APP_ID", "CASHFREE_SECRET_KEY", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "MONGO_URI", "MONGODB_URI"]) {

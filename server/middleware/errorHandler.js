@@ -1,6 +1,6 @@
 import logger from "../utils/logger.js";
 import { recordMetric } from "../utils/operationalMetrics.js";
-import { redactSensitive, safeErrorContext } from "../utils/safeLog.js";
+import { redactSensitive, safeErrorContext, safeRequestPath } from "../utils/safeLog.js";
 
 export const errorHandler = (err, req, res, _next) => {
   let statusCode = err.statusCode || 500;
@@ -50,7 +50,7 @@ export const errorHandler = (err, req, res, _next) => {
   logger.error("HTTP request failed", {
     requestId: req.requestId,
     method: req.method,
-    route: req.originalUrl,
+    route: safeRequestPath(req.originalUrl),
     status: statusCode,
     error: safeErrorContext(err),
     category: code || (statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR"),
