@@ -94,22 +94,20 @@ const LoginPage = ({ superAdminOnly = false }) => {
   };
 
   return (
-    <div className="h-dvh w-full overflow-hidden bg-[#F8FAFC]">
-      <div className="flex h-dvh w-full items-center justify-center overflow-hidden px-4 py-4">
+    <div className="auth-page min-h-dvh w-full overflow-x-hidden bg-[#F8FAFC]">
+      <div className="auth-page__content flex min-h-dvh w-full items-center justify-center px-4 py-6 sm:px-6">
         <div className="w-full max-w-[500px]">
-          <div className="auth-card rounded-[20px] bg-white px-6 py-7 shadow-[0_25px_60px_-12px_rgba(15,23,42,0.08)] sm:px-10 sm:py-8">
+          <div className="auth-card w-full rounded-[20px] border border-slate-200 bg-white px-5 py-6 shadow-[0_25px_60px_-12px_rgba(15,23,42,0.08)] sm:px-10 sm:py-8">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600">
-                  <span className="text-xl font-bold text-white">R</span>
-                </div>
-                <span className="text-[26px] font-bold text-[#172033]">Resto<span className="text-brand-600">Sphere</span></span>
+                <img src="/restosphere-logo.png" alt="" className="auth-brand-logo" width="40" height="40" decoding="async" />
+                <span className="text-[24px] font-bold text-[#172033] sm:text-[26px]">Resto<span className="text-brand-600">Sphere</span></span>
               </div>
               <p className="mt-2 text-sm text-[#64748B]">Restaurant Management Simplified</p>
             </div>
 
             <div className="mt-7 text-center">
-              <h1 className="text-[32px] font-bold text-[#172033]">Welcome Back!</h1>
+              <h1 className="text-2xl font-bold text-[#172033] sm:text-[32px]">Welcome Back!</h1>
               <p className="mt-2 text-sm text-[#64748B]">Login to your account to continue</p>
             </div>
 
@@ -159,7 +157,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                 {errors.password ? <p id="password-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.password.message}</p> : null}
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"

@@ -574,3 +574,9 @@ button:disabled { cursor: not-allowed; }
 .profile-menu-panel { animation: profile-menu-in 160ms ease-out; }
 @keyframes profile-menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .profile-menu-panel { animation: none; } }
+
+.auth-page { width: 100%; max-width: 100%; overflow-x: hidden; }
+.auth-page__content { width: 100%; max-width: 100%; box-sizing: border-box; }
+.auth-card { box-sizing: border-box; }
+.auth-brand-logo { width: auto; height: 40px; flex: 0 0 auto; object-fit: contain; }
+@media (max-width: 639px) { .auth-card { border-radius: 1rem; } .auth-brand-logo { height: 38px; } }
