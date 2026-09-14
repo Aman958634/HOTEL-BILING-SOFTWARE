@@ -60,9 +60,14 @@ const AdminSidebar = ({ open, setOpen }) => {
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <div className="flex shrink-0 items-center justify-between px-5 py-5 md:py-6">
           <div className="flex items-center gap-3">
-            <div className="admin-sidebar__logo flex h-9 w-9 items-center justify-center rounded-xl">
-              <FiAward className="h-5 w-5" />
-            </div>
+            <img
+              src="/restosphere-logo.png"
+              alt=""
+              className="admin-sidebar__logo"
+              width="36"
+              height="36"
+              decoding="async"
+            />
             <span className="admin-sidebar__brand-name text-lg font-bold md:text-xl">Resto<span>Sphere</span></span>
           </div>
           <button

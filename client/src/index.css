@@ -247,7 +247,7 @@ button:disabled { cursor: not-allowed; }
   border-color: var(--sidebar-border);
   color: var(--sidebar-text);
 }
-.admin-sidebar__logo { background: #059669; color: #fff; box-shadow: 0 2px 5px rgb(5 150 105 / 0.2); }
+.admin-sidebar__logo { width: auto; height: 36px; flex: 0 0 auto; object-fit: contain; }
 .admin-sidebar__brand-name { color: #0f172a; letter-spacing: -0.02em; }
 .admin-sidebar__brand-name span { color: #059669; }
 .admin-sidebar__close { border-color: var(--sidebar-border); color: var(--sidebar-muted); transition: background-color 170ms ease, color 170ms ease; }
@@ -551,10 +551,21 @@ button:disabled { cursor: not-allowed; }
   .brand-name { font-size: 19px; }
 }
 @media (max-width: 1023px) {
+  .outlet-switcher-select {
+    border: 1px solid transparent;
+    outline: none;
+    box-shadow: none;
+  }
   .outlet-switcher-select:focus,
-  .outlet-switcher-select:focus-visible {
-    outline: 2px solid #cbd5e1;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgb(148 163 184 / 0.16);
+  .outlet-switcher-select:focus-visible,
+  .outlet-switcher-select:active {
+    outline: none !important;
+    border-color: #cbd5e1;
+    box-shadow: 0 0 0 1px rgb(148 163 184 / 0.25) !important;
+  }
+  .outlet-switcher-select:open {
+    outline: none !important;
+    border-color: #cbd5e1;
+    box-shadow: 0 0 0 1px rgb(148 163 184 / 0.25) !important;
   }
 }
