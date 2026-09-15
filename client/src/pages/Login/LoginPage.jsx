@@ -112,53 +112,57 @@ const LoginPage = ({ superAdminOnly = false }) => {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} onFocus={prefetchAdminDashboard} className="mt-6 space-y-4">
-              <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#172033]">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5" aria-hidden="true">
-                    <svg className="h-5 w-5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                    </svg>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#172033]">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5" aria-hidden="true">
+                      <svg className="h-5 w-5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                      </svg>
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Enter your email address"
+                      className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.email ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "email-error" : undefined}
+                      {...register("email", { required: "Email address is required.", pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email address." } })}
+                    />
                   </div>
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email address"
-                    className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.email ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
-                    aria-invalid={Boolean(errors.email)}
-                    aria-describedby={errors.email ? "email-error" : undefined}
-                    {...register("email", { required: "Email address is required.", pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email address." } })}
-                  />
+                  {errors.email ? <p id="email-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.email.message}</p> : null}
                 </div>
-                {errors.email ? <p id="email-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.email.message}</p> : null}
+
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[#172033]">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5" aria-hidden="true">
+                      <svg className="h-5 w-5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    </div>
+                    <PasswordInput
+                      id="password"
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-12 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.password ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? "password-error" : undefined}
+                      {...register("password", { required: "Password is required." })}
+                    />
+                  </div>
+                  {errors.password ? <p id="password-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.password.message}</p> : null}
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[#172033]">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5" aria-hidden="true">
-                    <svg className="h-5 w-5 text-[#64748B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                  </div>
-                  <PasswordInput
-                    id="password"
-                    placeholder="Enter your password"
-                    className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-12 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.password ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
-                    aria-invalid={Boolean(errors.password)}
-                    aria-describedby={errors.password ? "password-error" : undefined}
-                    {...register("password", { required: "Password is required." })}
-                  />
-                </div>
-                {errors.password ? <p id="password-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.password.message}</p> : null}
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <label className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-[#E2E8F0] text-brand-600 focus:ring-brand-600/20"
@@ -168,7 +172,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-password")}
-                  className="text-right text-xs font-medium text-brand-700 hover:text-brand-800"
+                  className="inline-flex items-center text-sm font-medium text-brand-700 transition-colors hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30"
                 >
                   Forgot password?
                 </button>
@@ -179,7 +183,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-2 flex h-[56px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
+                className="mt-2 flex h-[56px] w-full items-center justify-center rounded-xl bg-brand-600 text-base font-semibold text-white shadow-md shadow-brand-600/10 transition-all hover:bg-brand-700 hover:shadow-lg hover:shadow-brand-600/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-80"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -195,13 +199,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
               </button>
             </form>
 
-            <div className="mt-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[#E2E8F0]" />
-              <span className="text-xs text-[#94A3B8]">or continue with</span>
-              <div className="h-px flex-1 bg-[#E2E8F0]" />
-            </div>
-
-            <p className="mt-5 text-center text-sm text-[#475569]">
+            <p className="mt-4 text-center text-sm text-[#475569]">
               Don&apos;t have an account?{" "}
               <button
                 type="button"
