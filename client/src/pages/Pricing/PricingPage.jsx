@@ -28,6 +28,18 @@ const FREE_TRIAL_FEATURES = [
   "No payment required during trial",
 ];
 
+const PRODUCTION_ORIGIN = "https://hotel-biling-software.vercel.app";
+const DEFAULT_TITLE = "RestoSphere | Restaurant Management";
+const DEFAULT_DESCRIPTION = "All-in-one restaurant management platform";
+
+const upsertHeadElement = (selector, create) => {
+  const existing = document.head.querySelector(selector);
+  if (existing) return existing;
+  const element = create();
+  document.head.appendChild(element);
+  return element;
+};
+
 const PricingPage = () => {
   const navigate = useNavigate();
   const { accessToken, user } = useSelector((state) => state.auth);
@@ -37,6 +49,38 @@ const PricingPage = () => {
   const [error, setError] = useState("");
   const [busyKey, setBusyKey] = useState("");
   const loadIdRef = useRef(0);
+
+  useEffect(() => {
+    document.title = "RestoSphere Pricing | Restaurant Management Plans";
+
+    const description = upsertHeadElement('meta[name="description"]', () => {
+      const element = document.createElement("meta");
+      element.name = "description";
+      return element;
+    });
+    description.content = "Compare RestoSphere restaurant management plans and start with a 15-day free trial.";
+
+    const canonical = upsertHeadElement('link[rel="canonical"]', () => {
+      const element = document.createElement("link");
+      element.rel = "canonical";
+      return element;
+    });
+    canonical.href = `${PRODUCTION_ORIGIN}/pricing`;
+
+    const robots = upsertHeadElement('meta[name="robots"]', () => {
+      const element = document.createElement("meta");
+      element.name = "robots";
+      return element;
+    });
+    robots.content = "index,follow";
+
+    return () => {
+      document.title = DEFAULT_TITLE;
+      description.content = DEFAULT_DESCRIPTION;
+      canonical.href = `${PRODUCTION_ORIGIN}/`;
+      robots.content = "index,follow";
+    };
+  }, []);
 
   const loadPlans = useCallback(async () => {
     const requestId = ++loadIdRef.current;

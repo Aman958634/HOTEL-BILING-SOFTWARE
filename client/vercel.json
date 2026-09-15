@@ -11,6 +11,10 @@
   ],
   "rewrites": [
     {
+      "source": "/pricing",
+      "destination": "/pricing/index.html"
+    },
+    {
       "source": "/((?!api(?:/|$)|auth(?:/|$)|socket\\.io(?:/|$)|webhooks?(?:/|$)|assets(?:/|$)|sitemap\\.xml$).*)",
       "destination": "/index.html"
     }
