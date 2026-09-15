@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import StatCard from "../../components/admin/StatCard";
 import RecentOrders from "../../components/admin/RecentOrders";
 import RequestState from "../../components/common/RequestState";
+import Button from "../../components/ui/Button";
 import { deleteAdminOrder, getAdminRecentOrders, getAdminSales, getAdminStats, updateAdminOrderStatus } from "../../services/adminService";
 import { useSocket } from "../../context/SocketContext";
 import { getMyOutlets } from "../../services/outletService";
@@ -21,6 +22,17 @@ const DASHBOARD_ICON_MAP = {
   availableTables: { icon: <FiGrid />, module: "availableTables" },
   lowStockItems: { icon: <FiAlertCircle />, module: "lowStock" },
   totalMenuItems: { icon: <FiBookOpen />, module: "menuItems" },
+};
+
+const dashboardActionClasses = {
+  outline: "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/30",
+  ghost: "inline-flex min-h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+};
+
+const unavailableMetricMessage = (key) => {
+  if (String(key).toLowerCase().includes("revenue")) return "Revenue will appear after completed payments";
+  if (String(key).toLowerCase().includes("order")) return "No orders yet";
+  return "No data yet";
 };
 
 const SalesChartSkeleton = () => <div className="h-48 animate-pulse rounded-xl bg-slate-100 sm:h-64 md:h-80" aria-busy="true" />;
@@ -257,14 +269,14 @@ const AdminDashboard = () => {
     <div className="space-y-5 pb-20 sm:space-y-6">
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h2>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">Today’s performance, changes, and operational follow-up.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs text-slate-500 sm:inline">{todayLabel}</span>
-          <button type="button" onClick={refreshDashboard} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50" aria-label="Refresh dashboard">
+          <Button type="button" variant="secondary" onClick={refreshDashboard} className="min-h-11 px-3" aria-label="Refresh dashboard">
             <FiRefreshCw className="h-4 w-4" aria-hidden="true" /> Refresh
-          </button>
+          </Button>
         </div>
         <span className="flex w-full items-center gap-2 text-xs text-slate-500 sm:hidden"><FiCalendar className="h-4 w-4" aria-hidden="true" />{todayLabel}</span>
       </header>
@@ -276,7 +288,10 @@ const AdminDashboard = () => {
             <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-800 shadow-sm">{setupSteps.length - visibleSetupSteps.length} of {setupSteps.length} ready</span>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {setupSteps.map((step) => <div key={step.key} className={`flex min-w-0 items-center gap-3 rounded-xl border bg-white p-3 ${step.complete ? "border-emerald-100" : "border-slate-200"}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${step.complete ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{step.complete ? <FiCheckCircle aria-hidden="true" /> : step.icon}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{step.label}</p>{step.complete ? <p className="text-xs text-emerald-700">Ready</p> : <p className="truncate text-xs text-slate-500">{step.description}</p>}</div>{!step.complete ? <Link to={step.to} className="shrink-0 text-xs font-semibold text-emerald-700 hover:text-emerald-800">{step.action}<span className="sr-only"> for {step.label}</span></Link> : null}</div>)}
+            {setupSteps.map((step) => {
+              const isProminentSetupAction = step.key === "tables" || step.key === "staff";
+              return <div key={step.key} className={`flex min-w-0 items-center gap-3 rounded-xl border bg-white p-3 ${step.complete ? "border-emerald-100" : "border-slate-200"}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${step.complete ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{step.complete ? <FiCheckCircle aria-hidden="true" /> : step.icon}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{step.label}</p>{step.complete ? <p className="text-xs text-emerald-700">Ready</p> : <p className="text-xs leading-5 text-slate-500">{step.description}</p>}</div>{!step.complete ? <Link to={step.to} className={isProminentSetupAction ? dashboardActionClasses.outline : dashboardActionClasses.ghost}>{step.action}<span className="sr-only"> for {step.label}</span></Link> : null}</div>;
+            })}
           </div>
         </section>
       ) : null}
@@ -289,16 +304,17 @@ const AdminDashboard = () => {
         <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" aria-label="Restaurant metrics">
           {cards.map((card) => {
             const moduleIcon = DASHBOARD_ICON_MAP[card.key];
-            return <StatCard key={card.key} {...card} icon={moduleIcon?.icon} iconModule={moduleIcon?.module} range="today" comparisonType="dashboard" compact />;
+            const unavailable = card.value === null || card.value === undefined || card.value === "";
+            return <StatCard key={card.key} {...card} icon={moduleIcon?.icon} iconModule={moduleIcon?.module} range="today" comparisonType="dashboard" compact unavailable={unavailable} unavailableMessage={unavailableMetricMessage(card.key)} />;
           })}
         </section>
       )}
 
-      {!loadingStats && (!statsError || stats) ? <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <section className="ops-card min-w-0 p-3 sm:p-4 xl:col-span-2" aria-labelledby="dashboard-changed-title">
+      {!loadingStats && (!statsError || stats) ? <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <section className="ops-card min-w-0 p-3 sm:p-4" aria-labelledby="dashboard-changed-title">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div><h3 id="dashboard-changed-title" className="text-base font-bold text-slate-900">What changed today</h3><p className="mt-0.5 text-xs text-slate-500">Compared with yesterday</p></div>
-            <Link to="/dashboard/admin/reports" className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800">Open reports <FiArrowRight aria-hidden="true" /></Link>
+            <Link to="/dashboard/admin/reports" className={dashboardActionClasses.ghost}>Open reports <FiArrowRight aria-hidden="true" /></Link>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <TrendLine label="Sales" card={stats?.todayRevenue} />

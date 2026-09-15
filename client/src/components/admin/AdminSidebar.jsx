@@ -1,6 +1,6 @@
-import { memo, useCallback } from "react";
-import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin } from "react-icons/fi";
-import { NavLink, useNavigate } from "react-router-dom";
+import { memo, useCallback, useEffect, useState } from "react";
+import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiChevronDown, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin } from "react-icons/fi";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
 import ModuleIcon from "../common/ModuleIcon";
@@ -36,13 +36,38 @@ const linkGroups = Object.entries(
   links.reduce((groups, link) => ({ ...groups, [link.group]: [...(groups[link.group] || []), link] }), {})
 );
 
+const groupLabel = (group) => group === "Menu & Customers" ? "Menu & customers" : group;
+const groupId = (group) => `admin-navigation-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+
 const AdminSidebar = ({ open, setOpen }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const user = useSelector((state) => state.auth.user);
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set(["Overview", "Operations"]));
   const allowed = (link) => user?.role === "admin" || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission));
 
   const visibleGroups = linkGroups.map(([group, groupLinks]) => [group, groupLinks.filter(allowed)]).filter(([, groupLinks]) => groupLinks.length);
+
+  useEffect(() => {
+    const activeGroup = linkGroups.find(([, groupLinks]) => groupLinks.some((link) => link.to === pathname))?.[0];
+    if (!activeGroup) return;
+    setExpandedGroups((current) => {
+      if (current.has(activeGroup)) return current;
+      const next = new Set(current);
+      next.add(activeGroup);
+      return next;
+    });
+  }, [pathname]);
+
+  const toggleGroup = useCallback((group) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }, []);
 
   const onLogout = useCallback(async () => {
     await dispatch(logoutThunk());
@@ -80,10 +105,15 @@ const AdminSidebar = ({ open, setOpen }) => {
         </div>
 
         <nav aria-label="Restaurant administration" tabIndex={0} className="sidebar-scroll-region flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
-          {visibleGroups.map(([group, groupLinks]) => (
-            <div key={group}>
-              <p className="admin-sidebar__section px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em]">{group}</p>
-              <div className="space-y-1">
+          {visibleGroups.map(([group, groupLinks]) => {
+            const expanded = expandedGroups.has(group);
+            const controls = groupId(group);
+            return <div key={group}>
+              <button type="button" className="admin-sidebar__section flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.06em] transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300" aria-expanded={expanded} aria-controls={controls} onClick={() => toggleGroup(group)}>
+                <span>{groupLabel(group)}</span>
+                <FiChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              <div id={controls} className="space-y-1" hidden={!expanded}>
               {groupLinks.map((link) => (
             <NavLink
               key={link.to}
@@ -104,7 +134,7 @@ const AdminSidebar = ({ open, setOpen }) => {
               ))}
               </div>
             </div>
-          ))}
+          })}
         </nav>
 
         <div className="admin-sidebar__footer shrink-0 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">

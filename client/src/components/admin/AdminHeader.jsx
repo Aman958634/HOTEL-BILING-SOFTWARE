@@ -32,16 +32,17 @@ const pageMeta = [
 
 const AdminHeader = ({ title, subtitle }) => {
   const { pathname } = useLocation();
+  const showContext = pathname !== "/dashboard/admin";
   const matchedMeta = pageMeta.find(([path]) => pathname.includes(path));
   const resolvedTitle = title || matchedMeta?.[1] || "Dashboard";
   const resolvedSubtitle = subtitle || matchedMeta?.[2] || "Today’s restaurant performance at a glance.";
   return (
     <header className="admin-header sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
       <div className="admin-header__inner mx-auto flex min-w-0 items-center gap-3">
-        <div className="admin-header__context hidden min-w-0 flex-1 xl:block">
+        {showContext && <div className="admin-header__context hidden min-w-0 flex-1 xl:block">
           <h1 className="truncate text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>
           <p className="truncate text-sm text-slate-500">{resolvedSubtitle}</p>
-        </div>
+        </div>}
 
         <div className="admin-header__actions ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 xl:flex-none xl:gap-2.5">
           <GlobalSearch className="admin-header__search min-w-0 flex-1 xl:w-[clamp(10rem,15vw,15rem)] xl:flex-none" />

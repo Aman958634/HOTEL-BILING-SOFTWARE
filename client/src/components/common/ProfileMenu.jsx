@@ -56,7 +56,7 @@ const ProfileMenu = ({ compact = false, header = false, profilePath = "/profile"
         </span>
         {!compact && (
           <span className={`hidden min-w-0 text-left ${header ? "xl:block" : "md:block"}`}>
-            <span className="block max-w-28 truncate text-sm font-medium leading-tight text-slate-900">{displayName}</span>
+            <span className="block max-w-28 truncate text-sm font-medium leading-tight text-slate-900" title={displayName}>{displayName}</span>
             <span className="block max-w-28 truncate text-xs capitalize leading-tight text-slate-500">{role}</span>
           </span>
         )}
@@ -69,7 +69,7 @@ const ProfileMenu = ({ compact = false, header = false, profilePath = "/profile"
               {displayName.charAt(0).toUpperCase()}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
+              <p className="truncate text-sm font-semibold text-slate-900" title={displayName}>{displayName}</p>
               <p className="mt-0.5 truncate text-xs text-slate-500">{user?.email || "No email available"}</p>
               <p className="mt-1 truncate text-[11px] font-medium capitalize tracking-wide text-slate-400">{role}</p>
             </div>
