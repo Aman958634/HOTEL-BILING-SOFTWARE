@@ -215,7 +215,8 @@ export const recentOrders = asyncHandler(async (req, res) => {
     .populate("customer", "fullName email")
     .populate("items.menuItem", "name")
     .sort({ createdAt: -1 })
-    .limit(12);
+    .limit(12)
+    .lean();
 
   const data = orders.map((order) => ({
     _id: order._id,

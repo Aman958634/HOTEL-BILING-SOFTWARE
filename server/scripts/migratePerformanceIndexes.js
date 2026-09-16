@@ -4,6 +4,7 @@ import Order from "../models/Order.js";
 import Invoice from "../models/Invoice.js";
 import Table from "../models/Table.js";
 import Reservation from "../models/Reservation.js";
+import KotTicket from "../models/KotTicket.js";
 import mongoose from "mongoose";
 
 // Additive only: never drops or rebuilds existing production indexes.
@@ -13,6 +14,7 @@ await Promise.all([
   Invoice.collection.createIndex({ order: 1, issuedAt: -1 }, { name: "order_issuedAt" }),
   Table.collection.createIndex({ restaurant: 1, outlet: 1, status: 1 }, { name: "restaurant_outlet_status" }),
   Reservation.collection.createIndex({ restaurant: 1, outlet: 1, status: 1 }, { name: "restaurant_outlet_status" }),
+  KotTicket.collection.createIndex({ orderId: 1 }, { name: "orderId" }),
 ]);
 console.log("Performance indexes ensured.");
 await mongoose.disconnect();
