@@ -96,7 +96,7 @@ const RestaurantDetailsPage = () => {
             <>
               <p>Price: ₹{subscription?.price || "-"}</p>
               <p>Subscription Start: {subscription?.subscriptionStartAt ? new Date(subscription.subscriptionStartAt).toLocaleString() : "-"}</p>
-              <p>Renewal: {subscription?.renewalDate ? new Date(subscription.renewalDate).toLocaleDateString() : "-"}</p>
+              <p>Subscription End: {subscription?.subscriptionEndAt || subscription?.renewalDate ? new Date(subscription.subscriptionEndAt || subscription.renewalDate).toLocaleDateString() : "-"}</p>
             </>
           )}
           {subscription?.status === "expired" && <p className="text-rose-700 font-medium">Upgrade Subscription required</p>}

@@ -157,7 +157,7 @@ const BillingPage = () => {
               <span className="font-medium">Subscription Start:</span> {formatDateTime(subscription.subscriptionStartAt)}
             </p>
             <p>
-              <span className="font-medium">Renewal Date:</span> {formatDateTime(subscription.renewalDate)}
+              <span className="font-medium">Subscription End:</span> {formatDateTime(subscription.subscriptionEndAt || subscription.renewalDate)}
             </p>
           </div>
         )}
@@ -168,8 +168,9 @@ const BillingPage = () => {
             <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
             <p className="mt-2 text-3xl font-semibold text-teal-800">
               {formatMoney(plan.price, plan.currency)}
-              <span className="text-sm font-normal text-slate-500">/{plan.billingCycle || "month"}</span>
+              <span className="text-sm font-normal text-slate-500">/{plan.durationLabel || "plan"}</span>
             </p>
+            {plan.monthlyEquivalentPrice ? <p className="mt-1 text-sm text-slate-500">{formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month</p> : null}
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {(plan.features || []).map((feature) => (
                 <li key={feature}>• {feature}</li>

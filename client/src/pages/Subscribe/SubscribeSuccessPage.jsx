@@ -35,7 +35,7 @@ const SubscribeSuccessPage = () => {
           <span className="font-medium">Subscription:</span> {(sub?.status || "ACTIVE").toUpperCase()}
         </p>
         <p>
-          <span className="font-medium">Next Renewal:</span> {formatDate(sub?.renewalDate)}
+          <span className="font-medium">Subscription End:</span> {formatDate(sub?.subscriptionEndAt || sub?.renewalDate)}
         </p>
       </div>
 

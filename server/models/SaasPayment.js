@@ -8,7 +8,9 @@ const saasPaymentSchema = new mongoose.Schema(
     planName: { type: String, required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
-    billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+    billingCycle: { type: String, enum: ["monthly", "yearly", "fixed"], default: "monthly" },
+    durationMonths: { type: Number, default: 1, min: 1 },
+    durationLabel: { type: String, default: null },
     status: {
       type: String,
       enum: ["pending", "paid", "failed", "cancelled", "refunded"],

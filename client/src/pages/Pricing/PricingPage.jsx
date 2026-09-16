@@ -244,9 +244,13 @@ const PricingPage = () => {
               </div>
               <p className="mt-4 text-3xl font-semibold text-teal-800">
                 {formatMoney(plan.price, plan.currency)}
-                <span className="text-sm font-normal text-slate-500"> / month</span>
+                <span className="text-sm font-normal text-slate-500"> / {plan.durationLabel || "plan"}</span>
               </p>
-              {plan.description ? <p className="mt-2 text-sm text-slate-500">{plan.description}</p> : null}
+              <p className="mt-2 text-sm text-slate-500">
+                {plan.monthlyEquivalentPrice
+                  ? `${formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month`
+                  : plan.description}
+              </p>
               <ul className="mt-5 flex-1 space-y-2 text-sm text-slate-600">
                 {(plan.features || []).map((feature) => (
                   <li key={feature} className="flex gap-2">

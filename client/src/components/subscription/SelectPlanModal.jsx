@@ -29,7 +29,7 @@ const PlanCard = ({ plan, selected, onSelect }) => (
         <p className="text-lg font-bold text-slate-900">{plan.name}</p>
         <p className="mt-1 text-2xl font-semibold text-teal-800">
           {formatMoney(plan.price, plan.currency)}
-          <span className="text-sm font-normal text-slate-500"> / month</span>
+          <span className="text-sm font-normal text-slate-500"> / {plan.durationLabel || "plan"}</span>
         </p>
       </div>
       {selected && (
@@ -258,7 +258,7 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
                 <p><span className="font-medium text-slate-500">Billing Period</span><br />{paymentSummary.billingPeriod || "Monthly"}</p>
                 <p><span className="font-medium text-slate-500">Amount</span><br />{formatMoney(paymentSummary.amount, paymentSummary.currency)}</p>
                 <p><span className="font-medium text-slate-500">Subscription Start</span><br />{formatDate(paymentSummary.subscriptionStartPreview)}</p>
-                <p><span className="font-medium text-slate-500">Next Renewal</span><br />{formatDate(paymentSummary.renewalDatePreview)}</p>
+                <p><span className="font-medium text-slate-500">Subscription End</span><br />{formatDate(paymentSummary.renewalDatePreview)}</p>
               </div>
             </div>
           )}
@@ -299,7 +299,7 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
               <p className="text-lg font-bold text-emerald-900">Payment Successful</p>
               <p className="mt-2 text-sm text-emerald-800">Subscription Activated</p>
               <p className="mt-1 text-sm text-slate-600">
-                {paymentSummary?.planName} · Renews {formatDate(paymentSummary?.renewalDatePreview)}
+                {paymentSummary?.planName} · Active until {formatDate(paymentSummary?.renewalDatePreview)}
               </p>
             </div>
           )}

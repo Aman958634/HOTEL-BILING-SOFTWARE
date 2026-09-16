@@ -6,14 +6,20 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
-import { listActivePlans, resolvePlan } from "../services/planService.js";
+import {
+  getPlanDurationLabel,
+  getPlanDurationMonths,
+  getPlanSnapshot,
+  listActivePlans,
+  resolvePlan,
+} from "../services/planService.js";
 import {
   assertNoDuplicateSubscription,
   assertStatusTransition,
 } from "../services/subscriptionValidationService.js";
 import { getRazorpayClient } from "../services/paymentService.js";
 import {
-  calculateRenewalDate,
+  calculateSubscriptionEndDate,
   calculateTrialEndDate,
   expireTrialIfNeeded,
   getDaysRemaining,
@@ -64,15 +70,20 @@ const getSelectedPlanForSubscription = async (subscription) => {
 
 const buildPaymentSummary = (plan, restaurantName) => {
   const now = new Date();
+  const durationMonths = getPlanDurationMonths(plan);
+  const durationLabel = getPlanDurationLabel(plan);
   return {
     restaurantName,
     planName: plan.name,
     planKey: plan.key,
-    billingPeriod: plan.billingCycle === "yearly" ? "Yearly" : "Monthly",
+    billingPeriod: durationLabel,
     amount: Number(plan.price) || 0,
     currency: plan.currency || "INR",
+    durationMonths,
+    durationLabel,
+    monthlyEquivalentPrice: Number(plan.monthlyEquivalentPrice) || null,
     subscriptionStartPreview: now.toISOString(),
-    renewalDatePreview: calculateRenewalDate(now, plan.billingCycle || "monthly").toISOString(),
+    renewalDatePreview: calculateSubscriptionEndDate(now, durationMonths).toISOString(),
   };
 };
 
@@ -98,8 +109,11 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     amount,
     currency: plan.currency || "INR",
     billingCycle: plan.billingCycle || "monthly",
+    durationMonths: getPlanDurationMonths(plan),
+    durationLabel: getPlanDurationLabel(plan),
     status: "pending",
     gateway: "razorpay",
+    metadata: { planSnapshot: getPlanSnapshot(plan) },
   });
 
   await createActivity({
@@ -276,6 +290,7 @@ const verifyAndActivatePayment = async ({
     restaurantName: restaurant?.name,
     source,
     adminOverride: false,
+    payment,
   });
 
   sub.metadata = {
@@ -323,16 +338,31 @@ const activatePaidSubscription = async ({
   restaurantName = "",
   source = "payment",
   adminOverride = false,
+  payment = null,
 }) => {
   const now = new Date();
+  // A payment's values are a purchase-time snapshot. This protects old pending
+  // checkout records if plan catalog pricing changes before verification.
+  const snapshot = payment?.metadata?.planSnapshot || null;
+  // Mongoose materializes a schema default for old rows. Ignore that default so
+  // a pre-change yearly payment keeps its original 12-month term.
+  const persistedPaymentDuration = payment?.$isDefault?.("durationMonths") ? null : payment?.durationMonths;
+  const durationMonths = Number(snapshot?.durationMonths || persistedPaymentDuration) || getPlanDurationMonths(plan);
+  const durationLabel = snapshot?.durationLabel || payment?.durationLabel || getPlanDurationLabel(plan);
+  const amount = payment ? Number(payment.amount) : Number(plan.price);
+  const endDate = calculateSubscriptionEndDate(now, durationMonths);
   subscription.status = "active";
   subscription.planId = plan._id;
   subscription.planName = plan.key;
-  subscription.price = plan.price;
-  subscription.billingCycle = plan.billingCycle || "monthly";
+  subscription.price = amount;
+  subscription.billingCycle = snapshot?.billingCycle || payment?.billingCycle || plan.billingCycle || "monthly";
+  subscription.durationMonths = durationMonths;
+  subscription.durationLabel = durationLabel;
   subscription.subscriptionStartAt = now;
   subscription.startDate = now;
-  subscription.renewalDate = calculateRenewalDate(now, plan.billingCycle || "monthly");
+  subscription.subscriptionEndAt = endDate;
+  // Kept in sync for existing guards and API clients that still use renewalDate.
+  subscription.renewalDate = endDate;
   subscription.cancelledAt = null;
   subscription.suspendedAt = null;
   subscription.metadata = {
@@ -341,6 +371,8 @@ const activatePaidSubscription = async ({
     adminOverride,
     recurringBillingEnabled: false,
     paymentRecorded: !adminOverride,
+    durationMonths,
+    durationLabel,
   };
   await subscription.save();
 
@@ -353,7 +385,7 @@ const activatePaidSubscription = async ({
     restaurantId: subscription.restaurant,
     targetId: subscription._id,
     targetType: "subscription",
-    metadata: { planName: plan.key, price: plan.price, source, adminOverride, userId: performedBy },
+    metadata: { planName: plan.key, price: amount, durationMonths, durationLabel, source, adminOverride, userId: performedBy },
   });
 
   return subscription;
@@ -400,15 +432,15 @@ export const createSubscription = asyncHandler(async (req, res) => {
     planName: plan.key,
     price: effectiveStatus === "trial" ? 0 : plan.price,
     billingCycle: plan.billingCycle || "monthly",
+    durationMonths: getPlanDurationMonths(plan),
+    durationLabel: getPlanDurationLabel(plan),
     status: effectiveStatus,
     startDate: trialStart,
     trialStartDate: effectiveStatus === "trial" ? trialStart : null,
     trialEndDate,
     subscriptionStartAt: effectiveStatus === "active" ? trialStart : null,
-    renewalDate:
-      effectiveStatus === "active"
-        ? calculateRenewalDate(trialStart, plan.billingCycle || "monthly")
-        : null,
+    subscriptionEndAt: effectiveStatus === "active" ? calculateSubscriptionEndDate(trialStart, getPlanDurationMonths(plan)) : null,
+    renewalDate: effectiveStatus === "active" ? calculateSubscriptionEndDate(trialStart, getPlanDurationMonths(plan)) : null,
     metadata: { recurringBillingEnabled: false },
   });
 

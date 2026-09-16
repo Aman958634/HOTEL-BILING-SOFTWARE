@@ -6,7 +6,11 @@ const planSchema = new mongoose.Schema(
     name: { type: String, required: true, unique: true, index: true },
     price: { type: Number, default: 0 },
     currency: { type: String, default: "INR" },
-    billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+    // `fixed` plans are paid once for the configured duration; they are not recurring monthly plans.
+    billingCycle: { type: String, enum: ["monthly", "yearly", "fixed"], default: "monthly" },
+    durationMonths: { type: Number, default: 1, min: 1 },
+    durationLabel: { type: String, default: "1 month" },
+    monthlyEquivalentPrice: { type: Number, default: null, min: 0 },
     maxUsers: { type: Number, default: 50 },
     maxTables: { type: Number, default: 50 },
     maxMenuItems: { type: Number, default: 500 },

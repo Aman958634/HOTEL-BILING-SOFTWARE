@@ -65,13 +65,37 @@ export const expireTrialIfNeeded = (subscription, now = new Date()) => {
 };
 
 export const calculateRenewalDate = (startDate = new Date(), billingCycle = "monthly") => {
-  const renewal = new Date(startDate);
-  if (billingCycle === "yearly") {
-    renewal.setUTCFullYear(renewal.getUTCFullYear() + 1);
-  } else {
-    renewal.setUTCMonth(renewal.getUTCMonth() + 1);
+  return calculateSubscriptionEndDate(startDate, billingCycle === "yearly" ? 12 : 1);
+};
+
+/**
+ * Adds whole calendar months in UTC without month-end rollover (Jan 31 + 1 month = Feb 28/29).
+ * The backend is the sole authority for paid subscription end dates.
+ */
+export const calculateSubscriptionEndDate = (startDate = new Date(), durationMonths = 1) => {
+  const start = new Date(startDate);
+  const months = Math.max(1, Math.floor(Number(durationMonths) || 1));
+  const end = new Date(start);
+  const originalDay = end.getUTCDate();
+  end.setUTCDate(1);
+  end.setUTCMonth(end.getUTCMonth() + months);
+  const lastDayOfTargetMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  end.setUTCDate(Math.min(originalDay, lastDayOfTargetMonth));
+  return end;
+};
+
+export const getSubscriptionDurationMonths = (subscription) => {
+  const months = Number(subscription?.durationMonths ?? subscription?.metadata?.durationMonths);
+  if (Number.isInteger(months) && months > 0) return months;
+  return subscription?.billingCycle === "yearly" ? 12 : 1;
+};
+
+export const getSubscriptionDurationLabel = (subscription) => {
+  if (subscription?.durationLabel || subscription?.metadata?.durationLabel) {
+    return subscription.durationLabel || subscription.metadata.durationLabel;
   }
-  return renewal;
+  const months = getSubscriptionDurationMonths(subscription);
+  return months === 12 ? "1 year" : `${months} month${months === 1 ? "" : "s"}`;
 };
 
 export const getTrialWarningMessage = (daysRemaining) => {
@@ -153,6 +177,11 @@ export const toSubscriptionView = (subscription, paymentContext = {}, now = new 
     subscriptionStartAt: isActivePaid
       ? plain.subscriptionStartAt || plain.startDate || null
       : null,
+    subscriptionEndAt: isActivePaid
+      ? plain.subscriptionEndAt || plain.renewalDate || null
+      : null,
+    durationMonths: getSubscriptionDurationMonths(plain),
+    durationLabel: getSubscriptionDurationLabel(plain),
     daysRemaining,
     daysRemainingLabel: formatDaysRemainingLabel(plain, now),
     warningMessage: getTrialWarningMessage(daysRemaining),
@@ -249,6 +278,9 @@ export default {
   hasTrialExpired,
   expireTrialIfNeeded,
   calculateRenewalDate,
+  calculateSubscriptionEndDate,
+  getSubscriptionDurationMonths,
+  getSubscriptionDurationLabel,
   getTrialWarningMessage,
   formatDaysRemainingLabel,
   toSubscriptionView,

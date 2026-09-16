@@ -6,9 +6,12 @@ export const DEFAULT_PLANS = [
   {
     key: "basic",
     name: "Basic",
-    price: 999,
+    price: 7500,
     currency: "INR",
-    billingCycle: "monthly",
+    billingCycle: "fixed",
+    durationMonths: 3,
+    durationLabel: "3 months",
+    monthlyEquivalentPrice: 2500,
     maxUsers: 10,
     maxTables: 20,
     maxMenuItems: 100,
@@ -19,9 +22,12 @@ export const DEFAULT_PLANS = [
   {
     key: "professional",
     name: "Pro",
-    price: 1999,
+    price: 15000,
     currency: "INR",
-    billingCycle: "monthly",
+    billingCycle: "fixed",
+    durationMonths: 6,
+    durationLabel: "6 months",
+    monthlyEquivalentPrice: 2500,
     maxUsers: 50,
     maxTables: 80,
     maxMenuItems: 500,
@@ -32,9 +38,12 @@ export const DEFAULT_PLANS = [
   {
     key: "enterprise",
     name: "Premium",
-    price: 2999,
+    price: 30000,
     currency: "INR",
-    billingCycle: "monthly",
+    billingCycle: "fixed",
+    durationMonths: 12,
+    durationLabel: "1 year",
+    monthlyEquivalentPrice: 2500,
     maxUsers: 200,
     maxTables: 300,
     maxMenuItems: 2000,
@@ -48,6 +57,32 @@ const PLAN_ALIASES = {
   pro: "professional",
   premium: "enterprise",
 };
+
+// Plans created before fixed-duration pricing did not store durationMonths.
+// This fallback is only for historical payment/subscription records.
+export const getPlanDurationMonths = (plan) => {
+  const months = Number(plan?.durationMonths);
+  if (Number.isInteger(months) && months > 0) return months;
+  return plan?.billingCycle === "yearly" ? 12 : 1;
+};
+
+export const getPlanDurationLabel = (plan) => {
+  if (plan?.durationLabel) return plan.durationLabel;
+  const months = getPlanDurationMonths(plan);
+  return months === 12 ? "1 year" : `${months} month${months === 1 ? "" : "s"}`;
+};
+
+export const getPlanSnapshot = (plan) => ({
+  planId: String(plan?._id || ""),
+  planKey: plan?.key,
+  planName: plan?.name,
+  amount: Number(plan?.price) || 0,
+  currency: plan?.currency || "INR",
+  billingCycle: plan?.billingCycle || "monthly",
+  durationMonths: getPlanDurationMonths(plan),
+  durationLabel: getPlanDurationLabel(plan),
+  monthlyEquivalentPrice: Number(plan?.monthlyEquivalentPrice) || null,
+});
 
 export const ensureDefaultPlans = async () => {
   for (const plan of DEFAULT_PLANS) {
@@ -82,4 +117,12 @@ export const resolvePlan = async (planKeyOrName = "basic") => {
   return plan;
 };
 
-export default { DEFAULT_PLANS, ensureDefaultPlans, listActivePlans, resolvePlan };
+export default {
+  DEFAULT_PLANS,
+  ensureDefaultPlans,
+  listActivePlans,
+  resolvePlan,
+  getPlanDurationMonths,
+  getPlanDurationLabel,
+  getPlanSnapshot,
+};

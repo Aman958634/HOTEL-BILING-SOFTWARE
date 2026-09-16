@@ -32,6 +32,7 @@
     "migrate:external-order-index": "node scripts/migrateExternalOrderIdIndex.js",
     "migrate:order-idempotency-index": "node scripts/migrateOrderIdempotencyIndex.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
+    "test:fixed-duration-pricing": "node tests/fixedDurationPricing.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",
     "test:intelligence": "node tests/intelligenceSignals.test.js",
     "test:global-search": "node tests/globalSearch.test.js",

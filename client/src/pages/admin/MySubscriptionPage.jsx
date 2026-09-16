@@ -131,14 +131,14 @@ const MySubscriptionPage = () => {
                 <p className="mt-1 text-lg font-semibold text-teal-800">
                   {subscription.status === "trial"
                     ? "Free trial"
-                    : `${formatMoney(subscription.price)} / month`}
+                    : `${formatMoney(subscription.price)} / ${subscription.durationLabel || "plan"}`}
                 </p>
               </div>
               <SubscriptionStatusBadge status={subscription.status} />
             </div>
 
             {subscription.status === "trial" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p className="font-semibold">Trial access</p><p className="mt-1">{subscription.daysRemainingLabel || "Trial in progress"}{subscription.trialEndAt ? ` · Ends ${formatDate(subscription.trialEndAt)}` : ""}</p></div> : null}
-            {subscription.status === "expired" ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><p className="font-semibold">Subscription expired</p><p className="mt-1">{subscription.renewalDate ? `Expired ${formatDate(subscription.renewalDate)}` : "Choose an available plan to continue."}</p></div> : null}
+            {subscription.status === "expired" ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><p className="font-semibold">Subscription expired</p><p className="mt-1">{subscription.subscriptionEndAt || subscription.renewalDate ? `Expired ${formatDate(subscription.subscriptionEndAt || subscription.renewalDate)}` : "Choose an available plan to continue."}</p></div> : null}
             <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
               <p>
                 <span className="font-medium">Status:</span> {String(subscription.status || "").toUpperCase()}
@@ -152,8 +152,8 @@ const MySubscriptionPage = () => {
                 {formatDate(subscription.subscriptionStartAt || subscription.trialStartAt || subscription.startDate)}
               </p>
               <p>
-                <span className="font-medium">Renewal Date:</span>{" "}
-                {subscription.status === "active" ? formatDate(subscription.renewalDate) : "—"}
+                <span className="font-medium">Subscription End:</span>{" "}
+                {subscription.status === "active" ? formatDate(subscription.subscriptionEndAt || subscription.renewalDate) : "—"}
               </p>
               {subscription.status === "trial" && (
                 <p>

@@ -6,7 +6,9 @@ const subscriptionSchema = new mongoose.Schema(
     planId: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", default: null },
     planName: { type: String, required: true, index: true },
     price: { type: Number, default: 0 },
-    billingCycle: { type: String, enum: ["monthly", "yearly"], default: "monthly" },
+    billingCycle: { type: String, enum: ["monthly", "yearly", "fixed"], default: "monthly" },
+    durationMonths: { type: Number, default: 1, min: 1 },
+    durationLabel: { type: String, default: null },
     status: {
       type: String,
       enum: ["trial", "active", "expired", "cancelled", "suspended"],
@@ -17,6 +19,8 @@ const subscriptionSchema = new mongoose.Schema(
     trialStartDate: { type: Date, default: null },
     trialEndDate: { type: Date, default: null },
     subscriptionStartAt: { type: Date, default: null },
+    // Immutable end date assigned at activation. `renewalDate` is retained for legacy clients.
+    subscriptionEndAt: { type: Date, default: null },
     renewalDate: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     suspendedAt: { type: Date, default: null },

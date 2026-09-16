@@ -5,7 +5,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
-import { listActivePlans, resolvePlan } from "../services/planService.js";
+import { getPlanDurationLabel, getPlanDurationMonths, listActivePlans, resolvePlan } from "../services/planService.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import {
   calculateTrialEndDate,
@@ -25,8 +25,11 @@ const toPublicPlan = (plan) => ({
   name: plan.name,
   price: plan.price,
   currency: plan.currency || "INR",
-  billingCycle: plan.billingCycle === "yearly" ? "year" : "month",
+  billingCycle: plan.billingCycle,
   billingCycleLabel: plan.billingCycle || "monthly",
+  durationMonths: getPlanDurationMonths(plan),
+  durationLabel: getPlanDurationLabel(plan),
+  monthlyEquivalentPrice: Number(plan.monthlyEquivalentPrice) || null,
   description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
   features: plan.features || [],
   sortOrder: plan.sortOrder || 0,

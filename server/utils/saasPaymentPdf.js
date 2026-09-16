@@ -70,7 +70,7 @@ export const buildSaasPaymentReceiptBuffer = async (payment, subscription = null
       formatDateTime(subscription?.subscriptionStartAt || subscription?.trialStartDate || subscription?.startDate) ||
       formatDateTime(subscription?.trialStartAt) ||
       null;
-    const renewalDate = formatDateTime(subscription?.renewalDate || subscription?.trialEndDate);
+    const subscriptionEnd = formatDateTime(subscription?.subscriptionEndAt || subscription?.renewalDate || subscription?.trialEndDate);
 
     // Header band
     doc.rect(0, 0, doc.page.width, 90).fill("#0f766e");
@@ -118,7 +118,7 @@ export const buildSaasPaymentReceiptBuffer = async (payment, subscription = null
     y += 32;
     row("Plan", subscription?.planName || payment.plan || "", { required: true });
     row("Subscription Start", subscriptionStart || "", { required: false });
-    row("Renewal Date", renewalDate || "", { required: false });
+    row("Subscription End", subscriptionEnd || "", { required: false });
 
     // Footer
     doc.moveTo(40, y + 22).lineTo(doc.page.width - 40, y + 22).strokeColor("#e2e8f0").stroke();

@@ -101,7 +101,7 @@ const SubscriptionsPage = () => {
               <th className="px-4 py-3">Trial Start</th>
               <th className="px-4 py-3">Trial End</th>
               <th className="px-4 py-3">Days Remaining</th>
-              <th className="px-4 py-3">Renewal Date</th>
+              <th className="px-4 py-3">Subscription End</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
@@ -124,7 +124,7 @@ const SubscriptionsPage = () => {
                   ) : s.status === "active" ? (
                     <div>
                       <p className="font-medium capitalize">{s.planName || "—"}</p>
-                      <p className="text-xs text-slate-500">₹{s.price}/month</p>
+                      <p className="text-xs text-slate-500">₹{s.price}/{s.durationLabel || "plan"}</p>
                       {s.subscriptionStartAt && (
                         <p className="text-xs text-slate-500">
                           Started: {new Date(s.subscriptionStartAt).toLocaleDateString("en-IN")}
@@ -143,7 +143,7 @@ const SubscriptionsPage = () => {
                 <td className="px-4 py-3">{formatDateTime(s.trialStartAt || s.trialStartDate)}</td>
                 <td className="px-4 py-3">{formatDateTime(s.trialEndAt || s.trialEndDate)}</td>
                 <td className="px-4 py-3 font-medium">{daysCell(s)}</td>
-                <td className="px-4 py-3">{s.status === "active" ? formatDateTime(s.renewalDate) : "—"}</td>
+                <td className="px-4 py-3">{s.status === "active" ? formatDateTime(s.subscriptionEndAt || s.renewalDate) : "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex min-w-[240px] flex-wrap gap-2">
                     {s.status === "expired" && (

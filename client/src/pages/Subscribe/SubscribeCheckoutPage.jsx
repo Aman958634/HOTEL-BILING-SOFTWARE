@@ -93,8 +93,9 @@ const SubscribeCheckoutPage = () => {
       saveCheckoutResult({
         planKey: selectedPlan.key,
         planName: selectedPlan.name,
-        amount: selectedPlan.price,
-        currency: selectedPlan.currency || "INR",
+        // Display the amount returned by the server-created checkout, not a client-side price.
+        amount: result.checkout?.amount ?? selectedPlan.price,
+        currency: result.checkout?.currency || selectedPlan.currency || "INR",
         paymentId:
           result.razorpayPaymentId ||
           result.subscription?.metadata?.lastGatewayPaymentId ||
@@ -161,7 +162,7 @@ const SubscribeCheckoutPage = () => {
           >
             {plans.map((p) => (
               <option key={p.key} value={p.key}>
-                {p.name} — {formatMoney(p.price, p.currency)}/mo
+                {p.name} — {formatMoney(p.price, p.currency)} / {p.durationLabel || "plan"}
               </option>
             ))}
           </select>
@@ -170,8 +171,11 @@ const SubscribeCheckoutPage = () => {
         {selectedPlan && (
           <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
             <p>
-              <span className="font-medium">Amount:</span> {formatMoney(selectedPlan.price, selectedPlan.currency)} / month
+              <span className="font-medium">Amount:</span> {formatMoney(selectedPlan.price, selectedPlan.currency)} / {selectedPlan.durationLabel || "plan"}
             </p>
+            {selectedPlan.monthlyEquivalentPrice ? (
+              <p className="mt-1"><span className="font-medium">Effective monthly price:</span> {formatMoney(selectedPlan.monthlyEquivalentPrice, selectedPlan.currency)} per month</p>
+            ) : null}
             <p className="mt-1">
               <span className="font-medium">Restaurant:</span> {user?.email}
             </p>
