@@ -11,6 +11,8 @@ const planSchema = new mongoose.Schema(
     durationMonths: { type: Number, default: 1, min: 1 },
     durationLabel: { type: String, default: "1 month" },
     monthlyEquivalentPrice: { type: Number, default: null, min: 0 },
+    // Paid plans use the shared all-features entitlement; roles still control user permissions.
+    entitlement: { type: String, default: "all_paid_features" },
     maxUsers: { type: Number, default: 50 },
     maxTables: { type: Number, default: 50 },
     maxMenuItems: { type: Number, default: 500 },

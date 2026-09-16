@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { DEFAULT_PLANS, getPlanDurationLabel, getPlanDurationMonths, getPlanSnapshot } from "../services/planService.js";
+import {
+  ALL_PAID_PLAN_FEATURES,
+  DEFAULT_PLANS,
+  getPlanDurationLabel,
+  getPlanDurationMonths,
+  getPlanSnapshot,
+  hasAllPaidFeatures,
+} from "../services/planService.js";
 import { calculateSubscriptionEndDate, toSubscriptionView } from "../utils/subscriptionUtils.js";
 
 const plans = Object.fromEntries(DEFAULT_PLANS.map((plan) => [plan.key, plan]));
@@ -9,6 +16,13 @@ assert.deepEqual(
   [7500, 15000, 30000],
   "Fixed-duration pricing must come from the server plan catalog"
 );
+for (const key of ["basic", "professional", "enterprise", "pro", "premium"]) {
+  assert.equal(hasAllPaidFeatures(key), true, `${key} must receive all paid product features`);
+}
+for (const plan of Object.values(plans)) {
+  assert.equal(plan.entitlement, "all_paid_features");
+  assert.deepEqual(plan.features, ALL_PAID_PLAN_FEATURES);
+}
 assert.deepEqual(
   [getPlanDurationMonths(plans.basic), getPlanDurationMonths(plans.professional), getPlanDurationMonths(plans.enterprise)],
   [3, 6, 12]

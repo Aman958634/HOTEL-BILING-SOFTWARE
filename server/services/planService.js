@@ -2,6 +2,38 @@ import Plan from "../models/Plan.js";
 import mongoose from "mongoose";
 import logger from "../utils/logger.js";
 
+/**
+ * The one commercial entitlement for every paid restaurant plan. This is a
+ * product entitlement only: authentication, tenant/outlet isolation and RBAC
+ * remain enforced independently by their existing middleware.
+ */
+export const ALL_PAID_PLAN_FEATURES = Object.freeze([
+  "All RestoSphere features",
+  "POS, Orders & Billing",
+  "KOT/KDS & QR Ordering",
+  "Inventory & Reports",
+  "CRM & Loyalty",
+  "Staff Management",
+  "Multi-outlet",
+  "Advanced Analytics",
+  "Payment & Reconciliation",
+]);
+
+export const FULL_ACCESS_PAID_PLAN_KEYS = Object.freeze([
+  "basic",
+  "professional",
+  "pro",
+  "enterprise", // Legacy enterprise subscriptions remain full access.
+  "premium",
+]);
+
+const FULL_ACCESS_CAPACITY = Object.freeze({
+  maxUsers: 200,
+  maxTables: 300,
+  maxMenuItems: 2000,
+  maxOrders: 100000,
+});
+
 export const DEFAULT_PLANS = [
   {
     key: "basic",
@@ -12,11 +44,9 @@ export const DEFAULT_PLANS = [
     durationMonths: 3,
     durationLabel: "3 months",
     monthlyEquivalentPrice: 2500,
-    maxUsers: 10,
-    maxTables: 20,
-    maxMenuItems: 100,
-    maxOrders: 2000,
-    features: ["POS billing", "Menu management", "Basic reports"],
+    ...FULL_ACCESS_CAPACITY,
+    entitlement: "all_paid_features",
+    features: [...ALL_PAID_PLAN_FEATURES],
     sortOrder: 1,
   },
   {
@@ -28,11 +58,9 @@ export const DEFAULT_PLANS = [
     durationMonths: 6,
     durationLabel: "6 months",
     monthlyEquivalentPrice: 2500,
-    maxUsers: 50,
-    maxTables: 80,
-    maxMenuItems: 500,
-    maxOrders: 10000,
-    features: ["Everything in Basic", "Staff roles", "Advanced analytics"],
+    ...FULL_ACCESS_CAPACITY,
+    entitlement: "all_paid_features",
+    features: [...ALL_PAID_PLAN_FEATURES],
     sortOrder: 2,
   },
   {
@@ -44,11 +72,9 @@ export const DEFAULT_PLANS = [
     durationMonths: 12,
     durationLabel: "1 year",
     monthlyEquivalentPrice: 2500,
-    maxUsers: 200,
-    maxTables: 300,
-    maxMenuItems: 2000,
-    maxOrders: 100000,
-    features: ["Everything in Pro", "Multi-branch ready", "Priority support"],
+    ...FULL_ACCESS_CAPACITY,
+    entitlement: "all_paid_features",
+    features: [...ALL_PAID_PLAN_FEATURES],
     sortOrder: 3,
   },
 ];
@@ -57,6 +83,9 @@ const PLAN_ALIASES = {
   pro: "professional",
   premium: "enterprise",
 };
+
+export const hasAllPaidFeatures = (planKeyOrName) =>
+  FULL_ACCESS_PAID_PLAN_KEYS.includes(String(planKeyOrName || "").trim().toLowerCase());
 
 // Plans created before fixed-duration pricing did not store durationMonths.
 // This fallback is only for historical payment/subscription records.
@@ -125,4 +154,7 @@ export default {
   getPlanDurationMonths,
   getPlanDurationLabel,
   getPlanSnapshot,
+  ALL_PAID_PLAN_FEATURES,
+  FULL_ACCESS_PAID_PLAN_KEYS,
+  hasAllPaidFeatures,
 };

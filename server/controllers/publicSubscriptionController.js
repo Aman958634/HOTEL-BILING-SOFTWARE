@@ -30,6 +30,7 @@ const toPublicPlan = (plan) => ({
   durationMonths: getPlanDurationMonths(plan),
   durationLabel: getPlanDurationLabel(plan),
   monthlyEquivalentPrice: Number(plan.monthlyEquivalentPrice) || null,
+  entitlement: plan.entitlement || "all_paid_features",
   description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
   features: plan.features || [],
   sortOrder: plan.sortOrder || 0,
