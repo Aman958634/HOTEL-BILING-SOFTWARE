@@ -75,6 +75,7 @@ tableSchema.pre("validate", function normalizeLegacyValues(next) {
 });
 
 tableSchema.index({ restaurant: 1, outlet: 1, tableNumber: 1 }, { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" }, outlet: { $type: "objectId" } } });
+tableSchema.index({ restaurant: 1, outlet: 1, status: 1 });
 tableSchema.index({ status: 1 });
 tableSchema.index({ floor: 1 });
 tableSchema.index({ section: 1 });

@@ -50,5 +50,7 @@ const invoiceSchema = new mongoose.Schema(
 );
 
 invoiceSchema.index({ restaurant: 1, issuedAt: -1 });
+// Supports outlet-scoped dashboard/sales invoice aggregations after safe order scoping.
+invoiceSchema.index({ order: 1, issuedAt: -1 });
 
 export default mongoose.model("Invoice", invoiceSchema);

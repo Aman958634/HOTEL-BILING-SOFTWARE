@@ -31,6 +31,7 @@
     "migrate:restaurant-public-slugs": "node scripts/backfillRestaurantPublicSlugs.js --apply",
     "migrate:external-order-index": "node scripts/migrateExternalOrderIdIndex.js",
     "migrate:order-idempotency-index": "node scripts/migrateOrderIdempotencyIndex.js",
+    "migrate:performance-indexes": "node scripts/migratePerformanceIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
     "test:fixed-duration-pricing": "node tests/fixedDurationPricing.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",

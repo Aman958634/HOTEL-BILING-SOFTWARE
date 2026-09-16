@@ -8,7 +8,7 @@ import Inventory from "../models/Inventory.js";
 import Subscription from "../models/Subscription.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { buildOutletQuery } from "../utils/tenantUtils.js";
+import { buildOutletQuery, buildRestaurantQuery } from "../utils/tenantUtils.js";
 import { calculateGrowth } from "../utils/growthUtils.js";
 import { notifySubscriptionExpiring } from "../services/notificationService.js";
 import { getDaysRemaining } from "../utils/subscriptionUtils.js";
@@ -40,9 +40,16 @@ const sumInvoiceSales = async (match) => {
 
 // Legacy Invoice records predate outletId. Scope them through their immutable
 // source order instead of treating restaurant-wide invoice totals as outlet data.
-const invoiceOrderScope = async (user, filters = {}) => {
-  const orderScope = await buildOutletQuery({}, user, { allowAll: true });
-  const orderIds = await Order.distinct("_id", orderScope);
+const invoiceOrderScope = async (user, filters = {}, orderScope = null) => {
+  const scopedOrders = orderScope || await buildOutletQuery({}, user, { allowAll: true });
+  // All-outlet views can use Invoice.restaurant directly. The previous code
+  // expanded every order id into a large $in list even when no outlet filter
+  // was present. Outlet-specific views retain the order-id scope for legacy
+  // invoices that do not carry an outlet field.
+  if (!Object.hasOwn(scopedOrders, "outlet")) {
+    return buildRestaurantQuery(filters, user);
+  }
+  const orderIds = await Order.distinct("_id", scopedOrders);
   return { ...filters, order: { $in: orderIds } };
 };
 
@@ -68,14 +75,16 @@ const normalizeStatus = (status) => {
 };
 
 export const dashboardStats = asyncHandler(async (req, res) => {
-  const restaurant = req.user?.restaurant ? await Restaurant.findById(req.user.restaurant).select("timeZone").lean() : null;
+  const [restaurant, baseOrderMatch] = await Promise.all([
+    req.user?.restaurant ? Restaurant.findById(req.user.restaurant).select("timeZone").lean() : null,
+    buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true }),
+  ]);
   const timeZone = restaurant?.timeZone || "Asia/Kolkata";
   const todayRange = resolveBusinessRange({ range: "today", timeZone });
   const yesterdayRange = resolveBusinessRange({ range: "yesterday", timeZone });
 
-  const baseOrderMatch = await buildOutletQuery({ isArchived: { $ne: true } }, req.user, { allowAll: true });
-  const invoiceMatch = await invoiceOrderScope(req.user);
-  const operationalScope = await buildOutletQuery({}, req.user, { allowAll: true });
+  const { isArchived: _isArchived, ...operationalScope } = baseOrderMatch;
+  const invoiceMatch = await invoiceOrderScope(req.user, {}, baseOrderMatch);
 
   const [
     totalRevenue,

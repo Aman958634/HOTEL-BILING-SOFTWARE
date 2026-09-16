@@ -191,6 +191,8 @@ orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, partial
 orderSchema.index({ restaurant: 1, outlet: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
 orderSchema.index({ restaurant: 1, customer: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
+// Dashboard paid-order counters are scoped by tenant/outlet and paidAt range.
+orderSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, paidAt: -1 });
 
 orderSchema.pre("validate", function normalizeLegacyOrder(next) {
   if (!this.orderType) {
