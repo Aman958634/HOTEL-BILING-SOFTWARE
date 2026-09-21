@@ -16,7 +16,7 @@ const SubscribeSuccessPage = () => {
   const sub = result?.subscription;
   const planName = result?.planName || planDisplayName(result?.planKey || sub?.planName);
   const amount = result?.amount ?? sub?.price;
-  const paymentId = result?.paymentId || sub?.metadata?.lastPaymentId || "—";
+  const paymentId = result?.paymentId || sub?.metadata?.lastGatewayPaymentId || "—";
 
   return (
     <div className="mx-auto max-w-lg rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm">
@@ -33,6 +33,9 @@ const SubscribeSuccessPage = () => {
         </p>
         <p>
           <span className="font-medium">Subscription:</span> {(sub?.status || "ACTIVE").toUpperCase()}
+        </p>
+        <p>
+          <span className="font-medium">Activation Date:</span> {formatDate(sub?.subscriptionStartAt || sub?.startDate)}
         </p>
         <p>
           <span className="font-medium">Subscription End:</span> {formatDate(sub?.subscriptionEndAt || sub?.renewalDate)}

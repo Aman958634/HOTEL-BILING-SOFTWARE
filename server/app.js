@@ -47,6 +47,8 @@ import authMiddleware from "./middleware/authMiddleware.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import procurementRoutes from "./routes/procurementRoutes.js";
 import { cashfreeWebhook } from "./controllers/cashfreeController.js";
+import { razorpaySubscriptionWebhook } from "./controllers/razorpaySubscriptionWebhookController.js";
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 
 const app = express();
 // Render terminates TLS and forwards the original client IP through one proxy hop.
@@ -73,6 +75,9 @@ app.use(
 // Cashfree signs the exact body bytes, so its webhook must be parsed before
 // the application JSON parser changes decimal formatting or key ordering.
 app.post("/api/webhooks/cashfree", express.raw({ type: "application/json", limit: "2mb" }), cashfreeWebhook);
+// Subscription revenue belongs to the RestoSphere platform merchant. This is
+// intentionally separate from Cashfree operational-order webhooks.
+app.post("/api/webhooks/razorpay", express.raw({ type: "application/json", limit: "2mb" }), razorpaySubscriptionWebhook);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -128,6 +133,7 @@ app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/menu", menuRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/subscriptions", subscriptionRoutes);
 app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/tables", tableRoutes);
 app.use("/api/v1/cockpit", serviceCockpitRoutes);

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
-  createBillingCheckout,
+  createRazorpaySubscriptionOrder,
   fetchBillingPlans,
   fetchMySubscription,
   verifyBillingPayment,
+  verifyRazorpaySubscriptionPayment,
 } from "../../services/billingService";
 import { SubscriptionStatusBadge } from "../../components/subscription/SubscriptionWidgets";
 import { SkeletonCard } from "../../components/common/Skeletons";
@@ -55,7 +56,8 @@ const BillingPage = () => {
   const upgrade = async (plan) => {
     setBusyPlan(plan.key);
     try {
-      const { data } = await createBillingCheckout({ planName: plan.key });
+      const idempotencyKey = window.crypto?.randomUUID?.() || `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const { data } = await createRazorpaySubscriptionOrder(plan.key, idempotencyKey);
       const checkout = data?.data;
 
       if (checkout?.testMode) {
@@ -80,14 +82,14 @@ const BillingPage = () => {
 
       const rzp = new window.Razorpay({
         key: checkout.keyId,
-        amount: Math.round(Number(checkout.amount) * 100),
+        amount: Number(checkout.amount),
         currency: checkout.currency || "INR",
         name: "RestoSphere",
         description: `${plan.name} plan`,
         order_id: checkout.razorpayOrderId,
         handler: async (response) => {
           try {
-            const verify = await verifyBillingPayment({
+            const verify = await verifyRazorpaySubscriptionPayment({
               paymentId: checkout.paymentId,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,

@@ -24,6 +24,9 @@ export const validateProductionEnvironment = () => {
     "CLIENT_URL",
     "ALLOWED_ORIGINS",
     "MONGO_URI or MONGODB_URI",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
     "CASHFREE_ENV",
     "CASHFREE_APP_ID",
     "CASHFREE_SECRET_KEY",
@@ -51,6 +54,10 @@ export const validateProductionEnvironment = () => {
 
   if (missing.length) {
     throw new Error(`Production configuration is missing: ${missing.join(", ")}`);
+  }
+
+  if (String(process.env.BILLING_TEST_MODE || "").trim().toLowerCase() === "true") {
+    throw new Error("Production runtime requires BILLING_TEST_MODE=false");
   }
 
   const cashfreeEnvironment = String(process.env.CASHFREE_ENV || "").trim().toLowerCase();

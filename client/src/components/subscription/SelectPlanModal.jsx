@@ -128,7 +128,7 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
 
       const rzp = new window.Razorpay({
         key: payload.keyId,
-        amount: Math.round(Number(payload.amount) * 100),
+        amount: Number(payload.amount),
         currency: payload.currency || "INR",
         name: "RestoSphere",
         description: `${payload.plan?.name || "Plan"} subscription`,

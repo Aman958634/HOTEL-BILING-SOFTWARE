@@ -94,7 +94,7 @@ const SubscribeCheckoutPage = () => {
         planKey: selectedPlan.key,
         planName: selectedPlan.name,
         // Display the amount returned by the server-created checkout, not a client-side price.
-        amount: result.checkout?.amount ?? selectedPlan.price,
+        amount: result.checkout?.amountRupees ?? selectedPlan.price,
         currency: result.checkout?.currency || selectedPlan.currency || "INR",
         paymentId:
           result.razorpayPaymentId ||
@@ -147,7 +147,7 @@ const SubscribeCheckoutPage = () => {
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="text-center text-3xl font-bold text-slate-900">Complete payment</h1>
-      <p className="mt-2 text-center text-slate-600">Secure checkout powered by Razorpay (TEST mode supported).</p>
+      <p className="mt-2 text-center text-slate-600">Secure checkout powered by Razorpay.</p>
 
       <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <label className="block text-sm font-medium text-slate-700">

@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import Subscription from "../models/Subscription.js";
 import Restaurant from "../models/Restaurant.js";
 import SaasPayment from "../models/SaasPayment.js";
@@ -17,7 +16,13 @@ import {
   assertNoDuplicateSubscription,
   assertStatusTransition,
 } from "../services/subscriptionValidationService.js";
-import { getRazorpayClient } from "../services/paymentService.js";
+import {
+  assertCapturedSubscriptionPayment,
+  getPlatformSubscriptionRazorpayClient,
+  isSubscriptionTestMode,
+  toPaise,
+  verifyCheckoutSignature,
+} from "../services/razorpaySubscriptionService.js";
 import {
   calculateSubscriptionEndDate,
   calculateTrialEndDate,
@@ -87,17 +92,56 @@ const buildPaymentSummary = (plan, restaurantName) => {
   };
 };
 
-const createCheckoutPayment = async (subscription, plan, restaurantName, performedBy = null) => {
+const toCheckoutResponse = (payment, plan, restaurantName, summary) => {
+  const testMode = payment.provider === "TEST";
+  return {
+    paymentId: payment._id,
+    internalReference: payment.internalReference,
+    testMode,
+    ...(testMode ? { testModeLabel: "TEST/DEVELOPMENT" } : { razorpayOrderId: payment.providerOrderId || payment.gatewayOrderId }),
+    // Razorpay Checkout requires paise. Rupees is provided separately only for
+    // display, never as a browser-controlled input.
+    amount: toPaise(payment.amount),
+    amountRupees: payment.amount,
+    currency: payment.currency || "INR",
+    ...(testMode ? {} : { keyId: process.env.RAZORPAY_KEY_ID }),
+    restaurantName,
+    plan,
+    recurringBilling: false,
+    paymentSummary: summary,
+  };
+};
+
+const createCheckoutPayment = async (subscription, plan, restaurantName, performedBy = null, idempotencyKey = null) => {
   const restaurantId = subscription.restaurant?._id || subscription.restaurant;
   const amount = Number(plan.price) || 0;
+  const summary = buildPaymentSummary(plan, restaurantName);
+
+  if (idempotencyKey) {
+    const prior = await SaasPayment.findOne({ restaurant: restaurantId, idempotencyKey });
+    if (prior) {
+      if (String(prior.subscription) !== String(subscription._id) || prior.planName !== plan.key) {
+        throw new ApiError(409, "Idempotency key belongs to another payment attempt");
+      }
+      if (prior.status === "paid") throw new ApiError(409, "Subscription payment is already completed");
+      if (prior.status === "pending" && (prior.providerOrderId || prior.gatewayOrderId || prior.provider === "TEST")) {
+        return toCheckoutResponse(prior, plan, restaurantName, summary);
+      }
+    }
+  }
 
   const existingPending = await SaasPayment.findOne({
     subscription: subscription._id,
     status: "pending",
-  });
+  }).sort({ createdAt: -1 });
+  // A retry without a header should still reuse the outstanding checkout for
+  // the same plan, rather than creating competing subscription attempts.
+  if (existingPending && existingPending.planName === plan.key && (existingPending.providerOrderId || existingPending.gatewayOrderId || existingPending.provider === "TEST")) {
+    return toCheckoutResponse(existingPending, plan, restaurantName, summary);
+  }
   if (existingPending) {
     existingPending.status = "cancelled";
-    existingPending.metadata = { ...(existingPending.metadata || {}), cancelledReason: "replaced_by_new_checkout" };
+    existingPending.metadata = { ...(existingPending.metadata || {}), cancelledReason: "replaced_by_new_plan_checkout" };
     await existingPending.save();
   }
 
@@ -113,7 +157,9 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     durationLabel: getPlanDurationLabel(plan),
     status: "pending",
     gateway: "razorpay",
-    metadata: { planSnapshot: getPlanSnapshot(plan) },
+    provider: "RAZORPAY",
+    idempotencyKey,
+    metadata: { planSnapshot: getPlanSnapshot(plan), purpose: "SUBSCRIPTION" },
   });
 
   await createActivity({
@@ -126,9 +172,8 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     metadata: { planKey: plan.key, amount, currency: plan.currency || "INR", paymentId: String(payment._id) },
   });
 
-  const summary = buildPaymentSummary(plan, restaurantName);
-  const testMode = String(process.env.BILLING_TEST_MODE || "").toLowerCase() === "true";
-  const razorpay = getRazorpayClient();
+  const testMode = isSubscriptionTestMode();
+  const razorpay = getPlatformSubscriptionRazorpayClient();
 
   if (!razorpay && !testMode) {
     payment.status = "failed";
@@ -146,50 +191,33 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
 
   if (!razorpay && testMode) {
     payment.gateway = "test";
+    payment.provider = "TEST";
     payment.gatewayOrderId = `test_order_${payment._id}`;
+    payment.providerOrderId = payment.gatewayOrderId;
     payment.metadata = { testMode: true, mode: "TEST/DEVELOPMENT" };
     await payment.save();
-    return {
-      paymentId: payment._id,
-      testMode: true,
-      testModeLabel: "TEST/DEVELOPMENT",
-      plan,
-      amount,
-      currency: plan.currency || "INR",
-      restaurantName,
-      paymentSummary: summary,
-    };
+    return toCheckoutResponse(payment, plan, restaurantName, summary);
   }
 
   const order = await razorpay.orders.create({
-    amount: Math.round(amount * 100),
+    amount: toPaise(amount),
     currency: plan.currency || "INR",
     receipt: `saas_${String(payment._id).slice(-10)}`,
     notes: {
       restaurantId: String(restaurantId),
       subscriptionId: String(subscription._id),
       planName: plan.key,
-      type: "saas_subscription",
+      purpose: "SUBSCRIPTION",
     },
   });
 
   payment.gatewayOrderId = order.id;
+  payment.providerOrderId = order.id;
   await payment.save();
-
-  return {
-    paymentId: payment._id,
-    razorpayOrderId: order.id,
-    amount,
-    currency: plan.currency || "INR",
-    keyId: process.env.RAZORPAY_KEY_ID,
-    restaurantName,
-    plan,
-    recurringBilling: false,
-    paymentSummary: summary,
-  };
+  return toCheckoutResponse(payment, plan, restaurantName, summary);
 };
 
-const verifyAndActivatePayment = async ({
+export const verifyAndActivatePayment = async ({
   payment,
   restaurantId,
   performedBy,
@@ -198,34 +226,82 @@ const verifyAndActivatePayment = async ({
   razorpay_payment_id,
   razorpay_signature,
   testSuccess,
+  verifiedProviderPayment = null,
 }) => {
   if (payment.status === "paid") {
     return Subscription.findById(payment.subscription);
   }
 
-  const testMode = String(process.env.BILLING_TEST_MODE || "").toLowerCase() === "true";
+  // Only one request (browser callback or a retried webhook) can cross the
+  // pending boundary. This makes subscription activation exactly-once even
+  // when Razorpay and the browser deliver success concurrently.
+  const lockedPayment = await SaasPayment.findOneAndUpdate(
+    { _id: payment._id, status: "pending" },
+    { $set: { status: "processing" } },
+    { new: true }
+  );
+  if (!lockedPayment) {
+    const current = await SaasPayment.findById(payment._id);
+    if (current?.status === "paid") return Subscription.findById(current.subscription);
+    if (current?.status === "processing") {
+      const sub = await Subscription.findById(current.subscription);
+      if (sub?.metadata?.lastSaasPaymentId === String(current._id)) {
+        current.status = "paid";
+        await current.save();
+        return sub;
+      }
+      throw new ApiError(409, "Payment verification is already in progress");
+    }
+    throw new ApiError(409, "This payment attempt can no longer be verified");
+  }
+  payment = lockedPayment;
+
+  const testMode = isSubscriptionTestMode();
   let paid = false;
+  let providerPayment = null;
 
   if (testMode && testSuccess === true && payment.gateway === "test") {
     paid = true;
     payment.gatewayPaymentId = `test_pay_${Date.now()}`;
+    payment.providerPaymentId = payment.gatewayPaymentId;
   } else if (testMode && testSuccess === false && payment.gateway === "test") {
     paid = false;
   } else {
-    const keySecret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
-    if (!keySecret) throw new ApiError(503, "Payment gateway is not configured");
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if (!razorpay_order_id || !razorpay_payment_id || (!verifiedProviderPayment && !razorpay_signature)) {
       payment.status = "failed";
       await payment.save();
       throw new ApiError(422, "Payment verification failed");
     }
 
-    const expected = crypto
-      .createHmac("sha256", keySecret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
+    if (
+      payment.gatewayOrderId !== razorpay_order_id ||
+      (!verifiedProviderPayment && !verifyCheckoutSignature({ orderId: razorpay_order_id, paymentId: razorpay_payment_id, signature: razorpay_signature }))
+    ) {
+      payment.status = "failed";
+      await payment.save();
+      throw new ApiError(422, "Payment verification failed");
+    }
 
-    if (expected !== razorpay_signature || payment.gatewayOrderId !== razorpay_order_id) {
+    try {
+      providerPayment = verifiedProviderPayment || await getPlatformSubscriptionRazorpayClient()?.payments.fetch(razorpay_payment_id);
+      assertCapturedSubscriptionPayment({
+        providerPayment,
+        orderId: payment.providerOrderId || payment.gatewayOrderId,
+        amount: payment.amount,
+        currency: payment.currency,
+      });
+    } catch (error) {
+      payment.status = "failed";
+      await payment.save();
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(422, "Payment verification failed");
+    }
+
+    const duplicatePayment = await SaasPayment.findOne({
+      _id: { $ne: payment._id },
+      $or: [{ providerPaymentId: razorpay_payment_id }, { gatewayPaymentId: razorpay_payment_id }],
+    }).select("_id restaurant");
+    if (duplicatePayment) {
       payment.status = "failed";
       await payment.save();
       throw new ApiError(422, "Payment verification failed");
@@ -233,6 +309,7 @@ const verifyAndActivatePayment = async ({
 
     paid = true;
     payment.gatewayPaymentId = razorpay_payment_id;
+    payment.providerPaymentId = razorpay_payment_id;
   }
 
   if (!paid) {
@@ -255,14 +332,14 @@ const verifyAndActivatePayment = async ({
     throw new ApiError(422, "Payment failed. Subscription remains expired.");
   }
 
-  payment.status = "paid";
   payment.gatewayPaymentId = payment.gatewayPaymentId || `paid_${Date.now()}`;
+  payment.providerPaymentId = payment.providerPaymentId || payment.gatewayPaymentId;
   payment.paidAt = payment.paidAt || new Date();
 
   // Best-effort: enrich safe payment method from Razorpay (never stores card/CVV).
   if (!payment.paymentMethod && payment.gatewayPaymentId && !String(payment.gatewayPaymentId).startsWith("test_")) {
     try {
-      const razorpay = getRazorpayClient();
+      const razorpay = getPlatformSubscriptionRazorpayClient();
       if (razorpay) {
         const rpPayment = await razorpay.payments.fetch(payment.gatewayPaymentId);
         if (rpPayment?.method) {
@@ -275,8 +352,6 @@ const verifyAndActivatePayment = async ({
   } else if (!payment.paymentMethod && payment.gateway === "test") {
     payment.paymentMethod = "test";
   }
-
-  await payment.save();
 
   const plan = await resolvePlan(payment.planName);
   const sub = await Subscription.findById(payment.subscription);
@@ -301,6 +376,9 @@ const verifyAndActivatePayment = async ({
     lastPaidAt: payment.paidAt || new Date().toISOString(),
   };
   await sub.save();
+
+  payment.status = "paid";
+  await payment.save();
 
   await createActivity({
     action: "Payment Successful",
@@ -761,6 +839,9 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   const { planName } = req.body;
   if (!planName) throw new ApiError(400, "planName is required");
 
+  const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
+  if (idempotencyKey.length > 120) throw new ApiError(400, "Idempotency key is invalid");
+
   const plan = await resolvePlan(planName);
   const sub = await Subscription.findOne({ restaurant: restaurantId }).sort({ createdAt: -1 });
   if (!sub) throw new ApiError(404, "Subscription not found");
@@ -797,9 +878,19 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   }
 
   const restaurant = await Restaurant.findById(restaurantId).select("name").lean();
-  const checkout = await createCheckoutPayment(sub, plan, restaurant?.name, req.user._id);
+  const checkout = await createCheckoutPayment(sub, plan, restaurant?.name, req.user._id, idempotencyKey || null);
   res.status(200).json(new ApiResponse(true, "Checkout created", checkout));
 });
+
+/**
+ * Production-facing tenant endpoint. Its only accepted plan field is a
+ * catalog identifier; all money, dates, restaurant context and state remain
+ * server authoritative in createBillingCheckout.
+ */
+export const createRazorpaySubscriptionOrder = (req, res, next) => {
+  req.body = { ...(req.body || {}), planName: req.body?.planId };
+  return createBillingCheckout(req, res, next);
+};
 
 /** Super Admin: checkout for a subscription using server-side selected plan pricing. */
 export const createSubscriptionPaymentCheckout = asyncHandler(async (req, res) => {
@@ -847,6 +938,8 @@ export const verifyBillingPayment = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(true, "Subscription activated", toSubscriptionView(sub)));
 });
 
+export const verifyRazorpaySubscriptionPayment = verifyBillingPayment;
+
 /** Super Admin: verify payment for a subscription (tenant from subscription record). */
 export const verifySubscriptionPayment = asyncHandler(async (req, res) => {
   rejectClientPricing(req.body);
@@ -891,6 +984,8 @@ export default {
   getMySubscription,
   createBillingCheckout,
   verifyBillingPayment,
+  createRazorpaySubscriptionOrder,
+  verifyRazorpaySubscriptionPayment,
   createSubscriptionPaymentCheckout,
   verifySubscriptionPayment,
 };

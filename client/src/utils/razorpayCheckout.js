@@ -1,4 +1,8 @@
-import { createBillingCheckout, verifyBillingPayment } from "../services/billingService";
+import {
+  createRazorpaySubscriptionOrder,
+  verifyBillingPayment,
+  verifyRazorpaySubscriptionPayment,
+} from "../services/billingService";
 
 const ensureRazorpayScript = () =>
   new Promise((resolve, reject) => {
@@ -18,7 +22,8 @@ const ensureRazorpayScript = () =>
  * Returns verified subscription payload on success.
  */
 export const startPlanCheckout = async ({ planKey, planName, onVerified }) => {
-  const { data } = await createBillingCheckout({ planName: planKey });
+  const idempotencyKey = window.crypto?.randomUUID?.() || `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const { data } = await createRazorpaySubscriptionOrder(planKey, idempotencyKey);
   const checkout = data?.data;
   if (!checkout) throw new Error("Checkout could not be created");
 
@@ -37,14 +42,16 @@ export const startPlanCheckout = async ({ planKey, planName, onVerified }) => {
   return new Promise((resolve, reject) => {
     const rzp = new window.Razorpay({
       key: checkout.keyId,
-      amount: Math.round(Number(checkout.amount) * 100),
+      // The server supplies Razorpay's canonical paise value. The browser does
+      // not derive or submit a payment amount.
+      amount: Number(checkout.amount),
       currency: checkout.currency || "INR",
       name: "RestoSphere",
       description: `${planName || planKey} plan`,
       order_id: checkout.razorpayOrderId,
       handler: async (response) => {
         try {
-          const verify = await verifyBillingPayment({
+          const verify = await verifyRazorpaySubscriptionPayment({
             paymentId: checkout.paymentId,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
