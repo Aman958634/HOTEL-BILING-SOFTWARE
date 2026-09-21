@@ -8,10 +8,16 @@
     try { return window.sessionStorage; } catch (_error) { return null; }
   };
 
+  var paymentIsActive = function () {
+    var path = String(window.location.pathname || "").toLowerCase();
+    if (path.indexOf("/payment/cashfree/return") !== -1 || path === "/subscribe/checkout") return true;
+    return Boolean(document.querySelector(".razorpay-container, iframe[src*='razorpay'], iframe[src*='cashfree'], [data-cashfree-checkout]"));
+  };
+
   var canRecover = function () {
     try {
       var session = storage();
-      if (!session || navigator.onLine === false || session.getItem(RECOVERY_KEY)) return false;
+      if (!session || navigator.onLine === false || paymentIsActive() || session.getItem(RECOVERY_KEY)) return false;
       session.setItem(RECOVERY_KEY, "1");
       return true;
     } catch (_error) {
