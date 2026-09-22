@@ -53,6 +53,11 @@ export const createReservation = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Selected table is not available for reservation");
   }
 
+  const restaurantId = await resolveRestaurantId(restaurant || tableDoc.restaurant, req.user);
+  if (tableDoc.restaurant && String(tableDoc.restaurant) !== String(restaurantId)) {
+    throw new ApiError(403, "You do not have access to the selected table");
+  }
+
   const { start, end, value } = getReservationMinuteRange(date);
 
   const existingReservation = await Reservation.findOne({
@@ -64,8 +69,6 @@ export const createReservation = asyncHandler(async (req, res) => {
   if (existingReservation) {
     throw new ApiError(409, "This table is already reserved for the selected date and time.");
   }
-
-  const restaurantId = await resolveRestaurantId(restaurant || tableDoc.restaurant, req.user);
 
   if (!tableDoc.restaurant && restaurantId) {
     tableDoc.restaurant = restaurantId;

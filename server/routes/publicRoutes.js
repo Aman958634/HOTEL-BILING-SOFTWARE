@@ -22,7 +22,7 @@ router.post(
     body("planName").isString().trim().isLength({ min: 1, max: 80 }).withMessage("Plan selection is invalid"),
     body("fullName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Owner name is invalid"),
     body("ownerName").optional({ values: "falsy" }).isString().trim().isLength({ max: 120 }).withMessage("Owner name is invalid"),
-    body("email").isEmail().withMessage("Valid email is required"),
+    body("email").trim().normalizeEmail().isEmail().isLength({ max: 254 }).withMessage("Enter a valid email address."),
     body("password").isString().isLength({ min: 8, max: 128 }).withMessage("Password must be between 8 and 128 characters"),
     body("phone").isString().trim().isLength({ min: 7, max: 20 }).withMessage("Phone number is invalid"),
     body("restaurantName").isString().trim().isLength({ min: 1, max: 160 }).withMessage("Restaurant name is invalid"),

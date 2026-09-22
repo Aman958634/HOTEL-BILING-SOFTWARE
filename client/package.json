@@ -7,6 +7,7 @@
     "dev": "kill-port 5173 >nul 2>&1 & vite --host localhost --port 5173",
     "build": "vite build && node scripts/generatePricingStaticPage.mjs && node scripts/generatePwaServiceWorker.mjs",
     "lint": "eslint src",
+    "test:e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.63.0",
     "@vitejs/plugin-legacy": "^5.4.3",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.4",

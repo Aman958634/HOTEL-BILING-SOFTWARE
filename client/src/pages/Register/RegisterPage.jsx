@@ -10,6 +10,8 @@ const RegisterPage = () => {
     register,
     handleSubmit,
     watch,
+    setError,
+    setFocus,
     formState: { isSubmitting, errors },
   } = useForm();
   const dispatch = useDispatch();
@@ -30,6 +32,13 @@ const RegisterPage = () => {
       });
     } catch (error) {
       const message = typeof error === "string" ? error : error?.message || "Registration failed";
+      const fields = typeof error === "object" && error?.fields ? error.fields : {};
+      const supportedFields = ["fullName", "email", "phone", "password"];
+      const firstField = supportedFields.find((field) => fields[field]);
+      supportedFields.forEach((field) => {
+        if (fields[field]) setError(field, { type: "server", message: fields[field] });
+      });
+      if (firstField) setFocus(firstField);
       toast.error(message);
     }
   };
@@ -68,6 +77,8 @@ const RegisterPage = () => {
                       id="fullName"
                       type="text"
                       placeholder="Enter your full name"
+                      aria-invalid={Boolean(errors.fullName)}
+                      aria-describedby={errors.fullName ? "fullName-error" : undefined}
                       className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("fullName", {
                         required: "Full name is required",
@@ -75,7 +86,7 @@ const RegisterPage = () => {
                       })}
                     />
                   </div>
-                  {errors.fullName && <p className="mt-1.5 text-xs text-rose-600">{errors.fullName.message}</p>}
+                  {errors.fullName && <p id="fullName-error" className="mt-1.5 text-xs text-rose-600">{errors.fullName.message}</p>}
                 </div>
 
                 <div>
@@ -92,6 +103,8 @@ const RegisterPage = () => {
                       id="email"
                       type="email"
                       placeholder="Enter your email address"
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "email-error" : undefined}
                       className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("email", {
                         required: "Email is required",
@@ -102,7 +115,7 @@ const RegisterPage = () => {
                       })}
                     />
                   </div>
-                  {errors.email && <p className="mt-1.5 text-xs text-rose-600">{errors.email.message}</p>}
+                  {errors.email && <p id="email-error" className="mt-1.5 text-xs text-rose-600">{errors.email.message}</p>}
                 </div>
 
                 <div>
@@ -120,6 +133,8 @@ const RegisterPage = () => {
                       id="phone"
                       type="tel"
                       placeholder="Enter your phone number"
+                      aria-invalid={Boolean(errors.phone)}
+                      aria-describedby={errors.phone ? "phone-error" : undefined}
                       className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-3 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("phone", {
                         required: "Phone is required",
@@ -130,7 +145,7 @@ const RegisterPage = () => {
                       })}
                     />
                   </div>
-                  {errors.phone && <p className="mt-1.5 text-xs text-rose-600">{errors.phone.message}</p>}
+                  {errors.phone && <p id="phone-error" className="mt-1.5 text-xs text-rose-600">{errors.phone.message}</p>}
                 </div>
 
                 <div>
@@ -146,6 +161,8 @@ const RegisterPage = () => {
                     <PasswordInput
                       id="password"
                       placeholder="Enter your password"
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={errors.password ? "password-error" : undefined}
                       className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("password", {
                         required: "Password is required",
@@ -153,7 +170,7 @@ const RegisterPage = () => {
                       })}
                     />
                   </div>
-                  {errors.password && <p className="mt-1.5 text-xs text-rose-600">{errors.password.message}</p>}
+                  {errors.password && <p id="password-error" className="mt-1.5 text-xs text-rose-600">{errors.password.message}</p>}
                 </div>
 
                 <div className="sm:col-span-2">
@@ -169,6 +186,8 @@ const RegisterPage = () => {
                     <PasswordInput
                       id="confirmPassword"
                       placeholder="Re-enter your password"
+                      aria-invalid={Boolean(errors.confirmPassword)}
+                      aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
                       className="h-[52px] w-full rounded-[10px] border border-[#DDE3EA] bg-white pl-10 pr-10 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"
                       {...register("confirmPassword", {
                         required: "Please confirm your password",
@@ -176,7 +195,7 @@ const RegisterPage = () => {
                       })}
                     />
                   </div>
-                  {errors.confirmPassword && <p className="mt-1.5 text-xs text-rose-600">{errors.confirmPassword.message}</p>}
+                  {errors.confirmPassword && <p id="confirmPassword-error" className="mt-1.5 text-xs text-rose-600">{errors.confirmPassword.message}</p>}
                 </div>
               </div>
 

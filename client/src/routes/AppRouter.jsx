@@ -59,6 +59,7 @@ const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderP
 const RestaurantsPage = lazy(() => import("../pages/admin/RestaurantsPage"));
 const AddRestaurantPage = lazy(() => import("../pages/admin/AddRestaurantPage"));
 const RestaurantDetailsPage = lazy(() => import("../pages/admin/RestaurantDetailsPage"));
+const EditRestaurantPage = lazy(() => import("../pages/admin/EditRestaurantPage"));
 const UsersPage = lazy(() => import("../pages/admin/UsersPage"));
 const AddUserPage = lazy(() => import("../pages/admin/AddUserPage"));
 const UserDetailsPage = lazy(() => import("../pages/admin/UserDetailsPage"));
@@ -268,6 +269,7 @@ const AppRouter = () => (
       <Route path="restaurants" element={<RestaurantsPage />} />
       <Route path="restaurants/new" element={<AddRestaurantPage />} />
       <Route path="restaurants/:id" element={<RestaurantDetailsPage />} />
+      <Route path="restaurants/:id/edit" element={<EditRestaurantPage />} />
       <Route path="users" element={<UsersPage />} />
       <Route path="users/new" element={<AddUserPage />} />
       <Route path="users/:id" element={<UserDetailsPage />} />

@@ -160,7 +160,7 @@ export const updateKitchenItemStatus = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not have permission to update kitchen items");
   }
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user));
+  const order = await Order.findOne(await buildOutletQuery({ _id: req.params.orderId }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const nextStatus = normalizeKitchenItemStatus(req.body.kitchenStatus);
@@ -180,7 +180,7 @@ export const bulkStartKitchenItems = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not have permission to update kitchen items");
   }
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user));
+  const order = await Order.findOne(await buildOutletQuery({ _id: req.params.orderId }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = String(order.status || "").toUpperCase();
@@ -204,7 +204,7 @@ export const bulkReadyKitchenItems = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You do not have permission to update kitchen items");
   }
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user));
+  const order = await Order.findOne(await buildOutletQuery({ _id: req.params.orderId }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
 
   const currentStatus = String(order.status || "").toUpperCase();
@@ -223,7 +223,7 @@ export const bulkServeKitchenItems = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.orderId)) throw new ApiError(404, "Order not found");
   if (!canUpdateKitchenItem(req.user.role)) throw new ApiError(403, "You do not have permission to update kitchen items");
 
-  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.orderId }, req.user));
+  const order = await Order.findOne(await buildOutletQuery({ _id: req.params.orderId }, req.user));
   if (!order || order.isArchived) throw new ApiError(404, "Order not found");
   bulkUpdateItemsKitchenStatus(order, KITCHEN_ITEM_STATUSES.SERVED);
   const ticket = await saveAndEmit(order, req, null, KITCHEN_ITEM_STATUSES.SERVED);

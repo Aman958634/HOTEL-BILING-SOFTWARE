@@ -3,7 +3,9 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { safeRequestPath } from "./safeLog.js";
 
-const enabled = () => String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true";
+const enabled = () =>
+  String(process.env.LOAD_TEST_MODE || "").toLowerCase() === "true" &&
+  String(process.env.LOAD_TEST_PROFILE || "true").toLowerCase() !== "false";
 const resultPath = () => path.resolve("load-tests", "results", "profiles.jsonl");
 export const startLoadTestProfile = (req) => {
   if (!enabled()) return null;

@@ -17,7 +17,7 @@ const kotItemSchema = new mongoose.Schema(
 
 const kotTicketSchema = new mongoose.Schema(
   {
-    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true, index: true },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true, unique: true },
     tableId: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
     outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
@@ -33,8 +33,6 @@ const kotTicketSchema = new mongoose.Schema(
 kotTicketSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
 kotTicketSchema.index({ restaurant: 1, orderNumber: 1 });
 kotTicketSchema.index({ restaurant: 1, outlet: 1, status: 1, createdAt: -1 });
-// KDS reconciles existing tickets in batches by the already tenant-scoped order ids.
-kotTicketSchema.index({ orderId: 1 });
 
 const KotTicket = mongoose.model("KotTicket", kotTicketSchema);
 export default KotTicket;

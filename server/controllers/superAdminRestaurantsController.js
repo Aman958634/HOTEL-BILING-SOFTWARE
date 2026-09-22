@@ -2,6 +2,7 @@ import Restaurant from "../models/Restaurant.js";
 import User from "../models/User.js";
 import Subscription from "../models/Subscription.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { resolvePlan } from "../services/planService.js";
@@ -56,12 +57,12 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     password,
   } = req.body;
 
-  if (!name) throw new Error("Restaurant name is required");
-  if (!adminFullName) throw new Error("Admin name is required");
-  if (!adminEmail) throw new Error("Admin email is required");
+  if (!name) throw new ApiError(422, "Restaurant name is required");
+  if (!adminFullName) throw new ApiError(422, "Admin name is required");
+  if (!adminEmail) throw new ApiError(422, "Enter a valid email address.");
 
   const existingAdmin = await User.findOne({ email: adminEmail });
-  if (existingAdmin) throw new ApiResponse(false, "Admin email already in use");
+  if (existingAdmin) throw new ApiError(409, "Admin email already in use");
 
   const branchCode = `B${Date.now().toString().slice(-6)}`;
 
@@ -153,7 +154,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
 export const getRestaurant = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const restaurant = await Restaurant.findById(id).lean();
-  if (!restaurant) throw new ApiResponse(false, "Restaurant not found");
+  if (!restaurant) throw new ApiError(404, "Restaurant not found");
 
   const admin = await User.findOne({ restaurant: restaurant._id, role: "admin" }).select("fullName email phone role isActive lastLogin").lean();
   const subscription = await Subscription.findOne({ restaurant: restaurant._id }).sort({ createdAt: -1 });
@@ -190,7 +191,7 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
   delete update.restaurant; // prevent changing tenant association from client
   delete update.slug; // customer-facing menu links remain stable after creation
   const restaurant = await Restaurant.findByIdAndUpdate(id, update, { new: true }).lean();
-  if (!restaurant) throw new ApiResponse(false, "Restaurant not found");
+  if (!restaurant) throw new ApiError(404, "Restaurant not found");
 
   await createActivity({ action: "Restaurant Updated", description: `Restaurant ${restaurant.name} updated`, performedBy: req.user._id, restaurantId: restaurant._id });
 
@@ -202,7 +203,7 @@ export const updateStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const restaurant = await Restaurant.findById(id);
-  if (!restaurant) throw new ApiResponse(false, "Restaurant not found");
+  if (!restaurant) throw new ApiError(404, "Restaurant not found");
 
   const prev = restaurant.isActive;
   restaurant.isActive = status === "active";

@@ -10,11 +10,32 @@ mongoose.set("autoCreate", false);
 
 const SAFE_DATABASE_NAME = /(?:^|[-_])(test|tests|testing|stage|staging|ci)(?:[-_]|$)/i;
 const UNSAFE_DATABASE_NAME = /(?:production|prod|live)/i;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+const normalizeHostname = (hostname) => String(hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+
+const parseLocalTestUri = (uri) => {
+  if (/^mongodb\+srv:/i.test(uri)) {
+    throw new Error("TEST_MONGO_URI must use a local mongodb:// loopback host.");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(uri);
+  } catch (_) {
+    throw new Error("TEST_MONGO_URI must be a valid local mongodb:// URI.");
+  }
+
+  const hostname = normalizeHostname(parsed.hostname);
+  if (parsed.protocol !== "mongodb:" || !LOOPBACK_HOSTS.has(hostname)) {
+    throw new Error("TEST_MONGO_URI must use an explicit loopback host.");
+  }
+  return parsed;
+};
 
 const redactHost = (uri) => {
   try {
     const parsed = new URL(uri);
-    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1"
+    return LOOPBACK_HOSTS.has(normalizeHostname(parsed.hostname))
       ? "local"
       : "remote";
   } catch (_) {
@@ -24,7 +45,7 @@ const redactHost = (uri) => {
 
 const databaseNameFromUri = (uri) => {
   try {
-    const pathname = new URL(uri).pathname.replace(/^\/+/, "");
+    const pathname = parseLocalTestUri(uri).pathname.replace(/^\/+/, "");
     return decodeURIComponent(pathname.split("/")[0] || "");
   } catch (_) {
     return "";
@@ -48,6 +69,11 @@ export const requireSafeTestDatabase = () => {
   if (primaryUri && testUri === primaryUri) {
     throw new Error("TEST_MONGO_URI must not match the application MongoDB URI.");
   }
+
+  // Validate the transport and host before a caller receives a URI that could
+  // be passed to mongoose.connect(). Browser and integration tests are local
+  // only; a test-looking database name on a remote host is never sufficient.
+  parseLocalTestUri(testUri);
 
   const databaseName = databaseNameFromUri(testUri);
   if (!databaseName || UNSAFE_DATABASE_NAME.test(databaseName) || !SAFE_DATABASE_NAME.test(databaseName)) {

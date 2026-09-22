@@ -115,6 +115,9 @@ api.interceptors.response.use(
     const code = payload?.code;
     // Existing toast calls can safely read this normalized message.
     error.userMessage = getApiErrorMessage(error);
+    // Preserve server-side field validation so forms can show feedback next to
+    // the affected control instead of relying only on a global notification.
+    error.fieldErrors = payload?.errors || payload?.details?.fields || {};
     if (payload && typeof payload === "object" && typeof payload.message === "string") {
       payload.message = error.userMessage;
     }

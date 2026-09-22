@@ -6,6 +6,9 @@ import { assertEasySplitAvailable, assertEasySplitPaymentsAvailable } from "../s
 
 const original = {
   NODE_ENV: process.env.NODE_ENV,
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+  RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
   CASHFREE_ENV: process.env.CASHFREE_ENV,
   CASHFREE_PAYMENTS_ENABLED: process.env.CASHFREE_PAYMENTS_ENABLED,
   CASHFREE_ENABLED: process.env.CASHFREE_ENABLED,
@@ -32,6 +35,9 @@ try {
   process.env.JWT_ACCESS_SECRET = "prod-access-secret";
   process.env.JWT_REFRESH_SECRET = "prod-refresh-secret";
   process.env.PUBLIC_MENU_CONTEXT_SECRET = "prod-public-menu-secret";
+  process.env.RAZORPAY_KEY_ID = "prod-razorpay-key";
+  process.env.RAZORPAY_KEY_SECRET = "prod-razorpay-secret";
+  process.env.RAZORPAY_WEBHOOK_SECRET = "prod-razorpay-webhook-secret";
   process.env.CASHFREE_ENV = "sandbox";
   process.env.CASHFREE_PAYMENTS_ENABLED = "true";
   process.env.CASHFREE_APP_ID = "prod-app-id";

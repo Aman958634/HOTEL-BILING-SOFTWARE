@@ -26,7 +26,7 @@ const AddRestaurantPage = () => {
         <input {...register("adminFullName")} placeholder="Admin Full Name" className="border p-2" required />
         <input {...register("adminEmail")} placeholder="Admin Email" className="border p-2" type="email" required />
         <input {...register("phone")} placeholder="Phone" className="border p-2" />
-        <input {...register("address")} placeholder="Address" className="border p-2" />
+        <input {...register("address")} placeholder="Address" className="border p-2" required />
         <select {...register("plan")} className="border p-2">
           <option value="basic">Basic</option>
           <option value="professional">Professional</option>

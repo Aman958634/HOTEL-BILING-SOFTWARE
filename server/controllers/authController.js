@@ -33,7 +33,9 @@ const buildSessionPayload = async (user) => {
 };
 
 export const register = asyncHandler(async (req, res) => {
-  const { fullName, email, password, phone } = req.body;
+  const fullName = String(req.body.fullName || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const { password, phone } = req.body;
   const existing = await User.findOne({ email });
   if (existing) throw new ApiError(409, "Email already registered");
 

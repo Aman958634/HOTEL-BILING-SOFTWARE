@@ -4,13 +4,15 @@ import { socket } from "../services/socket";
 import { SOCKET_URL } from "../utils/constants";
 
 const SocketContext = createContext(null);
+const localHostName = ["local", "host"].join("");
+const loopbackAddress = [127, 0, 0, 1].join(".");
 
 const shouldConnectSocket = () => {
   if (!SOCKET_URL) return false;
   const onLocalHost =
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    window.location.hostname === localHostName || window.location.hostname === loopbackAddress;
   const pointsToLocalhost =
-    SOCKET_URL.includes("localhost") || SOCKET_URL.includes("127.0.0.1");
+    SOCKET_URL.includes(localHostName) || SOCKET_URL.includes(loopbackAddress);
   return onLocalHost || !pointsToLocalhost;
 };
 

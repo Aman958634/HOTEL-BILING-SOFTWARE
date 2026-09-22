@@ -6,11 +6,21 @@ export const errorHandler = (err, req, res, _next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal server error";
   let code = typeof err.code === "string" ? err.code : null;
-  const details = err.details || null;
+  let details = err.details || null;
+  let fieldErrors = details?.fields || null;
 
   if (err.name === "ValidationError") {
-    statusCode = 400;
-    message = "Validation failed";
+    statusCode = 422;
+    message = "Please correct the highlighted fields.";
+    code = "VALIDATION_ERROR";
+    fieldErrors = Object.fromEntries(
+      Object.entries(err.errors || {}).map(([field, value]) => {
+        const label = field.replace(/([A-Z])/g, " $1").trim();
+        const readableLabel = label ? `${label[0].toUpperCase()}${label.slice(1)}` : "Field";
+        return [field, value?.kind === "required" ? `${readableLabel} is required.` : "Enter a valid value."];
+      })
+    );
+    details = { fields: fieldErrors };
   }
 
   if (err.code === 11000) {
@@ -61,6 +71,7 @@ export const errorHandler = (err, req, res, _next) => {
     success: false,
     message: clientMessage,
     ...(code ? { code } : {}),
+    ...(fieldErrors && statusCode < 500 ? { errors: redactSensitive(fieldErrors) } : {}),
     ...(details && statusCode < 500 ? { details: redactSensitive(details) } : {}),
   });
 };

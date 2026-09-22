@@ -22,6 +22,24 @@ try {
   process.env.TEST_MONGO_URI = "mongodb://127.0.0.1:27027/production";
   assert.throws(() => requireSafeTestDatabase(), /test or staging database/i);
 
+  for (const uri of [
+    safeUri,
+    "mongodb://localhost:27018/restosphere_load_test",
+    "mongodb://[::1]:27018/restosphere_load_test",
+  ]) {
+    process.env.TEST_MONGO_URI = uri;
+    assert.equal(requireSafeTestDatabase().hostClass, "local");
+  }
+
+  for (const uri of [
+    "mongodb://remote.example:27018/restosphere_load_test",
+    "mongodb+srv://cluster.example/restosphere_load_test",
+    "mongodb://remote.example:27018/restosphere_staging",
+  ]) {
+    process.env.TEST_MONGO_URI = uri;
+    assert.throws(() => requireSafeTestDatabase(), /loopback|local mongodb/i);
+  }
+
   process.env.TEST_MONGO_URI = safeUri;
   process.env.NODE_ENV = "production";
   assert.throws(() => requireSafeTestDatabase(), /NODE_ENV=production/i);

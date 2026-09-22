@@ -112,7 +112,7 @@ router.put(
 	updateOrder
 );
 
-router.delete("/:id", requirePermission("orders.cancel"), deleteOrder);
+router.delete("/:id", [param("id").isMongoId().withMessage("Invalid order id")], validate, requirePermission("orders.cancel"), deleteOrder);
 
 router.patch(
 	"/:id/status",
@@ -166,6 +166,6 @@ router.put(
 );
 
 router.post("/:id/receipt/whatsapp", [param("id").isMongoId().withMessage("Invalid order id")], validate, requirePermission("payments.collect"), sendOrderReceiptWhatsApp);
-router.get("/:id/invoice", downloadInvoice);
+router.get("/:id/invoice", [param("id").isMongoId().withMessage("Invalid order id")], validate, downloadInvoice);
 
 export default router;

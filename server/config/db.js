@@ -71,6 +71,12 @@ const connectDB = async () => {
       ? "TEST_MONGO_URI is missing in load-test mode"
       : "MONGO_URI (or MONGODB_URI) is missing in environment variables");
   }
+  if (loadTestMode || isolatedTestMode) {
+    // The shared guard rejects SRV and non-loopback hosts before this path can
+    // pass a test URI to mongoose.connect().
+    const { requireSafeTestDatabase } = await import("../tests/testDatabase.js");
+    requireSafeTestDatabase();
+  }
   if (isolatedTestMode) assertIsolatedTestDatabase(mongoUri);
   assertProductionMongoUri(mongoUri);
 

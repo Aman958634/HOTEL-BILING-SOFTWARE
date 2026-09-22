@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
@@ -116,7 +116,10 @@ const CreateOrderModal = ({
     });
   }, []);
 
-  useEffect(() => {
+  // Initialize form state before the modal paints when dependency props arrive.
+  // This prevents an immediately selected table or menu item from being reset
+  // by a delayed passive effect during first render.
+  useLayoutEffect(() => {
     if (!open) return;
     const initialForm = buildInitialState(initialData, menuItems, categories);
     const draft = !isEdit ? readOrderDraft(draftScope) : null;

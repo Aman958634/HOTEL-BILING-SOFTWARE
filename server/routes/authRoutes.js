@@ -11,10 +11,10 @@ router.post(
   "/register",
   signupLimiter,
   [
-    body("fullName").trim().notEmpty().withMessage("Full name is required"),
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("phone").optional().isLength({ min: 10, max: 10 }).withMessage("Phone must be 10 digits"),
-    body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
+    body("fullName").trim().isLength({ min: 1, max: 120 }).withMessage("Full name is required"),
+    body("email").trim().normalizeEmail().isEmail().isLength({ max: 254 }).withMessage("Enter a valid email address."),
+    body("phone").optional({ values: "falsy" }).trim().matches(/^(?:\+91[\s-]?)?[6-9]\d{9}$/).withMessage("Enter a valid mobile number."),
+    body("password").isString().isLength({ min: 8, max: 128 }).withMessage("Password must be between 8 and 128 characters"),
   ],
   validate,
   register
@@ -23,16 +23,16 @@ router.post(
   "/login",
   loginLimiter,
   [
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("password").notEmpty().withMessage("Password is required"),
+    body("email").trim().normalizeEmail().isEmail().isLength({ max: 254 }).withMessage("Enter a valid email address."),
+    body("password").isString().notEmpty().isLength({ max: 128 }).withMessage("Password is required"),
   ],
   validate,
   login
 );
-router.post("/refresh", [body("refreshToken").notEmpty()], validate, refresh);
+router.post("/refresh", [body("refreshToken").isString().trim().isLength({ min: 20, max: 4096 }).withMessage("Invalid refresh token")], validate, refresh);
 router.post("/logout", logout);
-router.post("/forgot-password", passwordResetLimiter, [body("email").isEmail()], validate, forgotPassword);
-router.post("/reset-password/:token", passwordResetLimiter, [body("password").isLength({ min: 8, max: 128 })], validate, resetPassword);
+router.post("/forgot-password", passwordResetLimiter, [body("email").trim().normalizeEmail().isEmail().isLength({ max: 254 }).withMessage("Enter a valid email address.")], validate, forgotPassword);
+router.post("/reset-password/:token", passwordResetLimiter, [body("password").isString().isLength({ min: 8, max: 128 }).withMessage("Password must be between 8 and 128 characters")], validate, resetPassword);
 router.get("/me", protect, me);
 
 export default router;

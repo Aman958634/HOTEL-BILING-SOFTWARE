@@ -10,6 +10,8 @@ client/.env
 dist
 build
 coverage
+client/test-results/
+client/playwright-report/
 .tmp/
 *.log
 .DS_Store

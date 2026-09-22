@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
@@ -18,7 +18,7 @@ const router = Router();
 router.use(authMiddleware, requireActiveSubscription, requireRole("admin"));
 
 router.get("/", listMenuItems);
-router.get("/:id", getMenuItemById);
+router.get("/:id", [param("id").isMongoId().withMessage("Invalid menu item id")], validate, getMenuItemById);
 router.post(
   "/",
   [
@@ -48,6 +48,7 @@ router.post(
 router.put(
   "/:id",
   [
+    param("id").isMongoId().withMessage("Invalid menu item id"),
     body("name").optional().trim().notEmpty().withMessage("Food name required"),
     body("description")
       .optional()
@@ -59,10 +60,10 @@ router.put(
   validate,
   updateMenuItem
 );
-router.delete("/:id", deleteMenuItem);
+router.delete("/:id", [param("id").isMongoId().withMessage("Invalid menu item id")], validate, deleteMenuItem);
 router.patch(
   "/:id/availability",
-  [body("available").isBoolean().withMessage("Available must be boolean")],
+  [param("id").isMongoId().withMessage("Invalid menu item id"), body("available").isBoolean().withMessage("Available must be boolean")],
   validate,
   toggleMenuAvailability
 );
