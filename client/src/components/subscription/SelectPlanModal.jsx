@@ -54,6 +54,7 @@ const PlanCard = ({ plan, selected, onSelect }) => (
 const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => {
   const [step, setStep] = useState("select");
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [premiumDurationYears, setPremiumDurationYears] = useState(1);
   const [paymentSummary, setPaymentSummary] = useState(null);
   const [checkout, setCheckout] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -77,6 +78,7 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
       (p) => p.key === subscription?.metadata?.selectedPaidPlan || p.key === subscription?.planName
     );
     if (preselected) setSelectedPlan(preselected);
+    setPremiumDurationYears(subscription?.metadata?.selectedPremiumDurationYears || 1);
   }, [open, subscription, displayPlans]);
 
   const hotelName = subscription?.restaurant?.name || "Hotel";
@@ -88,7 +90,7 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
     setBusy(true);
     setError("");
     try {
-      const { data } = await convertSubscription(subscription._id, selectedPlan.key, selectedPlan._id);
+      const { data } = await convertSubscription(subscription._id, selectedPlan.key, selectedPlan._id, selectedPlan.key === "enterprise" ? premiumDurationYears : null);
       const payload = data?.data;
       setPaymentSummary(payload?.paymentSummary || null);
       setSelectedPlan(payload?.selectedPlan || selectedPlan);
@@ -246,6 +248,15 @@ const SelectPlanModal = ({ open, subscription, plans, onClose, onComplete }) => 
                     />
                   ))}
                 </div>
+              )}
+              {selectedPlan?.key === "enterprise" && (
+                <fieldset aria-label="Premium subscription term">
+                  <legend className="text-sm font-semibold text-slate-700">Premium term</legend>
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((years) => <button key={years} type="button" aria-pressed={premiumDurationYears === years} onClick={() => setPremiumDurationYears(years)} className={`min-h-11 rounded-lg border text-sm font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}>{years}Y</button>)}
+                  </div>
+                  {(() => { const offer = (selectedPlan.premiumDurationOptions || []).find((option) => option.years === premiumDurationYears); return <p className="mt-2 text-sm font-medium text-slate-700">Total payable: {formatMoney(offer?.amount, selectedPlan.currency)} · {offer?.durationLabel || `${premiumDurationYears} year${premiumDurationYears === 1 ? "" : "s"}`}</p>; })()}
+                </fieldset>
               )}
             </>
           )}

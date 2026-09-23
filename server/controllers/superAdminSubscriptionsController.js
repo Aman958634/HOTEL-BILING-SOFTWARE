@@ -8,7 +8,9 @@ import { createActivity } from "../services/activityService.js";
 import {
   getPlanDurationLabel,
   getPlanDurationMonths,
-  getPlanSnapshot,
+  getPlanOffer,
+  getPremiumDurationOptions,
+  isPremiumPlan,
   listActivePlans,
   resolvePlan,
 } from "../services/planService.js";
@@ -73,23 +75,33 @@ const getSelectedPlanForSubscription = async (subscription) => {
   }
 };
 
-const buildPaymentSummary = (plan, restaurantName) => {
+const buildPaymentSummary = (plan, offer, restaurantName) => {
   const now = new Date();
-  const durationMonths = getPlanDurationMonths(plan);
-  const durationLabel = getPlanDurationLabel(plan);
+  const durationMonths = offer.durationMonths;
+  const durationLabel = offer.durationLabel;
   return {
     restaurantName,
     planName: plan.name,
     planKey: plan.key,
     billingPeriod: durationLabel,
-    amount: Number(plan.price) || 0,
-    currency: plan.currency || "INR",
+    amount: offer.amount,
+    currency: offer.currency || plan.currency || "INR",
     durationMonths,
     durationLabel,
-    monthlyEquivalentPrice: Number(plan.monthlyEquivalentPrice) || null,
+    monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
+    premiumDurationYears: offer.premiumDurationYears || null,
     subscriptionStartPreview: now.toISOString(),
     renewalDatePreview: calculateSubscriptionEndDate(now, durationMonths).toISOString(),
   };
+};
+
+const getSelectedOfferForSubscription = async (subscription) => {
+  const plan = await getSelectedPlanForSubscription(subscription);
+  try {
+    return { plan, offer: getPlanOffer(plan, subscription.metadata?.selectedPremiumDurationYears) };
+  } catch {
+    throw new ApiError(400, "Premium duration must be one of 1, 2, 3, 4, or 5 years");
+  }
 };
 
 const toCheckoutResponse = (payment, plan, restaurantName, summary) => {
@@ -112,15 +124,15 @@ const toCheckoutResponse = (payment, plan, restaurantName, summary) => {
   };
 };
 
-const createCheckoutPayment = async (subscription, plan, restaurantName, performedBy = null, idempotencyKey = null) => {
+const createCheckoutPayment = async (subscription, plan, offer, restaurantName, performedBy = null, idempotencyKey = null) => {
   const restaurantId = subscription.restaurant?._id || subscription.restaurant;
-  const amount = Number(plan.price) || 0;
-  const summary = buildPaymentSummary(plan, restaurantName);
+  const amount = offer.amount;
+  const summary = buildPaymentSummary(plan, offer, restaurantName);
 
   if (idempotencyKey) {
     const prior = await SaasPayment.findOne({ restaurant: restaurantId, idempotencyKey });
     if (prior) {
-      if (String(prior.subscription) !== String(subscription._id) || prior.planName !== plan.key) {
+      if (String(prior.subscription) !== String(subscription._id) || prior.planName !== plan.key || prior.amount !== amount || prior.durationMonths !== offer.durationMonths) {
         throw new ApiError(409, "Idempotency key belongs to another payment attempt");
       }
       if (prior.status === "paid") throw new ApiError(409, "Subscription payment is already completed");
@@ -136,7 +148,7 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
   }).sort({ createdAt: -1 });
   // A retry without a header should still reuse the outstanding checkout for
   // the same plan, rather than creating competing subscription attempts.
-  if (existingPending && existingPending.planName === plan.key && (existingPending.providerOrderId || existingPending.gatewayOrderId || existingPending.provider === "TEST")) {
+  if (existingPending && existingPending.planName === plan.key && existingPending.amount === amount && existingPending.durationMonths === offer.durationMonths && (existingPending.providerOrderId || existingPending.gatewayOrderId || existingPending.provider === "TEST")) {
     return toCheckoutResponse(existingPending, plan, restaurantName, summary);
   }
   if (existingPending) {
@@ -151,15 +163,15 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     planId: plan._id,
     planName: plan.key,
     amount,
-    currency: plan.currency || "INR",
-    billingCycle: plan.billingCycle || "monthly",
-    durationMonths: getPlanDurationMonths(plan),
-    durationLabel: getPlanDurationLabel(plan),
+    currency: offer.currency || plan.currency || "INR",
+    billingCycle: offer.billingCycle,
+    durationMonths: offer.durationMonths,
+    durationLabel: offer.durationLabel,
     status: "pending",
     gateway: "razorpay",
     provider: "RAZORPAY",
     idempotencyKey,
-    metadata: { planSnapshot: getPlanSnapshot(plan), purpose: "SUBSCRIPTION" },
+    metadata: { planSnapshot: offer, purpose: "SUBSCRIPTION" },
   });
 
   await createActivity({
@@ -169,7 +181,7 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     restaurantId,
     targetId: payment._id,
     targetType: "saas_payment",
-    metadata: { planKey: plan.key, amount, currency: plan.currency || "INR", paymentId: String(payment._id) },
+    metadata: { planKey: plan.key, amount, currency: offer.currency || plan.currency || "INR", durationMonths: offer.durationMonths, paymentId: String(payment._id) },
   });
 
   const testMode = isSubscriptionTestMode();
@@ -194,19 +206,20 @@ const createCheckoutPayment = async (subscription, plan, restaurantName, perform
     payment.provider = "TEST";
     payment.gatewayOrderId = `test_order_${payment._id}`;
     payment.providerOrderId = payment.gatewayOrderId;
-    payment.metadata = { testMode: true, mode: "TEST/DEVELOPMENT" };
+    payment.metadata = { ...(payment.metadata || {}), testMode: true, mode: "TEST/DEVELOPMENT" };
     await payment.save();
     return toCheckoutResponse(payment, plan, restaurantName, summary);
   }
 
   const order = await razorpay.orders.create({
     amount: toPaise(amount),
-    currency: plan.currency || "INR",
+    currency: offer.currency || plan.currency || "INR",
     receipt: `saas_${String(payment._id).slice(-10)}`,
     notes: {
       restaurantId: String(restaurantId),
       subscriptionId: String(subscription._id),
       planName: plan.key,
+      durationMonths: String(offer.durationMonths),
       purpose: "SUBSCRIPTION",
     },
   });
@@ -451,6 +464,7 @@ const activatePaidSubscription = async ({
     paymentRecorded: !adminOverride,
     durationMonths,
     durationLabel,
+    selectedPremiumDurationYears: snapshot?.premiumDurationYears || null,
   };
   await subscription.save();
 
@@ -519,7 +533,10 @@ export const createSubscription = asyncHandler(async (req, res) => {
     subscriptionStartAt: effectiveStatus === "active" ? trialStart : null,
     subscriptionEndAt: effectiveStatus === "active" ? calculateSubscriptionEndDate(trialStart, getPlanDurationMonths(plan)) : null,
     renewalDate: effectiveStatus === "active" ? calculateSubscriptionEndDate(trialStart, getPlanDurationMonths(plan)) : null,
-    metadata: { recurringBillingEnabled: false },
+    metadata: {
+      recurringBillingEnabled: false,
+      ...(effectiveStatus === "trial" ? { trialDurationDays: getFreeTrialDays() } : {}),
+    },
   });
 
   await createActivity({
@@ -635,7 +652,7 @@ export const extendTrial = asyncHandler(async (req, res) => {
 export const convertToPaid = asyncHandler(async (req, res) => {
   rejectClientPricing(req.body);
 
-  const { planName, planId } = req.body;
+  const { planName, planId, premiumDurationYears } = req.body;
   if (!planName && !planId) throw new ApiError(400, "planName or planId is required");
 
   const sub = await Subscription.findById(req.params.id).populate("restaurant", "name");
@@ -648,6 +665,12 @@ export const convertToPaid = asyncHandler(async (req, res) => {
   } catch {
     throw new ApiError(400, "Invalid plan selected");
   }
+  let offer;
+  try {
+    offer = getPlanOffer(plan, premiumDurationYears);
+  } catch {
+    throw new ApiError(400, "Premium duration must be one of 1, 2, 3, 4, or 5 years");
+  }
 
   sub.planId = plan._id;
   sub.planName = plan.key;
@@ -657,6 +680,7 @@ export const convertToPaid = asyncHandler(async (req, res) => {
     selectedPaidPlan: plan.key,
     selectedPaidPlanId: String(plan._id),
     selectedPaidPlanAt: new Date().toISOString(),
+    selectedPremiumDurationYears: isPremiumPlan(plan) ? offer.premiumDurationYears : null,
     paymentRecorded: false,
   };
   await sub.save();
@@ -671,7 +695,7 @@ export const convertToPaid = asyncHandler(async (req, res) => {
     metadata: { planName: plan.key, planId: plan._id, paymentRecorded: false, userId: req.user._id },
   });
 
-  const paymentSummary = buildPaymentSummary(plan, sub.restaurant?.name);
+  const paymentSummary = buildPaymentSummary(plan, offer, sub.restaurant?.name);
 
   res.status(200).json(
     new ApiResponse(true, "Paid plan selected. Continue to payment to activate.", {
@@ -757,7 +781,16 @@ export const activateSubscription = asyncHandler(async (req, res) => {
 
 export const listPlans = asyncHandler(async (_req, res) => {
   const plans = await listActivePlans();
-  res.status(200).json(new ApiResponse(true, "Plans fetched", plans));
+  res.status(200).json(new ApiResponse(true, "Plans fetched", plans.map((plan) => ({
+    ...plan,
+    premiumDurationOptions: getPremiumDurationOptions(plan).map((offer) => ({
+      years: offer.premiumDurationYears,
+      amount: offer.amount,
+      durationMonths: offer.durationMonths,
+      durationLabel: offer.durationLabel,
+      monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
+    })),
+  }))));
 });
 
 export const getMySubscription = asyncHandler(async (req, res) => {
@@ -771,7 +804,7 @@ export const getMySubscription = asyncHandler(async (req, res) => {
   if (expiredNow) {
     await createActivity({
       action: "Trial Expired",
-      description: "Your 15-day free trial has ended.",
+      description: "Your free trial has ended.",
       performedBy: req.user._id,
       restaurantId,
       targetId: sub._id,
@@ -836,13 +869,19 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   }
   rejectClientPricing(req.body);
 
-  const { planName } = req.body;
+  const { planName, premiumDurationYears } = req.body;
   if (!planName) throw new ApiError(400, "planName is required");
 
   const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
   if (idempotencyKey.length > 120) throw new ApiError(400, "Idempotency key is invalid");
 
   const plan = await resolvePlan(planName);
+  let offer;
+  try {
+    offer = getPlanOffer(plan, premiumDurationYears);
+  } catch {
+    throw new ApiError(400, "Premium duration must be one of 1, 2, 3, 4, or 5 years");
+  }
   const sub = await Subscription.findOne({ restaurant: restaurantId }).sort({ createdAt: -1 });
   if (!sub) throw new ApiError(404, "Subscription not found");
 
@@ -850,12 +889,13 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
 
   // Remember selected plan in metadata only during trial — do not overwrite trial plan name.
-  const alreadySelected = sub.metadata?.selectedPaidPlan === plan.key;
+  const alreadySelected = sub.metadata?.selectedPaidPlan === plan.key && sub.metadata?.selectedPremiumDurationYears === (offer.premiumDurationYears || null);
   sub.metadata = {
     ...(sub.metadata || {}),
     selectedPaidPlan: plan.key,
     selectedPaidPlanId: String(plan._id),
     selectedPaidPlanAt: new Date().toISOString(),
+    selectedPremiumDurationYears: isPremiumPlan(plan) ? offer.premiumDurationYears : null,
     paymentRecorded: false,
   };
   if (sub.status !== "trial") {
@@ -878,7 +918,7 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   }
 
   const restaurant = await Restaurant.findById(restaurantId).select("name").lean();
-  const checkout = await createCheckoutPayment(sub, plan, restaurant?.name, req.user._id, idempotencyKey || null);
+  const checkout = await createCheckoutPayment(sub, plan, offer, restaurant?.name, req.user._id, idempotencyKey || null);
   res.status(200).json(new ApiResponse(true, "Checkout created", checkout));
 });
 
@@ -902,8 +942,8 @@ export const createSubscriptionPaymentCheckout = asyncHandler(async (req, res) =
   if (sub.status === "trial") await syncAndExpire(sub);
   if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
 
-  const plan = await getSelectedPlanForSubscription(sub);
-  const checkout = await createCheckoutPayment(sub, plan, sub.restaurant?.name, req.user._id);
+  const { plan, offer } = await getSelectedOfferForSubscription(sub);
+  const checkout = await createCheckoutPayment(sub, plan, offer, sub.restaurant?.name, req.user._id);
   res.status(200).json(new ApiResponse(true, "Checkout created", checkout));
 });
 

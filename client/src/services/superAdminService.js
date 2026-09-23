@@ -18,8 +18,8 @@ export const createSubscription = (payload) => api.post("/super-admin/subscripti
 export const updateSubscription = (id, payload) => api.put(`/super-admin/subscriptions/${id}`, payload);
 export const extendSubscriptionTrial = (id, days) =>
   api.post(`/super-admin/subscriptions/${id}/extend-trial`, { days, confirm: true });
-export const convertSubscription = (id, planName, planId) =>
-  api.post(`/super-admin/subscriptions/${id}/convert`, { planName, planId });
+export const convertSubscription = (id, planName, planId, premiumDurationYears = null) =>
+  api.post(`/super-admin/subscriptions/${id}/convert`, { planName, planId, ...(premiumDurationYears ? { premiumDurationYears } : {}) });
 export const createSubscriptionCheckout = (id) => api.post(`/super-admin/subscriptions/${id}/checkout`);
 export const verifySubscriptionPayment = (id, payload) =>
   api.post(`/super-admin/subscriptions/${id}/verify-payment`, payload);

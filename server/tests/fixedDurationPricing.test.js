@@ -4,6 +4,8 @@ import {
   DEFAULT_PLANS,
   getPlanDurationLabel,
   getPlanDurationMonths,
+  getPlanOffer,
+  getPremiumDurationYears,
   getPlanSnapshot,
   hasAllPaidFeatures,
 } from "../services/planService.js";
@@ -49,6 +51,17 @@ assert.equal(calculateSubscriptionEndDate(activation, 12).toISOString(), "2027-0
 const purchase = getPlanSnapshot(plans.professional);
 assert.equal(purchase.amount, 15000);
 assert.equal(purchase.durationMonths, 6);
+
+const premiumOffers = [1, 2, 3, 4, 5].map((years) => getPlanOffer(plans.enterprise, years));
+assert.deepEqual(premiumOffers.map((offer) => offer.amount), [30000, 60000, 90000, 120000, 150000]);
+assert.deepEqual(premiumOffers.map((offer) => offer.durationMonths), [12, 24, 36, 48, 60]);
+assert.deepEqual(premiumOffers.map((offer) => offer.monthlyEquivalentPrice), [2500, 2500, 2500, 2500, 2500]);
+assert.throws(() => getPremiumDurationYears(6), /Premium duration/i);
+assert.throws(() => getPremiumDurationYears("invalid"), /Premium duration/i);
+assert.equal(
+  calculateSubscriptionEndDate(new Date("2024-02-29T09:00:00.000Z"), 12).toISOString(),
+  "2025-02-28T09:00:00.000Z"
+);
 
 // Existing records without duration fields retain their historical monthly meaning.
 const legacy = toSubscriptionView({ status: "active", billingCycle: "monthly", renewalDate: new Date("2026-10-01T00:00:00.000Z") });

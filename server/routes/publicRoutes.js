@@ -20,6 +20,7 @@ router.post(
   signupLimiter,
   [
     body("planName").isString().trim().isLength({ min: 1, max: 80 }).withMessage("Plan selection is invalid"),
+    body("premiumDurationYears").optional().isInt({ min: 1, max: 5 }).withMessage("Premium duration must be between 1 and 5 years"),
     body("fullName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Owner name is invalid"),
     body("ownerName").optional({ values: "falsy" }).isString().trim().isLength({ max: 120 }).withMessage("Owner name is invalid"),
     body("email").trim().normalizeEmail().isEmail().isLength({ max: 254 }).withMessage("Enter a valid email address."),

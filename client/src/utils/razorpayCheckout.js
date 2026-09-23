@@ -21,9 +21,9 @@ const ensureRazorpayScript = () =>
  * Shared tenant checkout using existing /admin/billing endpoints.
  * Returns verified subscription payload on success.
  */
-export const startPlanCheckout = async ({ planKey, planName, onVerified }) => {
+export const startPlanCheckout = async ({ planKey, planName, premiumDurationYears, onVerified }) => {
   const idempotencyKey = window.crypto?.randomUUID?.() || `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  const { data } = await createRazorpaySubscriptionOrder(planKey, idempotencyKey);
+  const { data } = await createRazorpaySubscriptionOrder(planKey, idempotencyKey, premiumDurationYears);
   const checkout = data?.data;
   if (!checkout) throw new Error("Checkout could not be created");
 

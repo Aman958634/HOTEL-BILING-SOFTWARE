@@ -44,7 +44,8 @@ const PricingPage = () => {
   const navigate = useNavigate();
   const { accessToken, user } = useSelector((state) => state.auth);
   const [plans, setPlans] = useState([]);
-  const [trialDays, setTrialDays] = useState(15);
+  const [trialDays, setTrialDays] = useState(5);
+  const [premiumDurationYears, setPremiumDurationYears] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyKey, setBusyKey] = useState("");
@@ -58,7 +59,7 @@ const PricingPage = () => {
       element.name = "description";
       return element;
     });
-    description.content = "Compare RestoSphere restaurant management plans and start with a 15-day free trial.";
+    description.content = "Compare RestoSphere restaurant management plans and start with a 5-day free trial.";
 
     const canonical = upsertHeadElement('link[rel="canonical"]', () => {
       const element = document.createElement("link");
@@ -141,8 +142,9 @@ const PricingPage = () => {
   };
 
   const selectPlan = (plan) => {
+    const selectedYears = plan.key === "enterprise" ? premiumDurationYears : null;
     setBusyKey(plan.key);
-    saveSelectedPlan(plan.key);
+    saveSelectedPlan(plan.key, selectedYears);
 
     const isAdmin = user?.role === "admin";
     const hasRestaurant = Boolean(user?.restaurant);
@@ -164,7 +166,7 @@ const PricingPage = () => {
     }
 
     navigate("/subscribe/register", {
-      state: { selectedPlan: plan.key },
+      state: { selectedPlan: plan.key, premiumDurationYears: selectedYears },
     });
   };
 
@@ -229,7 +231,14 @@ const PricingPage = () => {
             </button>
           </div>
 
-          {sortedPlans.map((plan) => (
+          {sortedPlans.map((plan) => {
+            const isPremium = plan.key === "enterprise";
+            const premiumOffer = isPremium
+              ? (plan.premiumDurationOptions || []).find((option) => option.years === premiumDurationYears)
+              : null;
+            const displayedAmount = premiumOffer?.amount ?? plan.price;
+            const displayedDuration = premiumOffer?.durationLabel || plan.durationLabel || "plan";
+            return (
             <div
               key={plan.key || plan.name}
               className={`flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${
@@ -243,14 +252,33 @@ const PricingPage = () => {
                 )}
               </div>
               <p className="mt-4 text-3xl font-semibold text-teal-800">
-                {formatMoney(plan.price, plan.currency)}
-                <span className="text-sm font-normal text-slate-500"> / {plan.durationLabel || "plan"}</span>
+                {formatMoney(displayedAmount, plan.currency)}
+                <span className="text-sm font-normal text-slate-500"> / {displayedDuration}</span>
               </p>
               <p className="mt-2 text-sm text-slate-500">
                 {plan.monthlyEquivalentPrice
                   ? `${formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month`
                   : plan.description}
               </p>
+              {isPremium && (
+                <fieldset className="mt-4" aria-label="Premium subscription term">
+                  <legend className="text-sm font-semibold text-slate-700">Choose your term</legend>
+                  <div className="mt-2 grid grid-cols-5 gap-1" role="group">
+                    {[1, 2, 3, 4, 5].map((years) => (
+                      <button
+                        key={years}
+                        type="button"
+                        aria-pressed={premiumDurationYears === years}
+                        onClick={() => setPremiumDurationYears(years)}
+                        className={`min-h-10 rounded-lg border px-1 text-xs font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}
+                      >
+                        {years}Y
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-slate-700">Total payable: {formatMoney(displayedAmount, plan.currency)} · {displayedDuration}</p>
+                </fieldset>
+              )}
               <ul className="mt-5 flex-1 space-y-2 text-sm text-slate-600">
                 {(plan.features || []).map((feature) => (
                   <li key={feature} className="flex gap-2">
@@ -268,7 +296,8 @@ const PricingPage = () => {
                 {busyKey === plan.key ? "Continuing..." : "Select Plan"}
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

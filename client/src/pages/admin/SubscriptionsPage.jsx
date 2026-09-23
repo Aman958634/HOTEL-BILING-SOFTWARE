@@ -160,7 +160,7 @@ const SubscriptionsPage = () => {
                             type: "extend",
                             sub: s,
                             title: "Extend trial",
-                            message: `Extend the 15-day free trial for ${s.restaurant?.name}? Enter days in the next step.`,
+                            message: `Extend the free trial for ${s.restaurant?.name}? Enter days in the next step.`,
                           })
                         }
                         className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"

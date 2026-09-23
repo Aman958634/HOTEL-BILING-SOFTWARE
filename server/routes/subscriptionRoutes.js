@@ -17,7 +17,7 @@ router.use(authMiddleware, requireRole("admin"), paymentLimiter);
 
 router.post(
   "/razorpay/create-order",
-  [body("planId").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan identifier is invalid")],
+  [body("planId").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan identifier is invalid"), body("premiumDurationYears").optional().isInt({ min: 1, max: 5 }).withMessage("Premium duration must be between 1 and 5 years")],
   validate,
   createRazorpaySubscriptionOrder
 );

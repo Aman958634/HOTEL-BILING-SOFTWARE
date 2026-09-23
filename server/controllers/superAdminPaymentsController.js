@@ -300,6 +300,8 @@ export const toSaasPaymentView = (payment, customer = null) => {
     statusRaw: plain.status,
     gateway: plain.gateway || "razorpay",
     billingCycle: plain.billingCycle || "monthly",
+    durationMonths: plain.durationMonths || null,
+    durationLabel: plain.durationLabel || null,
     subscriptionId: plain.subscription || null,
     paidAt: plain.paidAt || (statusKey === "paid" ? plain.updatedAt : null),
     paymentDate: plain.paidAt || plain.createdAt,

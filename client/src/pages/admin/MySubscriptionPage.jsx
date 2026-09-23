@@ -207,7 +207,7 @@ const MySubscriptionPage = () => {
             {payments.map((p) => (
               <tr key={p.id} className="border-t border-slate-100">
                 <td className="px-4 py-3 font-mono text-xs">{p.paymentId || "—"}</td>
-                <td className="px-4 py-3">{planDisplayName(p.plan)}</td>
+                <td className="px-4 py-3">{planDisplayName(p.plan)}{p.durationLabel ? <span className="block text-xs text-slate-500">{p.durationLabel}</span> : null}</td>
                 <td className="px-4 py-3">{formatMoney(p.amount, p.currency)}</td>
                 <td className="px-4 py-3">{p.paymentMethod || "—"}</td>
                 <td className="px-4 py-3">{p.status}</td>

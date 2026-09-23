@@ -5,14 +5,13 @@ import { resolvePlan } from "./planService.js";
 import {
   calculateTrialEndDate,
   expireTrialIfNeeded,
-  getFreeTrialDays,
   normalizeTrialDates,
 } from "../utils/subscriptionUtils.js";
 import logger from "../utils/logger.js";
 
 /**
- * Safe backfill + correction for restaurants missing or misconfigured subscriptions.
- * - Fixes trialEndDate drift (e.g. old 30-day values) to exactly 15 days from trialStartDate
+ * Safe backfill for restaurants missing subscriptions.
+ * - Never rewrites an existing trial end date
  * - Clears renewalDate during trial
  * - Does NOT grant a fresh trial to older restaurants without a subscription
  */
@@ -51,7 +50,10 @@ export const ensureRestaurantSubscriptions = async () => {
 
     const plan = await resolvePlan("basic");
     const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
-    const trialEnd = calculateTrialEndDate(trialStart, getFreeTrialDays());
+    // A backfill represents an existing restaurant, so preserve the historical
+    // historical policy rather than granting/reducing a new five-day trial.
+    const legacyTrialDays = 15;
+    const trialEnd = calculateTrialEndDate(trialStart, legacyTrialDays);
     const now = new Date();
     const stillInTrialWindow = now.getTime() < trialEnd.getTime();
 
@@ -68,6 +70,7 @@ export const ensureRestaurantSubscriptions = async () => {
       renewalDate: null,
       metadata: {
         backfilled: true,
+        trialDurationDays: legacyTrialDays,
         backfillReason: stillInTrialWindow
           ? "Restaurant created within trial window; remaining trial granted from createdAt"
           : "Restaurant older than trial window; marked expired without granting a new trial",
@@ -83,12 +86,12 @@ export const ensureRestaurantSubscriptions = async () => {
       restaurantId: restaurant._id,
       targetId: subscription._id,
       targetType: "subscription",
-      metadata: { backfilled: true, trialDays: getFreeTrialDays() },
+      metadata: { backfilled: true, trialDays: legacyTrialDays },
     });
   }
 
   if (created > 0) logger.info(`Backfilled ${created} restaurant subscription(s)`);
-  if (corrected > 0) logger.info(`Corrected trial duration on ${corrected} subscription(s) to ${getFreeTrialDays()} days`);
+  if (corrected > 0) logger.info(`Normalized ${corrected} subscription record(s) without changing trial end dates`);
 };
 
 export default { ensureRestaurantSubscriptions };

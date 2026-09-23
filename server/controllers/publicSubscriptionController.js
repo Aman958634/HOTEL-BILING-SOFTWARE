@@ -5,7 +5,15 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
-import { getPlanDurationLabel, getPlanDurationMonths, listActivePlans, resolvePlan } from "../services/planService.js";
+import {
+  getPlanDurationLabel,
+  getPlanDurationMonths,
+  getPlanOffer,
+  getPremiumDurationOptions,
+  isPremiumPlan,
+  listActivePlans,
+  resolvePlan,
+} from "../services/planService.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import {
   calculateTrialEndDate,
@@ -34,7 +42,25 @@ const toPublicPlan = (plan) => ({
   description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
   features: plan.features || [],
   sortOrder: plan.sortOrder || 0,
+  premiumDurationOptions: getPremiumDurationOptions(plan).map((offer) => ({
+    years: offer.premiumDurationYears,
+    amount: offer.amount,
+    durationMonths: offer.durationMonths,
+    durationLabel: offer.durationLabel,
+    monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
+  })),
 });
+
+const selectedPlanMetadata = (plan, premiumDurationYears) => {
+  const offer = getPlanOffer(plan, premiumDurationYears);
+  return {
+    selectedPaidPlan: plan.key,
+    selectedPaidPlanId: String(plan._id),
+    selectedPaidPlanAt: new Date().toISOString(),
+    selectedPremiumDurationYears: isPremiumPlan(plan) ? offer.premiumDurationYears : null,
+    paymentRecorded: false,
+  };
+};
 
 /** GET /public/plans — safe catalog for Pricing page (no secrets, no auth). */
 export const listPublicPlans = asyncHandler(async (_req, res) => {
@@ -61,6 +87,7 @@ export const listPublicPlans = asyncHandler(async (_req, res) => {
 export const publicSubscribeSignup = asyncHandler(async (req, res) => {
   const {
     planName,
+    premiumDurationYears,
     fullName,
     ownerName,
     email,
@@ -92,6 +119,13 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     plan = await resolvePlan(isTrialOnlySignup ? "basic" : planName);
   } catch {
     throw new ApiError(400, "Invalid plan selected");
+  }
+
+  let selectedOffer;
+  try {
+    selectedOffer = getPlanOffer(plan, premiumDurationYears);
+  } catch {
+    throw new ApiError(400, "Premium duration must be one of 1, 2, 3, 4, or 5 years");
   }
 
   const branchCode = `B${Date.now().toString().slice(-6)}`;
@@ -132,11 +166,10 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
     renewalDate: null,
     metadata: {
       recurringBillingEnabled: false,
+      trialDurationDays: getFreeTrialDays(),
       createdViaPublicSubscribe: true,
       trialOnlySignup: isTrialOnlySignup,
-      selectedPaidPlan: isTrialOnlySignup ? null : plan.key,
-      selectedPaidPlanId: isTrialOnlySignup ? null : String(plan._id),
-      selectedPaidPlanAt: isTrialOnlySignup ? null : new Date().toISOString(),
+      ...(isTrialOnlySignup ? {} : selectedPlanMetadata(plan, selectedOffer.premiumDurationYears)),
       paymentRecorded: false,
       ownerName: ownerName || fullName,
     },
@@ -202,7 +235,7 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
         email: restaurant.email,
       },
       subscription: toSubscriptionView(subscription),
-      selectedPlan: toPublicPlan(plan),
+      selectedPlan: { ...toPublicPlan(plan), selectedPremiumDurationYears: selectedOffer.premiumDurationYears || null },
     })
   );
 });
@@ -212,7 +245,7 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
   const restaurantId = req.user?.restaurant;
   if (!restaurantId) throw new ApiError(403, "Restaurant context required");
 
-  const { planName } = req.body || {};
+  const { planName, premiumDurationYears } = req.body || {};
   if (!planName) throw new ApiError(400, "planName is required");
 
   let plan;
@@ -220,6 +253,12 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
     plan = await resolvePlan(planName);
   } catch {
     throw new ApiError(400, "Invalid plan selected");
+  }
+  let selectedOffer;
+  try {
+    selectedOffer = getPlanOffer(plan, premiumDurationYears);
+  } catch {
+    throw new ApiError(400, "Premium duration must be one of 1, 2, 3, 4, or 5 years");
   }
 
   const sub = await Subscription.findOne({ restaurant: restaurantId }).sort({ createdAt: -1 }).populate("restaurant", "name");
@@ -229,7 +268,7 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
     return res.status(200).json(
       new ApiResponse(true, "Plan already active", {
         subscription: toSubscriptionView(sub),
-        selectedPlan: toPublicPlan(plan),
+        selectedPlan: { ...toPublicPlan(plan), selectedPremiumDurationYears: selectedOffer.premiumDurationYears || null },
         alreadyActive: true,
       })
     );
@@ -237,10 +276,7 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
 
   sub.metadata = {
     ...(sub.metadata || {}),
-    selectedPaidPlan: plan.key,
-    selectedPaidPlanId: String(plan._id),
-    selectedPaidPlanAt: new Date().toISOString(),
-    paymentRecorded: false,
+    ...selectedPlanMetadata(plan, selectedOffer.premiumDurationYears),
   };
   // Keep trial/expired status; do not activate without payment.
   if (sub.status !== "active") {
@@ -263,7 +299,7 @@ export const selectBillingPlan = asyncHandler(async (req, res) => {
   res.status(200).json(
     new ApiResponse(true, "Plan selected. Continue to payment.", {
       subscription: toSubscriptionView(sub),
-      selectedPlan: toPublicPlan(plan),
+      selectedPlan: { ...toPublicPlan(plan), selectedPremiumDurationYears: selectedOffer.premiumDurationYears || null },
       alreadyActive: false,
     })
   );
@@ -285,6 +321,8 @@ export const listMyBillingPayments = asyncHandler(async (req, res) => {
     razorpayPaymentId: p.gatewayPaymentId || null,
     razorpayOrderId: p.gatewayOrderId || null,
     plan: p.planName,
+    durationMonths: p.durationMonths,
+    durationLabel: p.durationLabel || null,
     amount: p.amount,
     currency: p.currency || "INR",
     status: p.status === "paid" ? "SUCCESS" : String(p.status || "").toUpperCase(),
@@ -345,6 +383,8 @@ export const downloadMyBillingPaymentPdf = asyncHandler(async (req, res) => {
     subscriptionId: payment.subscription || null,
     gateway: payment.gateway || "razorpay",
     billingCycle: payment.billingCycle || "monthly",
+    durationMonths: payment.durationMonths || null,
+    durationLabel: payment.durationLabel || null,
     metadata: payment.metadata || {},
   };
 

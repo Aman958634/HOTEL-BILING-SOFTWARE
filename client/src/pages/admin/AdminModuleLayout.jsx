@@ -84,7 +84,7 @@ const AdminModuleLayout = () => {
   useEffect(() => {
     const onBlocked = (event) => {
       if (isBilling) return;
-      setBlocked(event.detail || { message: "Your 15-day free trial has ended." });
+      setBlocked(event.detail || { message: "Your free trial has ended." });
     };
     window.addEventListener("restosphere:subscription-blocked", onBlocked);
     return () => window.removeEventListener("restosphere:subscription-blocked", onBlocked);

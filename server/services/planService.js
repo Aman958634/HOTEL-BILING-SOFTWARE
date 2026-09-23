@@ -84,6 +84,21 @@ const PLAN_ALIASES = {
   premium: "enterprise",
 };
 
+/** Premium is sold in whole calendar-year terms; amounts always come from this catalog. */
+export const PREMIUM_DURATION_YEARS = Object.freeze([1, 2, 3, 4, 5]);
+
+export const isPremiumPlan = (plan) => String(plan?.key || "").toLowerCase() === "enterprise";
+
+const premiumDurationLabel = (years) => `${years} year${years === 1 ? "" : "s"}`;
+
+export const getPremiumDurationYears = (value) => {
+  const years = Number(value);
+  if (!Number.isInteger(years) || !PREMIUM_DURATION_YEARS.includes(years)) {
+    throw new Error("Premium duration must be one of 1, 2, 3, 4, or 5 years");
+  }
+  return years;
+};
+
 export const hasAllPaidFeatures = (planKeyOrName) =>
   FULL_ACCESS_PAID_PLAN_KEYS.includes(String(planKeyOrName || "").trim().toLowerCase());
 
@@ -112,6 +127,35 @@ export const getPlanSnapshot = (plan) => ({
   durationLabel: getPlanDurationLabel(plan),
   monthlyEquivalentPrice: Number(plan?.monthlyEquivalentPrice) || null,
 });
+
+/**
+ * Creates the immutable offer snapshot used for payment orders. Basic and Pro
+ * retain their fixed catalog terms; only Premium accepts a selected year term.
+ */
+export const getPlanOffer = (plan, premiumDurationYears = undefined) => {
+  if (!isPremiumPlan(plan)) return getPlanSnapshot(plan);
+
+  const years = premiumDurationYears === undefined || premiumDurationYears === null || premiumDurationYears === ""
+    ? 1
+    : getPremiumDurationYears(premiumDurationYears);
+  const monthlyEquivalentPrice = Number(plan?.monthlyEquivalentPrice);
+  if (!Number.isFinite(monthlyEquivalentPrice) || monthlyEquivalentPrice <= 0) {
+    throw new Error("Premium monthly price is not configured");
+  }
+
+  return {
+    ...getPlanSnapshot(plan),
+    amount: monthlyEquivalentPrice * 12 * years,
+    billingCycle: "fixed",
+    durationMonths: years * 12,
+    durationLabel: premiumDurationLabel(years),
+    monthlyEquivalentPrice,
+    premiumDurationYears: years,
+  };
+};
+
+export const getPremiumDurationOptions = (plan) =>
+  isPremiumPlan(plan) ? PREMIUM_DURATION_YEARS.map((years) => getPlanOffer(plan, years)) : [];
 
 export const ensureDefaultPlans = async () => {
   for (const plan of DEFAULT_PLANS) {
@@ -154,6 +198,11 @@ export default {
   getPlanDurationMonths,
   getPlanDurationLabel,
   getPlanSnapshot,
+  getPlanOffer,
+  getPremiumDurationOptions,
+  getPremiumDurationYears,
+  PREMIUM_DURATION_YEARS,
+  isPremiumPlan,
   ALL_PAID_PLAN_FEATURES,
   FULL_ACCESS_PAID_PLAN_KEYS,
   hasAllPaidFeatures,

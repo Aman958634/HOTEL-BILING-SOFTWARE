@@ -117,6 +117,7 @@ export const buildSaasPaymentReceiptBuffer = async (payment, subscription = null
     drawSectionTitle(doc, "Subscription Information", y);
     y += 32;
     row("Plan", subscription?.planName || payment.plan || "", { required: true });
+    row("Billing Period", subscription?.durationLabel || payment.durationLabel || "", { required: false });
     row("Subscription Start", subscriptionStart || "", { required: false });
     row("Subscription End", subscriptionEnd || "", { required: false });
 

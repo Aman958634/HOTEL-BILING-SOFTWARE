@@ -6,7 +6,7 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { resolvePlan } from "../services/planService.js";
-import { calculateTrialEndDate, calculateRenewalDate, toSubscriptionView } from "../utils/subscriptionUtils.js";
+import { calculateTrialEndDate, calculateRenewalDate, getFreeTrialDays, toSubscriptionView } from "../utils/subscriptionUtils.js";
 import { createRestaurantWithStableSlug } from "../utils/restaurantSlug.js";
 import { ensureDefaultOutlet } from "../services/outletService.js";
 
@@ -81,7 +81,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
   // create admin user and bind to restaurant server-side
   const user = await User.create({ fullName: adminFullName, email: adminEmail, password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`, role: "admin", restaurant: restaurant._id });
 
-  // Every new restaurant gets an automatic 15-day trial unless Super Admin explicitly sets status=active.
+  // Every new restaurant gets the current server-defined trial unless Super Admin explicitly sets status=active.
   const planDoc = await resolvePlan(plan || "basic");
   const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
   const wantsPaidImmediately = status === "active";
@@ -102,6 +102,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     renewalDate: isTrial ? null : calculateRenewalDate(trialStart, planDoc.billingCycle || "monthly"),
     metadata: {
       recurringBillingEnabled: false,
+      ...(isTrial ? { trialDurationDays: getFreeTrialDays() } : {}),
       createdWithRestaurant: true,
     },
   });
@@ -118,7 +119,7 @@ export const createRestaurant = asyncHandler(async (req, res) => {
   if (isTrial) {
     await createActivity({
       action: "Trial Started",
-      description: `15-day free trial started for ${name}`,
+      description: `${getFreeTrialDays()}-day free trial started for ${name}`,
       performedBy: req.user._id,
       restaurantId: restaurant._id,
       targetId: subscription._id,

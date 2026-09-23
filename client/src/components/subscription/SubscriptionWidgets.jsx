@@ -41,7 +41,7 @@ export const TrialBanner = ({ subscription }) => {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-semibold">15-Day Free Trial · {label}</p>
+          <p className="font-semibold">{subscription.trialLabel || "Free Trial"} · {label}</p>
           <p className="mt-1 text-xs text-slate-600">
             Trial Start: {subscription.trialStartAt ? new Date(subscription.trialStartAt).toLocaleString() : "—"}
             {" · "}
@@ -50,7 +50,7 @@ export const TrialBanner = ({ subscription }) => {
           {warning ? (
             <p className="text-sm mt-1">{warning}</p>
           ) : (
-            <p className="text-sm mt-1">Enjoy full access during your 15-day free trial.</p>
+            <p className="text-sm mt-1">Enjoy full access during your free trial.</p>
           )}
         </div>
         <Link to="/dashboard/admin/billing" className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800">
@@ -67,7 +67,7 @@ export const SubscriptionExpiredGate = ({ open, message, onClose }) => {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-2xl font-bold text-slate-900">Your 15-day free trial has ended.</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Your free trial has ended.</h2>
         <p className="mt-2 text-slate-600">
           {message || "Please choose a paid plan to continue using RestoSphere."}
         </p>

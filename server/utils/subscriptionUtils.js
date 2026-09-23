@@ -1,5 +1,6 @@
-/** SaaS trial is always exactly 15 days — never 30. */
-const FREE_TRIAL_DAYS = Math.min(15, Math.max(1, Number(process.env.FREE_TRIAL_DAYS) || 15));
+/** New SaaS trials are five days; existing persisted trials retain their end date. */
+const FREE_TRIAL_DAYS = 5;
+const LEGACY_FREE_TRIAL_DAYS = 15;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export const getFreeTrialDays = () => FREE_TRIAL_DAYS;
@@ -7,8 +8,14 @@ export const getFreeTrialDays = () => FREE_TRIAL_DAYS;
 /** Exact trial length: N × 24 hours from start (server time). */
 export const calculateTrialEndDate = (startDate = new Date(), days = FREE_TRIAL_DAYS) => {
   const start = new Date(startDate);
-  const effectiveDays = Math.min(15, Number(days) || FREE_TRIAL_DAYS);
+  const effectiveDays = Math.max(1, Math.floor(Number(days) || FREE_TRIAL_DAYS));
   return new Date(start.getTime() + effectiveDays * MS_PER_DAY);
+};
+
+/** New rows carry this marker; unmarked legacy rows retain the former term. */
+export const getTrialDurationDays = (subscription) => {
+  const persisted = Number(subscription?.metadata?.trialDurationDays);
+  return Number.isInteger(persisted) && persisted > 0 ? persisted : LEGACY_FREE_TRIAL_DAYS;
 };
 
 export const getEffectiveTrialEndDate = (subscription) => {
@@ -17,7 +24,7 @@ export const getEffectiveTrialEndDate = (subscription) => {
   if (subscription.trialEndAt) return new Date(subscription.trialEndAt);
   if (subscription.status === "trial") {
     const start = subscription.trialStartDate || subscription.trialStartAt || subscription.startDate;
-    if (start) return calculateTrialEndDate(start);
+    if (start) return calculateTrialEndDate(start, getTrialDurationDays(subscription));
   }
   return null;
 };
@@ -185,7 +192,7 @@ export const toSubscriptionView = (subscription, paymentContext = {}, now = new 
     daysRemaining,
     daysRemainingLabel: formatDaysRemainingLabel(plain, now),
     warningMessage: getTrialWarningMessage(daysRemaining),
-    trialLabel: isTrial ? "15-Day Free Trial" : null,
+    trialLabel: isTrial ? `${getTrialDurationDays(plain)}-Day Free Trial` : null,
     renewalDate: isTrial ? null : plain.renewalDate || null,
     serverTime: new Date(now).toISOString(),
     paymentStatus,
@@ -204,8 +211,6 @@ export const SUBSCRIPTION_ERROR_CODES = {
   SUSPENDED: "SUBSCRIPTION_SUSPENDED",
   INACTIVE: "SUBSCRIPTION_INACTIVE",
 };
-
-const DURATION_TOLERANCE_MS = 60 * 60 * 1000;
 
 export const getTrialDurationMs = (subscription) => {
   const start = getTrialStartDate(subscription);
@@ -231,30 +236,10 @@ export const normalizeTrialDates = (subscription) => {
   }
 
   if (subscription.status === "trial" && start) {
-    const expectedEnd = calculateTrialEndDate(start);
-    const expectedDurationMs = FREE_TRIAL_DAYS * MS_PER_DAY;
-    const currentEnd = subscription.trialEndDate ? new Date(subscription.trialEndDate) : null;
-    const durationMs = currentEnd ? currentEnd.getTime() - new Date(start).getTime() : null;
-    const legitimatelyExtended = hasLegitimateTrialExtension(subscription);
-
-    if (!currentEnd) {
-      subscription.trialEndDate = expectedEnd;
-      changed = true;
-    } else if (
-      !legitimatelyExtended &&
-      durationMs !== null &&
-      Math.abs(durationMs - expectedDurationMs) > DURATION_TOLERANCE_MS
-    ) {
-      // Fix inflated trials (e.g. old 30-day values or bogus lastTrialExtensionDays metadata)
-      subscription.trialEndDate = expectedEnd;
-      if (subscription.metadata?.lastTrialExtensionDays) {
-        const { lastTrialExtensionDays, ...restMeta } = subscription.metadata;
-        subscription.metadata = {
-          ...restMeta,
-          repairedTrialDuration: true,
-          repairedFromDays: Math.round(durationMs / MS_PER_DAY),
-        };
-      }
+    if (!subscription.trialEndDate) {
+      // Never rewrite an existing end date. That would silently change an
+      // existing customer's historical trial when the new-trial policy moves.
+      subscription.trialEndDate = calculateTrialEndDate(start, getTrialDurationDays(subscription));
       changed = true;
     }
 
@@ -272,6 +257,7 @@ export default {
   calculateTrialEndDate,
   getEffectiveTrialEndDate,
   getTrialStartDate,
+  getTrialDurationDays,
   getTrialDurationMs,
   hasLegitimateTrialExtension,
   getDaysRemaining,

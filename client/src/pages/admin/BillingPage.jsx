@@ -25,6 +25,7 @@ const BillingPage = () => {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyPlan, setBusyPlan] = useState("");
+  const [premiumDurationYears, setPremiumDurationYears] = useState(1);
 
   const load = async () => {
     setLoading(true);
@@ -46,9 +47,9 @@ const BillingPage = () => {
   const headline = useMemo(() => {
     if (!subscription) return "Choose a plan";
     if (subscription.status === "trial") {
-      return `15-Day Free Trial · ${subscription.daysRemainingLabel || "Active"}`;
+      return `${subscription.trialLabel || "Free Trial"} · ${subscription.daysRemainingLabel || "Active"}`;
     }
-    if (subscription.status === "expired") return "Your 15-day free trial has ended.";
+    if (subscription.status === "expired") return "Your free trial has ended.";
     if (subscription.status === "active") return `Active · ${subscription.planName}`;
     return String(subscription.status || "").toUpperCase();
   }, [subscription]);
@@ -57,7 +58,7 @@ const BillingPage = () => {
     setBusyPlan(plan.key);
     try {
       const idempotencyKey = window.crypto?.randomUUID?.() || `sub_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const { data } = await createRazorpaySubscriptionOrder(plan.key, idempotencyKey);
+      const { data } = await createRazorpaySubscriptionOrder(plan.key, idempotencyKey, plan.key === "enterprise" ? premiumDurationYears : null);
       const checkout = data?.data;
 
       if (checkout?.testMode) {
@@ -143,7 +144,7 @@ const BillingPage = () => {
         )}
 
         {subscription?.status === "expired" && (
-          <p className="mt-3 text-rose-700">Please choose a paid plan to continue using RestoSphere. No automatic charge on Day 16.</p>
+          <p className="mt-3 text-rose-700">Please choose a paid plan to continue using RestoSphere. No automatic charge is made when a trial expires.</p>
         )}
 
         {subscription?.status === "trial" && subscription.warningMessage && (
@@ -165,14 +166,19 @@ const BillingPage = () => {
         )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        {plans.map((plan) => (
+        {plans.map((plan) => {
+          const premiumOffer = plan.key === "enterprise" ? (plan.premiumDurationOptions || []).find((option) => option.years === premiumDurationYears) : null;
+          const displayedAmount = premiumOffer?.amount ?? plan.price;
+          const displayedDuration = premiumOffer?.durationLabel || plan.durationLabel || "plan";
+          return (
           <div key={plan._id || plan.key} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
             <p className="mt-2 text-3xl font-semibold text-teal-800">
-              {formatMoney(plan.price, plan.currency)}
-              <span className="text-sm font-normal text-slate-500">/{plan.durationLabel || "plan"}</span>
+              {formatMoney(displayedAmount, plan.currency)}
+              <span className="text-sm font-normal text-slate-500">/{displayedDuration}</span>
             </p>
             {plan.monthlyEquivalentPrice ? <p className="mt-1 text-sm text-slate-500">{formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month</p> : null}
+            {plan.key === "enterprise" && <fieldset className="mt-3" aria-label="Premium subscription term"><legend className="text-sm font-medium text-slate-700">Premium term</legend><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((years) => <button key={years} type="button" aria-pressed={premiumDurationYears === years} onClick={() => setPremiumDurationYears(years)} className={`min-h-10 rounded-lg border text-xs font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}>{years}Y</button>)}</div><p className="mt-2 text-sm font-medium text-slate-700">Total payable: {formatMoney(displayedAmount, plan.currency)} · {displayedDuration}</p></fieldset>}
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {(plan.features || []).map((feature) => (
                 <li key={feature}>• {feature}</li>
@@ -193,7 +199,8 @@ const BillingPage = () => {
                     : "Upgrade Now"}
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

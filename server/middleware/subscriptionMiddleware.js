@@ -95,7 +95,7 @@ export const requireActiveSubscription = async (req, _res, next) => {
       await subscription.save();
       await createActivity({
         action: "Trial Expired",
-        description: "Your 15-day free trial has ended.",
+        description: "Your free trial has ended.",
         restaurantId,
         targetId: subscription._id,
         targetType: "subscription",
@@ -137,7 +137,7 @@ export const requireActiveSubscription = async (req, _res, next) => {
       return next(
         new ApiError(
           403,
-          "Your 15-day free trial has ended. Please choose a paid plan to continue using RestoSphere.",
+          "Your free trial has ended. Please choose a paid plan to continue using RestoSphere.",
           SUBSCRIPTION_ERROR_CODES.EXPIRED,
           {
             subscription: view,

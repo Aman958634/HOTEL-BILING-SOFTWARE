@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { publicSubscribeSignup, fetchPublicPlans, parsePublicPlansResponse } from "../../services/publicSubscriptionService";
-import { getSelectedPlan, planDisplayName, saveSelectedPlan } from "../../utils/planSelection";
+import { getSelectedPlan, getSelectedPremiumDurationYears, planDisplayName, saveSelectedPlan } from "../../utils/planSelection";
 import { setAuthSession } from "../../redux/slices/authSlice";
 import PasswordInput from "../../components/common/PasswordInput";
 import { isRestaurantStaff, roleLandingPath } from "../../utils/roleLanding";
@@ -16,6 +16,7 @@ const SubscribeRegisterPage = () => {
 
   const initialPlan = location.state?.selectedPlan || getSelectedPlan() || "basic";
   const [planKey, setPlanKey] = useState(initialPlan);
+  const [premiumDurationYears, setPremiumDurationYears] = useState(location.state?.premiumDurationYears || getSelectedPremiumDurationYears());
   const [plans, setPlans] = useState([]);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -30,8 +31,8 @@ const SubscribeRegisterPage = () => {
   });
 
   useEffect(() => {
-    saveSelectedPlan(planKey);
-  }, [planKey]);
+    saveSelectedPlan(planKey, planKey === "enterprise" ? premiumDurationYears : null);
+  }, [planKey, premiumDurationYears]);
 
   useEffect(() => {
     fetchPublicPlans()
@@ -69,6 +70,7 @@ const SubscribeRegisterPage = () => {
         ...form,
         ownerName: form.ownerName || form.fullName,
         planName: planKey,
+        ...(planKey === "enterprise" ? { premiumDurationYears } : {}),
       });
       const payload = data?.data;
       if (!payload?.accessToken) throw new Error("Signup failed");
@@ -85,7 +87,7 @@ const SubscribeRegisterPage = () => {
         })
       );
 
-      saveSelectedPlan(planKey);
+      saveSelectedPlan(planKey, planKey === "enterprise" ? premiumDurationYears : null);
       if (isTrialPlan) {
         toast.success("Free trial started! Welcome to RestoSphere.");
         navigate("/dashboard/admin", { replace: true });
@@ -137,6 +139,19 @@ const SubscribeRegisterPage = () => {
           </select>
         </label>
 
+        {planKey === "enterprise" && (
+          <fieldset className="mb-4" aria-label="Premium subscription term">
+            <legend className="text-sm font-medium text-slate-700">Premium term</legend>
+            <div className="mt-2 grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5].map((years) => (
+                <button key={years} type="button" aria-pressed={premiumDurationYears === years} onClick={() => setPremiumDurationYears(years)} className={`min-h-11 rounded-xl border text-sm font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}>
+                  {years} year{years === 1 ? "" : "s"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         <div className="grid gap-3 md:grid-cols-2">
           <input name="fullName" required value={form.fullName} onChange={onChange} placeholder="Admin / Owner full name" className="rounded-xl border p-3" />
           <input name="ownerName" value={form.ownerName} onChange={onChange} placeholder="Owner name (optional)" className="rounded-xl border p-3" />
@@ -160,7 +175,7 @@ const SubscribeRegisterPage = () => {
           Already registered?{" "}
           <Link
             to="/login"
-            state={{ from: { pathname: "/subscribe/checkout" }, selectedPlan: planKey }}
+            state={{ from: { pathname: "/subscribe/checkout" }, selectedPlan: planKey, premiumDurationYears }}
             className="font-semibold text-teal-700 hover:underline"
           >
             Login

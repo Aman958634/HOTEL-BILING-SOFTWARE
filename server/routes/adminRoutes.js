@@ -37,8 +37,8 @@ router.get("/billing/plans", billingCtrl.listPlans);
 router.get("/billing/subscription", billingCtrl.getMySubscription);
 router.get("/billing/payments", listMyBillingPayments);
 router.get("/billing/payments/:id/pdf", [param("id").isMongoId().withMessage("Invalid payment id")], validate, downloadMyBillingPaymentPdf);
-router.post("/billing/select-plan", [body("planName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan selection is invalid")], validate, selectBillingPlan);
-router.post("/billing/checkout", paymentLimiter, [body("planName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan selection is invalid")], validate, billingCtrl.createBillingCheckout);
+router.post("/billing/select-plan", [body("planName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan selection is invalid"), body("premiumDurationYears").optional().isInt({ min: 1, max: 5 }).withMessage("Premium duration must be between 1 and 5 years")], validate, selectBillingPlan);
+router.post("/billing/checkout", paymentLimiter, [body("planName").isString().trim().isLength({ min: 1, max: 120 }).withMessage("Plan selection is invalid"), body("premiumDurationYears").optional().isInt({ min: 1, max: 5 }).withMessage("Premium duration must be between 1 and 5 years")], validate, billingCtrl.createBillingCheckout);
 router.post("/billing/verify", paymentLimiter, [
   body("paymentId").isMongoId().withMessage("Payment reference is invalid"),
   body("razorpay_order_id").optional().isString().trim().isLength({ min: 1, max: 200 }).withMessage("Razorpay order is invalid"),

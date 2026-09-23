@@ -11,10 +11,10 @@ export const fetchPublicPlans = () => axios.get(`${API_URL}/public/plans`);
 export const parsePublicPlansResponse = (data) => {
   const payload = data?.data;
   if (Array.isArray(payload)) {
-    return { plans: payload, trialDays: 15 };
+    return { plans: payload, trialDays: 5 };
   }
   if (payload && Array.isArray(payload.plans)) {
-    return { plans: payload.plans, trialDays: Number(payload.trialDays) || 15 };
+    return { plans: payload.plans, trialDays: Number(payload.trialDays) || 5 };
   }
-  return { plans: [], trialDays: 15 };
+  return { plans: [], trialDays: 5 };
 };

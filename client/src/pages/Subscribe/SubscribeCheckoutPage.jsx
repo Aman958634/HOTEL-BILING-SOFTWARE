@@ -8,6 +8,7 @@ import { startPlanCheckout } from "../../utils/razorpayCheckout";
 import {
   clearSelectedPlan,
   getSelectedPlan,
+  getSelectedPremiumDurationYears,
   planDisplayName,
   saveCheckoutResult,
   saveSelectedPlan,
@@ -27,6 +28,7 @@ const SubscribeCheckoutPage = () => {
   const [plans, setPlans] = useState([]);
   const [subscription, setSubscription] = useState(null);
   const [planKey, setPlanKey] = useState(getSelectedPlan() || "basic");
+  const [premiumDurationYears, setPremiumDurationYears] = useState(getSelectedPremiumDurationYears());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -64,8 +66,10 @@ const SubscribeCheckoutPage = () => {
           subRes.data?.data?.metadata?.selectedPaidPlan ||
           subRes.data?.data?.planName ||
           "basic";
+        const rememberedYears = subRes.data?.data?.metadata?.selectedPremiumDurationYears || getSelectedPremiumDurationYears();
         setPlanKey(remembered);
-        saveSelectedPlan(remembered);
+        setPremiumDurationYears(rememberedYears);
+        saveSelectedPlan(remembered, remembered === "enterprise" ? rememberedYears : null);
       } catch (err) {
         toast.error(err?.response?.data?.message || "Unable to load checkout");
       } finally {
@@ -79,15 +83,24 @@ const SubscribeCheckoutPage = () => {
     () => plans.find((p) => p.key === planKey) || null,
     [plans, planKey]
   );
+  const selectedPremiumOffer = useMemo(
+    () => selectedPlan?.key === "enterprise"
+      ? (selectedPlan.premiumDurationOptions || []).find((option) => option.years === premiumDurationYears)
+      : null,
+    [selectedPlan, premiumDurationYears]
+  );
+  const displayedAmount = selectedPremiumOffer?.amount ?? selectedPlan?.price;
+  const displayedDuration = selectedPremiumOffer?.durationLabel || selectedPlan?.durationLabel || "plan";
 
   const pay = async () => {
     if (!selectedPlan) return;
     setBusy(true);
     try {
-      saveSelectedPlan(selectedPlan.key);
+      saveSelectedPlan(selectedPlan.key, selectedPlan.key === "enterprise" ? premiumDurationYears : null);
       const result = await startPlanCheckout({
         planKey: selectedPlan.key,
         planName: selectedPlan.name,
+        premiumDurationYears: selectedPlan.key === "enterprise" ? premiumDurationYears : undefined,
       });
 
       saveCheckoutResult({
@@ -157,7 +170,7 @@ const SubscribeCheckoutPage = () => {
             value={planKey}
             onChange={(e) => {
               setPlanKey(e.target.value);
-              saveSelectedPlan(e.target.value);
+              saveSelectedPlan(e.target.value, e.target.value === "enterprise" ? premiumDurationYears : null);
             }}
           >
             {plans.map((p) => (
@@ -171,11 +184,20 @@ const SubscribeCheckoutPage = () => {
         {selectedPlan && (
           <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
             <p>
-              <span className="font-medium">Amount:</span> {formatMoney(selectedPlan.price, selectedPlan.currency)} / {selectedPlan.durationLabel || "plan"}
+              <span className="font-medium">Total payable:</span> {formatMoney(displayedAmount, selectedPlan.currency)} / {displayedDuration}
             </p>
             {selectedPlan.monthlyEquivalentPrice ? (
               <p className="mt-1"><span className="font-medium">Effective monthly price:</span> {formatMoney(selectedPlan.monthlyEquivalentPrice, selectedPlan.currency)} per month</p>
             ) : null}
+            {selectedPlan.key === "enterprise" && (
+              <fieldset className="mt-4" aria-label="Premium subscription term">
+                <legend className="font-medium">Premium term</legend>
+                <div className="mt-2 grid grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 5].map((years) => <button key={years} type="button" aria-pressed={premiumDurationYears === years} onClick={() => { setPremiumDurationYears(years); saveSelectedPlan(selectedPlan.key, years); }} className={`min-h-10 rounded-lg border text-xs font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}>{years}Y</button>)}
+                </div>
+                <p className="mt-2">{formatMoney(selectedPlan.monthlyEquivalentPrice, selectedPlan.currency)} per month · {displayedDuration}</p>
+              </fieldset>
+            )}
             <p className="mt-1">
               <span className="font-medium">Restaurant:</span> {user?.email}
             </p>
@@ -193,7 +215,7 @@ const SubscribeCheckoutPage = () => {
           onClick={pay}
           className="mt-6 w-full rounded-xl bg-teal-700 py-3 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
         >
-          {busy ? "Processing..." : `Pay ${selectedPlan ? formatMoney(selectedPlan.price, selectedPlan.currency) : ""}`}
+          {busy ? "Processing..." : `Pay ${selectedPlan ? formatMoney(displayedAmount, selectedPlan.currency) : ""}`}
         </button>
 
         <Link to="/pricing" className="mt-4 block text-center text-sm text-slate-500 hover:text-teal-700">
