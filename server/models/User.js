@@ -67,6 +67,15 @@ const userSchema = new mongoose.Schema(
     // process restart without making the emailed token recoverable from DB.
     passwordResetTokenHash: { type: String, default: undefined, select: false },
     passwordResetExpiresAt: { type: Date, default: undefined, select: false },
+    // OTP reset state is deliberately separate from legacy reset links. The
+    // six-digit code and post-verification grant are stored only as keyed
+    // verifiers, never in recoverable plaintext.
+    passwordResetOtpHash: { type: String, default: undefined, select: false },
+    passwordResetOtpExpiresAt: { type: Date, default: undefined, select: false },
+    passwordResetOtpAttempts: { type: Number, default: 0, select: false },
+    passwordResetOtpResendAvailableAt: { type: Date, default: undefined, select: false },
+    passwordResetVerificationHash: { type: String, default: undefined, select: false },
+    passwordResetVerificationExpiresAt: { type: Date, default: undefined, select: false },
   },
   { timestamps: true }
 );

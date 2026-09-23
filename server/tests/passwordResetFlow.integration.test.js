@@ -8,7 +8,7 @@ import User from "../models/User.js";
 import { setEmailSenderForTests } from "../services/emailService.js";
 import { requireSafeTestDatabase } from "./testDatabase.js";
 
-const environmentNames = ["NODE_ENV", "CLIENT_URL", "EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_SECURE"];
+const environmentNames = ["NODE_ENV", "CLIENT_URL", "EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_SECURE", "PASSWORD_RESET_OTP_SECRET"];
 const originalEnvironment = Object.fromEntries(environmentNames.map((name) => [name, process.env[name]]));
 process.env.NODE_ENV = "test";
 process.env.CLIENT_URL = "https://reset-flow.test.invalid";
@@ -17,6 +17,7 @@ process.env.EMAIL_PORT = "587";
 process.env.EMAIL_USER = "reset-test-sender@test.invalid";
 process.env.EMAIL_PASS = "mocked-email-password";
 process.env.EMAIL_SECURE = "false";
+process.env.PASSWORD_RESET_OTP_SECRET = "test-only-password-reset-otp-secret";
 
 const { uri } = requireSafeTestDatabase();
 const suffix = crypto.randomBytes(8).toString("hex");
@@ -78,6 +79,54 @@ try {
   const expired = await postJson(`/auth/reset-password/${encodeURIComponent(expiredToken)}`, { password: "AnotherPassword!67" });
   assert.equal(expired.status, 400);
 
+  await User.updateOne({ email }, { $set: { refreshToken: "active-otp-session-token", password: "OtpInitialPassword!23" } });
+  const otpRequest = await postJson("/auth/forgot-password/otp", { email });
+  assert.equal(otpRequest.status, 200);
+  assert.equal((await otpRequest.json()).message, "If an account exists, a verification code has been sent.");
+  assert.equal(sentMessages.length, 2);
+  assert.equal(sentMessages[1].to, email);
+  assert.match(sentMessages[1].text, /six-digit|\d{6}/i);
+  const otp = sentMessages[1].text.match(/\b\d{6}\b/)[0];
+  const storedOtp = await User.findOne({ email }).select("+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpAttempts +passwordResetOtpResendAvailableAt");
+  assert.notEqual(storedOtp.passwordResetOtpHash, otp);
+  assert.ok(storedOtp.passwordResetOtpHash);
+  assert.ok(storedOtp.passwordResetOtpExpiresAt > new Date());
+
+  const resendTooSoon = await postJson("/auth/forgot-password/otp", { email });
+  assert.equal(resendTooSoon.status, 200);
+  assert.equal(sentMessages.length, 2);
+
+  const invalidOtp = await postJson("/auth/forgot-password/otp/verify", { email, otp: "000000" });
+  assert.equal(invalidOtp.status, 400);
+  const verified = await postJson("/auth/forgot-password/otp/verify", { email, otp });
+  assert.equal(verified.status, 200);
+  const verificationToken = (await verified.json()).data.verificationToken;
+  assert.ok(verificationToken);
+
+  const updatedByOtp = await postJson("/auth/forgot-password/otp/reset", { email, verificationToken, password: "OtpUpdatedPassword!45" });
+  assert.equal(updatedByOtp.status, 200);
+  const otpResetUser = await User.findOne({ email }).select("+password +passwordResetVerificationHash");
+  assert.equal(otpResetUser.refreshToken, "");
+  assert.equal(otpResetUser.passwordResetVerificationHash, undefined);
+  assert.equal(await otpResetUser.comparePassword("OtpUpdatedPassword!45"), true);
+  assert.equal(await otpResetUser.comparePassword("OtpInitialPassword!23"), false);
+
+  const reusedVerification = await postJson("/auth/forgot-password/otp/reset", { email, verificationToken, password: "AnotherPassword!67" });
+  assert.equal(reusedVerification.status, 400);
+  const oldPasswordLogin = await postJson("/auth/login", { email, password: "OtpInitialPassword!23" });
+  assert.equal(oldPasswordLogin.status, 401);
+  const newPasswordLogin = await postJson("/auth/login", { email, password: "OtpUpdatedPassword!45" });
+  assert.equal(newPasswordLogin.status, 200);
+
+  const unknownOtp = await postJson("/auth/forgot-password/otp", { email: `unknown-otp-${suffix}@test.invalid` });
+  assert.equal(unknownOtp.status, 200);
+  assert.equal((await unknownOtp.json()).message, "If an account exists, a verification code has been sent.");
+  assert.equal(sentMessages.length, 2);
+
+  await User.updateOne({ email }, { $set: { passwordResetOtpHash: "expired", passwordResetOtpExpiresAt: new Date(Date.now() - 1000), passwordResetOtpAttempts: 0 } });
+  const expiredOtp = await postJson("/auth/forgot-password/otp/verify", { email, otp });
+  assert.equal(expiredOtp.status, 400);
+
   // The route shares one public, per-IP budget across reset requests and
   // submissions. Seven requests above have consumed the first seven of ten slots.
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -86,6 +135,13 @@ try {
   }
   const limited = await postJson("/auth/forgot-password", { email });
   assert.equal(limited.status, 429);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await postJson("/auth/forgot-password/otp", { email: `unknown-limit-${attempt}-${suffix}@test.invalid` });
+    assert.equal(response.status, 200);
+  }
+  const otpLimited = await postJson("/auth/forgot-password/otp", { email: `unknown-limit-final-${suffix}@test.invalid` });
+  assert.equal(otpLimited.status, 429);
 
   console.log("Password reset flow integration checks passed with mocked email delivery.");
 } finally {

@@ -61,6 +61,24 @@ export const passwordResetLimiter = rateLimit({
   message: { success: false, message: "Too many password reset attempts. Please try again later." },
 });
 
+/** OTP delivery is tighter than legacy link recovery and has a per-account cooldown too. */
+export const passwordResetOtpRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many password reset requests. Please try again later." },
+});
+
+/** Verification and completion are independently bounded to resist guessing. */
+export const passwordResetOtpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many verification attempts. Please try again later." },
+});
+
 /** Public QR/guest ordering is unauthenticated and therefore separately bounded. */
 export const publicOrderLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,

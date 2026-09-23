@@ -13,8 +13,35 @@ import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletServic
 import { resolvePermissions } from "../config/rolePermissions.js";
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+const RESET_OTP_TTL_MS = 10 * 60 * 1000;
+const RESET_OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const RESET_VERIFICATION_TTL_MS = 10 * 60 * 1000;
+const RESET_OTP_MAX_ATTEMPTS = 5;
 const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
 const PASSWORD_RESET_GENERIC_MESSAGE = "If an account exists, a reset email has been sent.";
+const PASSWORD_RESET_OTP_GENERIC_MESSAGE = "If an account exists, a verification code has been sent.";
+const passwordResetFields = "+password +passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpAttempts +passwordResetOtpResendAvailableAt +passwordResetVerificationHash +passwordResetVerificationExpiresAt";
+
+const resetOtpVerifier = (value) => {
+  const secret = String(process.env.PASSWORD_RESET_OTP_SECRET || process.env.JWT_REFRESH_SECRET || "");
+  if (!secret) throw new Error("Password reset OTP verifier is unavailable.");
+  return crypto.createHmac("sha256", secret).update(`restosphere:password-reset:${value}`).digest("hex");
+};
+
+const clearOtpResetState = (user) => {
+  user.passwordResetOtpHash = undefined;
+  user.passwordResetOtpExpiresAt = undefined;
+  user.passwordResetOtpAttempts = 0;
+  user.passwordResetOtpResendAvailableAt = undefined;
+  user.passwordResetVerificationHash = undefined;
+  user.passwordResetVerificationExpiresAt = undefined;
+};
+
+const passwordResetOtpEmail = (otp) => ({
+  subject: "RestoSphere password verification code",
+  html: `<div style="font-family:Arial,sans-serif;color:#0f172a"><h2 style="color:#047857">RestoSphere</h2><p>Use this verification code to reset your password:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${otp}</p><p>This code expires in 10 minutes. If you did not request a password reset, you can safely ignore this email.</p></div>`,
+  text: `RestoSphere password verification code: ${otp}\n\nThis code expires in 10 minutes. If you did not request a password reset, you can safely ignore this email.`,
+});
 
 const buildPasswordResetLink = (token) => {
   const configuredOrigin = String(process.env.CLIENT_URL || "").split(",")[0].trim().replace(/\/+$/, "");
@@ -174,6 +201,102 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(true, PASSWORD_RESET_GENERIC_MESSAGE));
 });
 
+export const requestPasswordResetOtp = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const user = await User.findOne({ email }).select(passwordResetFields);
+  const now = new Date();
+
+  // Keep the body and cooldown value identical for unknown accounts.
+  if (!user || !user.isActive || (user.passwordResetOtpResendAvailableAt && user.passwordResetOtpResendAvailableAt > now)) {
+    return res.status(200).json(new ApiResponse(true, PASSWORD_RESET_OTP_GENERIC_MESSAGE, { resendCooldownSeconds: 60 }));
+  }
+
+  let otp;
+  try {
+    otp = String(crypto.randomInt(100000, 1000000));
+    user.passwordResetOtpHash = resetOtpVerifier(otp);
+    user.passwordResetOtpExpiresAt = new Date(now.getTime() + RESET_OTP_TTL_MS);
+    user.passwordResetOtpAttempts = 0;
+    user.passwordResetOtpResendAvailableAt = new Date(now.getTime() + RESET_OTP_RESEND_COOLDOWN_MS);
+    user.passwordResetVerificationHash = undefined;
+    user.passwordResetVerificationExpiresAt = undefined;
+    await user.save({ validateBeforeSave: false });
+    await sendEmail({ to: user.email, ...passwordResetOtpEmail(otp) });
+  } catch (error) {
+    // A code that was not delivered must not remain usable. Keep the public
+    // response generic, but remove all OTP state before returning.
+    clearOtpResetState(user);
+    await user.save({ validateBeforeSave: false }).catch(() => {});
+    logger.error("Password reset OTP delivery failed", {
+      event: "PASSWORD_RESET_OTP_DELIVERY_ERROR",
+      error: safeErrorContext(error),
+    });
+  }
+
+  return res.status(200).json(new ApiResponse(true, PASSWORD_RESET_OTP_GENERIC_MESSAGE, { resendCooldownSeconds: 60 }));
+});
+
+export const verifyPasswordResetOtp = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const otp = String(req.body.otp || "");
+  const user = await User.findOne({ email }).select(passwordResetFields);
+  const now = new Date();
+  if (!user || !user.isActive || !user.passwordResetOtpHash || !user.passwordResetOtpExpiresAt || user.passwordResetOtpExpiresAt <= now || Number(user.passwordResetOtpAttempts || 0) >= RESET_OTP_MAX_ATTEMPTS) {
+    throw new ApiError(400, "Invalid or expired verification code.");
+  }
+
+  let valid = false;
+  try {
+    const suppliedVerifier = resetOtpVerifier(otp);
+    valid = crypto.timingSafeEqual(Buffer.from(suppliedVerifier, "hex"), Buffer.from(user.passwordResetOtpHash, "hex"));
+  } catch {
+    valid = false;
+  }
+  if (!valid) {
+    user.passwordResetOtpAttempts = Number(user.passwordResetOtpAttempts || 0) + 1;
+    if (user.passwordResetOtpAttempts >= RESET_OTP_MAX_ATTEMPTS) user.passwordResetOtpExpiresAt = now;
+    await user.save({ validateBeforeSave: false });
+    throw new ApiError(400, "Invalid or expired verification code.");
+  }
+
+  const verificationToken = crypto.randomBytes(32).toString("base64url");
+  user.passwordResetVerificationHash = resetOtpVerifier(verificationToken);
+  user.passwordResetVerificationExpiresAt = new Date(now.getTime() + RESET_VERIFICATION_TTL_MS);
+  user.passwordResetOtpHash = undefined;
+  user.passwordResetOtpExpiresAt = undefined;
+  user.passwordResetOtpAttempts = 0;
+  await user.save({ validateBeforeSave: false });
+  res.status(200).json(new ApiResponse(true, "Verification successful. You can set a new password.", { verificationToken }));
+});
+
+export const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const verificationToken = String(req.body.verificationToken || "");
+  const { password } = req.body;
+  const user = await User.findOne({ email }).select(passwordResetFields);
+  const now = new Date();
+  if (!user || !user.isActive || !user.passwordResetVerificationHash || !user.passwordResetVerificationExpiresAt || user.passwordResetVerificationExpiresAt <= now) {
+    throw new ApiError(400, "Verification has expired. Request a new code.");
+  }
+
+  let valid = false;
+  try {
+    const suppliedVerifier = resetOtpVerifier(verificationToken);
+    valid = crypto.timingSafeEqual(Buffer.from(suppliedVerifier, "hex"), Buffer.from(user.passwordResetVerificationHash, "hex"));
+  } catch {
+    valid = false;
+  }
+  if (!valid) throw new ApiError(400, "Verification has expired. Request a new code.");
+
+  user.password = password;
+  user.refreshToken = "";
+  user.passwordResetTokenHash = undefined;
+  user.passwordResetExpiresAt = undefined;
+  clearOtpResetState(user);
+  await user.save();
+  res.status(200).json(new ApiResponse(true, "Password updated successfully."));
+});
+
 export const resetPassword = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
@@ -190,6 +313,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   user.refreshToken = "";
   user.passwordResetTokenHash = undefined;
   user.passwordResetExpiresAt = undefined;
+  clearOtpResetState(user);
   await user.save();
 
   res.status(200).json(new ApiResponse(true, "Password reset successful"));

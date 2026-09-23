@@ -6,6 +6,9 @@ export const getMyProfile = () => api.get("/auth/me");
 export const refreshAccessToken = (refreshToken) => api.post("/auth/refresh", { refreshToken });
 export const requestPasswordReset = (email) => api.post("/auth/forgot-password", { email });
 export const resetPassword = (token, password) => api.post(`/auth/reset-password/${encodeURIComponent(token)}`, { password });
+export const requestPasswordResetOtp = (email) => api.post("/auth/forgot-password/otp", { email });
+export const verifyPasswordResetOtp = (email, otp) => api.post("/auth/forgot-password/otp/verify", { email, otp });
+export const resetPasswordWithOtp = (email, verificationToken, password) => api.post("/auth/forgot-password/otp/reset", { email, verificationToken, password });
 export const logoutUser = () => {
   const refreshToken = localStorage.getItem("refreshToken");
   return api.post("/auth/logout", { refreshToken: refreshToken || undefined });
