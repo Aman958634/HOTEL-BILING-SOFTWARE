@@ -1,6 +1,7 @@
 import axios from "axios";
 import { API_URL } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/apiError";
+import { activateGlobalErrorCondition, observeApiError, reportGlobalError, resolveGlobalErrorCondition } from "./errorNotificationService";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -106,6 +107,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     if (response.config?._outletRequestController) outletRequestControllers.delete(response.config._outletRequestController);
+    resolveGlobalErrorCondition("NETWORK_UNAVAILABLE");
+    const subscriptionStatus = String(
+      response?.data?.data?.subscription?.status || response?.data?.data?.status || ""
+    ).toLowerCase();
+    if (/subscription|billing/i.test(String(response.config?.url || "")) && ["active", "trial"].includes(subscriptionStatus)) {
+      resolveGlobalErrorCondition();
+    }
     return response;
   },
   async (error) => {
@@ -121,6 +129,7 @@ api.interceptors.response.use(
     if (payload && typeof payload === "object" && typeof payload.message === "string") {
       payload.message = error.userMessage;
     }
+    const notificationMetadata = observeApiError(error);
     if (isOutletAccessDenied(error) && originalRequest && !originalRequest._outletRetry) {
       originalRequest._outletRetry = true;
       authStore?.dispatch({ type: "auth/outletRecoveryStarted" });
@@ -160,6 +169,7 @@ api.interceptors.response.use(
       code === "SUBSCRIPTION_SUSPENDED" ||
       code === "SUBSCRIPTION_INACTIVE"
     ) {
+      activateGlobalErrorCondition(error);
       window.dispatchEvent(
         new CustomEvent("restosphere:subscription-blocked", {
           detail: {
@@ -169,6 +179,14 @@ api.interceptors.response.use(
           },
         })
       );
+    }
+
+    if (!error?.response && error?.code !== "ERR_CANCELED") {
+      const networkError = Object.assign(error, {
+        userMessage: "Unable to connect. Check your connection and try again.",
+        code: "NETWORK_UNAVAILABLE",
+      });
+      reportGlobalError(networkError, { context: "network" });
     }
 
     if (
@@ -214,6 +232,11 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
+      reportGlobalError({
+        code: "AUTH_SESSION_EXPIRED",
+        userMessage: "Your session has expired. Please sign in again.",
+        config: { method: "POST", url: "/auth/refresh" },
+      }, { context: "auth-refresh" });
       clearAuthAndRedirectToLogin();
       return Promise.reject(refreshError);
     } finally {

@@ -2,6 +2,7 @@ import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRe
 import { Link } from "react-router-dom";
 import { FiAlertCircle, FiArrowRight, FiBookOpen, FiCalendar, FiCheckCircle, FiClipboard, FiDollarSign, FiGrid, FiHome, FiMapPin, FiRefreshCw, FiShoppingBag, FiTrendingDown, FiTrendingUp, FiUsers } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { notifyError } from "../../services/errorNotificationService";
 import StatCard from "../../components/admin/StatCard";
 import RecentOrders from "../../components/admin/RecentOrders";
 import RequestState from "../../components/common/RequestState";
@@ -84,7 +85,7 @@ const AdminDashboard = () => {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = error?.response?.data?.message || "Failed to load dashboard stats";
       setStatsError(message);
-      toast.error(message);
+      notifyError(error, { fallback: "Failed to load dashboard stats", context: "dashboard-stats" });
     } finally {
       if (requestControllers.current.stats === controller) setLoadingStats(false);
     }
@@ -105,7 +106,7 @@ const AdminDashboard = () => {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = error?.response?.data?.message || "Failed to load sales overview";
       setSalesError(message);
-      toast.error(message);
+      notifyError(error, { fallback: "Failed to load sales overview", context: "dashboard-sales" });
     } finally {
       if (requestControllers.current.sales === controller) setLoadingSales(false);
     }
@@ -126,7 +127,7 @@ const AdminDashboard = () => {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       const message = error?.response?.data?.message || "Failed to load recent orders";
       setOrdersError(message);
-      toast.error(message);
+      notifyError(error, { fallback: "Failed to load recent orders", context: "dashboard-orders" });
     } finally {
       if (requestControllers.current.orders === controller) setLoadingOrders(false);
     }

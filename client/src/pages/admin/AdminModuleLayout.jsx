@@ -5,6 +5,7 @@ import AdminSidebar from "../../components/admin/AdminSidebar";
 import AdminHeader from "../../components/admin/AdminHeader";
 import MobileAppHeader from "../../components/common/MobileAppHeader";
 import { fetchMySubscription } from "../../services/billingService";
+import { resolveGlobalErrorCondition } from "../../services/errorNotificationService";
 import {
   SubscriptionExpiredGate,
   TrialBanner,
@@ -71,6 +72,7 @@ const AdminModuleLayout = () => {
         }
       } else {
         setBlocked(null);
+        resolveGlobalErrorCondition();
       }
     } catch (_err) {
       // billing endpoint should work even when expired; ignore soft failures here
