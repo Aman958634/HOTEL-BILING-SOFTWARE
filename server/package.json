@@ -54,6 +54,7 @@
     "test:database-connectivity": "node scripts/checkTestDatabaseConnectivity.js",
     "test:kds-lifecycle": "node tests/kdsLifecycle.integration.test.js",
     "test:auth-e2e": "node tests/authLifecycle.integration.test.js",
+    "test:password-reset": "node tests/passwordResetFlow.integration.test.js",
     "test:phase5": "node scripts/verifyPhase5.js",
     "test:phase6": "node scripts/verifyPhase6.js",
     "test:phase7": "node scripts/verifyPhase7.js",

@@ -8,11 +8,27 @@ import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { sendEmail } from "../services/emailService.js";
 import Staff from "../models/Staff.js";
 import logger from "../utils/logger.js";
+import { safeErrorContext } from "../utils/safeLog.js";
 import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
 import { resolvePermissions } from "../config/rolePermissions.js";
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
+const PASSWORD_RESET_GENERIC_MESSAGE = "If an account exists, a reset email has been sent.";
+
+const buildPasswordResetLink = (token) => {
+  const configuredOrigin = String(process.env.CLIENT_URL || "").split(",")[0].trim().replace(/\/+$/, "");
+  if (!configuredOrigin) throw new Error("CLIENT_URL is required for password-reset email delivery.");
+
+  const origin = new URL(configuredOrigin);
+  if (process.env.NODE_ENV === "production" && origin.protocol !== "https:") {
+    throw new Error("Production password-reset links require an HTTPS CLIENT_URL.");
+  }
+  if (origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) {
+    throw new Error("CLIENT_URL must be a single frontend origin for password-reset email delivery.");
+  }
+  return `${origin.origin}/reset-password/${encodeURIComponent(token)}`;
+};
 
 const buildSessionPayload = async (user) => {
   if (user?.restaurant) await ensureDefaultOutlet({ _id: user.restaurant });
@@ -118,23 +134,44 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
   // Return the same response whether or not an account exists.
   if (!user) {
-    return res.status(200).json(new ApiResponse(true, "If an account exists, a reset email has been sent."));
+    return res.status(200).json(new ApiResponse(true, PASSWORD_RESET_GENERIC_MESSAGE));
   }
 
-  const token = crypto.randomBytes(20).toString("hex");
+  let token;
+  let resetLink;
+  try {
+    token = crypto.randomBytes(32).toString("hex");
+    resetLink = buildPasswordResetLink(token);
+  } catch (error) {
+    logger.error("Password reset email configuration is unavailable", {
+      event: "PASSWORD_RESET_EMAIL_CONFIGURATION_ERROR",
+      error: safeErrorContext(error),
+    });
+    return res.status(200).json(new ApiResponse(true, PASSWORD_RESET_GENERIC_MESSAGE));
+  }
+
   user.passwordResetTokenHash = crypto.createHash("sha256").update(token).digest("hex");
   user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
   await user.save({ validateBeforeSave: false });
 
-  const clientUrl = String(process.env.CLIENT_URL || "http://localhost:5173").split(",")[0].trim().replace(/\/+$/, "");
-  const resetLink = `${clientUrl}/reset-password/${token}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Password Reset",
-    html: `<p>Click to reset password: <a href=\"${resetLink}\">Reset</a></p>`,
-  });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset",
+      html: `<p>Click to reset your password: <a href=\"${resetLink}\">Reset password</a></p>`,
+      text: `Reset your password: ${resetLink}`,
+    });
+  } catch (error) {
+    // Keep the public response generic to prevent account enumeration. The
+    // hashed token is never logged, and operators can diagnose configured
+    // provider delivery failures without exposing account details here.
+    logger.error("Password reset email dispatch failed", {
+      event: "PASSWORD_RESET_EMAIL_DELIVERY_ERROR",
+      error: safeErrorContext(error),
+    });
+  }
 
-  res.status(200).json(new ApiResponse(true, "If an account exists, a reset email has been sent."));
+  res.status(200).json(new ApiResponse(true, PASSWORD_RESET_GENERIC_MESSAGE));
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {

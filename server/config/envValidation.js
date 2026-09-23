@@ -23,6 +23,10 @@ export const validateProductionEnvironment = () => {
     "JWT_REFRESH_SECRET",
     "CLIENT_URL",
     "ALLOWED_ORIGINS",
+    "EMAIL_HOST",
+    "EMAIL_PORT",
+    "EMAIL_USER",
+    "EMAIL_PASS",
     "MONGO_URI or MONGODB_URI",
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
@@ -58,6 +62,15 @@ export const validateProductionEnvironment = () => {
 
   if (String(process.env.BILLING_TEST_MODE || "").trim().toLowerCase() === "true") {
     throw new Error("Production runtime requires BILLING_TEST_MODE=false");
+  }
+
+  const emailPort = Number(process.env.EMAIL_PORT);
+  if (!Number.isInteger(emailPort) || emailPort < 1 || emailPort > 65535) {
+    throw new Error("Production EMAIL_PORT must be a valid SMTP port");
+  }
+  const emailSecure = String(process.env.EMAIL_SECURE || "").trim().toLowerCase();
+  if (emailSecure && !["true", "false"].includes(emailSecure)) {
+    throw new Error("EMAIL_SECURE must be true or false when configured");
   }
 
   const cashfreeEnvironment = String(process.env.CASHFREE_ENV || "").trim().toLowerCase();

@@ -21,6 +21,11 @@ const original = {
   MONGODB_URI: process.env.MONGODB_URI,
   CLIENT_URL: process.env.CLIENT_URL,
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+  EMAIL_HOST: process.env.EMAIL_HOST,
+  EMAIL_PORT: process.env.EMAIL_PORT,
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASS: process.env.EMAIL_PASS,
+  EMAIL_SECURE: process.env.EMAIL_SECURE,
   CASHFREE_RETURN_URL: process.env.CASHFREE_RETURN_URL,
   RELEASE_VERIFICATION_MONGO_URI: process.env.RELEASE_VERIFICATION_MONGO_URI,
   WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED,
@@ -54,6 +59,11 @@ try {
   process.env.MONGO_URI = "mongodb+srv://user:pass@cluster.example.mongodb.net/restosphere_prod";
   process.env.CLIENT_URL = "https://app.example.com";
   process.env.ALLOWED_ORIGINS = "https://app.example.com";
+  process.env.EMAIL_HOST = "smtp.example.com";
+  process.env.EMAIL_PORT = "587";
+  process.env.EMAIL_USER = "production-mail-user";
+  process.env.EMAIL_PASS = "production-mail-password";
+  process.env.EMAIL_SECURE = "false";
   process.env.CASHFREE_RETURN_URL = "https://app.example.com/payment/cashfree/return";
 
   assert.throws(() => validateProductionEnvironment(), /CASHFREE_ENV=production/i);
@@ -72,6 +82,12 @@ try {
 
   process.env.CASHFREE_RETURN_URL = "https://app.example.com/payment/cashfree/return";
   assert.doesNotThrow(() => validateProductionEnvironment());
+  delete process.env.EMAIL_HOST;
+  assert.throws(() => validateProductionEnvironment(), /EMAIL_HOST/i);
+  process.env.EMAIL_HOST = "smtp.example.com";
+  process.env.EMAIL_PORT = "invalid";
+  assert.throws(() => validateProductionEnvironment(), /EMAIL_PORT/i);
+  process.env.EMAIL_PORT = "587";
   process.env.WHATSAPP_ENABLED = "true";
   assert.throws(() => validateProductionEnvironment(), /WHATSAPP_PHONE_NUMBER_ID/i);
   process.env.WHATSAPP_PHONE_NUMBER_ID = "phone-number-id";
