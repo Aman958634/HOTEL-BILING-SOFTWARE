@@ -4,6 +4,8 @@ import { createSettlementVendor, getRestaurantSettings, getSettlementProfile, ge
 import ToggleSwitch from "../../components/common/ToggleSwitch";
 import { FiSettings } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
+import LanguageSelector from "../../components/common/LanguageSelector";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 const defaultSettings = {
   name: "",
@@ -111,6 +113,7 @@ const SettlementForm = ({ onSubmit }) => {
 };
 
 const Settings = () => {
+  const { t } = useLanguage();
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,13 +172,18 @@ const Settings = () => {
   return (
     <div className="space-y-4 pb-20">
       <div>
-        <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiSettings />} module="settings" variant="header" />Restaurant Settings</h2>
-        <p className="mt-1 text-sm text-slate-500">Update core restaurant details, availability, and operational settings.</p>
+        <h2 className="flex items-center gap-3 text-xl font-bold text-slate-900 sm:text-2xl"><ModuleIcon icon={<FiSettings />} module="settings" variant="header" />{t("settings.title")}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t("settings.description")}</p>
       </div>
+
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div><h3 className="text-base font-semibold text-slate-900">{t("settings.languageTitle")}</h3><p className="mt-1 text-sm text-slate-500">{t("settings.languageDescription")}</p></div>
+        <LanguageSelector />
+      </section>
 
       <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]" aria-busy={loading || saving}>
         <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <div><h3 className="text-lg font-semibold text-slate-900">Restaurant information</h3><p className="mt-1 text-sm text-slate-500">Business identity and customer-facing contact details.</p></div>
+          <div><h3 className="text-lg font-semibold text-slate-900">{t("settings.information")}</h3><p className="mt-1 text-sm text-slate-500">{t("settings.informationDescription")}</p></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-700">
               <span>Restaurant Name</span>
@@ -298,7 +306,7 @@ const Settings = () => {
 
         <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Operational Controls</h2>
+            <h2 className="text-lg font-semibold text-slate-900">{t("settings.operational")}</h2>
             <div className="space-y-4">
               <ToggleSwitch
                 label="Restaurant Active"
@@ -319,7 +327,7 @@ const Settings = () => {
           </div>
 
           <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Preview</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">{t("settings.preview")}</h2>
             <div className="space-y-3 text-sm text-slate-600">
               <p><strong>Name:</strong> {settings.name || "Not set"}</p>
               <p><strong>Branch code:</strong> {settings.branchCode || "Not set"}</p>
@@ -346,7 +354,7 @@ const Settings = () => {
             disabled={saving || loading}
             className="min-h-12 w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("settings.saving") : t("settings.saveChanges")}
           </button>
         </div>
       </form>
@@ -370,7 +378,7 @@ const Settings = () => {
 
       {loading && (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-500">
-          Loading settings...
+          {t("settings.loading")}
         </div>
       )}
     </div>

@@ -3,6 +3,8 @@ import { FiArrowRight, FiChevronRight, FiDownload, FiMenu, FiStar, FiTag, FiUser
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import usePWAInstall from "../hooks/usePWAInstall";
+import LanguageSelector from "../components/common/LanguageSelector";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const MainLayout = () => {
   const { isAuthenticated, user, profileLoading } = useAuth();
@@ -12,8 +14,10 @@ const MainLayout = () => {
   const closeButtonRef = useRef(null);
   const location = useLocation();
   const pwa = usePWAInstall();
+  const { language, t } = useLanguage();
   const accountPath = isAdmin ? "/dashboard/admin" : "/login";
-  const accountLabel = isAdmin ? "Dashboard" : "Login";
+  const accountLabel = isAdmin ? t("header.dashboard") : t("header.login");
+  const isPublicHome = location.pathname === "/";
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -43,14 +47,14 @@ const MainLayout = () => {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="app-shell bg-slate-50 text-slate-900">
+    <div className={`app-shell language-${language} bg-slate-50 text-slate-900${isPublicHome ? " public-landing" : ""}`}>
       <header className="site-header sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 shadow-sm shadow-slate-950/[0.03] backdrop-blur-md">
-        <nav className="site-nav mx-auto flex h-16 max-w-7xl min-w-0 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8" aria-label="Primary navigation">
+        <nav className="site-nav mx-auto flex h-16 max-w-7xl min-w-0 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8" aria-label={t("header.primaryNavigation")}>
           <Link to="/" className="site-logo flex min-w-0 items-center text-slate-900" onClick={closeMobileMenu}>
             <span className="navbar-brand">
               <img
                 src="/restosphere-logo.png"
-                alt="RestoSphere logo"
+                alt={t("header.logoAlt")}
                 className="brand-logo"
                 width="48"
                 height="48"
@@ -59,15 +63,16 @@ const MainLayout = () => {
               />
               <span className="brand-name truncate"><span className="brand-name-resto">Resto</span><span className="brand-name-sphere">Sphere</span></span>
             </span>
-            <span className="site-tagline">ALL-IN-ONE RESTAURANT MANAGEMENT</span>
+            <span className="site-tagline">{t("header.tagline")}</span>
           </Link>
 
           <div className="flex shrink-0 items-center">
             {profileLoading ? null : (
               <div className="desktop-actions">
+                <LanguageSelector compact />
                 <NavLink to="/pricing" className={({ isActive }) => `desktop-action desktop-pricing-action${isActive ? " is-active" : ""}`}>
                   <FiTag aria-hidden="true" />
-                  <span>Pricing</span>
+                  <span>{t("header.pricing")}</span>
                 </NavLink>
                 <Link to={accountPath} className="desktop-action desktop-login-action">
                   <FiUser aria-hidden="true" />
@@ -76,7 +81,7 @@ const MainLayout = () => {
                 </Link>
                 {pwa.showInstallAction ? <button type="button" className="desktop-action desktop-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { void pwa.requestInstall(); }}>
                   <FiDownload aria-hidden="true" />
-                  <span>{pwa.isPrompting ? "Preparing..." : "Install App"}</span>
+                  <span>{pwa.isPrompting ? t("header.preparing") : t("header.installApp")}</span>
                 </button> : null}
               </div>
             )}
@@ -84,7 +89,7 @@ const MainLayout = () => {
               ref={menuButtonRef}
               type="button"
               className="mobile-menu-button"
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={mobileMenuOpen ? t("header.closeMenu") : t("header.openMenu")}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-site-navigation"
               onClick={() => setMobileMenuOpen((open) => !open)}
@@ -98,14 +103,15 @@ const MainLayout = () => {
         <aside id="mobile-site-navigation" className="mobile-nav-panel" role="dialog" aria-modal={mobileMenuOpen ? "true" : undefined} aria-labelledby="mobile-navigation-title">
           <div className="mobile-nav-panel-header">
             <span id="mobile-navigation-title" className="min-w-0 truncate text-lg font-bold tracking-tight text-slate-900">RestoSphere</span>
-            <button ref={closeButtonRef} type="button" className="mobile-nav-close-button" aria-label="Close navigation menu" onClick={closeMobileMenu}>
+            <button ref={closeButtonRef} type="button" className="mobile-nav-close-button" aria-label={t("header.closeMenu")} onClick={closeMobileMenu}>
               <FiX aria-hidden="true" />
             </button>
           </div>
-          <nav className="mobile-nav-links" aria-label="Mobile navigation">
+          <nav className="mobile-nav-links" aria-label={t("header.primaryNavigation")}>
+            <LanguageSelector />
             <NavLink to="/pricing" className={({ isActive }) => `mobile-nav-link${isActive ? " is-active" : ""}`}>
               <FiTag aria-hidden="true" />
-              <span>Pricing</span>
+              <span>{t("header.pricing")}</span>
               <FiChevronRight className="mobile-nav-chevron" aria-hidden="true" />
             </NavLink>
             {!profileLoading ? <Link to={accountPath} className="mobile-nav-link">
@@ -113,17 +119,17 @@ const MainLayout = () => {
               <span>{accountLabel}</span>
               <FiChevronRight className="mobile-nav-chevron" aria-hidden="true" />
             </Link> : null}
-            {pwa.showInstallAction ? <button type="button" className="mobile-nav-link mobile-install-action" aria-label="Install RestoSphere app" disabled={pwa.isPrompting} onClick={() => { closeMobileMenu(); void pwa.requestInstall(); }}>
+            {pwa.showInstallAction ? <button type="button" className="mobile-nav-link mobile-install-action" aria-label={t("header.installApp")} disabled={pwa.isPrompting} onClick={() => { closeMobileMenu(); void pwa.requestInstall(); }}>
               <FiDownload aria-hidden="true" />
-              <span>{pwa.isPrompting ? "Preparing..." : "Install App"}</span>
+              <span>{pwa.isPrompting ? t("header.preparing") : t("header.installApp")}</span>
               <FiChevronRight className="mobile-nav-chevron" aria-hidden="true" />
             </button> : null}
           </nav>
           <div className="mobile-nav-cta-card">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900"><FiStar className="mobile-nav-sparkle" aria-hidden="true" />Start Managing</p>
-            <p className="mt-1 text-xs leading-5 text-slate-600">Simplify your restaurant operations today.</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900"><FiStar className="mobile-nav-sparkle" aria-hidden="true" />{t("header.startManaging")}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">{t("header.simplify")}</p>
             <Link to="/register" className="mobile-nav-get-started">
-              Get Started <FiArrowRight className="mobile-nav-get-started-arrow" aria-hidden="true" />
+              {t("header.getStarted")} <FiArrowRight className="mobile-nav-get-started-arrow" aria-hidden="true" />
             </Link>
           </div>
         </aside>
