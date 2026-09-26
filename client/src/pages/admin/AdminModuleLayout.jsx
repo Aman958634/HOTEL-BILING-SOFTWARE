@@ -46,9 +46,11 @@ const AdminModuleLayout = () => {
     ["/business-intelligence", "reports.view_full"], ["/intelligence", "reports.view_full"],
   ];
   const requiredPermission = permissionByPath.find(([path]) => location.pathname.endsWith(path))?.[1];
-  const adminOnlyPaths = ["/menu", "/categories", "/procurement", "/central-kitchen", "/billing", "/my-subscription", "/notifications", "/outlets", "/settings", "/integrations"];
+  const adminOnlyPaths = ["/menu", "/categories", "/procurement", "/central-kitchen", "/billing", "/my-subscription", "/notifications", "/outlets", "/integrations"];
   const adminOnly = adminOnlyPaths.some((path) => location.pathname.endsWith(path));
-  const denied = user?.role !== "admin" && (adminOnly || (requiredPermission && !user?.permissions?.includes(requiredPermission)));
+  const settingsPath = location.pathname.endsWith("/settings");
+  const canManageHotelSettings = ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
+  const denied = user?.role !== "admin" && (adminOnly || (settingsPath && !canManageHotelSettings) || (requiredPermission && !user?.permissions?.includes(requiredPermission)));
   const isBilling =
     location.pathname.includes("/billing") ||
     location.pathname.includes("/my-subscription");

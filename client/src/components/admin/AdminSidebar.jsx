@@ -28,7 +28,7 @@ const links = [
   { group: "Finance & Insights", to: "/dashboard/admin/intelligence", label: "RestoSphere Intelligence", icon: <FiAward />, tone: "reports", permission: "reports.view_full" },
   { group: "Administration", to: "/dashboard/admin/notifications", label: "Notifications", icon: <FiBell />, tone: "notifications", role: ["admin"] },
   { group: "Administration", to: "/dashboard/admin/outlets", label: "Outlets", icon: <FiMapPin />, tone: "dashboard", role: ["admin"] },
-  { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings />, tone: "settings", role: ["admin"] },
+  { group: "Administration", to: "/dashboard/admin/settings", label: "Settings", icon: <FiSettings />, tone: "settings", role: ["admin", "hotel_admin", "restaurant_admin"] },
   { group: "Administration", to: "/dashboard/admin/integrations", label: "Integrations", icon: <FiWifi />, tone: "settings", role: ["admin"] },
 ];
 
@@ -45,7 +45,10 @@ const AdminSidebar = ({ open, setOpen }) => {
   const { pathname } = useLocation();
   const user = useSelector((state) => state.auth.user);
   const [expandedGroups, setExpandedGroups] = useState(() => new Set(["Overview", "Operations"]));
-  const allowed = (link) => user?.role === "admin" || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission));
+  const canManageHotelSettings = ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
+  const allowed = (link) => user?.role === "admin"
+    || (link.to.endsWith("/settings") && canManageHotelSettings)
+    || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission));
 
   const visibleGroups = linkGroups.map(([group, groupLinks]) => [group, groupLinks.filter(allowed)]).filter(([, groupLinks]) => groupLinks.length);
 

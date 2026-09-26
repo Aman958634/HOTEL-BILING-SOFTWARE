@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, requirePermission } from "../middleware/auth.js";
+import { requireHotelPaymentSettingsAdmin } from "../middleware/hotelPaymentAuth.js";
 import {
   getHotelPaymentSettings,
   saveHotelPaymentSettings,
@@ -12,7 +13,7 @@ const router = express.Router();
 
 router.use(protect);
 router.get("/settings", requirePermission("payments.view"), getHotelPaymentSettings);
-router.put("/settings", requirePermission("payments.collect"), saveHotelPaymentSettings);
+router.put("/settings", requireHotelPaymentSettingsAdmin, saveHotelPaymentSettings);
 router.post("/qr", requirePermission("payments.collect"), createHotelPaymentQr);
 router.post("/verify", requirePermission("payments.collect"), verifyHotelPayment);
 router.post("/reject", requirePermission("payments.collect"), rejectHotelPayment);

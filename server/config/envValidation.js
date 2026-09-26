@@ -173,6 +173,7 @@ export const validateStagingEnvironment = () => {
   const allowedHosts = list(process.env.STAGING_MONGODB_HOSTS);
   const productionHosts = list(process.env.STAGING_PRODUCTION_MONGODB_HOSTS);
   const expectedDatabase = String(process.env.STAGING_MONGODB_DATABASE || "").trim();
+  const publicMenuEnabled = String(process.env.PUBLIC_MENU_ENABLED || "true").trim().toLowerCase() !== "false";
   const missing = [
     !mongoUri && "MONGO_URI or MONGODB_URI",
     !allowedHosts.length && "STAGING_MONGODB_HOSTS",
@@ -180,6 +181,7 @@ export const validateStagingEnvironment = () => {
     !expectedDatabase && "STAGING_MONGODB_DATABASE",
     !present("JWT_ACCESS_SECRET") && "JWT_ACCESS_SECRET",
     !present("JWT_REFRESH_SECRET") && "JWT_REFRESH_SECRET",
+    publicMenuEnabled && !present("PUBLIC_MENU_CONTEXT_SECRET") && "PUBLIC_MENU_CONTEXT_SECRET",
   ].filter(Boolean);
   if (missing.length) throw new Error(`Staging configuration is missing: ${missing.join(", ")}`);
   if (secondaryUri && secondaryUri !== mongoUri) throw new Error("Staging must configure only one MongoDB URI value");

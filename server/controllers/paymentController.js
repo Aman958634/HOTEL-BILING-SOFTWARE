@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+import Bill from "../models/Bill.js";
 import Refund from "../models/Refund.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -29,6 +30,7 @@ import {
   serializePayment,
   stripe,
 } from "../services/paymentService.js";
+import { buildBillReceiptBuffer } from "../services/billService.js";
 import { refundRecordedPayment } from "../services/reconciliationService.js";
 import { notifyPaymentReceived } from "../services/notificationService.js";
 
@@ -239,7 +241,7 @@ const mapPaymentRow = (payment) => {
     amountLabel: formatCurrency(safeAmount),
     totalAmountLabel: formatCurrency(safeTotalAmount),
     refundAmountLabel: formatCurrency(paymentObject?.refundAmount || 0),
-    paymentMethodLabel: paymentMethodLabel(paymentObject?.paymentMethod),
+    paymentMethodLabel: paymentMethodLabel(paymentObject?.paymentMethod, paymentObject?.provider),
     paymentStatusLabel: paymentStatusLabel(paymentObject?.paymentStatus),
     gatewayLabel: gatewayLabel(paymentObject || {}),
     dateTimeLabel: paymentObject?.createdAt,
@@ -515,8 +517,16 @@ export const getOrderPaymentSummary = asyncHandler(async (req, res) => {
     .populate("table", "tableNumber");
   if (!order) throw new ApiError(404, "Order not found");
 
-  const settlement = await deriveOrderPaymentState(order);
-  const payments = await Payment.find(await buildRestaurantQuery({ orderId: order._id }, req.user))
+  const orderSettlement = await deriveOrderPaymentState(order);
+  const bill = order.billingBill
+    ? await Bill.findOne({ _id: order.billingBill, restaurant: order.restaurant, outlet: order.outlet || null }).lean()
+    : null;
+  if (order.billingBill && !bill) throw new ApiError(409, "This order is linked to a bill that cannot accept payment.");
+  if (bill && !["OPEN", "PARTIALLY_PAID", "PAID"].includes(bill.status)) throw new ApiError(409, "This order is linked to a bill that cannot accept payment.");
+  const totalAmount = Number(bill?.total ?? order.total ?? 0);
+  const alreadyPaid = Number(bill?.paidAmount ?? orderSettlement.collectedAmount ?? 0);
+  const amountDue = Number(bill?.balanceDue ?? orderSettlement.remainingAmount ?? 0);
+  const payments = await Payment.find(await buildRestaurantQuery(bill ? { bill: bill._id } : { orderId: order._id }, req.user))
     .sort({ createdAt: -1 })
     .select("paymentId amount totalAmount paymentMethod gateway provider paymentStatus providerStatus transactionId cashfreeOrderId razorpayOrderId createdAt paidAt refundAmount");
 
@@ -525,15 +535,16 @@ export const getOrderPaymentSummary = asyncHandler(async (req, res) => {
       _id: order._id,
       orderNumber: order.orderNumber,
       total: order.total,
-      paymentStatus: settlement.paymentStatus,
+      paymentStatus: orderSettlement.paymentStatus,
       customer: order.customer,
       table: order.table,
     },
     settlement: {
-      totalAmount: Number(order.total || 0),
-      alreadyPaid: settlement.collectedAmount,
-      amountDue: settlement.remainingAmount,
-      fullyPaid: settlement.fullyPaid,
+      totalAmount,
+      alreadyPaid,
+      amountDue,
+      fullyPaid: amountDue <= 0,
+      ...(bill ? { billId: bill._id, billNumber: bill.billNumber } : {}),
     },
     payments: payments.map(serializePayment),
   }));
@@ -679,7 +690,14 @@ export const getPaymentReceipt = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
 
-  const buffer = await buildPaymentReceipt(payment);
+  let buffer;
+  if (payment.bill) {
+    const bill = await Bill.findOne({ _id: payment.bill?._id || payment.bill, restaurant: payment.restaurant, outlet: payment.outlet || null });
+    if (!bill) throw new ApiError(404, "Bill not found");
+    buffer = await buildBillReceiptBuffer(bill);
+  } else {
+    buffer = await buildPaymentReceipt(payment);
+  }
   const paymentId = payment.paymentId || req.params.id;
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename=receipt-${paymentId}.pdf`);

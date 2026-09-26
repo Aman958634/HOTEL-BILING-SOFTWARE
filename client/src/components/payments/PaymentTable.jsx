@@ -33,7 +33,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
 
     <div className="mt-3 flex items-end justify-between gap-3">
       <div className="min-w-0 text-sm text-slate-600">
-        <p className="truncate">{paymentMethodLabel(payment.paymentMethod)}{payment.tableNumber ? ` · Table ${payment.tableNumber}` : ""}</p>
+        <p className="truncate">{paymentMethodLabel(payment.paymentMethod, payment.provider)}{payment.tableNumber ? ` · Table ${payment.tableNumber}` : ""}</p>
         <p className="mt-1 text-xs text-slate-500">{formatPaymentDate(payment.createdAt)}</p>
       </div>
       <p className="shrink-0 text-lg font-bold tracking-tight text-slate-900">{formatCurrency(getPaymentAmount(payment))}</p>
@@ -84,7 +84,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
                 <td className="max-w-[10rem] break-all px-4 py-3 font-mono text-xs font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</td>
                 <td className="px-4 py-3">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "-")}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(getPaymentAmount(payment))}</td>
-                <td className="px-4 py-3">{paymentMethodLabel(payment.paymentMethod)}</td>
+                <td className="px-4 py-3">{paymentMethodLabel(payment.paymentMethod, payment.provider)}</td>
                 <td className="px-4 py-3"><StatusBadge payment={payment} /></td>
                 <td className="px-4 py-3 text-xs font-medium text-slate-600">{(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</td>
                 <td className="max-w-[12rem] break-all px-4 py-3 font-mono text-xs text-slate-600">{payment.transactionId || payment.razorpayPaymentId || "—"}</td>

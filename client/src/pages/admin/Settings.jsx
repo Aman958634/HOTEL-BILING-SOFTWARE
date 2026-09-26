@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 import { createSettlementVendor, getRestaurantSettings, getSettlementProfile, getSettlementSplitSummary, refreshSettlementVendor, refreshSettlementSplit, updateRestaurantSettings } from "../../services/restaurantService";
 import { getHotelPaymentSettings, saveHotelPaymentSettings } from "../../services/hotelPaymentService";
 import ToggleSwitch from "../../components/common/ToggleSwitch";
@@ -86,6 +87,16 @@ const createIdempotencyKey = () => {
   return `${hex()}-${hex().slice(0, 4)}-4${hex().slice(1, 4)}-8${hex().slice(1, 4)}-${hex()}${hex().slice(0, 4)}`;
 };
 
+const canManageHotelUpi = (user) => ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
+
+const hotelUpiState = (settings, capability, loaded) => {
+  if (!loaded) return { configuration: "NOT CONFIGURED", activation: "NOT CONFIGURED", reason: "Loading Hotel UPI configuration." };
+  const configured = Boolean(String(settings?.payeeName || "").trim() && /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$/.test(String(settings?.upiId || "").trim()));
+  if (!configured) return { configuration: "NOT CONFIGURED", activation: "NOT CONFIGURED", reason: capability?.reason || "Configure a payee name and valid UPI ID." };
+  if (!capability?.canCollect) return { configuration: "CONFIGURED", activation: "DISABLED", reason: capability?.reason || "Hotel UPI collection is unavailable for this deployment." };
+  return { configuration: "CONFIGURED", activation: "READY FOR USE", reason: "" };
+};
+
 const SettlementForm = ({ onSubmit }) => {
   const [method, setMethod] = useState("BANK");
   const [form, setForm] = useState({ phone: "", email: "", accountType: "Proprietorship", pan: "", accountHolderName: "", accountNumber: "", confirmAccountNumber: "", ifsc: "", upiVpa: "", settlementCycle: "T+1" });
@@ -115,16 +126,22 @@ const SettlementForm = ({ onSubmit }) => {
 
 const Settings = () => {
   const { t } = useLanguage();
+  const user = useSelector((state) => state.auth.user);
   const [settings, setSettings] = useState(defaultSettings);
   const [hotelPaymentSettings, setHotelPaymentSettings] = useState({ hotelId: "", restaurant: "", outlet: "", payeeName: "", upiId: "", isEnabled: false, status: "DISABLED", notes: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingHotelPayment, setSavingHotelPayment] = useState(false);
   const [hotelPaymentReady, setHotelPaymentReady] = useState(false);
+  const [hotelPaymentCapability, setHotelPaymentCapability] = useState({ canCollect: false, canEnable: false, reason: "Checking backend Hotel UPI capability." });
+  const [hotelPaymentLoading, setHotelPaymentLoading] = useState(true);
+  const [hotelPaymentError, setHotelPaymentError] = useState("");
   const [settlement, setSettlement] = useState(null);
   const [settlementLoading, setSettlementLoading] = useState(true);
   const [settlementSplits, setSettlementSplits] = useState(null);
   const publicMenuUrl = getPublicMenuUrl(settings.slug);
+  const hotelPaymentState = hotelUpiState(hotelPaymentSettings, hotelPaymentCapability, hotelPaymentReady);
+  const hotelUpiAdmin = canManageHotelUpi(user);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -139,6 +156,8 @@ const Settings = () => {
   };
 
   const loadHotelPaymentSettings = async () => {
+    setHotelPaymentLoading(true);
+    setHotelPaymentError("");
     try {
       const { data } = await getHotelPaymentSettings();
       setHotelPaymentSettings({
@@ -151,10 +170,19 @@ const Settings = () => {
         status: data?.data?.settings?.status || "DISABLED",
         notes: data?.data?.settings?.notes || "",
       });
+      setHotelPaymentCapability(data?.data?.capability || {
+        canCollect: false,
+        canEnable: false,
+        reason: "The backend does not report Hotel UPI deployment capability. Deploy the compatible backend release first.",
+      });
       setHotelPaymentReady(true);
     } catch (error) {
       setHotelPaymentReady(false);
-      toast.error(error?.response?.data?.message || "Unable to load hotel payment settings");
+      setHotelPaymentCapability({ canCollect: false, canEnable: false, reason: "Hotel UPI capability could not be confirmed by the backend." });
+      setHotelPaymentError(error?.response?.data?.message || "Unable to load Hotel UPI settings");
+    }
+    finally {
+      setHotelPaymentLoading(false);
     }
   };
 
@@ -196,6 +224,11 @@ const Settings = () => {
 
   const handleHotelPaymentSubmit = async (event) => {
     event.preventDefault();
+    if (!hotelUpiAdmin) return;
+    if (!String(hotelPaymentSettings.payeeName || "").trim() || !/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$/.test(String(hotelPaymentSettings.upiId || "").trim())) {
+      toast.error("Enter a payee name and a valid UPI ID before saving Hotel UPI settings.");
+      return;
+    }
     setSavingHotelPayment(true);
     try {
       const { data } = await saveHotelPaymentSettings({
@@ -410,9 +443,16 @@ const Settings = () => {
             <h3 className="text-lg font-semibold text-slate-900">Hotel-Owned UPI Payments</h3>
             <p className="mt-1 text-sm text-slate-500">Each hotel can receive customer order payments directly into its own UPI account. The platform subscription flow remains separate.</p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${hotelPaymentSettings.isEnabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{hotelPaymentSettings.isEnabled ? (hotelPaymentSettings.status || "ACTIVE") : "DISABLED"}</span>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${hotelPaymentState.activation === "READY FOR USE" ? "bg-emerald-100 text-emerald-800" : hotelPaymentState.activation === "NOT CONFIGURED" ? "bg-amber-100 text-amber-900" : "bg-slate-200 text-slate-700"}`}>{hotelPaymentState.activation}</span>
         </div>
-        <form onSubmit={handleHotelPaymentSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleHotelPaymentSubmit} className="mt-4 space-y-4" aria-busy={hotelPaymentLoading || savingHotelPayment}>
+          {hotelPaymentLoading ? <div className="h-24 animate-pulse rounded-2xl bg-slate-100" aria-label="Loading Hotel UPI settings" /> : null}
+          {hotelPaymentError ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><p className="font-semibold">Hotel UPI settings are unavailable</p><p className="mt-1">{hotelPaymentError}</p><button type="button" onClick={loadHotelPaymentSettings} className="mt-2 min-h-10 rounded-lg border border-rose-300 bg-white px-3 text-sm font-semibold">Retry</button></div> : null}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Configuration</p><p className="mt-1 font-semibold text-slate-900">{hotelPaymentState.configuration}</p></div>
+            <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hotel / restaurant scope</p><p className="mt-1 break-words font-semibold text-slate-900">{hotelPaymentSettings.restaurant ? "Restaurant-specific" : "Hotel-wide default"}</p></div>
+            <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Outlet scope</p><p className="mt-1 break-words font-semibold text-slate-900">{hotelPaymentSettings.outlet ? "Outlet-specific" : "Hotel-wide default"}</p></div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-2 text-sm text-slate-700">
               <span>Payee name</span>
@@ -420,6 +460,7 @@ const Settings = () => {
                 type="text"
                 value={hotelPaymentSettings.payeeName}
                 onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, payeeName: event.target.value }))}
+                disabled={!hotelUpiAdmin || hotelPaymentLoading || savingHotelPayment}
                 className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
                 placeholder="Hotel Royal Palace"
               />
@@ -430,6 +471,7 @@ const Settings = () => {
                 type="text"
                 value={hotelPaymentSettings.upiId}
                 onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, upiId: event.target.value }))}
+                disabled={!hotelUpiAdmin || hotelPaymentLoading || savingHotelPayment}
                 className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
                 placeholder="hotelname@upi"
               />
@@ -440,6 +482,7 @@ const Settings = () => {
             <textarea
               value={hotelPaymentSettings.notes}
               onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, notes: event.target.value }))}
+              disabled={!hotelUpiAdmin || hotelPaymentLoading || savingHotelPayment}
               rows={3}
               className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
               placeholder="This account receives direct hotel order payments only."
@@ -453,13 +496,15 @@ const Settings = () => {
             <ToggleSwitch
               label="Enabled"
               checked={Boolean(hotelPaymentSettings.isEnabled)}
-              onChange={(value) => setHotelPaymentSettings((current) => ({ ...current, isEnabled: value }))}
+              disabled={!hotelUpiAdmin || hotelPaymentLoading || savingHotelPayment || (!hotelPaymentCapability.canEnable && !hotelPaymentSettings.isEnabled)}
+              onChange={(value) => { if (hotelUpiAdmin) setHotelPaymentSettings((current) => ({ ...current, isEnabled: value })); }}
             />
           </div>
-          <button type="submit" disabled={savingHotelPayment} className="min-h-12 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60">
+          {hotelPaymentReady && hotelPaymentState.reason ? <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{hotelPaymentState.reason}</p> : null}
+          {hotelUpiAdmin ? <button type="submit" disabled={savingHotelPayment || hotelPaymentLoading} className="min-h-12 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60">
             {savingHotelPayment ? "Saving..." : "Save hotel payment settings"}
-          </button>
-          {!hotelPaymentSettings.isEnabled && hotelPaymentReady && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">The payment QR is disabled until both a payee name and a valid UPI ID are saved and enabled.</p>}
+          </button> : <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Only an authorized hotel administrator can change the hotel payee, UPI ID, or activation state.</p>}
+          {hotelPaymentState.activation !== "READY FOR USE" && hotelPaymentReady && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Hotel UPI is {hotelPaymentState.activation.toLowerCase()}. Save a payee name and valid UPI ID, then enable collection. This does not enable live gateway payments.</p>}
         </form>
       </section>
 

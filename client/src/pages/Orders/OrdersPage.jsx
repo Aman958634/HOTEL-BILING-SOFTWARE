@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getOrders } from "../../services/orderService";
 import { generateHotelPaymentQr } from "../../services/hotelPaymentService";
+import { getPaymentById, getPaymentReceipt } from "../../services/paymentService";
 import { currency, dateTime } from "../../utils/format";
 import { FiShoppingBag } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
@@ -33,6 +34,56 @@ const OrdersPage = () => {
     }
   };
 
+  const regenerateHotelPaymentQr = async () => {
+    if (!hotelPaymentOrder?._id || hotelPaymentLoading) return;
+    setHotelPaymentLoading(true);
+    try {
+      const { data } = await generateHotelPaymentQr({ orderId: hotelPaymentOrder._id });
+      setHotelPayment(data?.data || null);
+      toast.success("Hotel UPI QR is ready for the current outstanding amount.");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to generate a new Hotel UPI QR");
+    } finally {
+      setHotelPaymentLoading(false);
+    }
+  };
+
+  const refreshHotelPaymentStatus = async () => {
+    const paymentId = hotelPayment?.payment?._id || hotelPayment?.payment?.paymentId;
+    if (!paymentId || hotelPaymentLoading) return;
+    setHotelPaymentLoading(true);
+    try {
+      const { data } = await getPaymentById(paymentId);
+      const paymentRecord = data?.data || {};
+      setHotelPayment((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || current?.paymentStatus }));
+      if (String(paymentRecord.paymentStatus || "").toUpperCase() === "PAID") toast.success("Hotel payment independently verified.");
+      else toast("No independent bank-credit verification has been recorded yet.");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to refresh Hotel UPI payment status");
+    } finally {
+      setHotelPaymentLoading(false);
+    }
+  };
+
+  const downloadHotelPaymentReceipt = async () => {
+    const paymentId = hotelPayment?.payment?._id || hotelPayment?.payment?.paymentId;
+    if (!paymentId) return;
+    try {
+      const { data } = await getPaymentReceipt(paymentId);
+      const url = URL.createObjectURL(data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `receipt-${paymentId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Hotel UPI receipt downloaded");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to download Hotel UPI receipt");
+    }
+  };
+
   return (
     <div>
       <h2 className="flex items-center gap-3 text-2xl font-bold"><ModuleIcon icon={<FiShoppingBag />} module="orders" variant="header" />Orders</h2>
@@ -45,7 +96,7 @@ const OrdersPage = () => {
             </div>
             <p className="text-sm text-slate-500">{dateTime(order.createdAt)}</p>
             <p className="mt-1 font-semibold">{currency(order.total)}</p>
-            {["PAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <p className="mt-1 text-sm font-medium text-amber-700">{String(order.paymentStatus).replaceAll("_", " ")}</p> : <button type="button" onClick={() => openHotelPayment(order)} className="mt-3 min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Pay via Hotel UPI</button>}
+            {String(order.paymentStatus || "").toUpperCase() === "PAID" ? <p className="mt-1 text-sm font-medium text-emerald-700">PAID</p> : <button type="button" onClick={() => openHotelPayment(order)} className="mt-3 min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">{String(order.paymentStatus || "").toUpperCase() === "AWAITING_VERIFICATION" ? "View Hotel UPI QR" : "Pay via Hotel UPI"}</button>}
           </div>
         ))}
       </div>
@@ -54,6 +105,9 @@ const OrdersPage = () => {
         order={hotelPaymentOrder}
         payment={hotelPayment}
         loading={hotelPaymentLoading}
+        onGenerate={regenerateHotelPaymentQr}
+        onRefreshStatus={refreshHotelPaymentStatus}
+        onReceipt={downloadHotelPaymentReceipt}
         onClose={() => { if (!hotelPaymentLoading) { setHotelPaymentOrder(null); setHotelPayment(null); } }}
       />
     </div>

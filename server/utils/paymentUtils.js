@@ -10,6 +10,7 @@ export const PAYMENT_METHOD_LABELS = {
   WALLET: "Wallet",
   RAZORPAY: "Razorpay",
   CASHFREE: "Cashfree",
+  HOTEL_UPI: "Hotel UPI",
   OTHER: "Other",
 };
 
@@ -107,11 +108,14 @@ export const normalizePaymentStatus = (value) => {
   return paymentStatusAliases[String(value).trim().toLowerCase()] || upper || "PENDING";
 };
 
-export const paymentMethodLabel = (value) => PAYMENT_METHOD_LABELS[normalizePaymentMethod(value)] || "Other";
+export const paymentMethodLabel = (value, provider = "") => String(provider || "").toUpperCase() === "HOTEL_UPI"
+  ? "Hotel UPI"
+  : PAYMENT_METHOD_LABELS[normalizePaymentMethod(value)] || "Other";
 
 export const gatewayLabel = (payment = {}) => {
   const method = normalizePaymentMethod(payment.paymentMethod);
   const gateway = String(payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "").trim();
+  if (String(payment.provider || gateway).toUpperCase() === "HOTEL_UPI") return "Hotel UPI";
   if (method === "CASH" || gateway.toLowerCase() === "cash") return "—";
   if (!gateway) return "—";
   const lower = gateway.toLowerCase();
@@ -211,7 +215,7 @@ export const buildReceiptBuffer = async ({ payment, order, restaurant }) =>
     });
 
     doc.moveDown(1);
-    doc.fontSize(10).fillColor("#334155").text(`Payment Method: ${paymentMethodLabel(payment.paymentMethod)}`);
+    doc.fontSize(10).fillColor("#334155").text(`Payment Method: ${paymentMethodLabel(payment.paymentMethod, payment.provider)}`);
     doc.text(`Refund Status: ${payment.refundStatus || "-"}`);
     doc.text(`Timeline: ${(payment.timeline || []).map((entry) => `${paymentEventLabel(entry.status)} @ ${formatDateTime(entry.timestamp)}`).join(" | ") || "-"}`);
 
@@ -231,7 +235,7 @@ export const buildPaymentCsv = (payments = []) => {
     payment.orderIdValue || payment.orderNumber || payment.orderId?.orderNumber || payment.orderId || "",
     payment.customerName || payment.customerId?.fullName || "Guest",
     Number(payment.totalAmount ?? payment.amount ?? 0),
-    paymentMethodLabel(payment.paymentMethod),
+    paymentMethodLabel(payment.paymentMethod, payment.provider),
     paymentStatusLabel(payment.paymentStatus),
     payment.transactionId || "",
     formatDateTime(payment.createdAt),

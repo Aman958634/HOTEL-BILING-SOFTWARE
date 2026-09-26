@@ -16,6 +16,8 @@ const staging = () => {
   process.env.STAGING_MONGODB_DATABASE = "restosphere_staging";
   process.env.JWT_ACCESS_SECRET = "staging-access-secret";
   process.env.JWT_REFRESH_SECRET = "staging-refresh-secret";
+  process.env.PUBLIC_MENU_ENABLED = "true";
+  process.env.PUBLIC_MENU_CONTEXT_SECRET = "staging-public-menu-context-secret";
   process.env.CLIENT_URL = "https://staging-ui.example.invalid";
   process.env.ALLOWED_ORIGINS = "https://staging-ui.example.invalid";
   process.env.BILLING_TEST_MODE = "true";
@@ -64,6 +66,15 @@ try {
   staging();
   process.env.RAZORPAY_KEY_ID = "rzp_live_not_allowed";
   assert.throws(() => validateStagingEnvironment(), /Razorpay test key/i);
+
+  staging();
+  delete process.env.PUBLIC_MENU_CONTEXT_SECRET;
+  assert.throws(() => validateStagingEnvironment(), /PUBLIC_MENU_CONTEXT_SECRET/);
+
+  staging();
+  process.env.PUBLIC_MENU_ENABLED = "false";
+  delete process.env.PUBLIC_MENU_CONTEXT_SECRET;
+  assert.doesNotThrow(() => validateStagingEnvironment());
 
   for (const name of [
     "CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED",

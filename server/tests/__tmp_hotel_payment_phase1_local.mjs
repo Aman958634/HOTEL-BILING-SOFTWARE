@@ -14,16 +14,31 @@ import Table from "../models/Table.js";
 import { createHotelPaymentQr, getHotelPaymentSettings, rejectHotelPayment, saveHotelPaymentSettings, verifyHotelPayment } from "../controllers/hotelPaymentController.js";
 import { buildPaymentReceipt } from "../services/paymentService.js";
 import { dashboardStats } from "../controllers/adminController.js";
+import { getOrderPaymentSummary, getPaymentReceipt } from "../controllers/paymentController.js";
 import { createConsolidatedBill, buildBillReceiptBuffer } from "../services/billService.js";
 import { deriveBillReconciliation } from "../services/reconciliationService.js";
 import { requireSafeTestDatabase } from "./testDatabase.js";
 
 const { uri } = requireSafeTestDatabase();
+const originalEnvironment = process.env.NODE_ENV;
+const originalLivePayments = process.env.LIVE_DIGITAL_PAYMENTS;
+process.env.NODE_ENV = "production";
+process.env.LIVE_DIGITAL_PAYMENTS = "true";
 const invoke = (handler, req) => new Promise((resolve) => {
   const res = {
     statusCode: 200,
     status(code) { this.statusCode = code; return this; },
     json(body) { resolve({ statusCode: this.statusCode, body }); },
+  };
+  handler(req, res, (error) => resolve({ statusCode: error?.statusCode || 500, error }));
+});
+const invokeReceipt = (handler, req) => new Promise((resolve) => {
+  const headers = {};
+  const res = {
+    statusCode: 200,
+    status(code) { this.statusCode = code; return this; },
+    setHeader(name, value) { headers[name] = value; },
+    send(body) { resolve({ statusCode: this.statusCode, headers, body }); },
   };
   handler(req, res, (error) => resolve({ statusCode: error?.statusCode || 500, error }));
 });
@@ -78,6 +93,8 @@ try {
   assert.equal(await HotelPaymentSettings.countDocuments({ hotelId: hotelB }), 1);
   const settingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA));
   assert.equal(settingsRead.statusCode, 200, "Authorized hotel staff can read its own payment settings");
+  assert.equal(settingsRead.body.data.capability.deploymentAllowed, true, "Backend settings must report deployment payment capability");
+  assert.equal(settingsRead.body.data.capability.canCollect, true, "Configured production test fixture can collect Hotel UPI");
   const forgedSettingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA, {}, { restaurantId: restaurantB._id, outletId: outletB._id }));
   assert.equal(forgedSettingsRead.statusCode, 403, "A hotel user cannot read another restaurant or outlet through settings IDs");
 
@@ -97,6 +114,7 @@ try {
   assert.match(qr.body.data.upiLink, /Hotel\+A\+Payee/);
   assert.doesNotMatch(qr.body.data.upiLink, /hotel-b%40upi/);
   assert.equal(qr.body.data.paymentStatus, "AWAITING_VERIFICATION");
+  assert.ok(Date.parse(qr.body.data.expiresAt) > Date.now(), "Hotel UPI QR response must include its server-derived expiry");
   const awaiting = await Order.findById(partialOrder._id).lean();
   assert.equal(awaiting.paymentStatus, "AWAITING_VERIFICATION", "QR display must not mark an order paid");
 
@@ -140,6 +158,10 @@ try {
   const splitOrderB = await makeOrder({ restaurant: restaurantA, outlet: outletA, number: "BILL-B", total: 20 });
   const consolidated = await createConsolidatedBill({ orderIds: [splitOrderA._id, splitOrderB._id], restaurantId: restaurantA._id, user: staffA, idempotencyKey: `BILL-${suffix}` });
   created.bills.push(consolidated.bill._id);
+  const billSummary = await invoke(getOrderPaymentSummary, { user: staffA, params: { orderId: splitOrderA._id } });
+  assert.equal(billSummary.statusCode, 200, billSummary.error?.message);
+  assert.equal(billSummary.body.data.settlement.totalAmount, 50, "Collection modal must use consolidated bill total");
+  assert.equal(billSummary.body.data.settlement.amountDue, 50, "Collection modal must use consolidated bill balance");
   const billQr = await invoke(createHotelPaymentQr, orderRequest(staffA, { orderId: splitOrderA._id }));
   assert.equal(billQr.statusCode, 201);
   assert.equal(billQr.body.data.amount, 50, "Consolidated bill QR must use bill balance");
@@ -152,6 +174,11 @@ try {
   assert.deepEqual(await deriveBillReconciliation(settledBill), { expectedAmount: 50, receivedAmount: 50, difference: 0, reconciliationStatus: "MATCHED" });
   assert.deepEqual((await Order.find({ _id: { $in: [splitOrderA._id, splitOrderB._id] } }).select("paymentStatus").sort({ orderNumber: 1 }).lean()).map((row) => row.paymentStatus), ["PAID", "PAID"]);
   assert.ok((await buildBillReceiptBuffer(settledBill)).length > 0, "Settled bill must have a receipt");
+  const billPayment = await Payment.findOne({ bill: consolidated.bill._id, provider: "HOTEL_UPI" });
+  const billReceipt = await invokeReceipt(getPaymentReceipt, { user: staffA, params: { id: billPayment._id } });
+  assert.equal(billReceipt.statusCode, 200);
+  assert.equal(billReceipt.headers["Content-Type"], "application/pdf");
+  assert.ok(billReceipt.body.length > 0, "Verified consolidated Hotel UPI payment must serve the bill receipt");
   const dashboardAfterBill = await invoke(dashboardStats, orderRequest({ _id: new mongoose.Types.ObjectId(), role: "admin", hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true }));
   assert.equal(dashboardAfterBill.body.data.totalRevenue.value, 150, "Dashboard revenue must count invoice and settled bill exactly once");
   const hotelWideOrder = await makeOrder({ restaurant: restaurantA, outlet: outletA, number: "HOTEL-WIDE", total: 40 });
@@ -216,4 +243,8 @@ try {
     ]);
     await mongoose.disconnect();
   }
+  if (originalEnvironment === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalEnvironment;
+  if (originalLivePayments === undefined) delete process.env.LIVE_DIGITAL_PAYMENTS;
+  else process.env.LIVE_DIGITAL_PAYMENTS = originalLivePayments;
 }

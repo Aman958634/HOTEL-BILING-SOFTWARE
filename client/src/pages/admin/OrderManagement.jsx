@@ -7,6 +7,7 @@ import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import CashPaymentConfirmationModal from "../../components/admin/orders/CashPaymentConfirmationModal";
 import CreateOrderModal from "../../components/admin/orders/CreateOrderModal";
 import EditOrderModal from "../../components/admin/orders/EditOrderModal";
+import HotelUpiPaymentModal from "../../components/payments/HotelUpiPaymentModal";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
 import OrderPaymentPromptModal from "../../components/admin/orders/OrderPaymentPromptModal";
 import RetryPaymentModal from "../../components/admin/orders/RetryPaymentModal";
@@ -28,7 +29,8 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "../../services/orderService";
-import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentByOrderId, verifyGatewayPayment } from "../../services/paymentService";
+import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentById, getPaymentByOrderId, getPaymentReceipt, verifyGatewayPayment } from "../../services/paymentService";
+import { generateHotelPaymentQr, getHotelPaymentSettings } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
@@ -119,6 +121,11 @@ const OrderManagement = () => {
   const [retrySettlement, setRetrySettlement] = useState(null);
   const [retryMethod, setRetryMethod] = useState("CASH");
   const [retryProcessing, setRetryProcessing] = useState(false);
+  const [retryHotelUpiCapability, setRetryHotelUpiCapability] = useState({ canCollect: false, reason: "Configure Hotel UPI in Settings." });
+  const [retryHotelUpiOnly, setRetryHotelUpiOnly] = useState(false);
+  const [hotelPaymentOrder, setHotelPaymentOrder] = useState(null);
+  const [hotelPaymentData, setHotelPaymentData] = useState(null);
+  const [hotelPaymentActionLoading, setHotelPaymentActionLoading] = useState(false);
   const filtersRef = useRef(filters);
   const createSubmittingRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
@@ -295,7 +302,15 @@ const OrderManagement = () => {
   const openRetryPayment = async (order) => {
     if (!canCollectPayments || !order?._id) return;
     try {
-      const { data } = await getOrderPaymentSummary(order._id);
+      const [summaryResponse, hotelPaymentCapability] = await Promise.all([
+        getOrderPaymentSummary(order._id),
+        getHotelPaymentSettings()
+          .then(({ data }) => data?.data?.capability
+            ? { canCollect: data.data.capability.canCollect === true, reason: data.data.capability.reason || "Hotel UPI is unavailable for this deployment." }
+            : { canCollect: false, reason: "The backend release does not report Hotel UPI capability. Deploy the compatible backend first." })
+          .catch((error) => ({ canCollect: false, reason: error?.response?.data?.message || "Unable to confirm Hotel UPI configuration." })),
+      ]);
+      const { data } = summaryResponse;
       const summary = data.data?.settlement || {};
       if (summary.fullyPaid || Number(summary.amountDue || 0) <= 0) {
         toast.success("This order is already paid");
@@ -304,7 +319,10 @@ const OrderManagement = () => {
       }
       setRetryTarget({ ...order, ...(data.data?.order || {}) });
       setRetrySettlement(summary);
-      setRetryMethod("CASH");
+      setRetryHotelUpiCapability(hotelPaymentCapability);
+      const hotelUpiAttemptPending = String(order.paymentStatus || data.data?.order?.paymentStatus || "").toUpperCase() === "AWAITING_VERIFICATION";
+      setRetryHotelUpiOnly(hotelUpiAttemptPending);
+      setRetryMethod(hotelUpiAttemptPending ? "HOTEL_UPI" : "CASH");
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load the outstanding payment");
     }
@@ -314,6 +332,84 @@ const OrderManagement = () => {
     if (retryProcessing) return;
     setRetryTarget(null);
     setRetrySettlement(null);
+  };
+
+  const requestHotelUpiQr = async (order) => {
+    setHotelPaymentActionLoading(true);
+    try {
+      const { data } = await generateHotelPaymentQr({ orderId: order._id });
+      const qrData = data?.data || null;
+      if (!qrData?.qrCode || !qrData?.payment) throw new Error("The server did not return a Hotel UPI payment attempt.");
+      setHotelPaymentData(qrData);
+      await Promise.all([loadOrders(), loadStats()]);
+      return qrData;
+    } finally {
+      setHotelPaymentActionLoading(false);
+    }
+  };
+
+  const processHotelUpiPayment = async () => {
+    if (!retryTarget?._id || retryProcessing || !retryHotelUpiCapability.canCollect) return;
+    setRetryProcessing(true);
+    try {
+      await requestHotelUpiQr(retryTarget);
+      setHotelPaymentOrder(retryTarget);
+      setRetryTarget(null);
+      setRetrySettlement(null);
+      toast.success("Hotel UPI QR generated. Payment remains pending independent verification.");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Unable to generate Hotel UPI QR");
+    } finally {
+      setRetryProcessing(false);
+    }
+  };
+
+  const refreshHotelUpiStatus = async () => {
+    const paymentId = hotelPaymentData?.payment?._id || hotelPaymentData?.payment?.paymentId;
+    if (!paymentId || hotelPaymentActionLoading) return;
+    setHotelPaymentActionLoading(true);
+    try {
+      const { data } = await getPaymentById(paymentId);
+      const paymentRecord = data?.data || {};
+      setHotelPaymentData((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || current?.paymentStatus }));
+      await Promise.all([loadOrders(), loadStats()]);
+      if (String(paymentRecord.paymentStatus || "").toUpperCase() === "PAID") {
+        toast.success("Hotel payment was independently verified. Order balances and reports are refreshed.");
+      } else if (paymentRecord.metadata?.rejectionNote) {
+        toast.error(`Hotel UPI attempt rejected: ${paymentRecord.metadata.rejectionNote}. Generate a new QR to retry.`);
+      } else {
+        toast("No independent bank-credit verification has been recorded yet.");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to refresh Hotel UPI payment status");
+    } finally {
+      setHotelPaymentActionLoading(false);
+    }
+  };
+
+  const downloadHotelUpiReceipt = async () => {
+    const paymentId = hotelPaymentData?.payment?._id || hotelPaymentData?.payment?.paymentId;
+    if (!paymentId) return;
+    try {
+      const { data } = await getPaymentReceipt(paymentId);
+      const url = URL.createObjectURL(data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `receipt-${paymentId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Hotel UPI receipt downloaded");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to download Hotel UPI receipt");
+    }
+  };
+
+  const closeHotelUpiPayment = () => {
+    if (hotelPaymentActionLoading) return;
+    setHotelPaymentOrder(null);
+    setHotelPaymentData(null);
   };
 
   const processRetryPayment = async () => {
@@ -343,6 +439,11 @@ const OrderManagement = () => {
       if (retryMethod === "CASHFREE") {
         const { data } = await createCashfreePayment(retryTarget._id, idempotencyKey);
         await openCashfreeCheckout(data?.data?.paymentSessionId, data?.data?.cashfreeEnvironment);
+        return;
+      }
+
+      if (retryMethod === "HOTEL_UPI") {
+        await processHotelUpiPayment();
         return;
       }
 
@@ -733,8 +834,22 @@ const OrderManagement = () => {
         method={retryMethod}
         onMethodChange={setRetryMethod}
         loading={retryProcessing}
+        hotelUpiAvailable={retryHotelUpiCapability.canCollect}
+        hotelUpiReason={retryHotelUpiCapability.reason}
+        hotelUpiOnly={retryHotelUpiOnly}
         onClose={closeRetryPayment}
         onConfirm={processRetryPayment}
+      />
+
+      <HotelUpiPaymentModal
+        open={Boolean(hotelPaymentOrder)}
+        order={hotelPaymentOrder}
+        payment={hotelPaymentData}
+        loading={hotelPaymentActionLoading}
+        onGenerate={() => requestHotelUpiQr(hotelPaymentOrder).then(() => toast.success("A new Hotel UPI QR is ready for the current outstanding balance.")).catch((error) => toast.error(error?.response?.data?.message || error?.message || "Unable to regenerate Hotel UPI QR"))}
+        onRefreshStatus={refreshHotelUpiStatus}
+        onReceipt={downloadHotelUpiReceipt}
+        onClose={closeHotelUpiPayment}
       />
 
       {!isChef && <CashPaymentConfirmationModal

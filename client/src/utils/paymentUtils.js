@@ -39,6 +39,7 @@ const methodLabels = {
   WALLET: "Wallet",
   RAZORPAY: "Razorpay",
   CASHFREE: "Cashfree",
+  HOTEL_UPI: "Hotel UPI",
   OTHER: "Other",
 };
 
@@ -52,12 +53,15 @@ const statusLabels = {
   PARTIALLY_REFUNDED: "Partially Refunded",
 };
 
-export const paymentMethodLabel = (value) => methodLabels[String(value || "OTHER").toUpperCase()] || "Other";
+export const paymentMethodLabel = (value, provider = "") => String(provider || "").toUpperCase() === "HOTEL_UPI"
+  ? "Hotel UPI"
+  : methodLabels[String(value || "OTHER").toUpperCase()] || "Other";
 
 export const gatewayLabel = (payment = {}) => {
   const method = String(payment.paymentMethod || "").toUpperCase();
   const gateway = String(payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "").trim();
   if (method === "CASH" || gateway.toLowerCase() === "cash") return "—";
+  if (String(payment.provider || gateway).toUpperCase() === "HOTEL_UPI") return "Hotel UPI";
   if (!gateway) return "—";
   const lower = gateway.toLowerCase();
   if (lower === "razorpay") return "Razorpay";

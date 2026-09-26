@@ -188,7 +188,7 @@ export const serializePayment = (payment) => {
     ...data,
     paymentIdDisplay: formatPaymentId(data.paymentId),
     paymentStatusLabel: paymentStatusLabel(data.paymentStatus),
-    paymentMethodLabel: paymentMethodLabel(data.paymentMethod),
+    paymentMethodLabel: paymentMethodLabel(data.paymentMethod, data.provider),
   };
 };
 
@@ -207,7 +207,7 @@ const notifyPaymentAudience = async ({ title, message, payment, order }) => {
         orderId,
         orderNumber,
         amount: Number(payment?.totalAmount || payment?.amount || 0),
-        paymentMethod: paymentMethodLabel(payment?.paymentMethod || order?.paymentMethod || "OTHER"),
+        paymentMethod: paymentMethodLabel(payment?.paymentMethod || order?.paymentMethod || "OTHER", payment?.provider),
       });
       return;
     }

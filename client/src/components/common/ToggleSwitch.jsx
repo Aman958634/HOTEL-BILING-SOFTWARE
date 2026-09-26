@@ -1,16 +1,17 @@
-const ToggleSwitch = ({ checked, onChange, label, id }) => {
+const ToggleSwitch = ({ checked, onChange, label, id, disabled = false }) => {
   const switchId = id || label?.replace(/\s+/g, "-").toLowerCase();
 
   return (
-    <label htmlFor={switchId} className="flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <label htmlFor={switchId} className={`flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
       <span className="text-sm font-medium text-slate-800">{label}</span>
       <button
         id={switchId}
         type="button"
         role="switch"
         aria-checked={checked}
+        disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700/30 ${
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700/30 disabled:cursor-not-allowed ${
           checked ? "bg-brand-700" : "bg-slate-300"
         }`}
       >

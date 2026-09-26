@@ -60,6 +60,7 @@
     "test:phase6": "node scripts/verifyPhase6.js",
     "test:phase7": "node scripts/verifyPhase7.js",
     "test:hotel-upi": "node tests/__tmp_hotel_payment_phase1_local.mjs",
+    "test:hotel-upi-settings-access": "node tests/hotelPaymentSettingsAccess.test.js",
     "test:staging-config": "node tests/stagingConfigSafety.test.js",
     "validate:backup-restore": "node scripts/validateBackupRestore.mjs --run",
     "test:backup-restore-safety": "node tests/backupRestoreStagingSafety.test.js",

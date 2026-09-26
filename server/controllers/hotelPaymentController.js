@@ -12,6 +12,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { buildOutletQuery, hasAllOutletsAccess, hasExplicitOutletAccess } from "../utils/tenantUtils.js";
 import { deriveOrderPaymentState, recordVerifiedPayment, serializePayment } from "../services/paymentService.js";
 import { recordBillPayment } from "../services/billService.js";
+import { getHotelPaymentCapability, isValidHotelUpiId } from "../services/hotelPaymentCapability.js";
 
 const normalizeText = (value, fallback = "") => {
   const text = String(value ?? "").trim();
@@ -105,6 +106,13 @@ const toUpiUri = ({ upiId, payeeName, amount, orderNumber }) => {
 
 const HOTEL_UPI_QR_EXPIRY_MS = 15 * 60 * 1000;
 
+const hotelPaymentCapability = (settings) => getHotelPaymentCapability({
+  settings,
+  environment: process.env.NODE_ENV,
+  liveDigitalPayments: process.env.LIVE_DIGITAL_PAYMENTS,
+  topologyType: mongoose.connection.client?.topology?.description?.type,
+});
+
 const resolveHotelPaymentScope = async (req) => {
   return resolveAuthorizedHotelScope(req, {
     restaurantId: req.user?.restaurant || null,
@@ -165,18 +173,20 @@ export const getHotelPaymentSettings = asyncHandler(async (req, res) => {
   } catch (error) {
     if (error?.statusCode !== 404) throw error;
   }
+  const effectiveSettings = settings || {
+    hotelId: req.user.hotelId,
+    restaurant: scope.restaurantId,
+    outlet: scope.outletId,
+    payeeName: "",
+    upiId: "",
+    isEnabled: false,
+    status: "DISABLED",
+    notes: "",
+  };
 
   return res.status(200).json(new ApiResponse(true, "Hotel payment configuration loaded", {
-    settings: settings || {
-      hotelId: req.user.hotelId,
-      restaurant: scope.restaurantId,
-      outlet: scope.outletId,
-      payeeName: "",
-      upiId: "",
-      isEnabled: false,
-      status: "DISABLED",
-      notes: "",
-    },
+    settings: effectiveSettings,
+    capability: hotelPaymentCapability(effectiveSettings),
   }));
 });
 
@@ -192,9 +202,11 @@ export const saveHotelPaymentSettings = asyncHandler(async (req, res) => {
   const isEnabled = Boolean(req.body?.isEnabled);
   const notes = normalizeText(req.body?.notes, "");
 
-  if (!payeeName || !upiId) {
-    throw new ApiError(400, "Both payee name and UPI ID are required to enable hotel payment collection.");
+  if (!payeeName || !isValidHotelUpiId(upiId)) {
+    throw new ApiError(400, "A payee name and valid UPI ID are required to configure hotel payment collection.");
   }
+  const capability = hotelPaymentCapability({ payeeName, upiId, isEnabled: true });
+  if (isEnabled && !capability.canEnable) throw new ApiError(503, capability.reason);
 
   const settings = await HotelPaymentSettings.findOneAndUpdate(
     { hotelId: scope.hotelId, restaurant: scope.restaurantId || null, outlet: scope.outletId || null },
@@ -230,9 +242,9 @@ export const createHotelPaymentQr = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found for this hotel.");
 
   const settings = await resolveHotelPaymentSettings(req, { restaurantId: order.restaurant || req.user.restaurant, outletId: order.outlet || req.user.activeOutlet || req.user.defaultOutlet });
-  if (!settings?.isEnabled) {
-    throw new ApiError(400, "Hotel payment collection is disabled for this hotel or outlet.");
-  }
+  const capability = hotelPaymentCapability(settings);
+  if (!capability.deploymentAllowed || !capability.transactionSupport) throw new ApiError(503, capability.reason);
+  if (!capability.canCollect) throw new ApiError(400, capability.reason);
 
   if (order.paymentStatus === "PAID") {
     throw new ApiError(409, "This order is already paid.");
@@ -345,6 +357,7 @@ export const createHotelPaymentQr = asyncHandler(async (req, res) => {
     payeeName: settings.payeeName,
     upiId: settings.upiId,
     paymentStatus: "AWAITING_VERIFICATION",
+    expiresAt: new Date(new Date(payment.createdAt || Date.now()).getTime() + HOTEL_UPI_QR_EXPIRY_MS).toISOString(),
   }));
 });
 

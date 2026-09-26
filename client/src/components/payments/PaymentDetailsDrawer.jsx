@@ -73,7 +73,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <p><strong>Order ID:</strong> {order?.orderNumber || payment.orderIdValue}</p>
                 <p><strong>Payment Date:</strong> {formatPaymentDate(payment.createdAt)}</p>
                 <p><strong>Payment Status:</strong> {paymentStatusLabel(payment.paymentStatus)}</p>
-                <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod)}</p>
+                <p><strong>Payment Method:</strong> {paymentMethodLabel(payment.paymentMethod, payment.provider)}</p>
                 <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</p>
                 <p><strong>Recorded amount:</strong> {formatCurrency(getPaymentAmount(payment))}</p>
                 <p><strong>Reconciliation:</strong> {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p>

@@ -8,9 +8,10 @@ const METHODS = [
   { value: "UPI", label: "UPI", icon: FiSmartphone },
   { value: "CREDIT_CARD", label: "Card", icon: FiCreditCard },
   { value: "CASHFREE", label: "Cashfree", icon: FiSmartphone },
+  { value: "HOTEL_UPI", label: "Hotel UPI", icon: FiSmartphone },
 ];
 
-const RetryPaymentModal = ({ open, order, settlement, method, onMethodChange, loading, onClose, onConfirm }) => {
+const RetryPaymentModal = ({ open, order, settlement, method, onMethodChange, loading, onClose, onConfirm, hotelUpiAvailable = false, hotelUpiReason = "Configure Hotel UPI in Settings.", hotelUpiOnly = false }) => {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => { if (event.key === "Escape" && !loading) onClose?.(); };
@@ -21,6 +22,7 @@ const RetryPaymentModal = ({ open, order, settlement, method, onMethodChange, lo
   if (!open || !order) return null;
   const amountDue = Number(settlement?.amountDue ?? order.total ?? 0);
   const alreadyPaid = Number(settlement?.alreadyPaid ?? 0);
+  const methods = hotelUpiOnly ? METHODS.filter(({ value }) => value === "HOTEL_UPI") : METHODS;
 
   return (
     <div className="ui-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!loading && event.target === event.currentTarget) onClose?.(); }}>
@@ -42,18 +44,20 @@ const RetryPaymentModal = ({ open, order, settlement, method, onMethodChange, lo
 
         <fieldset className="mt-5">
           <legend className="text-sm font-semibold text-slate-900">Payment Method</legend>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {METHODS.map(({ value, label, icon: Icon }) => (
-              <button key={value} type="button" onClick={() => onMethodChange(value)} disabled={loading} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-sm font-semibold transition ${method === value ? "border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-600/15" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300"}`} aria-pressed={method === value}>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {methods.map(({ value, label, icon: Icon }) => {
+              const disabled = loading || (value === "HOTEL_UPI" && !hotelUpiAvailable);
+              return <button key={value} type="button" onClick={() => onMethodChange(value)} disabled={disabled} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${method === value ? "border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-600/15" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300"}`} aria-pressed={method === value}>
                 <Icon className="h-4 w-4" aria-hidden="true" />{label}
-              </button>
-            ))}
+              </button>;
+            })}
           </div>
         </fieldset>
+        {!hotelUpiAvailable ? <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{hotelUpiReason || "Configure Hotel UPI in Settings."}</p> : <p className="mt-3 text-xs text-slate-500">Hotel UPI stays pending until a different authorized cashier verifies the bank credit.</p>}
 
         <div className="mt-6 grid grid-cols-1 gap-2 sm:flex sm:justify-end sm:gap-3">
           <Button variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={onConfirm} loading={loading} loadingText="Processing..." disabled={amountDue <= 0} className="bg-teal-700 hover:bg-teal-800">Pay {currency(amountDue)}</Button>
+          <Button onClick={onConfirm} loading={loading} loadingText="Processing..." disabled={amountDue <= 0 || (method === "HOTEL_UPI" && !hotelUpiAvailable)} className="bg-teal-700 hover:bg-teal-800">{method === "HOTEL_UPI" ? "Generate Hotel UPI QR" : `Pay ${currency(amountDue)}`}</Button>
         </div>
       </div>
     </div>
