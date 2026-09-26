@@ -7,6 +7,7 @@
     "dev": "kill-port 5173 >nul 2>&1 & vite --host localhost --port 5173",
     "build": "vite build && node scripts/generatePricingStaticPage.mjs && node scripts/generatePwaServiceWorker.mjs",
     "lint": "eslint src",
+    "test:runtime-config": "node --test src/utils/runtimeEnvironment.test.js",
     "test:e2e": "playwright test",
     "preview": "vite preview"
   },

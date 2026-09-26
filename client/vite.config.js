@@ -10,13 +10,33 @@ export default defineConfig(({ mode }) => {
   if (mode === "production") process.env.NODE_ENV = "production";
 
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  const platformEnvironment = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+  const deploymentEnvironment = String(env.VITE_DEPLOYMENT_ENV || "").trim().toLowerCase();
   const isLocalUrl = (url) => /(^|\/\/)(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url || "");
   const isHttpsUrl = (url) => /^https:\/\/[^/]+/i.test(url || "");
+  const productionApiHosts = new Set(["hotel-biling-software.onrender.com"]);
+  const stagingHosts = String(env.VITE_STAGING_API_HOSTS || "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
+  const configuredHost = (url) => {
+    try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
+  };
+  const isStagingBuild = deploymentEnvironment === "staging" || platformEnvironment === "preview";
+  if (isStagingBuild) {
+    if (deploymentEnvironment !== "staging") throw new Error("Vercel Preview requires VITE_DEPLOYMENT_ENV=staging.");
+    if (stagingHosts.some((host) => productionApiHosts.has(host)) || productionApiHosts.has(configuredHost(env.VITE_API_URL)) || productionApiHosts.has(configuredHost(env.VITE_SOCKET_URL))) {
+      throw new Error("Staging frontend cannot use the production API host.");
+    }
+    if (!env.VITE_API_URL || !env.VITE_SOCKET_URL || !isHttpsUrl(env.VITE_API_URL) || !isHttpsUrl(env.VITE_SOCKET_URL) || !stagingHosts.length || !stagingHosts.includes(configuredHost(env.VITE_API_URL)) || !stagingHosts.includes(configuredHost(env.VITE_SOCKET_URL))) {
+      throw new Error("Staging frontend requires approved HTTPS VITE_API_URL, VITE_SOCKET_URL, and VITE_STAGING_API_HOSTS.");
+    }
+  }
   if (mode === "production" && (!env.VITE_API_URL || !env.VITE_SOCKET_URL || isLocalUrl(env.VITE_API_URL) || isLocalUrl(env.VITE_SOCKET_URL) || !isHttpsUrl(env.VITE_API_URL) || !isHttpsUrl(env.VITE_SOCKET_URL))) {
     throw new Error("Production frontend configuration requires VITE_API_URL and VITE_SOCKET_URL.");
   }
 
   return {
+    define: {
+      "globalThis.__RESTOSPHERE_PLATFORM_ENV__": JSON.stringify(platformEnvironment),
+    },
     plugins: [
       react(),
       // OPPO A7-era WebViews support ES modules but can miss newer runtime

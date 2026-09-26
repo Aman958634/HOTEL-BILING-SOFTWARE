@@ -207,7 +207,18 @@ export const validateStagingEnvironment = () => {
   if (String(process.env.CASHFREE_ENV || "").toLowerCase() !== "sandbox") {
     throw new Error("Staging requires CASHFREE_ENV=sandbox");
   }
-  for (const name of ["LIVE_DIGITAL_PAYMENTS", "CASHFREE_PAYMENTS_ENABLED", "CASHFREE_EASY_SPLIT_ENABLED", "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED"]) {
+  for (const name of [
+    "LIVE_DIGITAL_PAYMENTS",
+    "CASHFREE_PAYMENTS_ENABLED",
+    "CASHFREE_EASY_SPLIT_ENABLED",
+    "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED",
+    "CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED",
+    "BACKUP_ENABLED",
+    "ENABLE_BACKUP_RESTORE",
+    "BACKUP_RESTORE_MAINTENANCE_MODE",
+    "RUN_STARTUP_DATA_BOOTSTRAP",
+    "SUPER_ADMIN_SEED",
+  ]) {
     if (String(process.env[name] || "").toLowerCase() !== "false") throw new Error(`Staging requires ${name}=false`);
   }
   const razorpayKeyId = String(process.env.RAZORPAY_KEY_ID || "").trim();

@@ -53,8 +53,10 @@ Required frontend build values:
 
 - `VITE_API_URL=https://<staging-api>/api/v1`
 - `VITE_SOCKET_URL=https://<staging-api>`
+- `VITE_DEPLOYMENT_ENV=staging`
+- `VITE_STAGING_API_HOSTS=<staging-api-hostname>` - exact comma-separated hostnames, without a scheme or path
 
-Never put `MONGO_URI`, JWT secrets, Razorpay/Cashfree secrets, or webhook secrets in `VITE_*` values. The staging runtime now fails before opening MongoDB unless the URI is `mongodb+srv://`, keeps TLS enabled, matches its exact staging host/database allowlist, and does not match its production denylist. Staging CORS and Socket.IO use only configured HTTPS origins; localhost defaults are disabled.
+Never put `MONGO_URI`, JWT secrets, Razorpay/Cashfree secrets, or webhook secrets in `VITE_*` values. Vercel Preview builds fail closed unless they declare `VITE_DEPLOYMENT_ENV=staging` and both API endpoints use the explicit staging-host allowlist; they cannot silently use the production API or Socket.IO host. The staging runtime now fails before opening MongoDB unless the URI is `mongodb+srv://`, keeps TLS enabled, matches its exact staging host/database allowlist, and does not match its production denylist. Staging CORS and Socket.IO use only configured HTTPS origins; localhost defaults are disabled.
 
 ## Pre-deployment checks
 

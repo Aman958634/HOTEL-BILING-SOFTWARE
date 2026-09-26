@@ -24,6 +24,12 @@ const staging = () => {
   process.env.CASHFREE_PAYMENTS_ENABLED = "false";
   process.env.CASHFREE_EASY_SPLIT_ENABLED = "false";
   process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED = "false";
+  process.env.CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED = "false";
+  process.env.BACKUP_ENABLED = "false";
+  process.env.ENABLE_BACKUP_RESTORE = "false";
+  process.env.BACKUP_RESTORE_MAINTENANCE_MODE = "false";
+  process.env.RUN_STARTUP_DATA_BOOTSTRAP = "false";
+  process.env.SUPER_ADMIN_SEED = "false";
   delete process.env.RAZORPAY_KEY_ID;
 };
 
@@ -58,6 +64,22 @@ try {
   staging();
   process.env.RAZORPAY_KEY_ID = "rzp_live_not_allowed";
   assert.throws(() => validateStagingEnvironment(), /Razorpay test key/i);
+
+  for (const name of [
+    "CASHFREE_SETTLEMENT_RECONCILIATION_ENABLED",
+    "BACKUP_ENABLED",
+    "ENABLE_BACKUP_RESTORE",
+    "BACKUP_RESTORE_MAINTENANCE_MODE",
+    "RUN_STARTUP_DATA_BOOTSTRAP",
+    "SUPER_ADMIN_SEED",
+  ]) {
+    staging();
+    process.env[name] = "true";
+    assert.throws(() => validateStagingEnvironment(), new RegExp(`${name}=false`));
+    staging();
+    delete process.env[name];
+    assert.throws(() => validateStagingEnvironment(), new RegExp(`${name}=false`));
+  }
 
   console.log("stagingConfigSafety.test.js passed: exact staging MongoDB binding, CORS, sandbox payment flags, and Razorpay test-key guard.");
 } finally {
