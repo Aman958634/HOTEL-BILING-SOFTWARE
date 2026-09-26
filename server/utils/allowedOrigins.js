@@ -11,7 +11,7 @@ export const getAllowedOrigins = () => {
     ...parseOriginList(process.env.CLIENT_URL),
   ];
 
-  if (process.env.NODE_ENV === "production") {
+  if (["production", "staging"].includes(String(process.env.NODE_ENV || "").toLowerCase())) {
     return [...new Set(configured)];
   }
 

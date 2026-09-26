@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { createSettlementVendor, getRestaurantSettings, getSettlementProfile, getSettlementSplitSummary, refreshSettlementVendor, refreshSettlementSplit, updateRestaurantSettings } from "../../services/restaurantService";
+import { getHotelPaymentSettings, saveHotelPaymentSettings } from "../../services/hotelPaymentService";
 import ToggleSwitch from "../../components/common/ToggleSwitch";
 import { FiSettings } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
@@ -115,8 +116,11 @@ const SettlementForm = ({ onSubmit }) => {
 const Settings = () => {
   const { t } = useLanguage();
   const [settings, setSettings] = useState(defaultSettings);
+  const [hotelPaymentSettings, setHotelPaymentSettings] = useState({ hotelId: "", restaurant: "", outlet: "", payeeName: "", upiId: "", isEnabled: false, status: "DISABLED", notes: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingHotelPayment, setSavingHotelPayment] = useState(false);
+  const [hotelPaymentReady, setHotelPaymentReady] = useState(false);
   const [settlement, setSettlement] = useState(null);
   const [settlementLoading, setSettlementLoading] = useState(true);
   const [settlementSplits, setSettlementSplits] = useState(null);
@@ -134,8 +138,29 @@ const Settings = () => {
     }
   };
 
+  const loadHotelPaymentSettings = async () => {
+    try {
+      const { data } = await getHotelPaymentSettings();
+      setHotelPaymentSettings({
+        hotelId: data?.data?.settings?.hotelId || "",
+        restaurant: data?.data?.settings?.restaurant || "",
+        outlet: data?.data?.settings?.outlet || "",
+        payeeName: data?.data?.settings?.payeeName || "",
+        upiId: data?.data?.settings?.upiId || "",
+        isEnabled: Boolean(data?.data?.settings?.isEnabled),
+        status: data?.data?.settings?.status || "DISABLED",
+        notes: data?.data?.settings?.notes || "",
+      });
+      setHotelPaymentReady(true);
+    } catch (error) {
+      setHotelPaymentReady(false);
+      toast.error(error?.response?.data?.message || "Unable to load hotel payment settings");
+    }
+  };
+
   useEffect(() => {
     loadSettings();
+    loadHotelPaymentSettings();
     getSettlementProfile().then(({ data }) => setSettlement(data.data)).catch(() => setSettlement(null)).finally(() => setSettlementLoading(false));
     getSettlementSplitSummary().then(({ data }) => setSettlementSplits(data.data)).catch(() => setSettlementSplits(null));
   }, []);
@@ -166,6 +191,26 @@ const Settings = () => {
       toast.success("Public menu link copied");
     } catch {
       toast.error("Unable to copy the public menu link");
+    }
+  };
+
+  const handleHotelPaymentSubmit = async (event) => {
+    event.preventDefault();
+    setSavingHotelPayment(true);
+    try {
+      const { data } = await saveHotelPaymentSettings({
+        payeeName: hotelPaymentSettings.payeeName,
+        upiId: hotelPaymentSettings.upiId,
+        isEnabled: hotelPaymentSettings.isEnabled,
+        notes: hotelPaymentSettings.notes,
+      });
+      setHotelPaymentSettings((current) => ({ ...current, status: data?.data?.settings?.status || (current.isEnabled ? "ACTIVE" : "DISABLED") }));
+      toast.success("Hotel payment settings saved");
+      await loadHotelPaymentSettings();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to save hotel payment settings");
+    } finally {
+      setSavingHotelPayment(false);
     }
   };
 
@@ -358,6 +403,65 @@ const Settings = () => {
           </button>
         </div>
       </form>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Hotel-Owned UPI Payments</h3>
+            <p className="mt-1 text-sm text-slate-500">Each hotel can receive customer order payments directly into its own UPI account. The platform subscription flow remains separate.</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${hotelPaymentSettings.isEnabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>{hotelPaymentSettings.isEnabled ? (hotelPaymentSettings.status || "ACTIVE") : "DISABLED"}</span>
+        </div>
+        <form onSubmit={handleHotelPaymentSubmit} className="mt-4 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-2 text-sm text-slate-700">
+              <span>Payee name</span>
+              <input
+                type="text"
+                value={hotelPaymentSettings.payeeName}
+                onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, payeeName: event.target.value }))}
+                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                placeholder="Hotel Royal Palace"
+              />
+            </label>
+            <label className="space-y-2 text-sm text-slate-700">
+              <span>UPI ID</span>
+              <input
+                type="text"
+                value={hotelPaymentSettings.upiId}
+                onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, upiId: event.target.value }))}
+                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                placeholder="hotelname@upi"
+              />
+            </label>
+          </div>
+          <label className="space-y-2 text-sm text-slate-700">
+            <span>Notes</span>
+            <textarea
+              value={hotelPaymentSettings.notes}
+              onChange={(event) => setHotelPaymentSettings((current) => ({ ...current, notes: event.target.value }))}
+              rows={3}
+              className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+              placeholder="This account receives direct hotel order payments only."
+            />
+          </label>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            <div>
+              <p className="font-medium text-slate-800">Enable hotel-owned UPI collection</p>
+              <p className="text-xs text-slate-500">Manual verification remains required before an order is marked as paid.</p>
+            </div>
+            <ToggleSwitch
+              label="Enabled"
+              checked={Boolean(hotelPaymentSettings.isEnabled)}
+              onChange={(value) => setHotelPaymentSettings((current) => ({ ...current, isEnabled: value }))}
+            />
+          </div>
+          <button type="submit" disabled={savingHotelPayment} className="min-h-12 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60">
+            {savingHotelPayment ? "Saving..." : "Save hotel payment settings"}
+          </button>
+          {!hotelPaymentSettings.isEnabled && hotelPaymentReady && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">The payment QR is disabled until both a payee name and a valid UPI ID are saved and enabled.</p>}
+        </form>
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6" aria-busy={settlementLoading}>
         <div className="flex flex-wrap items-start justify-between gap-3">

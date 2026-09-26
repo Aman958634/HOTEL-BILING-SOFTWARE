@@ -3,6 +3,8 @@ node_modules
 .env.*
 **/.env
 **/.env.*
+!server/.env.staging.example
+!client/.env.staging.example
 server/.env
 server/backups/
 /backups/

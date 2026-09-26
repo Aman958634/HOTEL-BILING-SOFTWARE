@@ -147,11 +147,13 @@ export const deriveOrderPaymentState = async (order, session = null) => {
     return sum + Math.max(toPaise(payment.amount ?? payment.totalAmount) - toPaise(payment.refundAmount), 0);
   }, 0);
   const hasRefund = payments.some((payment) => ["PARTIALLY_REFUNDED", "REFUNDED"].includes(normalizePaymentStatus(payment.paymentStatus)));
-  const hasPending = payments.some((payment) => ["PENDING", "PROCESSING"].includes(normalizePaymentStatus(payment.paymentStatus)));
+  const hasPending = payments.some((payment) => ["PENDING", "PROCESSING", "AWAITING_VERIFICATION"].includes(normalizePaymentStatus(payment.paymentStatus)));
   const hasFailed = payments.some((payment) => normalizePaymentStatus(payment.paymentStatus) === "FAILED");
+  const hasUnverified = payments.some((payment) => normalizePaymentStatus(payment.paymentStatus) === "AWAITING_VERIFICATION");
 
   let paymentStatus = "PENDING";
   if (netCollected >= total && total > 0) paymentStatus = "PAID";
+  else if (hasUnverified) paymentStatus = "AWAITING_VERIFICATION";
   else if (netCollected === 0 && hasRefund) paymentStatus = "REFUNDED";
   else if (netCollected > 0 && hasRefund) paymentStatus = "PARTIALLY_REFUNDED";
   else if (netCollected === 0 && hasFailed && !hasPending) paymentStatus = "FAILED";
@@ -325,6 +327,8 @@ export const recordVerifiedPayment = async (
     razorpayOrderId = "",
     razorpayPaymentId = "",
     idempotencyKey = "",
+    existingPaymentId = null,
+    metadata = {},
     paidAt = new Date(),
     note = "Payment verified successfully",
     receivedBy = null,
@@ -338,7 +342,7 @@ export const recordVerifiedPayment = async (
   if (requestedAmount !== null && (!Number.isFinite(requestedAmount) || requestedAmount <= 0)) {
     throw new ApiError(422, "Payment amount must be greater than zero");
   }
-  const stableIdempotencyKey = String(idempotencyKey || razorpayPaymentId || transactionId || "").trim();
+  const stableIdempotencyKey = String(idempotencyKey || (existingPaymentId ? `existing-payment:${existingPaymentId}` : "") || razorpayPaymentId || transactionId || "").trim();
   if (!stableIdempotencyKey) {
     throw new ApiError(422, "Idempotency-Key is required for a payment without a gateway transaction id");
   }
@@ -354,6 +358,7 @@ export const recordVerifiedPayment = async (
       // already-paid guard is evaluated.
       const priorPayment = await Payment.findOne({ orderId: orderDoc._id, idempotencyKey: stableIdempotencyKey }).session(session);
       if (priorPayment) {
+        if (existingPaymentId) throw new ApiError(409, "This hotel payment was already verified by another operator.");
         const paidTotal = await getSuccessfulPaymentTotal(orderDoc._id, session);
         result = {
           order: orderDoc,
@@ -380,32 +385,58 @@ export const recordVerifiedPayment = async (
       if (paymentAmount <= 0) throw new ApiError(409, "Order balance is already settled");
 
       const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
-      const payment = new Payment({
-        paymentId: await nextPaymentSequence(session),
-        orderId: orderDoc._id,
-        customerId: orderDoc.customer?._id || orderDoc.customer || null,
-        tableId: orderDoc.table?._id || orderDoc.table || null,
-        restaurant: orderDoc.restaurant || null,
-        outlet: orderDoc.outlet || null,
-        amount: paymentAmount,
-        currency: "INR",
-        subtotal: Number(orderDoc.subtotal || 0),
-        tax: Number(orderDoc.tax || 0),
-        discount: Number(orderDoc.discount || 0),
-        serviceCharge: Number(orderDoc.serviceCharge || 0),
-        totalAmount: paymentAmount,
-        paymentMethod: method,
-        receivedBy,
-        gateway: normalizeGateway(gateway),
-        paymentStatus: "PAID",
-        transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
-        razorpayOrderId: razorpayOrderId || "",
-        razorpayPaymentId: razorpayPaymentId || "",
-        idempotencyKey: stableIdempotencyKey,
-        paidAt: paidAt ? new Date(paidAt) : new Date(),
-        metadata: { verified: true },
-        timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
-      });
+      const payment = existingPaymentId
+        ? await Payment.findOne({
+          _id: existingPaymentId,
+          orderId: orderDoc._id,
+          restaurant: orderDoc.restaurant || null,
+          outlet: orderDoc.outlet || null,
+          provider: "HOTEL_UPI",
+          paymentStatus: { $in: ["AWAITING_VERIFICATION", "PENDING", "PROCESSING"] },
+        }).session(session)
+        : new Payment({
+          paymentId: await nextPaymentSequence(session),
+          orderId: orderDoc._id,
+          customerId: orderDoc.customer?._id || orderDoc.customer || null,
+          tableId: orderDoc.table?._id || orderDoc.table || null,
+          restaurant: orderDoc.restaurant || null,
+          outlet: orderDoc.outlet || null,
+          amount: paymentAmount,
+          currency: "INR",
+          subtotal: Number(orderDoc.subtotal || 0),
+          tax: Number(orderDoc.tax || 0),
+          discount: Number(orderDoc.discount || 0),
+          serviceCharge: Number(orderDoc.serviceCharge || 0),
+          totalAmount: paymentAmount,
+          paymentMethod: method,
+          receivedBy,
+          gateway: normalizeGateway(gateway),
+          paymentStatus: "PAID",
+          transactionId: transactionId || `PAY-${stableIdempotencyKey}`,
+          razorpayOrderId: razorpayOrderId || "",
+          razorpayPaymentId: razorpayPaymentId || "",
+          idempotencyKey: stableIdempotencyKey,
+          paidAt: paidAt ? new Date(paidAt) : new Date(),
+          metadata: { verified: true, ...metadata },
+          timeline: buildPaymentTimeline(orderDoc, null, "PAID", note),
+        });
+
+      if (!payment) throw new ApiError(409, "This hotel payment was already verified by another operator or is no longer payable.");
+      if (existingPaymentId) {
+        payment.amount = paymentAmount;
+        payment.totalAmount = paymentAmount;
+        payment.paymentMethod = method;
+        payment.gateway = normalizeGateway(gateway);
+        payment.paymentStatus = "PAID";
+        payment.transactionId = transactionId || payment.transactionId || `PAY-${stableIdempotencyKey}`;
+        payment.idempotencyKey = stableIdempotencyKey;
+        payment.providerStatus = "VERIFIED";
+        payment.verifiedAt = new Date();
+        payment.paidAt = paidAt ? new Date(paidAt) : new Date();
+        payment.receivedBy = receivedBy || payment.receivedBy;
+        payment.metadata = { ...(payment.metadata || {}), verified: true, ...metadata };
+        payment.timeline = buildPaymentTimeline(orderDoc, payment, "PAID", note);
+      }
       await payment.save({ session });
 
       const settlement = await applyOrderPaymentMirror(orderDoc, payment, session);

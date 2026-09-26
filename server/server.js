@@ -2,13 +2,14 @@ import http from "http";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import logger from "./utils/logger.js";
-import { validateProductionEnvironment } from "./config/envValidation.js";
+import { validateProductionEnvironment, validateStagingEnvironment } from "./config/envValidation.js";
 import { assertCashfreeConfiguration } from "./config/cashfree.js";
 import { markShuttingDown, markStartupComplete } from "./utils/shutdownState.js";
 import { safeErrorContext } from "./utils/safeLog.js";
 
 dotenv.config();
 validateProductionEnvironment();
+validateStagingEnvironment();
 const cashfreeConfig = assertCashfreeConfiguration();
 logger.info("Cashfree configuration detected", {
   cashfreeConfigured: cashfreeConfig.configured,

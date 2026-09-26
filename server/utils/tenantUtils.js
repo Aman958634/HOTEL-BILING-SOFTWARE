@@ -30,7 +30,7 @@ export const hasAllOutletsAccess = (user) =>
   user?.allOutletsAccess === true ||
   ["admin", "restaurant_admin", "hotel_admin", "super_admin"].includes(normalizeRole(user?.role));
 
-const hasExplicitOutletAccess = (user, outletId) =>
+export const hasExplicitOutletAccess = (user, outletId) =>
   (user?.outletAccess || []).some(
     (entry) => entry.isActive !== false && String(entry.outlet || entry) === String(outletId)
   );

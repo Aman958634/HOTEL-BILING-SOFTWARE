@@ -16,6 +16,7 @@ export const PAYMENT_METHOD_LABELS = {
 export const PAYMENT_STATUS_LABELS = {
   PENDING: "Pending",
   PROCESSING: "Processing",
+  AWAITING_VERIFICATION: "Awaiting Verification",
   PAID: "Paid",
   FAILED: "Failed",
   REFUNDED: "Refunded",
@@ -54,6 +55,8 @@ const paymentMethodAliases = {
 const paymentStatusAliases = {
   pending: "PENDING",
   processing: "PROCESSING",
+  awaiting_verification: "AWAITING_VERIFICATION",
+  awaitingverification: "AWAITING_VERIFICATION",
   paid: "PAID",
   success: "PAID",
   failed: "FAILED",
@@ -123,6 +126,7 @@ export const paymentStatusLabel = (value) => PAYMENT_STATUS_LABELS[normalizePaym
 export const paymentStatusTone = (value) => {
   const status = normalizePaymentStatus(value);
   if (status === "PAID") return "success";
+  if (status === "AWAITING_VERIFICATION") return "warning";
   if (status === "PROCESSING") return "processing";
   if (status === "PENDING") return "pending";
   if (status === "FAILED") return "failed";

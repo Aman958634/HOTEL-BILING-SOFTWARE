@@ -12,6 +12,7 @@
     "start": "node server.js",
     "seed:super-admin": "node scripts/seedSuperAdmin.js",
     "migrate:payment-indexes": "node scripts/migratePaymentIndexes.js",
+    "migrate:hotel-upi-indexes": "node scripts/migrateHotelUpiIndexes.js",
     "sync:payment-statuses": "node scripts/syncOrderPaymentStatuses.js",
     "audit:payment-consistency": "node scripts/auditPaymentConsistency.js",
     "repair:payment-consistency": "node scripts/repairPaymentConsistency.js",
@@ -58,6 +59,10 @@
     "test:phase5": "node scripts/verifyPhase5.js",
     "test:phase6": "node scripts/verifyPhase6.js",
     "test:phase7": "node scripts/verifyPhase7.js",
+    "test:hotel-upi": "node tests/__tmp_hotel_payment_phase1_local.mjs",
+    "test:staging-config": "node tests/stagingConfigSafety.test.js",
+    "validate:backup-restore": "node scripts/validateBackupRestore.mjs --run",
+    "test:backup-restore-safety": "node tests/backupRestoreStagingSafety.test.js",
     "test:whatsapp-receipt": "node tests/whatsappReceipt.test.js",
     "load:pos": "node load-tests/pos-load-test.mjs",
     "load:smoke": "node load-tests/pos-load-test.mjs --max=1",
@@ -66,7 +71,7 @@
     "load:pos:20": "node load-tests/pos-load-test.mjs --max=20",
     "load:pos:50": "node load-tests/pos-load-test.mjs --max=50",
     "load:pos:100": "node load-tests/pos-load-test.mjs --max=100",
-    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check routes/paymentRoutes.js && node --check routes/subscriptionRoutes.js && node --check routes/settlementRoutes.js && node --check routes/superAdminRoutes.js && node --check controllers/paymentController.js && node --check controllers/orderController.js && node --check controllers/cashfreeController.js && node --check controllers/razorpaySubscriptionWebhookController.js && node --check controllers/settlementController.js && node --check controllers/superAdminSettlementController.js && node --check controllers/restaurantController.js && node --check controllers/superAdminRestaurantsController.js && node --check controllers/publicSubscriptionController.js && node --check controllers/superAdminSubscriptionsController.js && node --check models/RestaurantCommissionConfig.js && node --check models/SettlementTransaction.js && node --check models/SettlementWebhookEvent.js && node --check models/RazorpaySubscriptionWebhookEvent.js && node --check models/SaasPayment.js && node --check services/paymentService.js && node --check services/razorpaySubscriptionService.js && node --check services/cashfreeService.js && node --check services/cashfreeEasySplitService.js && node --check services/easySplitSettlementService.js && node --check services/whatsappService.js && node --check config/cashfree.js && node --check utils/publicMenuContext.js && node --check utils/restaurantSlug.js && node --check scripts/backfillRestaurantPublicSlugs.js && node --check scripts/migrateEasySplitPhase2Indexes.js"
+    "lint": "node --check app.js && node --check server.js && node --check routes/publicRoutes.js && node --check routes/paymentRoutes.js && node --check routes/hotelPaymentRoutes.js && node --check routes/subscriptionRoutes.js && node --check routes/settlementRoutes.js && node --check routes/superAdminRoutes.js && node --check controllers/paymentController.js && node --check controllers/hotelPaymentController.js && node --check controllers/orderController.js && node --check controllers/cashfreeController.js && node --check controllers/razorpaySubscriptionWebhookController.js && node --check controllers/settlementController.js && node --check controllers/superAdminSettlementController.js && node --check controllers/restaurantController.js && node --check controllers/superAdminRestaurantsController.js && node --check controllers/publicSubscriptionController.js && node --check controllers/superAdminSubscriptionsController.js && node --check models/RestaurantCommissionConfig.js && node --check models/SettlementTransaction.js && node --check models/SettlementWebhookEvent.js && node --check models/RazorpaySubscriptionWebhookEvent.js && node --check models/SaasPayment.js && node --check models/HotelPaymentSettings.js && node --check services/paymentService.js && node --check services/razorpaySubscriptionService.js && node --check services/cashfreeService.js && node --check services/cashfreeEasySplitService.js && node --check services/easySplitSettlementService.js && node --check services/whatsappService.js && node --check config/cashfree.js && node --check utils/publicMenuContext.js && node --check utils/restaurantSlug.js && node --check scripts/backfillRestaurantPublicSlugs.js && node --check scripts/migrateEasySplitPhase2Indexes.js && node --check scripts/migrateHotelUpiIndexes.js && node --check scripts/validateBackupRestore.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

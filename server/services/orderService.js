@@ -54,6 +54,7 @@ export const PAYMENT_METHODS = {
 
 export const PAYMENT_STATUSES = {
   PENDING: "PENDING",
+  AWAITING_VERIFICATION: "AWAITING_VERIFICATION",
   PAID: "PAID",
   FAILED: "FAILED",
   REFUNDED: "REFUNDED",
@@ -77,6 +78,8 @@ const statusAliases = {
 
 const paymentStatusAliases = {
   pending: PAYMENT_STATUSES.PENDING,
+  awaiting_verification: PAYMENT_STATUSES.AWAITING_VERIFICATION,
+  awaitingverification: PAYMENT_STATUSES.AWAITING_VERIFICATION,
   paid: PAYMENT_STATUSES.PAID,
   success: PAYMENT_STATUSES.PAID,
   failed: PAYMENT_STATUSES.FAILED,

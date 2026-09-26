@@ -87,7 +87,7 @@ export const createConsolidatedBill = async ({ orderIds, restaurantId, user, ide
   return result;
 };
 
-export const recordBillPayment = async ({ billId, restaurantId, amount, paymentMethod, transactionId = "", idempotencyKey, receivedBy }) => {
+export const recordBillPayment = async ({ billId, restaurantId, amount, paymentMethod, transactionId = "", idempotencyKey, receivedBy, existingPaymentId = null, metadata = {} }) => {
   const requested = toPaise(amount);
   if (!idempotencyKey) throw new ApiError(422, "Idempotency-Key is required for bill settlement");
   if (requested <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
@@ -95,14 +95,27 @@ export const recordBillPayment = async ({ billId, restaurantId, amount, paymentM
   try {
     await session.withTransaction(async () => {
       const prior = await Payment.findOne({ bill: billId, idempotencyKey }).session(session);
-      if (prior) { result = { payment: prior, bill: await Bill.findById(billId).session(session), idempotent: true }; return; }
+      if (prior) {
+        if (existingPaymentId) throw new ApiError(409, "This hotel payment was already verified by another operator.");
+        result = { payment: prior, bill: await Bill.findById(billId).session(session), idempotent: true };
+        return;
+      }
       const bill = await Bill.findOne({ _id: billId, restaurant: restaurantId }).session(session);
       if (!bill) throw new ApiError(404, "Bill not found");
       if (!OPEN_STATUSES.includes(bill.status)) throw new ApiError(409, "This bill is not open for settlement");
       const due = toPaise(bill.balanceDue);
       if (requested > due) throw new ApiError(422, "Payment amount exceeds the remaining balance");
       const now = new Date();
-      const payment = new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, outlet: bill.outlet || null, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
+      const payment = existingPaymentId
+        ? await Payment.findOne({ _id: existingPaymentId, bill: bill._id, restaurant: bill.restaurant, outlet: bill.outlet || null, provider: "HOTEL_UPI", paymentStatus: { $in: ["AWAITING_VERIFICATION", "PENDING", "PROCESSING"] } }).session(session)
+        : new Payment({ paymentId: await nextPaymentNumber(session), bill: bill._id, orderId: null, customerId: bill.customer || null, tableId: bill.table || null, restaurant: bill.restaurant, outlet: bill.outlet || null, amount: fromPaise(requested), totalAmount: fromPaise(requested), currency: "INR", subtotal: 0, tax: 0, discount: 0, serviceCharge: 0, paymentMethod: normalizePaymentMethod(paymentMethod), paymentStatus: "PAID", transactionId: transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`, idempotencyKey, paidAt: now, receivedBy, metadata: { billNumber: bill.billNumber, consolidatedBill: true, ...metadata }, timeline: [{ status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }] });
+      if (!payment) throw new ApiError(409, "This bill payment was already verified by another operator or is no longer payable.");
+      if (existingPaymentId) {
+        payment.amount = fromPaise(requested); payment.totalAmount = fromPaise(requested); payment.paymentMethod = normalizePaymentMethod(paymentMethod); payment.paymentStatus = "PAID";
+        payment.transactionId = transactionId || payment.transactionId || `BILL-${bill.billNumber}-${idempotencyKey}`; payment.idempotencyKey = idempotencyKey; payment.providerStatus = "VERIFIED";
+        payment.verifiedAt = now; payment.paidAt = now; payment.receivedBy = receivedBy || payment.receivedBy; payment.metadata = { ...(payment.metadata || {}), ...metadata };
+        payment.timeline = [...(payment.timeline || []), { status: "PAYMENT_SUCCESSFUL", timestamp: now, note: `Settlement for ${bill.billNumber}` }];
+      }
       await payment.save({ session });
       const paidAmount = fromPaise(toPaise(bill.paidAmount) + requested); const balanceDue = fromPaise(Math.max(toPaise(bill.total) - toPaise(paidAmount), 0));
       bill.paidAmount = paidAmount; bill.balanceDue = balanceDue; bill.status = balanceDue === 0 ? "PAID" : "PARTIALLY_PAID";

@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
 import Invoice from "../models/Invoice.js";
+import Bill from "../models/Bill.js";
 import Food from "../models/Food.js";
 import Reservation from "../models/Reservation.js";
 import Table from "../models/Table.js";
@@ -35,7 +36,18 @@ const sumInvoiceSales = async (match) => {
     { $match: { ...match, status: { $ne: "VOID" } } },
     { $group: { _id: null, total: { $sum: "$netTotal" } } },
   ]);
-  return Number(result?.total || 0);
+  const billMatch = { status: "PAID" };
+  if (match.restaurant) billMatch.restaurant = match.restaurant;
+  if (match.outlet) billMatch.outlet = match.outlet;
+  if (match.order) billMatch["allocations.order"] = match.order;
+  if (match.issuedAt) billMatch.settledAt = match.issuedAt;
+  const [billResult] = await Bill.aggregate([
+    { $match: billMatch },
+    { $lookup: { from: "invoices", localField: "allocations.order", foreignField: "order", as: "allocationInvoices" } },
+    { $match: { $expr: { $eq: [{ $size: "$allocationInvoices" }, 0] } } },
+    { $group: { _id: null, total: { $sum: "$total" } } },
+  ]);
+  return Number(result?.total || 0) + Number(billResult?.total || 0);
 };
 
 // Legacy Invoice records predate outletId. Scope them through their immutable

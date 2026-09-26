@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiAlertTriangle, FiCreditCard, FiFilter, FiRefreshCw } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
@@ -10,6 +11,8 @@ import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
 import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment, sendOrderReceiptWhatsApp } from "../../services/paymentService";
 import { formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { rejectHotelPayment, verifyHotelPayment } from "../../services/hotelPaymentService";
+import HotelUpiVerificationModal from "../../components/payments/HotelUpiVerificationModal";
 
 const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
 const PaymentDetailsDrawer = lazy(() => import("../../components/payments/PaymentDetailsDrawer"));
@@ -31,6 +34,7 @@ const defaultFilters = {
 };
 
 const Payments = () => {
+  const user = useSelector((state) => state.auth.user);
   const [filters, setFilters] = useState(defaultFilters);
   const [stats, setStats] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -50,6 +54,9 @@ const Payments = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [reconciliationRefreshVersion, setReconciliationRefreshVersion] = useState(0);
+  const [hotelPayments, setHotelPayments] = useState([]);
+  const [hotelPaymentTarget, setHotelPaymentTarget] = useState(null);
+  const [hotelPaymentLoading, setHotelPaymentLoading] = useState(false);
 
   const socket = useSocket();
   const filtersRef = useRef(filters);
@@ -106,6 +113,15 @@ const Payments = () => {
     }
   }, []);
 
+  const loadHotelPayments = useCallback(async () => {
+    try {
+      const { data } = await getPayments({ provider: "HOTEL_UPI", status: "AWAITING_VERIFICATION", page: 1, limit: 50, sortBy: "createdAt", sortOrder: "asc" });
+      setHotelPayments(data.data || []);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to load hotel UPI verification queue");
+    }
+  }, []);
+
   // The payment ledger endpoint remains authoritative. Re-fetch instead of
   // adding a local row because the active filters or page may exclude it.
   const refreshPaymentData = useCallback(() => {
@@ -114,12 +130,13 @@ const Payments = () => {
     const request = Promise.all([
       loadPayments(filtersRef.current),
       loadStats(filtersRef.current.range),
+      loadHotelPayments(),
     ]).finally(() => {
       if (paymentRefreshPromise.current === request) paymentRefreshPromise.current = null;
     });
     paymentRefreshPromise.current = request;
     return request;
-  }, [loadPayments, loadStats]);
+  }, [loadHotelPayments, loadPayments, loadStats]);
 
   const refreshPaymentWorkspace = useCallback(async () => {
     if (socketRefreshTimer.current) {
@@ -141,6 +158,7 @@ const Payments = () => {
       isFirstLoad.current = false;
       loadPayments(filtersRef.current);
       loadStats(filtersRef.current.range);
+      loadHotelPayments();
       return;
     }
 
@@ -150,7 +168,7 @@ const Payments = () => {
     }, 250);
 
     return () => clearTimeout(timeoutId);
-  }, [filters, loadPayments, loadStats]);
+  }, [filters, loadHotelPayments, loadPayments, loadStats]);
 
   useEffect(() => {
     if (!socket) return;
@@ -274,6 +292,42 @@ const Payments = () => {
       setWhatsAppSendingPaymentId((current) => current === deliveryId ? "" : current);
     }
   };
+
+  const canVerifyHotelPayments = String(user?.role || "").toLowerCase() === "admin"
+    || String(user?.accessLevel || "").toUpperCase() === "FULL_ACCESS"
+    || ["hotel_admin", "restaurant_admin", "manager", "cashier"].includes(String(user?.role || "").toLowerCase())
+    || user?.customPermissions?.includes("payments.collect")
+    || user?.permissions?.includes("payments.collect");
+
+  const verifyHotelPaymentFromQueue = async (transactionId) => {
+    if (!hotelPaymentTarget || !transactionId?.trim()) return;
+    setHotelPaymentLoading(true);
+    try {
+      await verifyHotelPayment({ paymentId: hotelPaymentTarget.paymentId || hotelPaymentTarget._id, amount: getPaymentAmount(hotelPaymentTarget), transactionId: transactionId.trim() });
+      toast.success("Hotel UPI payment verified and order marked paid");
+      setHotelPaymentTarget(null);
+      await refreshPaymentWorkspace();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to verify hotel UPI payment");
+    } finally {
+      setHotelPaymentLoading(false);
+    }
+  };
+
+  const rejectHotelPaymentFromQueue = async (note) => {
+    if (!hotelPaymentTarget || !note?.trim()) return;
+    setHotelPaymentLoading(true);
+    try {
+      await rejectHotelPayment({ paymentId: hotelPaymentTarget.paymentId || hotelPaymentTarget._id, note: note.trim() });
+      toast.success("Hotel UPI payment rejected and returned to pending review");
+      setHotelPaymentTarget(null);
+      await refreshPaymentWorkspace();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Unable to reject hotel UPI payment");
+    } finally {
+      setHotelPaymentLoading(false);
+    }
+  };
   const submitReconciliation = async (payment) => {
     try {
       await reconcilePayment(payment._id || payment.paymentId);
@@ -375,6 +429,11 @@ const Payments = () => {
 
       <PaymentStats stats={stats} loading={loadingStats} />
 
+      {canVerifyHotelPayments && hotelPayments.length ? <section className="ops-card border-amber-200 p-3 sm:p-4" aria-labelledby="hotel-upi-queue-title">
+        <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 id="hotel-upi-queue-title" className="text-base font-bold text-slate-900">Hotel UPI awaiting verification</h3><p className="mt-0.5 text-xs text-slate-600">Match each payment against the hotel’s actual bank/UPI transaction before confirming it.</p></div><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">{hotelPayments.length} awaiting</span></div>
+        <div className="mt-3 grid gap-2 lg:grid-cols-2">{hotelPayments.map((payment) => <button type="button" key={payment._id || payment.paymentId} onClick={() => setHotelPaymentTarget(payment)} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3 text-left transition hover:bg-amber-100"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{payment.paymentIdDisplay || payment.paymentId}</p><p className="mt-0.5 truncate text-xs text-slate-700">Order #{payment.order?.orderNumber || payment.orderIdValue || "—"}</p><p className="mt-1 text-xs text-slate-600">Awaiting verification · {payment.transactionId || "No bank reference yet"}</p></div><strong className="shrink-0 text-base text-slate-900">{formatCurrency(getPaymentAmount(payment))}</strong></button>)}</div>
+      </section> : null}
+
       {!loadingPayments && attentionPayments.length ? <section className="ops-card p-3 sm:p-4" aria-labelledby="payment-attention-title">
         <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 id="payment-attention-title" className="flex items-center gap-2 text-base font-bold text-slate-900"><FiAlertTriangle className="text-amber-500" aria-hidden="true" />Needs attention</h3><p className="mt-0.5 text-xs text-slate-500">Current ledger entries with an unresolved payment or reconciliation status.</p></div><span className="text-xs font-semibold text-slate-500">{attentionPayments.length} shown</span></div>
         <div className="mt-3 grid gap-2 lg:grid-cols-2">{attentionPayments.map((payment) => <button type="button" key={payment._id || payment.paymentId} onClick={() => openDetails(payment)} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:bg-slate-100"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{payment.paymentIdDisplay || payment.paymentId}</p><p className="mt-0.5 truncate text-xs text-slate-600">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "No bill reference")} · {paymentMethodLabel(payment.paymentMethod)}</p><p className="mt-1 text-xs font-medium text-slate-600">{paymentStatusLabel(payment.paymentStatus)} · {(payment.reconciliationStatus || "UNRECONCILED").replaceAll("_", " ")}</p></div><strong className="shrink-0 text-base text-slate-900">{formatCurrency(getPaymentAmount(payment))}</strong></button>)}</div>
@@ -465,6 +524,15 @@ const Payments = () => {
           onConfirm={confirmDeletePayment}
         />
       </Suspense>
+
+      <HotelUpiVerificationModal
+        open={Boolean(hotelPaymentTarget)}
+        payment={hotelPaymentTarget}
+        loading={hotelPaymentLoading}
+        onClose={() => { if (!hotelPaymentLoading) setHotelPaymentTarget(null); }}
+        onVerify={verifyHotelPaymentFromQueue}
+        onReject={rejectHotelPaymentFromQueue}
+      />
 
       <PaymentFilters
         variant="mobile"

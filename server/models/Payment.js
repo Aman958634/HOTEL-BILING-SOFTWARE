@@ -12,7 +12,7 @@ const PAYMENT_METHODS = [
   "OTHER",
 ];
 
-const PAYMENT_STATUSES = ["PENDING", "PROCESSING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
+const PAYMENT_STATUSES = ["PENDING", "PROCESSING", "AWAITING_VERIFICATION", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"];
 
 const REFUND_STATUSES = ["PARTIALLY_REFUNDED", "REFUNDED"];
 const RECONCILIATION_STATUSES = ["UNRECONCILED", "MATCHED", "MISMATCHED", "UNDERPAID", "OVERPAID", "REFUND_PENDING", "RECONCILED"];
@@ -106,6 +106,22 @@ paymentSchema.index({ restaurant: 1, reconciliationStatus: 1, createdAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentStatus: 1, paidAt: -1 });
 paymentSchema.index({ restaurant: 1, paymentId: 1 });
 paymentSchema.index({ restaurant: 1, outlet: 1, paymentStatus: 1, createdAt: -1 });
+paymentSchema.index(
+  { orderId: 1, provider: 1, paymentStatus: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { orderId: { $type: "objectId" }, provider: "HOTEL_UPI", paymentStatus: "AWAITING_VERIFICATION" },
+    name: "hotel_upi_active_order_attempt_unique",
+  }
+);
+paymentSchema.index(
+  { bill: 1, provider: 1, paymentStatus: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { bill: { $type: "objectId" }, provider: "HOTEL_UPI", paymentStatus: "AWAITING_VERIFICATION" },
+    name: "hotel_upi_active_bill_attempt_unique",
+  }
+);
 paymentSchema.index(
   { bill: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { bill: { $type: "objectId" }, idempotencyKey: { $type: "string", $gt: "" } }, name: "payment_bill_idempotency_key_unique" }

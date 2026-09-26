@@ -3,6 +3,53 @@ const present = (name) => {
   return Boolean(value) && !/^replace_with|^your_/i.test(value);
 };
 
+const list = (value) => String(value || "")
+  .split(",")
+  .map((entry) => entry.trim().toLowerCase())
+  .filter(Boolean);
+
+const stagingMongoTarget = (uri) => {
+  try {
+    const parsed = new URL(String(uri || "").replace(/^mongodb(\+srv)?:\/\//i, "http://"));
+    return {
+      host: String(parsed.hostname || "").toLowerCase(),
+      database: decodeURIComponent(parsed.pathname || "").replace(/^\/+/, "").split("/")[0],
+    };
+  } catch {
+    throw new Error("Staging MONGO_URI must be a valid MongoDB connection URI");
+  }
+};
+
+export const isApprovedStagingMongoTarget = (uri, env = process.env) => {
+  try {
+    const rawUri = String(uri || "").trim();
+    if (!/^mongodb\+srv:\/\//i.test(rawUri) || /(?:[?&](?:tls|ssl)=false(?:&|$))/i.test(rawUri)) return false;
+    const target = stagingMongoTarget(uri);
+    const allowedHosts = list(env.STAGING_MONGODB_HOSTS);
+    const productionHosts = list(env.STAGING_PRODUCTION_MONGODB_HOSTS);
+    const expectedDatabase = String(env.STAGING_MONGODB_DATABASE || "").trim();
+    return Boolean(
+      expectedDatabase
+      && allowedHosts.length
+      && productionHosts.length
+      && allowedHosts.includes(target.host)
+      && !productionHosts.includes(target.host)
+      && target.database === expectedDatabase
+      && !/production|prod|live/i.test(target.database)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const assertStagingHttpsOrigins = (value, label) => {
+  const origins = list(value);
+  if (!origins.length || origins.some((origin) => !/^https:\/\/[^/]+$/i.test(origin) || /localhost|127\.0\.0\.1/.test(origin))) {
+    throw new Error(`Staging ${label} must contain only explicit HTTPS origins without localhost`);
+  }
+  return origins;
+};
+
 const isLocalMongoUri = (uri) => {
   try {
     const parsed = new URL(String(uri).replace(/^mongodb(\+srv)?:\/\//i, "http://"));
@@ -110,5 +157,61 @@ export const validateProductionEnvironment = () => {
 
   if (String(process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED || "").trim().toLowerCase() !== "true" && String(process.env.CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED || "").trim().toLowerCase() !== "false") {
     throw new Error("CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED must be explicitly true or false");
+  }
+};
+
+/**
+ * Staging is deliberately fail-closed: its MongoDB hostname and database must
+ * match the platform-provided staging allowlist and may never match a listed
+ * production hostname. This runs before the application opens a connection.
+ */
+export const validateStagingEnvironment = () => {
+  if (String(process.env.NODE_ENV || "").toLowerCase() !== "staging") return;
+
+  const mongoUri = String(process.env.MONGO_URI || process.env.MONGODB_URI || "").trim();
+  const secondaryUri = String(process.env.MONGO_URI && process.env.MONGODB_URI ? process.env.MONGODB_URI : "").trim();
+  const allowedHosts = list(process.env.STAGING_MONGODB_HOSTS);
+  const productionHosts = list(process.env.STAGING_PRODUCTION_MONGODB_HOSTS);
+  const expectedDatabase = String(process.env.STAGING_MONGODB_DATABASE || "").trim();
+  const missing = [
+    !mongoUri && "MONGO_URI or MONGODB_URI",
+    !allowedHosts.length && "STAGING_MONGODB_HOSTS",
+    !productionHosts.length && "STAGING_PRODUCTION_MONGODB_HOSTS",
+    !expectedDatabase && "STAGING_MONGODB_DATABASE",
+    !present("JWT_ACCESS_SECRET") && "JWT_ACCESS_SECRET",
+    !present("JWT_REFRESH_SECRET") && "JWT_REFRESH_SECRET",
+  ].filter(Boolean);
+  if (missing.length) throw new Error(`Staging configuration is missing: ${missing.join(", ")}`);
+  if (secondaryUri && secondaryUri !== mongoUri) throw new Error("Staging must configure only one MongoDB URI value");
+  if (allowedHosts.some((host) => productionHosts.includes(host))) throw new Error("Staging MongoDB allowlist overlaps the production hostname denylist");
+
+  const target = stagingMongoTarget(mongoUri);
+  if (!/^mongodb\+srv:\/\//i.test(mongoUri) || /(?:[?&](?:tls|ssl)=false(?:&|$))/i.test(mongoUri)) {
+    throw new Error("Staging MongoDB requires an Atlas mongodb+srv TLS URI without tls=false or ssl=false");
+  }
+  if (!allowedHosts.includes(target.host)) throw new Error("Staging MongoDB hostname is not on STAGING_MONGODB_HOSTS");
+  if (productionHosts.includes(target.host)) throw new Error("Staging MongoDB hostname is listed as production");
+  if (target.database !== expectedDatabase) throw new Error("Staging MongoDB database does not match STAGING_MONGODB_DATABASE");
+  if (/production|prod|live/i.test(target.database)) throw new Error("Staging MongoDB database name is unsafe");
+  if (!isApprovedStagingMongoTarget(mongoUri)) throw new Error("Staging MongoDB target failed allowlist validation");
+
+  const clientOrigins = assertStagingHttpsOrigins(process.env.CLIENT_URL, "CLIENT_URL");
+  const allowedOrigins = assertStagingHttpsOrigins(process.env.ALLOWED_ORIGINS, "ALLOWED_ORIGINS");
+  if (clientOrigins.some((origin) => !allowedOrigins.includes(origin))) {
+    throw new Error("Staging CLIENT_URL must be included in ALLOWED_ORIGINS for API and Socket.IO CORS");
+  }
+
+  if (String(process.env.BILLING_TEST_MODE || "").toLowerCase() !== "true") {
+    throw new Error("Staging requires BILLING_TEST_MODE=true");
+  }
+  if (String(process.env.CASHFREE_ENV || "").toLowerCase() !== "sandbox") {
+    throw new Error("Staging requires CASHFREE_ENV=sandbox");
+  }
+  for (const name of ["LIVE_DIGITAL_PAYMENTS", "CASHFREE_PAYMENTS_ENABLED", "CASHFREE_EASY_SPLIT_ENABLED", "CASHFREE_EASY_SPLIT_PAYMENTS_ENABLED"]) {
+    if (String(process.env[name] || "").toLowerCase() !== "false") throw new Error(`Staging requires ${name}=false`);
+  }
+  const razorpayKeyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
+  if (razorpayKeyId && !/^rzp_test_/i.test(razorpayKeyId)) {
+    throw new Error("Staging Razorpay key ID must be a Razorpay test key");
   }
 };

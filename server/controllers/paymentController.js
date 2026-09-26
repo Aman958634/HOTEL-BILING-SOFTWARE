@@ -153,6 +153,7 @@ const buildListPipeline = async (query, user) => {
   if (status) baseMatch.paymentStatus = normalizePaymentStatus(status);
   if (query.method) baseMatch.paymentMethod = normalizePaymentMethod(query.method);
   if (query.paymentMethod) baseMatch.paymentMethod = normalizePaymentMethod(query.paymentMethod);
+  if (query.provider) baseMatch.provider = String(query.provider).trim().toUpperCase();
 
   const allowedSortFields = new Set(["createdAt", "paidAt", "amount", "totalAmount", "paymentStatus", "paymentMethod"]);
   const requestedSort = String(query.sortBy || "createdAt");
