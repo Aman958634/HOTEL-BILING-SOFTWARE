@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import HotelPaymentSettings from "../models/HotelPaymentSettings.js";
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+import Hotel from "../models/Hotel.js";
 import Restaurant from "../models/Restaurant.js";
 import Outlet from "../models/Outlet.js";
 import Bill from "../models/Bill.js";
@@ -40,20 +41,38 @@ const resolveAuthorizedHotelScope = async (req, { restaurantId = null, outletId 
 
   let hotelId = userHotelId;
   let authenticatedRestaurant = null;
+  let legacyRestaurantOnly = false;
   if (userRestaurantId) {
     authenticatedRestaurant = await Restaurant.findById(userRestaurantId).select("_id hotelId").lean();
-    if (!authenticatedRestaurant?.hotelId) {
-      throw new ApiError(403, "The authenticated restaurant is not associated with a hotel.");
+    if (!authenticatedRestaurant) {
+      throw new ApiError(403, "The authenticated restaurant no longer exists.");
     }
-    validateOptionalObjectId(authenticatedRestaurant.hotelId, "authenticated restaurant hotel context");
-    if (hotelId && String(authenticatedRestaurant.hotelId) !== String(hotelId)) {
-      throw new ApiError(403, "Restaurant does not belong to your hotel.");
+    if (!authenticatedRestaurant.hotelId) {
+      if (hotelId) throw new ApiError(403, "The authenticated restaurant does not belong to your hotel.");
+      legacyRestaurantOnly = true;
+    } else {
+      validateOptionalObjectId(authenticatedRestaurant.hotelId, "authenticated restaurant hotel context");
+      if (hotelId && String(authenticatedRestaurant.hotelId) !== String(hotelId)) {
+        throw new ApiError(403, "Restaurant does not belong to your hotel.");
+      }
+      const authenticatedHotel = await Hotel.findById(authenticatedRestaurant.hotelId).select("_id").lean();
+      if (!authenticatedHotel) {
+        throw new ApiError(403, "The authenticated restaurant references a missing hotel. An approved tenant relationship repair is required.");
+      }
+      hotelId ||= authenticatedRestaurant.hotelId;
     }
-    hotelId ||= authenticatedRestaurant.hotelId;
   }
-  if (!hotelId) throw new ApiError(400, "Hotel context is required for hotel payment settings.");
+  if (!hotelId && !legacyRestaurantOnly) throw new ApiError(400, "Hotel context is required for hotel payment settings.");
+  if (hotelId && !userRestaurantId) {
+    const authenticatedHotel = await Hotel.findById(hotelId).select("_id").lean();
+    if (!authenticatedHotel) {
+      throw new ApiError(403, "The authenticated hotel no longer exists.");
+    }
+  }
 
-  const restaurantQuery = restaurantId
+  const restaurantQuery = legacyRestaurantOnly
+    ? { _id: authenticatedRestaurant._id, hotelId: null }
+    : restaurantId
     ? { _id: restaurantId, hotelId }
     : userRestaurantId
       ? { _id: authenticatedRestaurant._id, hotelId }
@@ -77,7 +96,7 @@ const resolveAuthorizedHotelScope = async (req, { restaurantId = null, outletId 
   // restaurant before downstream ownership checks.
   const resolvedRestaurantId = restaurantId || (req.user.restaurant ? restaurants[0]._id : outlet?.restaurant || null);
 
-  return { hotelId, restaurantIds, restaurantId: resolvedRestaurantId, outletId: outlet?._id || null };
+  return { hotelId, legacyRestaurantOnly, restaurantIds, restaurantId: resolvedRestaurantId, outletId: outlet?._id || null };
 };
 
 const rejectClientScopeOverride = (req, scope) => {
@@ -101,11 +120,16 @@ const rejectClientScopeOverride = (req, scope) => {
 const resolveHotelPaymentSettings = async (req, { allowCreate = false, restaurantId = null, outletId = null } = {}) => {
   const scope = await resolveAuthorizedHotelScope(req, { restaurantId, outletId });
 
-  const candidateFilters = [
-    { hotelId: scope.hotelId, restaurant: scope.restaurantId || null, outlet: scope.outletId || null },
-    { hotelId: scope.hotelId, restaurant: scope.restaurantId || null, outlet: null },
-    { hotelId: scope.hotelId, restaurant: null, outlet: null },
-  ];
+  const candidateFilters = scope.legacyRestaurantOnly
+    ? [
+      { hotelId: null, restaurant: scope.restaurantId, outlet: scope.outletId || null },
+      { hotelId: null, restaurant: scope.restaurantId, outlet: null },
+    ]
+    : [
+      { hotelId: scope.hotelId, restaurant: scope.restaurantId || null, outlet: scope.outletId || null },
+      { hotelId: scope.hotelId, restaurant: scope.restaurantId || null, outlet: null },
+      { hotelId: scope.hotelId, restaurant: null, outlet: null },
+    ];
 
   let settings = null;
   for (const filter of candidateFilters) {
@@ -338,7 +362,7 @@ export const createHotelPaymentQr = asyncHandler(async (req, res) => {
     receivedBy: req.user._id,
     metadata: {
       hotelPayment: true,
-      hotelId: req.user.hotelId,
+      hotelId: settings.hotelId || null,
       restaurantId: order.restaurant || null,
       outletId: order.outlet || null,
       provider: "HOTEL_UPI",

@@ -2,8 +2,16 @@ import mongoose from "mongoose";
 
 const hotelPaymentSettingsSchema = new mongoose.Schema(
   {
-    hotelId: { type: mongoose.Schema.Types.ObjectId, ref: "Hotel", required: true, index: true },
-    restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", default: null, index: true },
+    // Legacy single-restaurant tenants predate Hotel records. Their settings
+    // are explicitly restaurant-scoped; a null hotelId is never a global scope.
+    hotelId: { type: mongoose.Schema.Types.ObjectId, ref: "Hotel", default: null, index: true },
+    restaurant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      default: null,
+      index: true,
+      required() { return !this.hotelId; },
+    },
     outlet: { type: mongoose.Schema.Types.ObjectId, ref: "Outlet", default: null, index: true },
     payeeName: { type: String, trim: true, default: "" },
     upiId: { type: String, trim: true, default: "" },

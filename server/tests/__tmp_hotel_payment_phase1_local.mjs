@@ -10,6 +10,7 @@ import Order from "../models/Order.js";
 import Outlet from "../models/Outlet.js";
 import Payment from "../models/Payment.js";
 import Restaurant from "../models/Restaurant.js";
+import Hotel from "../models/Hotel.js";
 import Table from "../models/Table.js";
 import { createHotelPaymentQr, getHotelPaymentSettings, rejectHotelPayment, saveHotelPaymentSettings, verifyHotelPayment } from "../controllers/hotelPaymentController.js";
 import { buildPaymentReceipt } from "../services/paymentService.js";
@@ -44,13 +45,18 @@ const invokeReceipt = (handler, req) => new Promise((resolve) => {
 });
 const id = () => new mongoose.Types.ObjectId();
 const suffix = crypto.randomBytes(6).toString("hex");
-const created = { restaurants: [], outlets: [], categories: [], foods: [], orders: [], payments: [], settings: [], invoices: [], bills: [] };
+const created = { hotels: [], restaurants: [], outlets: [], categories: [], foods: [], orders: [], payments: [], settings: [], invoices: [], bills: [] };
 
 try {
   await mongoose.connect(uri);
   await Payment.syncIndexes();
   const hotelA = id();
   const hotelB = id();
+  const [hotelRecordA, hotelRecordB] = await Promise.all([
+    Hotel.create({ _id: hotelA, name: `Hotel A ${suffix}`, slug: `hotel-a-${suffix}` }),
+    Hotel.create({ _id: hotelB, name: `Hotel B ${suffix}`, slug: `hotel-b-${suffix}` }),
+  ]);
+  created.hotels.push(hotelRecordA._id, hotelRecordB._id);
   const [restaurantA, restaurantB] = await Promise.all([
     Restaurant.create({ name: `Hotel A ${suffix}`, slug: `hotel-a-${suffix}`, branchCode: `HA${suffix}`, address: "Local test", hotelId: hotelA }),
     Restaurant.create({ name: `Hotel B ${suffix}`, slug: `hotel-b-${suffix}`, branchCode: `HB${suffix}`, address: "Local test", hotelId: hotelB }),
@@ -91,6 +97,35 @@ try {
   }
   assert.equal(await HotelPaymentSettings.countDocuments({ hotelId: hotelA }), 1);
   assert.equal(await HotelPaymentSettings.countDocuments({ hotelId: hotelB }), 1);
+
+  const [legacyRestaurantA, legacyRestaurantB] = await Promise.all([
+    Restaurant.create({ name: `Legacy A ${suffix}`, slug: `legacy-a-${suffix}`, branchCode: `LA${suffix}`, address: "Legacy local test" }),
+    Restaurant.create({ name: `Legacy B ${suffix}`, slug: `legacy-b-${suffix}`, branchCode: `LB${suffix}`, address: "Legacy local test" }),
+  ]);
+  created.restaurants.push(legacyRestaurantA._id, legacyRestaurantB._id);
+  const [legacyOutletA, legacyOutletB] = await Promise.all([
+    Outlet.create({ restaurant: legacyRestaurantA._id, name: "Legacy Main A", code: `LA${suffix}`, isDefault: true }),
+    Outlet.create({ restaurant: legacyRestaurantB._id, name: "Legacy Main B", code: `LB${suffix}`, isDefault: true }),
+  ]);
+  created.outlets.push(legacyOutletA._id, legacyOutletB._id);
+  const legacyUserA = { _id: id(), role: "restaurant_admin", restaurant: legacyRestaurantA._id, activeOutlet: legacyOutletA._id, defaultOutlet: legacyOutletA._id, allOutletsAccess: true };
+  const legacyUserB = { _id: id(), role: "restaurant_admin", restaurant: legacyRestaurantB._id, activeOutlet: legacyOutletB._id, defaultOutlet: legacyOutletB._id, allOutletsAccess: true };
+  const legacyInitialSettings = await invoke(getHotelPaymentSettings, orderRequest(legacyUserA));
+  assert.equal(legacyInitialSettings.statusCode, 200, "A valid legacy restaurant-only tenant can read its own unconfigured Hotel UPI scope");
+  assert.equal(legacyInitialSettings.body.data.settings.hotelId, null);
+  assert.equal(String(legacyInitialSettings.body.data.settings.restaurant), String(legacyRestaurantA._id));
+  const legacySaveA = await invoke(saveHotelPaymentSettings, orderRequest(legacyUserA, { payeeName: "Legacy A Payee", upiId: "legacy-a@upi", isEnabled: true }));
+  const legacySaveB = await invoke(saveHotelPaymentSettings, orderRequest(legacyUserB, { payeeName: "Legacy B Payee", upiId: "legacy-b@upi", isEnabled: true }));
+  assert.equal(legacySaveA.statusCode, 200, "A legacy restaurant-only tenant can save a restaurant-scoped Hotel UPI setting");
+  assert.equal(legacySaveB.statusCode, 200);
+  created.settings.push(legacySaveA.body.data.settings._id, legacySaveB.body.data.settings._id);
+  assert.equal(legacySaveA.body.data.settings.hotelId, null);
+  assert.equal(String(legacySaveA.body.data.settings.restaurant), String(legacyRestaurantA._id));
+  const legacyReadA = await invoke(getHotelPaymentSettings, orderRequest(legacyUserA));
+  assert.equal(legacyReadA.body.data.settings.payeeName, "Legacy A Payee", "Legacy null-hotel settings cannot fall back to another restaurant's setting");
+  const conflictingLegacyHotel = await invoke(getHotelPaymentSettings, orderRequest({ ...legacyUserA, hotelId: hotelA }));
+  assert.equal(conflictingLegacyHotel.statusCode, 403, "A hotel claim cannot be combined with an unlinked legacy restaurant");
+
   const settingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA));
   assert.equal(settingsRead.statusCode, 200, "Authorized hotel staff can read its own payment settings");
   assert.equal(settingsRead.body.data.capability.deploymentAllowed, true, "Backend settings must report deployment payment capability");
@@ -120,6 +155,14 @@ try {
   assert.equal(crossTenantClaims.statusCode, 403, "Mismatched authenticated hotel and restaurant claims must be rejected");
   const forgedHotelQuery = await invoke(getHotelPaymentSettings, orderRequest(restaurantAdminWithoutHotelClaim, {}, { hotelId: hotelB }));
   assert.equal(forgedHotelQuery.statusCode, 403, "A client-supplied hotelId cannot select another tenant");
+
+  const danglingHotelId = id();
+  const danglingRestaurant = await Restaurant.create({ name: `Dangling Hotel ${suffix}`, slug: `dangling-hotel-${suffix}`, branchCode: `DH${suffix}`, address: "Local test", hotelId: danglingHotelId });
+  created.restaurants.push(danglingRestaurant._id);
+  const danglingOutlet = await Outlet.create({ restaurant: danglingRestaurant._id, name: "Dangling Main", code: `DH${suffix}`, isDefault: true });
+  created.outlets.push(danglingOutlet._id);
+  const danglingRelationship = await invoke(getHotelPaymentSettings, orderRequest({ _id: id(), role: "restaurant_admin", restaurant: danglingRestaurant._id, activeOutlet: danglingOutlet._id, defaultOutlet: danglingOutlet._id, allOutletsAccess: true }));
+  assert.equal(danglingRelationship.statusCode, 403, "A restaurant pointing at a missing hotel must fail closed");
 
   const forgedSettingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA, {}, { restaurantId: restaurantB._id, outletId: outletB._id }));
   assert.equal(forgedSettingsRead.statusCode, 403, "A hotel user cannot read another restaurant or outlet through settings IDs");
@@ -266,6 +309,7 @@ try {
       Category.deleteMany({ _id: { $in: created.categories } }),
       Outlet.deleteMany({ _id: { $in: created.outlets } }),
       Restaurant.deleteMany({ _id: { $in: created.restaurants } }),
+      Hotel.deleteMany({ _id: { $in: created.hotels } }),
     ]);
     await mongoose.disconnect();
   }
