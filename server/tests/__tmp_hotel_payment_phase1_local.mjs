@@ -95,6 +95,32 @@ try {
   assert.equal(settingsRead.statusCode, 200, "Authorized hotel staff can read its own payment settings");
   assert.equal(settingsRead.body.data.capability.deploymentAllowed, true, "Backend settings must report deployment payment capability");
   assert.equal(settingsRead.body.data.capability.canCollect, true, "Configured production test fixture can collect Hotel UPI");
+  const restaurantAdminWithoutHotelClaim = {
+    ...staffA,
+    role: "restaurant_admin",
+    hotelId: null,
+  };
+  const derivedHotelSettings = await invoke(getHotelPaymentSettings, orderRequest(restaurantAdminWithoutHotelClaim));
+  assert.equal(derivedHotelSettings.statusCode, 200, "Restaurant admin without a User.hotelId must resolve its own restaurant's hotel");
+  assert.equal(String(derivedHotelSettings.body.data.settings.hotelId), String(hotelA));
+  assert.equal(String(derivedHotelSettings.body.data.settings.restaurant), String(restaurantA._id));
+  assert.equal(String(derivedHotelSettings.body.data.settings.outlet), String(outletA._id), "Selected outlet must remain separately scoped");
+
+  const hotelAdmin = { _id: id(), role: "hotel_admin", hotelId: hotelA, activeOutlet: outletA._id, allOutletsAccess: true };
+  const hotelAdminSettings = await invoke(getHotelPaymentSettings, orderRequest(hotelAdmin));
+  assert.equal(hotelAdminSettings.statusCode, 200, "Hotel admin with an authenticated hotel claim must access its hotel settings");
+
+  const missingTenantContext = await invoke(getHotelPaymentSettings, orderRequest({ _id: id(), role: "hotel_admin" }));
+  assert.equal(missingTenantContext.statusCode, 400, "Missing authenticated tenant context must fail safely");
+  const invalidHotelContext = await invoke(getHotelPaymentSettings, orderRequest({ _id: id(), role: "hotel_admin", hotelId: "not-an-object-id" }));
+  assert.equal(invalidHotelContext.statusCode, 400, "Invalid authenticated hotel context must fail safely");
+  const crossTenantClaims = await invoke(getHotelPaymentSettings, orderRequest({
+    _id: id(), role: "restaurant_admin", hotelId: hotelA, restaurant: restaurantB._id,
+  }));
+  assert.equal(crossTenantClaims.statusCode, 403, "Mismatched authenticated hotel and restaurant claims must be rejected");
+  const forgedHotelQuery = await invoke(getHotelPaymentSettings, orderRequest(restaurantAdminWithoutHotelClaim, {}, { hotelId: hotelB }));
+  assert.equal(forgedHotelQuery.statusCode, 403, "A client-supplied hotelId cannot select another tenant");
+
   const forgedSettingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA, {}, { restaurantId: restaurantB._id, outletId: outletB._id }));
   assert.equal(forgedSettingsRead.statusCode, 403, "A hotel user cannot read another restaurant or outlet through settings IDs");
 

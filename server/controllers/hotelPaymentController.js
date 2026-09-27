@@ -26,16 +26,38 @@ const validateOptionalObjectId = (value, label) => {
 };
 
 const resolveAuthorizedHotelScope = async (req, { restaurantId = null, outletId = null, requireOutlet = false } = {}) => {
-  const hotelId = req.user?.hotelId;
-  if (!hotelId) throw new ApiError(400, "Hotel context is required for hotel payment settings.");
+  if (!req.user) throw new ApiError(401, "Unauthorized");
+  const userHotelId = req.user.hotelId || null;
+  const userRestaurantId = req.user.restaurant || null;
+  validateOptionalObjectId(userHotelId, "hotel context");
+  validateOptionalObjectId(userRestaurantId, "restaurant context");
   validateOptionalObjectId(restaurantId, "restaurant context");
   validateOptionalObjectId(outletId, "outlet context");
 
-  if (req.user?.restaurant && restaurantId && String(req.user.restaurant) !== String(restaurantId)) {
+  if (userRestaurantId && restaurantId && String(userRestaurantId) !== String(restaurantId)) {
     throw new ApiError(403, "Restaurant does not belong to your account.");
   }
 
-  const restaurantQuery = restaurantId ? { _id: restaurantId, hotelId } : req.user.restaurant ? { _id: req.user.restaurant, hotelId } : { hotelId };
+  let hotelId = userHotelId;
+  let authenticatedRestaurant = null;
+  if (userRestaurantId) {
+    authenticatedRestaurant = await Restaurant.findById(userRestaurantId).select("_id hotelId").lean();
+    if (!authenticatedRestaurant?.hotelId) {
+      throw new ApiError(403, "The authenticated restaurant is not associated with a hotel.");
+    }
+    validateOptionalObjectId(authenticatedRestaurant.hotelId, "authenticated restaurant hotel context");
+    if (hotelId && String(authenticatedRestaurant.hotelId) !== String(hotelId)) {
+      throw new ApiError(403, "Restaurant does not belong to your hotel.");
+    }
+    hotelId ||= authenticatedRestaurant.hotelId;
+  }
+  if (!hotelId) throw new ApiError(400, "Hotel context is required for hotel payment settings.");
+
+  const restaurantQuery = restaurantId
+    ? { _id: restaurantId, hotelId }
+    : userRestaurantId
+      ? { _id: authenticatedRestaurant._id, hotelId }
+      : { hotelId };
   const restaurants = await Restaurant.find(restaurantQuery).select("_id hotelId").lean();
   if (!restaurants.length) throw new ApiError(403, "Restaurant does not belong to your hotel.");
 
@@ -59,10 +81,15 @@ const resolveAuthorizedHotelScope = async (req, { restaurantId = null, outletId 
 };
 
 const rejectClientScopeOverride = (req, scope) => {
+  const suppliedHotelId = req.body?.hotelId ?? req.query?.hotelId;
   const suppliedRestaurantId = req.body?.restaurantId ?? req.query?.restaurantId;
   const suppliedOutletId = req.body?.outletId ?? req.query?.outletId;
+  validateOptionalObjectId(suppliedHotelId, "hotel id");
   validateOptionalObjectId(suppliedRestaurantId, "restaurant id");
   validateOptionalObjectId(suppliedOutletId, "outlet id");
+  if (suppliedHotelId && String(suppliedHotelId) !== String(scope.hotelId)) {
+    throw new ApiError(403, "The requested hotel is outside your authenticated scope.");
+  }
   if (suppliedRestaurantId && String(suppliedRestaurantId) !== String(scope.restaurantId || "")) {
     throw new ApiError(403, "The requested restaurant is outside your authorized scope.");
   }
@@ -174,7 +201,7 @@ export const getHotelPaymentSettings = asyncHandler(async (req, res) => {
     if (error?.statusCode !== 404) throw error;
   }
   const effectiveSettings = settings || {
-    hotelId: req.user.hotelId,
+    hotelId: scope.hotelId,
     restaurant: scope.restaurantId,
     outlet: scope.outletId,
     payeeName: "",
