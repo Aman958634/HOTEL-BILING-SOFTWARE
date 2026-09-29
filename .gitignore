@@ -15,6 +15,7 @@ coverage
 client/test-results/
 client/playwright-report/
 .tmp/
+/.local-mongo/
 *.log
 .DS_Store
 .vscode

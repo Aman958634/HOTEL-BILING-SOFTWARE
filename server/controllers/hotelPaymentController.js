@@ -509,23 +509,82 @@ export const rejectHotelPayment = asyncHandler(async (req, res) => {
     throw new ApiError(409, "A verified hotel payment cannot be rejected after it has been marked as paid.");
   }
 
-  payment.paymentStatus = "PENDING";
-  payment.metadata = { ...(payment.metadata || {}), rejectedBy: req.user._id, rejectedAt: new Date().toISOString(), rejectionNote: normalizeText(note) };
-  payment.timeline = Array.isArray(payment.timeline) ? payment.timeline : [];
-  payment.timeline.push({ status: "PAYMENT_FAILED", timestamp: new Date(), note: normalizeText(note) });
-
-  if (payment.orderId) {
-    payment.orderId.paymentStatus = "PENDING";
-    payment.orderId.paymentMethod = "UPI";
-    await payment.orderId.save();
-  } else if (payment.bill) {
-    await Order.updateMany(
-      { billingBill: payment.bill, paymentStatus: "AWAITING_VERIFICATION" },
-      { $set: { paymentStatus: "PENDING", paymentMethod: "UPI" } }
-    );
+  if (payment.paymentStatus !== "AWAITING_VERIFICATION") {
+    throw new ApiError(409, "This hotel payment can only be rejected while awaiting manual verification.");
   }
 
-  await payment.save();
+  // Retain the scope that was established by the existing authorization
+  // lookup. Client-supplied tenant identifiers are never used here.
+  const authorizedRestaurantId = payment.restaurant;
+  const authorizedOutletId = payment.outlet;
+  const rejectionNote = normalizeText(note);
+  const session = await mongoose.startSession();
+  let rejectedPayment;
 
-  return res.status(200).json(new ApiResponse(true, "Hotel UPI payment was rejected and returned to pending review.", { payment }));
+  try {
+    await session.withTransaction(async () => {
+      // Re-read under the transaction and predicate on the active state. The
+      // pre-transaction document cannot safely authorize a state transition.
+      const transactionPayment = await Payment.findOne({
+        _id: payment._id,
+        restaurant: authorizedRestaurantId,
+        outlet: authorizedOutletId,
+        provider: "HOTEL_UPI",
+        paymentStatus: "AWAITING_VERIFICATION",
+      }).session(session);
+      if (!transactionPayment) {
+        throw new ApiError(409, "This hotel payment was already reviewed or is no longer awaiting verification.");
+      }
+
+      const now = new Date();
+      transactionPayment.paymentStatus = "PENDING";
+      transactionPayment.providerStatus = "REJECTED";
+      transactionPayment.metadata = {
+        ...(transactionPayment.metadata || {}),
+        rejectedBy: req.user._id,
+        rejectedAt: now.toISOString(),
+        rejectionNote,
+      };
+      transactionPayment.timeline = Array.isArray(transactionPayment.timeline) ? transactionPayment.timeline : [];
+      transactionPayment.timeline.push({ status: "PAYMENT_FAILED", timestamp: now, note: rejectionNote });
+
+      if (transactionPayment.orderId) {
+        const order = await Order.findOne({
+          _id: transactionPayment.orderId,
+          restaurant: authorizedRestaurantId,
+          outlet: authorizedOutletId,
+          paymentStatus: "AWAITING_VERIFICATION",
+        }).session(session);
+        if (!order) {
+          throw new ApiError(409, "The linked order was already reviewed or is no longer awaiting verification.");
+        }
+        order.paymentStatus = "PENDING";
+        order.paymentMethod = "UPI";
+        await order.save({ session });
+      } else if (transactionPayment.bill) {
+        await Order.updateMany(
+          {
+            billingBill: transactionPayment.bill,
+            restaurant: authorizedRestaurantId,
+            outlet: authorizedOutletId,
+            paymentStatus: "AWAITING_VERIFICATION",
+          },
+          { $set: { paymentStatus: "PENDING", paymentMethod: "UPI" } },
+          { session }
+        );
+      }
+
+      await transactionPayment.save({ session });
+      rejectedPayment = transactionPayment;
+    });
+  } catch (error) {
+    if (/Transaction numbers are only allowed|transactions are not supported|transaction support/i.test(String(error?.message || ""))) {
+      throw new ApiError(503, "Hotel UPI rejection requires MongoDB replica-set transactions.");
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
+  return res.status(200).json(new ApiResponse(true, "Hotel UPI payment was rejected and returned to pending review.", { payment: rejectedPayment }));
 });
