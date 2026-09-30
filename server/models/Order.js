@@ -111,6 +111,8 @@ const orderSchema = new mongoose.Schema(
     serviceCharge: { type: Number, default: 0, min: 0 },
     deliveryCharge: { type: Number, default: 0, min: 0 },
     taxableAmount: { type: Number, default: 0, min: 0 },
+    // Snapshot the rate used to calculate this order; settings changes never rewrite history.
+    gstRate: { type: Number, default: 0, min: 0, max: 100 },
     gstType: { type: String, enum: ["CGST_SGST", "IGST"], default: "CGST_SGST", index: true },
     cgst: { type: Number, default: 0, min: 0 },
     sgst: { type: Number, default: 0, min: 0 },

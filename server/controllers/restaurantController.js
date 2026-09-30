@@ -6,6 +6,12 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { isValidRestaurantSlug, slugifyRestaurantName } from "../utils/restaurantSlug.js";
 
 const IMMUTABLE_FIELDS = ["_id", "id", "createdAt", "updatedAt", "__v"];
+const GST_SETTINGS_ADMIN_ROLES = new Set(["admin", "restaurant_admin", "hotel_admin", "super_admin"]);
+
+const normalizeGstRate = (value) => {
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 0;
+};
 
 /** Resolve tenant-scoped query — admin users use JWT restaurant id. */
 const getRestaurantQueryForUser = (user) => {
@@ -47,6 +53,7 @@ const normalizePayload = (body = {}) => {
   payload.email = payload.email ? String(payload.email).trim() : "";
   payload.phone = payload.phone ? String(payload.phone).trim() : "";
   payload.gstNumber = payload.gstNumber ? String(payload.gstNumber).trim() : "";
+  if (Object.hasOwn(payload, "gstRate")) payload.gstRate = normalizeGstRate(payload.gstRate);
   payload.openingHours = payload.openingHours ? String(payload.openingHours).trim() : "09:00-23:00";
   payload.logoUrl = payload.logoUrl ? String(payload.logoUrl).trim() : "";
   payload.website = payload.website ? String(payload.website).trim() : "";
@@ -90,6 +97,9 @@ export const updateRestaurantSettings = asyncHandler(async (req, res) => {
   }
 
   const currentRestaurant = await Restaurant.findOne(query).select("slug").lean();
+  if (Object.hasOwn(req.body || {}, "gstRate") && !GST_SETTINGS_ADMIN_ROLES.has(String(req.user?.role || "").toLowerCase())) {
+    throw new ApiError(403, "Only a hotel or restaurant administrator can change GST rate.");
+  }
   const payload = normalizePayload(req.body);
 
   if (isValidRestaurantSlug(currentRestaurant?.slug)) {

@@ -12,6 +12,8 @@ const restaurantSchema = new mongoose.Schema(
     city: { type: String, index: true },
     state: { type: String, default: "", trim: true, index: true },
     gstNumber: { type: String, default: "" },
+    // Tenant-wide rate used for newly created orders. Missing legacy settings resolve to 0.
+    gstRate: { type: Number, default: 0, min: 0, max: 100 },
     logoUrl: { type: String, default: "" },
     website: { type: String, default: "" },
     isActive: { type: Boolean, default: true },

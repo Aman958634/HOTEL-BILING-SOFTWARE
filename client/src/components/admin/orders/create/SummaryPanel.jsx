@@ -29,7 +29,7 @@ const SummaryPanel = ({
         </div>
 
         <div className="flex justify-between text-slate-600">
-          <span>GST ({taxPercent || 18}%)</span>
+          <span>GST ({Number.isFinite(Number(taxPercent)) ? Number(taxPercent) : 0}%)</span>
           <span className="font-medium text-slate-900">{currency(totals.tax)}</span>
         </div>
 

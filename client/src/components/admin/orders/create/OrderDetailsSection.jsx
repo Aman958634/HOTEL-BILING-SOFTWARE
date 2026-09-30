@@ -2,13 +2,18 @@ import { memo } from "react";
 import { FiCalendar, FiClock, FiMinus, FiPlus } from "react-icons/fi";
 import {
   ORDER_TYPES,
-  PAYMENT_METHODS,
   PAYMENT_STATUSES,
   TABLE_STATUS_STYLES,
   cardClass,
   fieldClass,
   labelClass,
 } from "./constants";
+
+const CREATE_ORDER_PAYMENT_METHODS = [
+  { value: "CASH", label: "Cash" },
+  { value: "CREDIT_CARD", label: "Card" },
+  { value: "UPI", label: "Hotel UPI" },
+];
 
 const TableStatusBadge = ({ status }) => {
   const key = String(status || "AVAILABLE").toUpperCase();
@@ -32,6 +37,7 @@ const OrderDetailsSection = ({
   onPatch,
   onGuestChange,
   isTableSelectable,
+  hotelUpiCapability = { canCollect: false, reason: "Hotel UPI is unavailable." },
 }) => (
   <section className={cardClass}>
     <h3 className="mb-4 text-base font-semibold text-slate-900">Order Details</h3>
@@ -182,14 +188,15 @@ const OrderDetailsSection = ({
             const paymentMethod = e.target.value;
             onPatch({
               paymentMethod,
-              ...(String(paymentMethod).toLowerCase() === "cashfree" ? { paymentStatus: "PENDING" } : {}),
+              ...(paymentMethod === "UPI" ? { paymentStatus: "PENDING" } : {}),
             });
           }}
         >
-          {PAYMENT_METHODS.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
+          {CREATE_ORDER_PAYMENT_METHODS.map((m) => (
+            <option key={m.value} value={m.value} disabled={m.value === "UPI" && !hotelUpiCapability.canCollect}>{m.label}</option>
           ))}
         </select>
+        {!hotelUpiCapability.canCollect ? <p className="mt-1 text-xs text-amber-700">{hotelUpiCapability.reason || "Hotel UPI is unavailable."}</p> : null}
       </div>
       <div>
         <label htmlFor="payment-status" className={labelClass}>Payment Status</label>
@@ -198,14 +205,14 @@ const OrderDetailsSection = ({
           className={fieldClass}
           value={form.paymentStatus}
           onChange={(e) => onPatch({ paymentStatus: e.target.value })}
-          disabled={isEdit || String(form.paymentMethod).toLowerCase() === "cashfree"}
+          disabled={isEdit || form.paymentMethod === "UPI"}
         >
-          {PAYMENT_STATUSES.filter((s) => String(form.paymentMethod).toLowerCase() !== "cashfree" || s.value !== "PAID").map((s) => (
+          {PAYMENT_STATUSES.filter((s) => form.paymentMethod !== "UPI" || s.value !== "PAID").map((s) => (
             <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
-        {!isEdit && String(form.paymentMethod).toLowerCase() === "cashfree" ? (
-          <p className="mt-1 text-xs text-slate-500">Cashfree stays pending until the server verifies the provider payment.</p>
+        {!isEdit && form.paymentMethod === "UPI" ? (
+          <p className="mt-1 text-xs text-slate-500">Hotel UPI stays pending until a different authorized cashier verifies the bank credit.</p>
         ) : null}
         {!isEdit && form.paymentStatus === "PAID" ? (
           <p className="mt-1 text-xs text-slate-500">Payment recorded immediately after order creation.</p>

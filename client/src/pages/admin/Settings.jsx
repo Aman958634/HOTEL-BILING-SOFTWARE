@@ -18,6 +18,7 @@ const defaultSettings = {
   address: "",
   city: "",
   gstNumber: "",
+  gstRate: 0,
   openingHours: "09:00-23:00",
   logoUrl: "",
   website: "",
@@ -40,7 +41,7 @@ const getSettingsErrorMessage = (error, fallback) => {
   return fallback;
 };
 
-const toSavePayload = (settings) => {
+const toSavePayload = (settings, includeGstRate) => {
   const {
     name,
     branchCode,
@@ -50,6 +51,7 @@ const toSavePayload = (settings) => {
     address,
     city,
     gstNumber,
+    gstRate,
     openingHours,
     logoUrl,
     website,
@@ -66,6 +68,7 @@ const toSavePayload = (settings) => {
     address,
     city,
     gstNumber,
+    ...(includeGstRate ? { gstRate } : {}),
     openingHours,
     logoUrl,
     website,
@@ -88,6 +91,7 @@ const createIdempotencyKey = () => {
 };
 
 const canManageHotelUpi = (user) => ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
+const canManageGstRate = canManageHotelUpi;
 
 const hotelUpiState = (settings, capability, loaded) => {
   if (!loaded) return { configuration: "NOT CONFIGURED", activation: "NOT CONFIGURED", reason: "Loading Hotel UPI configuration." };
@@ -142,6 +146,7 @@ const Settings = () => {
   const publicMenuUrl = getPublicMenuUrl(settings.slug);
   const hotelPaymentState = hotelUpiState(hotelPaymentSettings, hotelPaymentCapability, hotelPaymentReady);
   const hotelUpiAdmin = canManageHotelUpi(user);
+  const gstRateAdmin = canManageGstRate(user);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -202,7 +207,7 @@ const Settings = () => {
     setSaving(true);
 
     try {
-      await updateRestaurantSettings(toSavePayload(settings));
+      await updateRestaurantSettings(toSavePayload(settings, gstRateAdmin));
       toast.success("Settings saved successfully");
       await loadSettings();
     } catch (error) {
@@ -355,6 +360,20 @@ const Settings = () => {
                 onChange={(event) => handleChange("gstNumber", event.target.value)}
                 className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
               />
+            </label>
+            <label className="space-y-2 text-sm text-slate-700">
+              <span>GST rate (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={settings.gstRate ?? 0}
+                onChange={(event) => handleChange("gstRate", event.target.value)}
+                disabled={!gstRateAdmin}
+                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
+              />
+              <span className="block text-xs text-slate-500">Used for new orders only; existing orders retain their saved rate.</span>
             </label>
             <label className="space-y-2 text-sm text-slate-700">
               <span>Opening Hours</span>

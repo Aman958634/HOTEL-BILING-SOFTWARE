@@ -18,6 +18,10 @@ router.put(
     body("email").optional({ values: "falsy" }).isEmail().withMessage("A valid email is required"),
     body("phone").optional({ values: "falsy" }).trim().isLength({ min: 7, max: 20 }).withMessage("Phone number is invalid"),
     body("gstNumber").optional({ values: "falsy" }).trim().isString().withMessage("GST number must be valid"),
+    body("gstRate").optional({ nullable: true }).customSanitizer((value) => {
+      const rate = Number(value);
+      return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 0;
+    }).isFloat({ min: 0, max: 100 }).withMessage("GST rate must be between 0 and 100"),
     body("openingHours").optional({ values: "falsy" }).matches(/^\d{2}:\d{2}-\d{2}:\d{2}$/).withMessage("Opening hours must be in HH:MM-HH:MM format"),
     body("logoUrl").optional({ values: "falsy" }).trim().isURL().withMessage("Logo URL must be valid"),
     body("website").optional({ values: "falsy" }).trim().isURL().withMessage("Website must be valid"),

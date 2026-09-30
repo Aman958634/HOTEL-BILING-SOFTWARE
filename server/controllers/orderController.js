@@ -181,10 +181,18 @@ const findExistingExternalOrder = async ({ restaurantId, externalOrderId }) => {
     .populate("items.menuItem", "name");
 };
 
-const resolveOrderGstType = async (restaurantId, billingState) => {
-  const restaurant = restaurantId ? await Restaurant.findById(restaurantId).select("state").lean() : null;
-  return resolveGstType({ restaurantState: restaurant?.state, billingState });
+const resolveOrderTaxConfig = async (restaurantId, billingState) => {
+  const restaurant = restaurantId ? await Restaurant.findById(restaurantId).select("state gstRate").lean() : null;
+  return {
+    gstType: resolveGstType({ restaurantState: restaurant?.state, billingState }),
+    // Missing, blank, or invalid legacy settings safely resolve to 0%.
+    gstRate: Number.isFinite(Number(restaurant?.gstRate)) && Number(restaurant.gstRate) >= 0 && Number(restaurant.gstRate) <= 100
+      ? Number(restaurant.gstRate)
+      : 0,
+  };
 };
+
+const resolveOrderGstType = async (restaurantId, billingState) => (await resolveOrderTaxConfig(restaurantId, billingState)).gstType;
 
 export const createOrder = asyncHandler(async (req, res) => {
   const profileMark = req.loadTestProfileMark || (() => {});
@@ -263,6 +271,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   profileMark("order_number");
   profileCount(2);
   const billingState = req.body.billingState || req.body.customerState || "";
+  const taxConfig = await resolveOrderTaxConfig(restaurantId, billingState);
   const calculated = buildCalculatedOrderPayload({
     orderType,
     items: processedItems,
@@ -270,7 +279,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     serviceCharge: req.body.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge,
-    gstType: await resolveOrderGstType(restaurantId, billingState),
+    gstType: taxConfig.gstType,
+    gstRate: taxConfig.gstRate,
   });
   profileMark("pricing_complete");
 
@@ -294,6 +304,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     serviceCharge: calculated.serviceCharge,
     deliveryCharge: calculated.deliveryCharge,
     taxableAmount: calculated.taxableAmount,
+    gstRate: calculated.gstRate,
     gstType: calculated.gstType,
     cgst: calculated.cgst,
     sgst: calculated.sgst,
@@ -419,6 +430,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
   const orderNumber = await generateOrderNumber();
   const billingState = req.body.billingState || req.body.customerState || "";
+  const taxConfig = await resolveOrderTaxConfig(restaurantId, billingState);
   const calculated = buildCalculatedOrderPayload({
     orderType,
     items: processedItems,
@@ -426,7 +438,8 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     serviceCharge: req.body.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge,
-    gstType: await resolveOrderGstType(restaurantId, billingState),
+    gstType: taxConfig.gstType,
+    gstRate: taxConfig.gstRate,
   });
 
   let order;
@@ -449,6 +462,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
     serviceCharge: calculated.serviceCharge,
     deliveryCharge: calculated.deliveryCharge,
     taxableAmount: calculated.taxableAmount,
+    gstRate: calculated.gstRate,
     gstType: calculated.gstType,
     cgst: calculated.cgst,
     sgst: calculated.sgst,
@@ -661,6 +675,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
       order.restaurant,
       req.body.billingState ?? req.body.customerState ?? order.billingState
     ),
+    // Editing an order preserves its original configured GST rate.
+    gstRate: order.gstRate,
   });
 
   const previousTable = order.table ? String(order.table) : null;
@@ -676,6 +692,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
   order.serviceCharge = calculated.serviceCharge;
   order.deliveryCharge = calculated.deliveryCharge;
   order.taxableAmount = calculated.taxableAmount;
+  order.gstRate = calculated.gstRate;
   order.gstType = calculated.gstType;
   order.cgst = calculated.cgst;
   order.sgst = calculated.sgst;

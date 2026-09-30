@@ -1,5 +1,5 @@
 import ApiError from "../utils/ApiError.js";
-import { calculateGst } from "./gstService.js";
+import { calculateGst, normalizeGstRate } from "./gstService.js";
 
 const toNumber = (value, fallback = 0) => {
   const num = Number(value);
@@ -14,6 +14,7 @@ export const calculateOrderAmounts = ({
   items,
   discount = 0,
   gstType = "CGST_SGST",
+  gstRate = 0,
   serviceCharge = null,
   serviceChargePercent = 0,
   deliveryCharge = 0,
@@ -52,10 +53,8 @@ export const calculateOrderAmounts = ({
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
 
-  // GST is always derived from the bill's taxable item amount: 9% + 9% for
-  // intra-state sales or 18% IGST for inter-state sales. Client tax inputs
-  // never override this calculation.
-  const gst = calculateGst(taxableBase, gstType);
+  // GST is calculated from the configured, server-resolved tenant rate.
+  const gst = calculateGst(taxableBase, gstType, normalizeGstRate(gstRate));
   const resolvedTax = gst.totalTax;
 
   const resolvedServiceCharge = serviceCharge !== null && serviceCharge !== undefined
@@ -78,6 +77,7 @@ export const calculateOrderAmounts = ({
     serviceCharge: round2(resolvedServiceCharge),
     deliveryCharge: round2(resolvedDeliveryCharge),
     taxableAmount: round2(taxableBase),
+    gstRate: gst.gstRate,
     gstType: gst.gstType,
     cgst: gst.cgst,
     sgst: gst.sgst,

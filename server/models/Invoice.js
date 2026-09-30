@@ -33,6 +33,7 @@ const invoiceSchema = new mongoose.Schema(
     issuedAt: { type: Date, required: true, default: Date.now, index: true },
     items: { type: [invoiceItemSchema], required: true },
     gstType: { type: String, enum: ["CGST_SGST", "IGST"], required: true },
+    gstRate: { type: Number, default: 0, min: 0, max: 100 },
     subtotal: { type: Number, required: true, min: 0 },
     cgst: { type: Number, required: true, min: 0, default: 0 },
     sgst: { type: Number, required: true, min: 0, default: 0 },

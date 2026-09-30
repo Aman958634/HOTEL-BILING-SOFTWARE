@@ -3,7 +3,7 @@ import Invoice from "../models/Invoice.js";
 import Payment from "../models/Payment.js";
 import Sequence from "../models/Sequence.js";
 import ApiError from "../utils/ApiError.js";
-import { calculateGst, resolveGstType } from "./gstService.js";
+import { calculateGst, normalizeGstRate, resolveGstType } from "./gstService.js";
 
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
@@ -29,9 +29,16 @@ const buildInvoiceSnapshot = async (order, session = null) => {
   const subtotal = round2(order.subtotal ?? items.reduce((sum, item) => sum + item.subtotal, 0));
   const discount = round2(order.discount || 0);
   const taxableAmount = round2(order.taxableAmount ?? Math.max(subtotal - discount, 0));
-  const fallbackGst = calculateGst(taxableAmount, order.gstType || resolveGstType({ billingState: order.billingState }));
-  const totalTax = round2(order.tax ?? fallbackGst.totalTax);
+  const persistedTax = round2(order.tax || 0);
   const storedTaxParts = round2(Number(order.cgst || 0) + Number(order.sgst || 0) + Number(order.igst || 0));
+  // Older orders may have a stored tax amount without a rate snapshot. Infer
+  // only from that immutable amount; never use the restaurant's current setting.
+  const inferredLegacyRate = taxableAmount > 0 && persistedTax > 0 && storedTaxParts === 0
+    ? normalizeGstRate((persistedTax * 100) / taxableAmount)
+    : 0;
+  const gstRate = normalizeGstRate(order.gstRate) || inferredLegacyRate;
+  const fallbackGst = calculateGst(taxableAmount, order.gstType || resolveGstType({ billingState: order.billingState }), gstRate);
+  const totalTax = round2(order.tax ?? fallbackGst.totalTax);
   // Mongoose supplies zero defaults to legacy orders. Treat zero tax parts
   // with a non-zero stored tax as legacy data and safely reconstruct its GST.
   const useStoredGstParts = storedTaxParts > 0 || totalTax === 0;
@@ -63,6 +70,7 @@ const buildInvoiceSnapshot = async (order, session = null) => {
     restaurant: restaurantId,
     items,
     gstType,
+    gstRate,
     subtotal,
     discount,
     taxableAmount,
@@ -133,10 +141,11 @@ export const buildInvoiceBuffer = (invoice) =>
     (invoice.items || []).forEach((item) => doc.text(`${item.name} x${item.quantity}  ₹${item.subtotal.toFixed(2)}`));
     doc.moveDown();
     doc.text(`Subtotal: ₹${Number(invoice.subtotal || 0).toFixed(2)}`, { align: "right" });
-    if (invoice.gstType === "IGST") doc.text(`IGST (18%): ₹${Number(invoice.igst || 0).toFixed(2)}`, { align: "right" });
+    const gstRate = normalizeGstRate(invoice.gstRate);
+    if (invoice.gstType === "IGST") doc.text(`IGST (${gstRate}%): ₹${Number(invoice.igst || 0).toFixed(2)}`, { align: "right" });
     else {
-      doc.text(`CGST (9%): ₹${Number(invoice.cgst || 0).toFixed(2)}`, { align: "right" });
-      doc.text(`SGST (9%): ₹${Number(invoice.sgst || 0).toFixed(2)}`, { align: "right" });
+      doc.text(`CGST (${round2(gstRate / 2)}%): ₹${Number(invoice.cgst || 0).toFixed(2)}`, { align: "right" });
+      doc.text(`SGST (${round2(gstRate / 2)}%): ₹${Number(invoice.sgst || 0).toFixed(2)}`, { align: "right" });
     }
     doc.fontSize(12).text(`Total: ₹${Number(invoice.total || 0).toFixed(2)}`, { align: "right" });
     doc.moveDown();

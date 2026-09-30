@@ -33,6 +33,7 @@ import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, ge
 import { generateHotelPaymentQr, getHotelPaymentSettings } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
+import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
 import { listPendingOfflineOrders } from "../../utils/offlineOrderQueue";
@@ -97,6 +98,7 @@ const OrderManagement = () => {
   const [foods, setFoods] = useState([]);
   const [categories, setCategories] = useState([]);
   const [tables, setTables] = useState([]);
+  const [restaurantGstRate, setRestaurantGstRate] = useState(0);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialTable, setCreateInitialTable] = useState(null);
@@ -122,6 +124,7 @@ const OrderManagement = () => {
   const [retryMethod, setRetryMethod] = useState("CASH");
   const [retryProcessing, setRetryProcessing] = useState(false);
   const [retryHotelUpiCapability, setRetryHotelUpiCapability] = useState({ canCollect: false, reason: "Configure Hotel UPI in Settings." });
+  const [createHotelUpiCapability, setCreateHotelUpiCapability] = useState({ canCollect: false, reason: "Checking Hotel UPI availability..." });
   const [retryHotelUpiOnly, setRetryHotelUpiOnly] = useState(false);
   const [hotelPaymentOrder, setHotelPaymentOrder] = useState(null);
   const [hotelPaymentData, setHotelPaymentData] = useState(null);
@@ -139,6 +142,18 @@ const OrderManagement = () => {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    if (!createOpen) return undefined;
+    let active = true;
+    getHotelPaymentSettings()
+      .then(({ data }) => data?.data?.capability
+        ? { canCollect: data.data.capability.canCollect === true, reason: data.data.capability.reason || "Hotel UPI is unavailable for this deployment." }
+        : { canCollect: false, reason: "The backend release does not report Hotel UPI capability." })
+      .catch((error) => ({ canCollect: false, reason: error?.response?.data?.message || "Unable to confirm Hotel UPI configuration." }))
+      .then((capability) => { if (active) setCreateHotelUpiCapability(capability); });
+    return () => { active = false; };
+  }, [createOpen]);
 
   useEffect(() => {
     const state = location.state;
@@ -204,15 +219,18 @@ const OrderManagement = () => {
   const loadOrderDependencies = useCallback(async () => {
     setDependenciesLoading(true);
     try {
-      const [{ data: foodsData }, { data: categoriesData }, { data: tablesData }] = await Promise.all([
+      const [{ data: foodsData }, { data: categoriesData }, { data: tablesData }, { data: restaurantData }] = await Promise.all([
         getAdminMenu({ limit: 200, available: true }),
         getAdminCategories(),
         getTables(),
+        getRestaurantSettings(),
       ]);
 
       setFoods(foodsData.data || []);
       setCategories(categoriesData.data || []);
       setTables(tablesData.data || []);
+      const configuredRate = Number(restaurantData?.data?.gstRate);
+      setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
     } catch {
       toast.error("Unable to preload order dependencies");
     } finally {
@@ -642,6 +660,27 @@ const OrderManagement = () => {
       return;
     }
 
+    if (paymentMethod === "UPI") {
+      if (!createHotelUpiCapability.canCollect) {
+        toast.error(createHotelUpiCapability.reason || "Hotel UPI is unavailable.");
+        return;
+      }
+      setPaymentProcessing(true);
+      try {
+        const qrData = await requestHotelUpiQr(createdOrder);
+        setHotelPaymentData(qrData);
+        setHotelPaymentOrder(createdOrder);
+        setPaymentPromptOpen(false);
+        setCreatedOrder(null);
+        toast.success("Hotel UPI QR generated. Payment remains pending independent verification.");
+      } catch (error) {
+        toast.error(error?.response?.data?.message || error?.message || "Unable to generate Hotel UPI QR");
+      } finally {
+        setPaymentProcessing(false);
+      }
+      return;
+    }
+
     setPaymentProcessing(true);
     try {
       if (paymentMethod === "CASHFREE") {
@@ -792,6 +831,8 @@ const OrderManagement = () => {
         dependenciesLoading={dependenciesLoading}
         submissionError={createSubmitError}
         initialData={createInitialTable ? { table: createInitialTable } : null}
+        hotelUpiCapability={createHotelUpiCapability}
+        restaurantGstRate={restaurantGstRate}
         onClose={() => {
           setCreateOpen(false);
           setCreateInitialTable(null);

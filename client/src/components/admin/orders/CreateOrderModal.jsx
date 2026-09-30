@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
 import { addOrderCustomer, searchOrderCustomers } from "../../../services/orderService";
-import { calculateOrderTotals } from "../../../utils/orderCalculations";
+import { calculateOrderTotals, normalizeGstRate } from "../../../utils/orderCalculations";
 import { currency } from "../../../utils/format";
 import CustomerSection from "./create/CustomerSection";
 import ItemsSection from "./create/ItemsSection";
@@ -42,7 +42,7 @@ const mapOrderItem = (item, menuItems, categories) => {
   };
 };
 
-const buildInitialState = (initialData, menuItems, categories) => {
+const buildInitialState = (initialData, menuItems, categories, restaurantGstRate) => {
   const subtotal = Number(initialData?.subtotal || 0);
   const discount = Number(initialData?.discount || 0);
   const taxableBase = Math.max(0, subtotal - discount);
@@ -55,7 +55,7 @@ const buildInitialState = (initialData, menuItems, categories) => {
     specialInstructions: initialData?.specialInstructions || "",
     notes: initialData?.notes || "",
     discountPercent: derivePercent(discount, subtotal),
-    taxPercent: 18,
+    taxPercent: normalizeGstRate(initialData?.gstRate ?? restaurantGstRate),
     serviceChargePercent: derivePercent(initialData?.serviceCharge, taxableBase),
     deliveryCharge: initialData?.deliveryCharge ?? "",
     deliveryAddress: initialData?.deliveryAddress || "",
@@ -80,6 +80,8 @@ const CreateOrderModal = ({
   dependenciesLoading = false,
   submissionError = "",
   initialData = null,
+  hotelUpiCapability,
+  restaurantGstRate = 0,
   onClose,
   onSubmit,
 }) => {
@@ -88,7 +90,7 @@ const CreateOrderModal = ({
   const outletId = localStorage.getItem("selectedOutletId") || "";
   const draftScope = getOrderDraftScope({ user, outletId });
 
-  const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories));
+  const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories, restaurantGstRate));
   const [guestCount, setGuestCount] = useState(1);
   const [orderDate, setOrderDate] = useState(() => new Date());
   const [menuSearch, setMenuSearch] = useState("");
@@ -121,9 +123,9 @@ const CreateOrderModal = ({
   // by a delayed passive effect during first render.
   useLayoutEffect(() => {
     if (!open) return;
-    const initialForm = buildInitialState(initialData, menuItems, categories);
+    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate);
     const draft = !isEdit ? readOrderDraft(draftScope) : null;
-    const restoredForm = draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories) } : initialForm;
+    const restoredForm = draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories, restaurantGstRate) } : initialForm;
     if (!isEdit && !restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
     setForm(restoredForm);
     if (draft) toast.success("Unsent order restored.", { id: "order-draft-restored" });
@@ -144,7 +146,7 @@ const CreateOrderModal = ({
     } else {
       setOrderDate(new Date());
     }
-  }, [draftScope, initialData, isEdit, menuItems, categories, open]);
+  }, [draftScope, initialData, isEdit, menuItems, categories, open, restaurantGstRate]);
 
   useEffect(() => {
     if (!open || isEdit || !draftScope || !form.items.length) return undefined;
@@ -311,7 +313,6 @@ const CreateOrderModal = ({
   const patchCustomerForm = useCallback((updates) => setCustomerForm((prev) => ({ ...prev, ...updates })), []);
   const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: value }), [patchForm]);
   const patchNotes = useCallback((value) => patchForm({ notes: value }), [patchForm]);
-  const patchTaxPercent = useCallback((value) => patchForm({ taxPercent: value }), [patchForm]);
   const patchServiceChargePercent = useCallback((value) => patchForm({ serviceChargePercent: value }), [patchForm]);
 
   const saveCustomer = useCallback(async () => {
@@ -381,7 +382,6 @@ const CreateOrderModal = ({
       specialInstructions: form.specialInstructions.trim(),
       notes: form.notes.trim(),
       discount: discountAmount,
-      taxPercent: Number(form.taxPercent) || 0,
       serviceChargePercent: Number(form.serviceChargePercent) || 0,
       deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
       deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
@@ -467,6 +467,7 @@ const CreateOrderModal = ({
                 onPatch={patchForm}
                 onGuestChange={setGuestCount}
                 isTableSelectable={isTableSelectable}
+                hotelUpiCapability={hotelUpiCapability}
               />
 
               <ItemsSection
@@ -522,7 +523,6 @@ const CreateOrderModal = ({
               orderType={form.orderType}
               notes={form.notes}
               onNotesChange={patchNotes}
-              onTaxPercentChange={patchTaxPercent}
               onServiceChargePercentChange={patchServiceChargePercent}
             />
           </div>

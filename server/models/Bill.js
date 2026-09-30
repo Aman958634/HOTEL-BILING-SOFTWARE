@@ -7,6 +7,8 @@ const allocationSchema = new mongoose.Schema({
   discount: { type: Number, default: 0, min: 0 },
   loyaltyDiscount: { type: Number, default: 0, min: 0 },
   tax: { type: Number, default: 0, min: 0 },
+  // Allocation-level snapshot supports consolidated bills containing different GST rates.
+  gstRate: { type: Number, default: 0, min: 0, max: 100 },
   serviceCharge: { type: Number, default: 0, min: 0 },
   deliveryCharge: { type: Number, default: 0, min: 0 },
   total: { type: Number, required: true, min: 0 },

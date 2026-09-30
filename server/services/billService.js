@@ -9,6 +9,7 @@ import ApiError from "../utils/ApiError.js";
 import { formatPaymentId } from "../utils/paymentId.js";
 import { normalizePaymentMethod, paymentMethodLabel } from "../utils/paymentUtils.js";
 import { serializePayment } from "./paymentService.js";
+import { normalizeGstRate } from "./gstService.js";
 
 const OPEN_STATUSES = ["OPEN", "PARTIALLY_PAID"];
 const MONEY_FACTOR = 100;
@@ -31,7 +32,7 @@ const buildSnapshot = (orders) => {
   }), { subtotal: 0, discount: 0, loyaltyDiscount: 0, taxableAmount: 0, tax: 0, serviceCharge: 0, deliveryCharge: 0, total: 0 });
   return Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, fromPaise(value)]));
 };
-const allocationFromOrder = (order) => ({ order: order._id, orderNumber: order.orderNumber, subtotal: Number(order.subtotal || 0), discount: Number(order.discount || 0), loyaltyDiscount: Number(order.loyaltyDiscount || 0), tax: Number(order.tax || 0), serviceCharge: Number(order.serviceCharge || 0), deliveryCharge: Number(order.deliveryCharge || 0), total: Number(order.total || 0) });
+const allocationFromOrder = (order) => ({ order: order._id, orderNumber: order.orderNumber, subtotal: Number(order.subtotal || 0), discount: Number(order.discount || 0), loyaltyDiscount: Number(order.loyaltyDiscount || 0), tax: Number(order.tax || 0), gstRate: normalizeGstRate(order.gstRate), serviceCharge: Number(order.serviceCharge || 0), deliveryCharge: Number(order.deliveryCharge || 0), total: Number(order.total || 0) });
 
 const activeBillForOrders = (orderIds, session) => Bill.findOne({ "allocations.order": { $in: orderIds }, status: { $in: OPEN_STATUSES } }).session(session);
 
