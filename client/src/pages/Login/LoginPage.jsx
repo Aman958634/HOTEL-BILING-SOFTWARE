@@ -46,6 +46,18 @@ const LoginPage = ({ superAdminOnly = false }) => {
   }, [location.state]);
 
   useEffect(() => {
+    try {
+      const accountStatusMessage = sessionStorage.getItem("restaurantAccountStatusMessage");
+      if (!accountStatusMessage) return;
+      sessionStorage.removeItem("restaurantAccountStatusMessage");
+      setError("root", { message: accountStatusMessage });
+      toast.error(accountStatusMessage);
+    } catch {
+      // The login form remains usable if browser storage is unavailable.
+    }
+  }, [setError]);
+
+  useEffect(() => {
     if (location.state?.fromRegister) {
       if (location.state?.email) {
         setValue("email", location.state.email);

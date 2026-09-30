@@ -54,11 +54,16 @@ router.use(authMiddleware, requireSuperAdmin);
 router.get("/dashboard/stats", dashboardStats);
 
 // Restaurants
-router.get("/restaurants", [query("page").optional().isInt({ min: 1 }), query("limit").optional().isInt({ min: 1, max: 100 }), query("status").optional().isIn(["active", "suspended"]), query("q").optional().isString().trim().isLength({ max: 120 })], validate, restaurantsCtrl.listRestaurants);
+router.get("/restaurants", [query("page").optional().isInt({ min: 1 }), query("limit").optional().isInt({ min: 1, max: 100 }), query("status").optional().isIn(["active", "suspended", "archived"]), query("q").optional().isString().trim().isLength({ max: 120 })], validate, restaurantsCtrl.listRestaurants);
 router.post("/restaurants", restaurantCreateValidation, validate, restaurantsCtrl.createRestaurant);
 router.get("/restaurants/:id", [param("id").isMongoId().withMessage("Invalid restaurant id")], validate, restaurantsCtrl.getRestaurant);
 router.put("/restaurants/:id", restaurantUpdateValidation, validate, restaurantsCtrl.updateRestaurant);
 router.patch("/restaurants/:id/status", [param("id").isMongoId().withMessage("Invalid restaurant id"), body("status").isIn(["active", "suspended"]).withMessage("Status is invalid")], validate, restaurantsCtrl.updateStatus);
+router.delete("/restaurants/:id", [
+  param("id").isMongoId().withMessage("Invalid restaurant id"),
+  body("confirm").custom((value) => value === true).withMessage("Confirmation is required"),
+  body("confirmationName").isString().trim().isLength({ min: 1, max: 160 }).withMessage("Exact restaurant name confirmation is required"),
+], validate, restaurantsCtrl.archiveRestaurant);
 
 // Users
 router.get("/users", userListValidation, validate, usersCtrl.listUsers);

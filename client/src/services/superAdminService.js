@@ -5,6 +5,7 @@ export const createRestaurant = (payload) => api.post("/super-admin/restaurants"
 export const getRestaurant = (id) => api.get(`/super-admin/restaurants/${id}`);
 export const updateRestaurant = (id, payload) => api.put(`/super-admin/restaurants/${id}`, payload);
 export const updateRestaurantStatus = (id, payload) => api.patch(`/super-admin/restaurants/${id}/status`, payload);
+export const archiveRestaurant = (id, payload) => api.delete(`/super-admin/restaurants/${id}`, { data: payload });
 
 export const fetchUsers = (params) => api.get("/super-admin/users", { params });
 export const getUser = (id) => api.get(`/super-admin/users/${id}`);

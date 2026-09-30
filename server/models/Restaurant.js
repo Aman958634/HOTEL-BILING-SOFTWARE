@@ -16,7 +16,10 @@ const restaurantSchema = new mongoose.Schema(
     gstRate: { type: Number, default: 0, min: 0, max: 100 },
     logoUrl: { type: String, default: "" },
     website: { type: String, default: "" },
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true, index: true },
+    // Archived tenants are retained for financial and audit history; they can never authenticate.
+    archivedAt: { type: Date, default: null, index: true },
+    archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
     reservationsEnabled: { type: Boolean, default: true },
     onlineOrdersEnabled: { type: Boolean, default: true },
     openingHours: { type: String, default: "09:00-23:00" },

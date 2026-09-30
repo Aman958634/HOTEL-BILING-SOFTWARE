@@ -36,6 +36,10 @@ const isOutletAccessDenied = (error) =>
   (error?.response?.data?.code === "OUTLET_ACCESS_DENIED" ||
     error?.response?.data?.message === "You do not have access to the requested outlet");
 
+const isRestaurantAccountBlocked = (error) =>
+  error?.response?.status === 403 &&
+  ["RESTAURANT_ACCOUNT_SUSPENDED", "RESTAURANT_ACCOUNT_ARCHIVED"].includes(error?.response?.data?.code);
+
 const processQueue = (error, token = null) => {
   const queue = failedQueue;
   failedQueue = [];
@@ -50,7 +54,14 @@ const processQueue = (error, token = null) => {
   });
 };
 
-const clearAuthAndRedirectToLogin = () => {
+const clearAuthAndRedirectToLogin = (accountStatusMessage = "") => {
+  if (accountStatusMessage) {
+    try {
+      sessionStorage.setItem("restaurantAccountStatusMessage", accountStatusMessage);
+    } catch {
+      // A restricted browser storage context still clears its auth state below.
+    }
+  }
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("selectedOutletId");
@@ -130,6 +141,11 @@ api.interceptors.response.use(
       payload.message = error.userMessage;
     }
     const notificationMetadata = observeApiError(error);
+    if (isRestaurantAccountBlocked(error) && originalRequest && !String(originalRequest.url || "").includes("/auth/login")) {
+      clearAuthAndRedirectToLogin(payload?.message || "Restaurant account access is unavailable. Please contact support.");
+      return Promise.reject(error);
+    }
+
     if (isOutletAccessDenied(error) && originalRequest && !originalRequest._outletRetry) {
       originalRequest._outletRetry = true;
       authStore?.dispatch({ type: "auth/outletRecoveryStarted" });

@@ -5,6 +5,7 @@ import { ensureDefaultOutlet } from "../services/outletService.js";
 import { hasAllOutletsAccess } from "../utils/tenantUtils.js";
 import ApiError from "../utils/ApiError.js";
 import { resolvePermissions } from "../config/rolePermissions.js";
+import { assertRestaurantAccountActive } from "../services/restaurantAccountService.js";
 
 export const protect = async (req, _, next) => {
   try {
@@ -20,6 +21,8 @@ export const protect = async (req, _, next) => {
     if (!user || !user.isActive) {
       return next(new ApiError(401, "User not found or inactive"));
     }
+
+    await assertRestaurantAccountActive(user);
 
     req.user = {
       _id: user._id,
@@ -64,6 +67,10 @@ export const protect = async (req, _, next) => {
 
     return next();
   } catch (error) {
+    if (error instanceof ApiError) {
+      return next(error);
+    }
+
     if (error.name === "TokenExpiredError") {
       return next(new ApiError(401, "Session expired. Please login again."));
     }

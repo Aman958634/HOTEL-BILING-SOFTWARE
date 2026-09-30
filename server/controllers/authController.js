@@ -11,6 +11,7 @@ import logger from "../utils/logger.js";
 import { safeErrorContext } from "../utils/safeLog.js";
 import { ensureDefaultOutlet, getAllowedOutlets } from "../services/outletService.js";
 import { resolvePermissions } from "../config/rolePermissions.js";
+import { assertRestaurantAccountActive } from "../services/restaurantAccountService.js";
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const RESET_OTP_TTL_MS = 10 * 60 * 1000;
@@ -103,6 +104,8 @@ export const login = asyncHandler(async (req, res) => {
 
   if (!isMatch) throw new ApiError(401, "Invalid credentials");
 
+  await assertRestaurantAccountActive(user);
+
   const payload = {
     id: user._id,
     role: user.role,
@@ -134,8 +137,13 @@ export const refresh = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid refresh token");
   }
 
-  const user = await User.findOne({ refreshToken, _id: decoded.id });
+  const user = await User.findById(decoded.id);
   if (!user || !user.isActive) throw new ApiError(401, "Invalid refresh token");
+
+  // Check the parent account before stored-token comparison so a valid token
+  // issued before suspension/archive receives the explicit account-state 403.
+  await assertRestaurantAccountActive(user);
+  if (user.refreshToken !== refreshToken) throw new ApiError(401, "Invalid refresh token");
 
   const accessToken = generateAccessToken({
     id: user._id,

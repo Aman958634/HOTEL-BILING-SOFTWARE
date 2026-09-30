@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Restaurant from "../models/Restaurant.js";
 import User from "../models/User.js";
 import Subscription from "../models/Subscription.js";
@@ -13,12 +14,19 @@ import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../
 export const listRestaurants = asyncHandler(async (req, res) => {
   const { q, status, page = 1, limit = 20 } = req.query;
   const filter = {};
+  if (status === "active") {
+    filter.isActive = true;
+    filter.archivedAt = null;
+  }
+  if (status === "suspended") {
+    filter.isActive = false;
+    filter.archivedAt = null;
+  }
+  if (status === "archived") filter.archivedAt = { $ne: null };
   if (q) {
     const pattern = new RegExp(String(q), "i");
     filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
   }
-  if (status === "active") filter.isActive = true;
-  if (status === "suspended") filter.isActive = false;
 
   const skip = (Number(page) - 1) * Number(limit);
   const [items, total] = await Promise.all([
@@ -202,6 +210,9 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
   const update = { ...req.body };
   delete update.restaurant; // prevent changing tenant association from client
   delete update.slug; // customer-facing menu links remain stable after creation
+  delete update.isActive; // lifecycle state only changes through dedicated super-admin controls
+  delete update.archivedAt;
+  delete update.archivedBy;
   const restaurant = await Restaurant.findByIdAndUpdate(id, update, { new: true }).lean();
   if (!restaurant) throw new ApiError(404, "Restaurant not found");
 
@@ -214,22 +225,93 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
 export const updateStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const restaurant = await Restaurant.findById(id);
-  if (!restaurant) throw new ApiError(404, "Restaurant not found");
+  const session = await mongoose.startSession();
+  let restaurant;
 
-  const prev = restaurant.isActive;
-  restaurant.isActive = status === "active";
-  await restaurant.save();
+  try {
+    await session.withTransaction(async () => {
+      restaurant = await Restaurant.findById(id).session(session);
+      if (!restaurant) throw new ApiError(404, "Restaurant not found");
+      if (restaurant.archivedAt) throw new ApiError(409, "Archived restaurants cannot be activated or suspended.");
+
+      restaurant.isActive = status === "active";
+      await restaurant.save({ session });
+      if (status === "suspended") {
+        await User.updateMany({ restaurant: restaurant._id }, { $set: { refreshToken: "" } }, { session });
+      }
+    });
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) {
+      throw new ApiError(503, "Restaurant account changes require MongoDB transaction support.");
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
 
   await createActivity({ action: `Restaurant ${status === "active" ? "Activated" : "Suspended"}`, description: `Restaurant ${restaurant.name} ${status}`, performedBy: req.user._id, restaurantId: restaurant._id });
-
   res.status(200).json(new ApiResponse(true, "Status updated", { restaurant }));
 });
 
+// DELETE /super-admin/restaurants/:id
+// This is an archive operation: tenant financial and operational history is retained.
+export const archiveRestaurant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const confirmationName = String(req.body.confirmationName || "").trim();
+  const session = await mongoose.startSession();
+  let restaurant;
+  let alreadyArchived = false;
+
+  try {
+    await session.withTransaction(async () => {
+      restaurant = await Restaurant.findById(id).session(session);
+      if (!restaurant) throw new ApiError(404, "Restaurant not found");
+
+      // Exact trimmed comparison is intentional: partial names and case-only
+      // variations cannot authorize this destructive-looking lifecycle action.
+      if (confirmationName !== String(restaurant.name || "").trim()) {
+        throw new ApiError(409, "Restaurant name confirmation does not match.");
+      }
+
+      alreadyArchived = Boolean(restaurant.archivedAt);
+      if (!alreadyArchived) {
+        restaurant.isActive = false;
+        restaurant.archivedAt = new Date();
+        restaurant.archivedBy = req.user._id;
+        await restaurant.save({ session });
+      }
+
+      // Tokens are revoked only for this tenant. The canonical auth guard also
+      // checks Restaurant state on every request, covering existing JWTs.
+      await User.updateMany({ restaurant: restaurant._id }, { $set: { refreshToken: "" } }, { session });
+    });
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) {
+      throw new ApiError(503, "Restaurant archive requires MongoDB transaction support.");
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
+  if (!alreadyArchived) {
+    await createActivity({
+      action: "Restaurant Archived",
+      description: `Restaurant ${restaurant.name} archived; tenant history retained`,
+      performedBy: req.user._id,
+      restaurantId: restaurant._id,
+      targetId: restaurant._id,
+      targetType: "Restaurant",
+    });
+  }
+
+  res.status(200).json(new ApiResponse(true, alreadyArchived ? "Restaurant already archived" : "Restaurant archived", { restaurant, alreadyArchived }));
+});
 export default {
   listRestaurants,
   createRestaurant,
   getRestaurant,
   updateRestaurant,
   updateStatus,
+  archiveRestaurant,
 };
