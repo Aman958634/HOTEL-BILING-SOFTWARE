@@ -57,7 +57,7 @@ const buildPasswordResetLink = (token) => {
   return `${origin.origin}/reset-password/${encodeURIComponent(token)}`;
 };
 
-const buildSessionPayload = async (user) => {
+export const buildSessionPayload = async (user) => {
   if (user?.restaurant) await ensureDefaultOutlet({ _id: user.restaurant });
   const safeUser = await User.findById(user._id).select("-password -refreshToken").lean();
   const authorizedOutlets = await getAllowedOutlets(safeUser);

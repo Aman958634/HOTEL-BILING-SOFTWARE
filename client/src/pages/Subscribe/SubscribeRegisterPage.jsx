@@ -82,6 +82,7 @@ const SubscribeRegisterPage = () => {
       dispatch(
         setAuthSession({
           user: payload.user,
+          authorizedOutlets: payload.authorizedOutlets,
           accessToken: payload.accessToken,
           refreshToken: payload.refreshToken,
         })

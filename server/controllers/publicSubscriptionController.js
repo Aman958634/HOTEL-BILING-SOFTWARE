@@ -22,8 +22,8 @@ import {
 } from "../utils/subscriptionUtils.js";
 import { buildSaasPaymentReceiptBuffer } from "../utils/saasPaymentPdf.js";
 import mongoose from "mongoose";
-import { createRestaurantWithStableSlug } from "../utils/restaurantSlug.js";
-import { ensureDefaultOutlet } from "../services/outletService.js";
+import { buildSessionPayload } from "./authController.js";
+import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../services/restaurantProvisioningService.js";
 
 const PUBLIC_PLAN_KEYS = ["basic", "professional", "enterprise"];
 
@@ -129,52 +129,57 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
   }
 
   const branchCode = `B${Date.now().toString().slice(-6)}`;
-
-  const restaurant = await createRestaurantWithStableSlug({
-    name: String(restaurantName).trim(),
-    branchCode,
-    email: String(email).toLowerCase().trim(),
-    phone: String(phone).trim(),
-    address: String(address).trim(),
-    city: city ? String(city).trim() : "",
-    isActive: true,
-  });
-  await ensureDefaultOutlet(restaurant);
-
-  const user = await User.create({
-    fullName: String(fullName).trim(),
-    email: String(email).toLowerCase().trim(),
-    password,
-    phone: String(phone).trim(),
-    role: "admin",
-    restaurant: restaurant._id,
-  });
-
-  const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
+  const trialStart = new Date();
   const trialEndDate = calculateTrialEndDate(trialStart);
 
-  const subscription = await Subscription.create({
-    restaurant: restaurant._id,
-    planId: plan._id,
-    planName: plan.key,
-    price: 0,
-    billingCycle: plan.billingCycle || "monthly",
-    status: "trial",
-    startDate: trialStart,
-    trialStartDate: trialStart,
-    trialEndDate,
-    renewalDate: null,
-    metadata: {
-      recurringBillingEnabled: false,
-      trialDurationDays: getFreeTrialDays(),
-      createdViaPublicSubscribe: true,
-      trialOnlySignup: isTrialOnlySignup,
-      ...(isTrialOnlySignup ? {} : selectedPlanMetadata(plan, selectedOffer.premiumDurationYears)),
-      paymentRecorded: false,
-      ownerName: ownerName || fullName,
-    },
-  });
+  let provisioned;
+  try {
+    provisioned = await provisionRestaurantWithAdmin({
+      restaurantInput: {
+        name: String(restaurantName).trim(),
+        branchCode,
+        email: String(email).toLowerCase().trim(),
+        phone: String(phone).trim(),
+        address: String(address).trim(),
+        city: city ? String(city).trim() : "",
+        isActive: true,
+      },
+      adminInput: {
+        fullName: String(fullName).trim(),
+        email: String(email).toLowerCase().trim(),
+        password,
+        phone: String(phone).trim(),
+        role: "admin",
+      },
+      subscriptionInput: {
+        planId: plan._id,
+        planName: plan.key,
+        price: 0,
+        billingCycle: plan.billingCycle || "monthly",
+        status: "trial",
+        startDate: trialStart,
+        trialStartDate: trialStart,
+        trialEndDate,
+        renewalDate: null,
+        metadata: {
+          recurringBillingEnabled: false,
+          trialDurationDays: getFreeTrialDays(),
+          createdViaPublicSubscribe: true,
+          trialOnlySignup: isTrialOnlySignup,
+          ...(isTrialOnlySignup ? {} : selectedPlanMetadata(plan, selectedOffer.premiumDurationYears)),
+          paymentRecorded: false,
+          ownerName: ownerName || fullName,
+        },
+      },
+    });
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) {
+      throw new ApiError(503, "Restaurant provisioning requires MongoDB transaction support.");
+    }
+    throw error;
+  }
 
+  const { restaurant, admin: user, subscription } = provisioned;
   await createActivity({
     action: "Restaurant Created",
     description: `Restaurant ${restaurant.name} registered via public subscription signup`,
@@ -222,11 +227,11 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
   user.refreshToken = refreshToken;
   await user.save();
 
-  const safeUser = await User.findById(user._id).select("-password -refreshToken");
+  const session = await buildSessionPayload(user);
 
   res.status(201).json(
     new ApiResponse(true, "Restaurant registered. Continue to payment.", {
-      user: safeUser,
+      ...session,
       accessToken,
       refreshToken,
       restaurant: {
