@@ -7,8 +7,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import { resolvePlan } from "../services/planService.js";
 import { calculateTrialEndDate, calculateRenewalDate, getFreeTrialDays, toSubscriptionView } from "../utils/subscriptionUtils.js";
-import { createRestaurantWithStableSlug } from "../utils/restaurantSlug.js";
-import { ensureDefaultOutlet } from "../services/outletService.js";
+import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../services/restaurantProvisioningService.js";
 
 // GET /super-admin/restaurants
 export const listRestaurants = asyncHandler(async (req, res) => {
@@ -66,47 +65,59 @@ export const createRestaurant = asyncHandler(async (req, res) => {
 
   const branchCode = `B${Date.now().toString().slice(-6)}`;
 
-  const restaurant = await createRestaurantWithStableSlug({
-    name,
-    branchCode,
-    email: adminEmail,
-    phone,
-    address: address || "",
-    city: city || "",
-    logoUrl: logoUrl || "",
-    isActive: status !== "suspended",
-  });
-  await ensureDefaultOutlet(restaurant);
-
-  // create admin user and bind to restaurant server-side
-  const user = await User.create({ fullName: adminFullName, email: adminEmail, password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`, role: "admin", restaurant: restaurant._id });
-
-  // Every new restaurant gets the current server-defined trial unless Super Admin explicitly sets status=active.
+  // Resolve the plan before opening the transaction. The tenant records below
+  // are required and are committed together.
   const planDoc = await resolvePlan(plan || "basic");
-  const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
+  const trialStart = new Date();
   const wantsPaidImmediately = status === "active";
   const isTrial = !wantsPaidImmediately;
   const trialEndDate = isTrial ? calculateTrialEndDate(trialStart) : null;
 
-  const subscription = await Subscription.create({
-    restaurant: restaurant._id,
-    planId: planDoc._id,
-    planName: planDoc.key,
-    price: isTrial ? 0 : planDoc.price,
-    billingCycle: planDoc.billingCycle || "monthly",
-    status: isTrial ? "trial" : "active",
-    startDate: trialStart,
-    trialStartDate: isTrial ? trialStart : null,
-    trialEndDate,
-    subscriptionStartAt: wantsPaidImmediately ? trialStart : null,
-    renewalDate: isTrial ? null : calculateRenewalDate(trialStart, planDoc.billingCycle || "monthly"),
-    metadata: {
-      recurringBillingEnabled: false,
-      ...(isTrial ? { trialDurationDays: getFreeTrialDays() } : {}),
-      createdWithRestaurant: true,
-    },
-  });
+  let provisioned;
+  try {
+    provisioned = await provisionRestaurantWithAdmin({
+      restaurantInput: {
+        name,
+        branchCode,
+        email: adminEmail,
+        phone,
+        address: address || "",
+        city: city || "",
+        logoUrl: logoUrl || "",
+        isActive: status !== "suspended",
+      },
+      adminInput: {
+        fullName: adminFullName,
+        email: adminEmail,
+        password: password || `Admin@${Math.floor(Math.random() * 9000) + 1000}`,
+        role: "admin",
+      },
+      subscriptionInput: {
+        planId: planDoc._id,
+        planName: planDoc.key,
+        price: isTrial ? 0 : planDoc.price,
+        billingCycle: planDoc.billingCycle || "monthly",
+        status: isTrial ? "trial" : "active",
+        startDate: trialStart,
+        trialStartDate: isTrial ? trialStart : null,
+        trialEndDate,
+        subscriptionStartAt: wantsPaidImmediately ? trialStart : null,
+        renewalDate: isTrial ? null : calculateRenewalDate(trialStart, planDoc.billingCycle || "monthly"),
+        metadata: {
+          recurringBillingEnabled: false,
+          ...(isTrial ? { trialDurationDays: getFreeTrialDays() } : {}),
+          createdWithRestaurant: true,
+        },
+      },
+    });
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) {
+      throw new ApiError(503, "Restaurant provisioning requires MongoDB transaction support.");
+    }
+    throw error;
+  }
 
+  const { restaurant, admin: user, subscription } = provisioned;
   await createActivity({
     action: "Restaurant Created",
     description: `Restaurant ${name} created by super admin`,
