@@ -47,7 +47,9 @@ const statusLabels = {
   PENDING: "Pending",
   PROCESSING: "Processing",
   AWAITING_VERIFICATION: "Awaiting Verification",
-  PAID: "Paid",
+  // PAID remains the canonical backend ledger state. Payments UI uses the
+  // customer-facing success label only after that state has been committed.
+  PAID: "SUCCESS",
   FAILED: "Failed",
   REFUNDED: "Refunded",
   PARTIALLY_REFUNDED: "Partially Refunded",
@@ -71,6 +73,11 @@ export const gatewayLabel = (payment = {}) => {
 };
 
 export const paymentStatusLabel = (value) => statusLabels[String(value || "PENDING").toUpperCase()] || "Pending";
+
+// Receipts are proof of a completed collection, not a payment request. Keep
+// this deliberately strict so new or unknown intermediate states never gain
+// receipt access by accident.
+export const canViewPaymentReceipt = (payment) => payment?.paymentStatus === "PAID";
 
 export const getPaymentAmount = (payment) => {
   if (!payment || typeof payment !== "object") return 0;

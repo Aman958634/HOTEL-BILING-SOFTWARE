@@ -14,6 +14,7 @@ import {
   formatCurrency,
   normalizePaymentMethod,
   normalizePaymentStatus,
+  isPaymentReceiptAvailable,
   paymentMethodLabel,
   paymentStatusLabel,
   gatewayLabel,
@@ -689,6 +690,9 @@ export const getPaymentStats = asyncHandler(async (req, res) => {
 export const getPaymentReceipt = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
+  if (!isPaymentReceiptAvailable(payment)) {
+    throw new ApiError(409, "A receipt is available only after the payment is marked PAID.");
+  }
 
   let buffer;
   if (payment.bill) {

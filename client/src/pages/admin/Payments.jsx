@@ -10,7 +10,7 @@ import PaymentFilters from "../../components/payments/PaymentFilters";
 import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
 import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment, sendOrderReceiptWhatsApp } from "../../services/paymentService";
-import { formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { canViewPaymentReceipt, formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
 import { rejectHotelPayment, verifyHotelPayment } from "../../services/hotelPaymentService";
 import HotelUpiVerificationModal from "../../components/payments/HotelUpiVerificationModal";
 
@@ -213,6 +213,7 @@ const Payments = () => {
   };
 
   const openReceipt = async (payment) => {
+    if (!canViewPaymentReceipt(payment)) return;
     try {
       if (!selectedPayment || selectedPayment.paymentId !== payment.paymentId) {
         const { data } = await getPaymentById(payment._id || payment.paymentId);

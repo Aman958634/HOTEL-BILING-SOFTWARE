@@ -108,6 +108,10 @@ export const normalizePaymentStatus = (value) => {
   return paymentStatusAliases[String(value).trim().toLowerCase()] || upper || "PENDING";
 };
 
+// Receipts are only evidence of a completed ledger payment. This strict
+// canonical-state check intentionally rejects unknown future states too.
+export const isPaymentReceiptAvailable = (payment) => payment?.paymentStatus === "PAID";
+
 export const paymentMethodLabel = (value, provider = "") => String(provider || "").toUpperCase() === "HOTEL_UPI"
   ? "Hotel UPI"
   : PAYMENT_METHOD_LABELS[normalizePaymentMethod(value)] || "Other";

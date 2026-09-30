@@ -1,5 +1,5 @@
 import { FiFileText, FiEye, FiRotateCcw, FiTrash2 } from "react-icons/fi";
-import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment, getPaymentAmount } from "../../utils/paymentUtils";
+import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment, canViewPaymentReceipt, getPaymentAmount } from "../../utils/paymentUtils";
 import EmptyState from "../common/EmptyState";
 import { SkeletonTable } from "../common/Skeletons";
 import { formatPaymentId } from "../../utils/paymentId";
@@ -43,7 +43,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
 
     <div className="mt-3 flex flex-wrap gap-2">
       <ActionButton onClick={() => onView(payment)} tone="primary"><FiEye /> View</ActionButton>
-      <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton>
+      {canViewPaymentReceipt(payment) ? <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton> : null}
       {canRefundPayment(payment) ? (
         <ActionButton onClick={() => onRefund(payment)} tone="danger"><FiRotateCcw /> Refund</ActionButton>
       ) : null}
@@ -92,7 +92,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
                     <ActionButton onClick={() => onView(payment)} tone="primary"><FiEye /> View</ActionButton>
-                    <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton>
+                    {canViewPaymentReceipt(payment) ? <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton> : null}
                     {canRefundPayment(payment) ? <ActionButton onClick={() => onRefund(payment)} tone="danger"><FiRotateCcw /> Refund</ActionButton> : null}
                     <ActionButton onClick={() => onDelete(payment)} tone="danger"><FiTrash2 /> Delete</ActionButton>
                   </div>
