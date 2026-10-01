@@ -69,6 +69,35 @@ const canAccessOrder = (user, order) => {
   return false;
 };
 
+const deferCashSettlementFollowUp = ({ user, order, paymentMethod }) => {
+  setImmediate(() => {
+    void Promise.allSettled([
+      createOrderAuditLog({ user, action: "Order Paid", order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } }),
+      createOrderNotifications({
+        title: "Payment Received",
+        message: `${order.orderNumber} payment completed`,
+        actorUserId: user._id,
+        type: "PAYMENT_RECEIVED",
+        restaurantId: order.restaurant,
+        entityType: "Order",
+        entityId: order._id,
+        orderNumber: order.orderNumber,
+        total: order.total,
+        paymentMethod,
+      }),
+    ]).then((results) => {
+      for (const result of results) {
+        if (result.status !== "rejected") continue;
+        logger.error("Cash settlement follow-up failed", {
+          event: "CASH_PAYMENT_FOLLOW_UP_DEFERRED_FAILED",
+          orderId: String(order?._id || ""),
+          error: { name: result.reason?.name, message: result.reason?.message },
+        });
+      }
+    });
+  });
+};
+
 const buildOrderSearchFilter = async (search) => {
   const query = String(search || "").trim();
   if (!query) return {};
@@ -940,6 +969,7 @@ export const payOrder = asyncHandler(async (req, res) => {
     throw new ApiError(422, "Pay endpoint only supports completed payments");
   }
   assertDirectCashSettlement(paymentMethod);
+  const isCashSettlement = paymentMethod === PAYMENT_METHODS.CASH;
 
   const result = await recordVerifiedPayment(order, {
     amount: req.body.amount,
@@ -952,7 +982,15 @@ export const payOrder = asyncHandler(async (req, res) => {
     paidAt: req.body.paidAt || new Date(),
     note: paymentMethod === PAYMENT_METHODS.CASH ? "Cash payment confirmed" : "Gateway payment verified",
     receivedBy: req.user._id,
+    deferPostCommitTasks: isCashSettlement,
   });
+
+  if (isCashSettlement) {
+    emitOrderPaymentUpdated(result.order);
+    res.status(200).json(new ApiResponse(true, "Order payment completed", normalizeOrderOutput(result.order)));
+    deferCashSettlementFollowUp({ user: req.user, order: result.order, paymentMethod });
+    return;
+  }
 
   await createOrderAuditLog({ user: req.user, action: "Order Paid", order: result.order, context: { paymentMethod, paymentStatus: PAYMENT_STATUSES.PAID } });
   await createOrderNotifications({
@@ -967,9 +1005,7 @@ export const payOrder = asyncHandler(async (req, res) => {
     total: result.order.total,
     paymentMethod: paymentMethod,
   });
-
   emitOrderPaymentUpdated(result.order);
-  await maybeReleaseTableAfterSettlement(result.order);
   res.status(200).json(new ApiResponse(true, "Order payment completed", normalizeOrderOutput(result.order)));
 });
 

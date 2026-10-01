@@ -35,6 +35,7 @@ import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
 import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
+import { applyAuthoritativeCashPayment } from "../../utils/cashPaymentConfirmation";
 import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
 import { listPendingOfflineOrders } from "../../utils/offlineOrderQueue";
 import { syncPendingOfflineOrders } from "../../services/offlineOrderSync";
@@ -151,6 +152,8 @@ const OrderManagement = () => {
   const activeOrderCacheKeyRef = useRef(orderCacheKey);
   const orderRequestRef = useRef(0);
   const createSubmittingRef = useRef(false);
+  const cashConfirmSubmittingRef = useRef(false);
+  const cashSettlementIdempotencyKeyRef = useRef("");
   const [createSubmitError, setCreateSubmitError] = useState("");
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
 
@@ -660,6 +663,7 @@ const OrderManagement = () => {
     setPaymentPromptOpen(false);
     setCreatedOrder(null);
     setCashConfirmOpen(false);
+    cashSettlementIdempotencyKeyRef.current = "";
   };
 
   const viewCreatedOrder = async () => {
@@ -668,23 +672,40 @@ const OrderManagement = () => {
   };
 
   const payCashNow = async () => {
-    if (!createdOrder?._id) return;
+    if (!createdOrder?._id || cashConfirmSubmittingRef.current) return;
 
+    cashConfirmSubmittingRef.current = true;
     setCashConfirmLoading(true);
     try {
-      await payOrder(createdOrder._id, {
+      const idempotencyKey = cashSettlementIdempotencyKeyRef.current
+        || `cash-payment:${createdOrder._id}:${crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
+      cashSettlementIdempotencyKeyRef.current = idempotencyKey;
+      const { data } = await payOrder(createdOrder._id, {
         paymentMethod: createdOrder.paymentMethod || "CASH",
         paymentStatus: "PAID",
         gateway: "CASH",
-        transactionId: `CASH-${createdOrder.orderNumber}-${Date.now()}`,
+        transactionId: `CASH-${createdOrder.orderNumber}-${idempotencyKey}`,
         paidAt: new Date().toISOString(),
+      }, idempotencyKey);
+      const confirmedOrder = data?.data;
+      if (String(confirmedOrder?.paymentStatus || "").toUpperCase() !== "PAID") {
+        throw new Error("The cash settlement was not confirmed by the server.");
+      }
+      orderRequestRef.current += 1;
+      setOrders((current) => {
+        const nextOrders = applyAuthoritativeCashPayment(current, confirmedOrder);
+        if (nextOrders !== current && ordersCacheKeyRef.current === activeOrderCacheKeyRef.current) {
+          cacheOrderList(ordersCacheKeyRef.current, nextOrders, meta);
+        }
+        return nextOrders;
       });
       toast.success("Cash payment marked as paid");
       closePaymentPrompt();
-      await Promise.all([loadOrders(), loadStats()]);
+      void Promise.all([loadOrders(), loadStats()]);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update cash payment");
     } finally {
+      cashConfirmSubmittingRef.current = false;
       setCashConfirmLoading(false);
     }
   };
@@ -694,6 +715,7 @@ const OrderManagement = () => {
 
     const paymentMethod = String(createdOrder.paymentMethod || "").toUpperCase();
     if (paymentMethod === "CASH") {
+      cashSettlementIdempotencyKeyRef.current = `cash-payment:${createdOrder._id}:${crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
       setCashConfirmOpen(true);
       return;
     }

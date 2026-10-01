@@ -22,6 +22,7 @@ import { formatPaymentId } from "../utils/paymentId.js";
 import { generateInvoice } from "./invoiceService.js";
 import { awardPointsForPaidOrder } from "./loyaltyService.js";
 import { triggerSuccessfulPaymentSideEffects } from "./whatsappService.js";
+import logger from "../utils/logger.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -332,6 +333,9 @@ export const recordVerifiedPayment = async (
     paidAt = new Date(),
     note = "Payment verified successfully",
     receivedBy = null,
+    // Cash settlement can return immediately after the financial transaction.
+    // The deferred work below never determines whether money was collected.
+    deferPostCommitTasks = false,
   } = {}
 ) => {
   const orderId = order?._id || order;
@@ -481,18 +485,35 @@ export const recordVerifiedPayment = async (
 
   const { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent } = result;
 
-  // Payment verification also re-derives the table. A partial payment leaves
-  // it OCCUPIED; a settled/terminal order can become AVAILABLE only if no
-  // other active order exists for that table.
-  const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
-  await maybeReleaseTableAfterSettlement(committedOrder);
+  const runPostCommitTasks = async () => {
+    // Payment verification also re-derives the table. A partial payment leaves
+    // it OCCUPIED; a settled/terminal order can become AVAILABLE only if no
+    // other active order exists for that table.
+    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+    await maybeReleaseTableAfterSettlement(committedOrder);
 
-  await payment.populate("orderId", "orderNumber status total paymentStatus outlet createdAt updatedAt");
-  await payment.populate("customerId", "fullName email phone avatar");
-  await payment.populate("tableId", "tableNumber floor section");
-  // earn:<orderId> makes this safe for gateway retries and recovery runs.
-  if (fullyPaid) await awardPointsForPaidOrder({ order: committedOrder, payment });
-  await triggerSuccessfulPaymentSideEffects({ order: committedOrder, payment, fullyPaid });
+    await payment.populate("orderId", "orderNumber status total paymentStatus outlet createdAt updatedAt");
+    await payment.populate("customerId", "fullName email phone avatar");
+    await payment.populate("tableId", "tableNumber floor section");
+    // earn:<orderId> makes this safe for gateway retries and recovery runs.
+    if (fullyPaid) await awardPointsForPaidOrder({ order: committedOrder, payment });
+    await triggerSuccessfulPaymentSideEffects({ order: committedOrder, payment, fullyPaid });
+  };
+
+  if (deferPostCommitTasks) {
+    setImmediate(() => {
+      void runPostCommitTasks().catch((error) => {
+        logger.error("Verified payment post-commit work failed", {
+          event: "PAYMENT_POST_COMMIT_DEFERRED_FAILED",
+          orderId: String(committedOrder?._id || ""),
+          paymentId: String(payment?._id || ""),
+          error: { name: error?.name, message: error?.message },
+        });
+      });
+    });
+  } else {
+    await runPostCommitTasks();
+  }
   if (!idempotent) emitPaymentCreated(serializePayment(payment));
   return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
 };

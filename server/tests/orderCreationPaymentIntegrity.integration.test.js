@@ -85,6 +85,7 @@ try {
   await createOrder({ paymentMethod: "CASH", paymentStatus: "SUCCESS" });
   const cashOrder = await createOrder({ paymentMethod: "CASH", paymentStatus: "FAILED" });
 
+  const settlementStartedAt = performance.now();
   const settled = await request(`/orders/${cashOrder._id}/pay`, {
     method: "POST",
     idempotencyKey: `cash-settlement-${suffix}`,
@@ -94,12 +95,40 @@ try {
       transactionId: `CASH-${suffix}`,
     },
   });
+  const settlementDurationMs = performance.now() - settlementStartedAt;
   assert.equal(settled.status, 200, "the existing authorized cash settlement path remains available");
   const settledPayload = await settled.json();
   assert.equal(settledPayload.data.paymentStatus, "PAID");
   assert.equal(await Payment.countDocuments({ orderId: cashOrder._id, paymentStatus: "PAID" }), 1);
 
-  console.log("orderCreationPaymentIntegrity.integration.test.js passed: creation is pending-only and authorized cash settlement remains available.");
+  const duplicateOrder = await createOrder({ paymentMethod: "CASH", paymentStatus: "PENDING" });
+  const duplicateKey = `cash-double-click-${suffix}`;
+  const duplicatePayload = {
+    paymentMethod: "CASH",
+    paymentStatus: "PAID",
+    transactionId: `CASH-DOUBLE-${suffix}`,
+  };
+  const [firstClick, secondClick] = await Promise.all([
+    request(`/orders/${duplicateOrder._id}/pay`, { method: "POST", idempotencyKey: duplicateKey, body: duplicatePayload }),
+    request(`/orders/${duplicateOrder._id}/pay`, { method: "POST", idempotencyKey: duplicateKey, body: duplicatePayload }),
+  ]);
+  assert.equal(firstClick.status, 200, "the first cash confirmation must settle successfully");
+  assert.equal(secondClick.status, 200, "a duplicate cash confirmation must resolve idempotently");
+  assert.equal(await Payment.countDocuments({ orderId: duplicateOrder._id, paymentStatus: "PAID" }), 1, "double-clicks must never create a second payment");
+  assert.equal((await Order.findById(duplicateOrder._id).lean()).paymentStatus, "PAID");
+
+  const rejectedDigitalOrder = await createOrder({ paymentMethod: "UPI", paymentStatus: "PENDING" });
+  const rejectedDigitalAttempt = await request(`/orders/${rejectedDigitalOrder._id}/pay`, {
+    method: "POST",
+    idempotencyKey: `cash-security-${suffix}`,
+    body: { paymentMethod: "UPI", paymentStatus: "PAID", transactionId: `FORGED-UPI-${suffix}` },
+  });
+  assert.equal(rejectedDigitalAttempt.status, 422, "direct settlement must remain cash-only");
+  assert.equal((await Order.findById(rejectedDigitalOrder._id).lean()).paymentStatus, "PENDING", "a failed settlement must never mark the order paid");
+  assert.equal(await Payment.countDocuments({ orderId: rejectedDigitalOrder._id }), 0, "a rejected settlement must not create a payment");
+
+  console.log(`Cash settlement response duration: ${Math.round(settlementDurationMs)}ms`);
+  console.log("orderCreationPaymentIntegrity.integration.test.js passed: cash settlement is transactionally safe, idempotent, and cash-only.");
 } finally {
   await server.close();
   if (mongoose.connection.readyState === 1) {
