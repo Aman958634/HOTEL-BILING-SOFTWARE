@@ -13,11 +13,13 @@ import {
   updateAdminMenuItem,
 } from "../../services/menuService";
 import { getAdminCategories } from "../../services/categoryService";
+import useListRequestState from "../../hooks/useListRequestState";
+import { replaceListRecord } from "../../utils/listMutationState";
 
 const MenuManagement = () => {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -37,7 +39,7 @@ const MenuManagement = () => {
   };
 
   const loadMenu = async () => {
-    setLoading(true);
+    beginListRequest();
     try {
       const params = {
         limit: 100,
@@ -50,10 +52,10 @@ const MenuManagement = () => {
 
       const { data } = await getAdminMenu(params);
       setItems(data.data || []);
+      finishListRequest(true);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load menu");
-    } finally {
-      setLoading(false);
+      finishListRequest(false);
     }
   };
 
@@ -79,15 +81,16 @@ const MenuManagement = () => {
     setSaving(true);
     try {
       if (editingItem?._id) {
-        await updateAdminMenuItem(editingItem._id, payload);
+        const { data } = await updateAdminMenuItem(editingItem._id, payload);
+        setItems((current) => replaceListRecord(current, data.data));
         toast.success("Menu item updated");
       } else {
         await createAdminMenuItem(payload);
+        void loadMenu();
         toast.success("Menu item created");
       }
       setOpenForm(false);
       setEditingItem(null);
-      loadMenu();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to save menu item");
     } finally {
@@ -112,15 +115,9 @@ const MenuManagement = () => {
 
   const toggleAvailability = async (item) => {
     try {
-      await toggleAdminMenuAvailability(item._id, !item.isAvailable);
+      const { data } = await toggleAdminMenuAvailability(item._id, !item.isAvailable);
       toast.success("Availability updated");
-      setItems((prev) =>
-        prev.map((entry) =>
-          entry._id === item._id
-            ? { ...entry, isAvailable: !entry.isAvailable, available: !entry.isAvailable }
-            : entry
-        )
-      );
+      setItems((current) => replaceListRecord(current, data.data));
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update availability");
     }

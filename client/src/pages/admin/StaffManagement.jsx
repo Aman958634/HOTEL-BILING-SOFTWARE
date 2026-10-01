@@ -16,6 +16,8 @@ import StaffForm from "../../components/admin/staff/StaffForm";
 import StaffDetailsDrawer from "../../components/admin/staff/StaffDetailsDrawer";
 import DeleteStaffDialog from "../../components/admin/staff/DeleteStaffDialog";
 import { getActiveStaff, getStaff, getStaffById, getStaffStats, createStaff, updateStaff, updateStaffStatus, deleteStaff } from "../../services/staffService";
+import useListRequestState from "../../hooks/useListRequestState";
+import { removeListRecord, replaceListRecord } from "../../utils/listMutationState";
 
 const defaultFilters = { search: "", role: "", status: "", department: "", page: 1, limit: 20 };
 
@@ -25,13 +27,20 @@ const formatJoinDate = (value) => {
   return Number.isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString();
 };
 
+const normalizeStaff = (item) => ({
+  ...item,
+  fullName: item.fullName || `${item.firstName || ""} ${item.lastName || ""}`.trim(),
+  joiningDateLabel: formatJoinDate(item.joiningDate),
+  currentShift: item.shift?.name || item.currentShift || "Not available",
+});
+
 const StaffManagement = () => {
   const [stats, setStats] = useState(null);
   const [staff, setStaff] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingStaff, setLoadingStaff] = useState(true);
+  const { initialLoading: loadingStaff, beginListRequest, finishListRequest } = useListRequestState();
   const [staffError, setStaffError] = useState("");
   const [saving, setSaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -64,7 +73,7 @@ const StaffManagement = () => {
   };
 
   const loadStaff = async (nextFilters = filters) => {
-    setLoadingStaff(true);
+    beginListRequest();
     setStaffError("");
     try {
       const params = {
@@ -77,21 +86,15 @@ const StaffManagement = () => {
       };
 
       const { data } = await getStaff(params);
-      const mapped = (data.data || []).map((item) => ({
-        ...item,
-        fullName: item.fullName || `${item.firstName || ""} ${item.lastName || ""}`.trim(),
-        joiningDateLabel: formatJoinDate(item.joiningDate),
-        currentShift: item.shift?.name || item.currentShift || "Not available",
-      }));
+      const mapped = (data.data || []).map(normalizeStaff);
 
       setStaff(mapped);
       setPagination(data.meta || { page: 1, limit: 20, total: 0, totalPages: 1 });
+      finishListRequest(true);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load staff");
-      setStaff([]);
       setStaffError(error?.response?.data?.message || "Unable to load staff");
-    } finally {
-      setLoadingStaff(false);
+      finishListRequest(false);
     }
   };
 
@@ -165,15 +168,17 @@ const StaffManagement = () => {
     setSaving(true);
     try {
       if (editingStaff?._id) {
-        await updateStaff(editingStaff._id, payload);
+        const { data } = await updateStaff(editingStaff._id, payload);
+        setStaff((current) => replaceListRecord(current, normalizeStaff(data.data)));
         toast.success("Staff member updated successfully.");
       } else {
         await createStaff(payload);
+        void loadStaff(filtersRef.current);
         toast.success("Staff member created successfully.");
       }
       setFormOpen(false);
       setEditingStaff(null);
-      await Promise.all([loadStaff(filtersRef.current), loadStats()]);
+      await loadStats();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to save staff member");
     } finally {
@@ -187,10 +192,11 @@ const StaffManagement = () => {
 
     setSaving(true);
     try {
-      await updateStaffStatus(statusTarget._id, nextStatus);
+      const { data } = await updateStaffStatus(statusTarget._id, nextStatus);
+      setStaff((current) => replaceListRecord(current, normalizeStaff(data.data)));
       toast.success("Staff status updated successfully.");
       setStatusTarget(null);
-      await Promise.all([loadStaff(filtersRef.current), loadStats()]);
+      await loadStats();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update staff status");
     } finally {
@@ -204,10 +210,12 @@ const StaffManagement = () => {
     setSaving(true);
     try {
       await deleteStaff(deleteTarget._id);
+      setStaff((current) => removeListRecord(current, deleteTarget._id));
+      setPagination((current) => ({ ...current, total: Math.max(0, (current.total || 0) - 1) }));
       toast.success("Staff member deleted successfully.");
       setDeleteOpen(false);
       setDeleteTarget(null);
-      await Promise.all([loadStaff(filtersRef.current), loadStats()]);
+      await loadStats();
     } catch (error) {
       toast.error(error?.response?.data?.message || "This staff member cannot be permanently deleted.");
     } finally {

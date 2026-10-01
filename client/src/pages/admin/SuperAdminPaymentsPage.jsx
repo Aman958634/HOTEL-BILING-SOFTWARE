@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { FiFileText, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import { canDownloadSaasPaymentReceipt } from "../../utils/saasPaymentReceiptEligibility";
+import useListRequestState from "../../hooks/useListRequestState";
+import { removeListRecord } from "../../utils/listMutationState";
 import {
   deleteSaasPayment,
   downloadSaasPaymentPdf,
@@ -174,7 +176,7 @@ const SuperAdminPaymentsPage = () => {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(null);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
+  const { initialLoading: loading, isRefreshing, beginListRequest, finishListRequest } = useListRequestState();
   const [error, setError] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -201,7 +203,7 @@ const SuperAdminPaymentsPage = () => {
   }, [filters, meta.page, meta.limit]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    beginListRequest();
     setError("");
     try {
       const [listRes, summaryRes] = await Promise.all([
@@ -216,14 +218,12 @@ const SuperAdminPaymentsPage = () => {
         ...(payload.meta || {}),
         limit: payload.meta?.limit || prev.limit,
       }));
+      finishListRequest(true);
     } catch (_err) {
-      setItems([]);
-      setSummary(null);
       setError("Unable to load payments. Please try again.");
-    } finally {
-      setLoading(false);
+      finishListRequest(false);
     }
-  }, [queryParams]);
+  }, [beginListRequest, finishListRequest, queryParams]);
 
   useEffect(() => {
     load();
@@ -294,8 +294,9 @@ const SuperAdminPaymentsPage = () => {
     try {
       await deleteSaasPayment(id);
       toast.success("Payment deleted successfully");
+      setItems((current) => removeListRecord(current, id));
+      setMeta((current) => ({ ...current, total: Math.max(0, (current.total || 0) - 1) }));
       setDeleteTarget(null);
-      await load();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to delete payment");
     } finally {
@@ -325,10 +326,10 @@ const SuperAdminPaymentsPage = () => {
         <button
           type="button"
           onClick={load}
-          disabled={loading}
+          disabled={loading || isRefreshing}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
         >
-          <FiRefreshCw className={loading ? "animate-spin" : ""} />
+          <FiRefreshCw className={loading || isRefreshing ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>

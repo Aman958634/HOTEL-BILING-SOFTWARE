@@ -13,6 +13,7 @@ import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPa
 import { canViewPaymentReceipt, formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
 import { rejectHotelPayment, verifyHotelPayment } from "../../services/hotelPaymentService";
 import HotelUpiVerificationModal from "../../components/payments/HotelUpiVerificationModal";
+import useListRequestState from "../../hooks/useListRequestState";
 
 const PaymentAnalytics = lazy(() => import("../../components/payments/PaymentAnalytics"));
 const PaymentDetailsDrawer = lazy(() => import("../../components/payments/PaymentDetailsDrawer"));
@@ -40,7 +41,7 @@ const Payments = () => {
   const [payments, setPayments] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
   const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingPayments, setLoadingPayments] = useState(true);
+  const { initialLoading: loadingPayments, beginListRequest, finishListRequest } = useListRequestState();
   const [error, setError] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -84,7 +85,7 @@ const Payments = () => {
   }, []);
 
   const loadPayments = useCallback(async (currentFilters = filtersRef.current) => {
-    setLoadingPayments(true);
+    beginListRequest();
     setError("");
     try {
       const params = {
@@ -103,15 +104,14 @@ const Payments = () => {
       const { data } = await getPayments(params);
       setPayments(data.data || []);
       setMeta(data.meta || { total: 0, page: 1, limit: 10, totalPages: 1 });
+      finishListRequest(true);
     } catch (err) {
       const message = err?.response?.data?.message || "Unable to load payments";
       setError(message);
-      setPayments([]);
       toast.error(message);
-    } finally {
-      setLoadingPayments(false);
+      finishListRequest(false);
     }
-  }, []);
+  }, [beginListRequest, finishListRequest]);
 
   const loadHotelPayments = useCallback(async () => {
     try {

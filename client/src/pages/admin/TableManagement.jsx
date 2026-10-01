@@ -10,6 +10,8 @@ import TableGrid from "../../components/admin/tables/TableGrid";
 import TableStats from "../../components/admin/tables/TableStats";
 import TableToolbar from "../../components/admin/tables/TableToolbar";
 import RequestState from "../../components/common/RequestState";
+import useListRequestState from "../../hooks/useListRequestState";
+import { removeListRecord, replaceListRecord } from "../../utils/listMutationState";
 import {
   createTable,
   deleteTable,
@@ -47,7 +49,7 @@ const TableManagement = () => {
   const navigate = useNavigate();
   const [tables, setTables] = useState([]);
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
   const [tablesError, setTablesError] = useState("");
   const [loadingStats, setLoadingStats] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,8 +99,9 @@ const TableManagement = () => {
   const loadTables = useCallback(async (appliedFilters = filtersRef.current) => {
     const requestId = tableRequestRef.current + 1;
     tableRequestRef.current = requestId;
-    setLoading(true);
+    beginListRequest();
     setTablesError("");
+    let succeeded = false;
     try {
       const params = {
         limit: 100,
@@ -112,16 +115,19 @@ const TableManagement = () => {
       };
 
       const { data } = await getTables(params);
-      if (tableRequestRef.current === requestId) setTables(data.data || []);
+      if (tableRequestRef.current === requestId) {
+        setTables(data.data || []);
+        succeeded = true;
+      }
     } catch (error) {
       if (tableRequestRef.current === requestId) {
         toast.error(getErrorMessage(error, "Unable to load tables"));
         setTablesError(getErrorMessage(error, "Unable to load tables"));
       }
     } finally {
-      if (tableRequestRef.current === requestId) setLoading(false);
+      if (tableRequestRef.current === requestId) finishListRequest(succeeded);
     }
-  }, []);
+  }, [beginListRequest, finishListRequest]);
 
   useEffect(() => {
     loadStats();
@@ -201,15 +207,17 @@ const TableManagement = () => {
     setSaving(true);
     try {
       if (editingTable?._id) {
-        await updateTable(editingTable._id, payload);
+        const { data } = await updateTable(editingTable._id, payload);
+        setTables((current) => replaceListRecord(current, data.data));
         toast.success("Table updated successfully");
       } else {
         await createTable(payload);
+        void loadTables();
         toast.success("Table created successfully");
       }
 
       closeForm();
-      await Promise.all([loadTables(), loadStats()]);
+      await loadStats();
     } catch (error) {
       toast.error(getErrorMessage(error, "Unable to save table"));
     } finally {
@@ -259,9 +267,10 @@ const TableManagement = () => {
     setSaving(true);
     try {
       await deleteTable(deleteTarget._id);
+      setTables((current) => removeListRecord(current, deleteTarget._id));
       toast.success("Table deleted successfully");
       cancelDelete();
-      await Promise.all([loadTables(), loadStats()]);
+      await loadStats();
     } catch (error) {
       const backendMessage = error?.response?.data?.message;
       if (backendMessage?.includes("active order or reservation")) {

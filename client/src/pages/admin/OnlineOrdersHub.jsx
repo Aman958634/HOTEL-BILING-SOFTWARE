@@ -7,6 +7,7 @@ import { bulkReadyKitchenItems, bulkStartKitchenItems } from "../../services/kit
 import { getOrderById, getOrderStats, getOrders, updateOrderStatus } from "../../services/orderService";
 import { currency, dateTime } from "../../utils/format";
 import { paymentBadgeClasses, paymentStatusLabel } from "../../utils/paymentUtils";
+import useListRequestState from "../../hooks/useListRequestState";
 import ModuleIcon from "../../components/common/ModuleIcon";
 
 const STATUS_OPTIONS = ["PENDING", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "COMPLETED", "CANCELLED", "REJECTED"];
@@ -94,7 +95,7 @@ const OnlineOrdersHub = () => {
   const [stats, setStats] = useState(null);
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [filters, setFilters] = useState({ search: "", status: "", orderType: "", paymentStatus: "", orderSource: "", date: "", page: 1 });
-  const [loading, setLoading] = useState(true);
+  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -103,15 +104,16 @@ const OnlineOrdersHub = () => {
   const [busyId, setBusyId] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    beginListRequest(); setError("");
+    let succeeded = false;
     try {
       const params = { onlineOnly: true, page: filters.page, limit: 20, sortBy: "newest" };
       ["search", "status", "orderType", "paymentStatus", "orderSource", "date"].forEach((key) => { if (filters[key]) params[key] = filters[key]; });
       const [{ data: ordersData }, { data: statsData }] = await Promise.all([getOrders(params), getOrderStats({ onlineOnly: true })]);
-      setOrders(ordersData.data || []); setMeta(ordersData.meta || { page: filters.page, limit: 20, total: 0, totalPages: 1 }); setStats(statsData.data || null);
+      setOrders(ordersData.data || []); setMeta(ordersData.meta || { page: filters.page, limit: 20, total: 0, totalPages: 1 }); setStats(statsData.data || null); succeeded = true;
     } catch (requestError) { setError(requestError?.response?.data?.message || "Unable to load online orders."); }
-    finally { setLoading(false); }
-  }, [filters]);
+    finally { finishListRequest(succeeded); }
+  }, [beginListRequest, filters, finishListRequest]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {

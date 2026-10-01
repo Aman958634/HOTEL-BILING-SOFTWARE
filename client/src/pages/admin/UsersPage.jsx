@@ -4,6 +4,8 @@ import { SkeletonTable } from "../../components/common/Skeletons";
 import { Link, useNavigate } from "react-router-dom";
 import { fetchUsers, deleteUser, updateUserStatus } from "../../services/superAdminService";
 import toast from "react-hot-toast";
+import useListRequestState from "../../hooks/useListRequestState";
+import { removeListRecord, replaceListRecord } from "../../utils/listMutationState";
 
 const USER_ROLES = [
   "super_admin",
@@ -23,13 +25,13 @@ const USER_ROLES = [
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
   const [filters, setFilters] = useState({ q: "", role: "", status: "" });
   const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const navigate = useNavigate();
 
   const loadUsers = async (page = 1) => {
-    setLoading(true);
+    beginListRequest();
     try {
       const params = {
         q: filters.q || undefined,
@@ -42,11 +44,10 @@ const UsersPage = () => {
       const responseData = data.data || {};
       setUsers(responseData.items || []);
       setMeta(responseData.meta || { page: 1, limit: 20, total: 0, totalPages: 1 });
+      finishListRequest(true);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to load users");
-      setUsers([]);
-    } finally {
-      setLoading(false);
+      finishListRequest(false);
     }
   };
 
@@ -63,7 +64,8 @@ const UsersPage = () => {
     try {
       await deleteUser(id);
       toast.success("User deleted");
-      loadUsers(meta.page);
+      setUsers((current) => removeListRecord(current, id));
+      setMeta((current) => ({ ...current, total: Math.max(0, (current.total || 0) - 1) }));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to delete user");
     }
@@ -71,9 +73,9 @@ const UsersPage = () => {
 
   const handleToggleStatus = async (id, isActive) => {
     try {
-      await updateUserStatus(id, isActive ? "inactive" : "active");
+      const { data } = await updateUserStatus(id, isActive ? "inactive" : "active");
       toast.success(`User ${isActive ? "deactivated" : "activated"}`);
-      loadUsers(meta.page);
+      setUsers((current) => replaceListRecord(current, data?.data || { ...current.find((user) => user._id === id), _id: id, isActive: !isActive }));
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to update status");
     }

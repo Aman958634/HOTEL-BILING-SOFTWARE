@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import { FiSearch } from "react-icons/fi";
 import CategoryTable from "../../components/admin/CategoryTable";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import useListRequestState from "../../hooks/useListRequestState";
+import { prependListRecord, removeListRecord, replaceListRecord } from "../../utils/listMutationState";
 import {
   createAdminCategory,
   deleteAdminCategory,
@@ -15,7 +17,7 @@ const emptyForm = { name: "", description: "", image: "", active: true };
 
 const CategoryManagement = () => {
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
@@ -23,14 +25,14 @@ const CategoryManagement = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const loadCategories = async () => {
-    setLoading(true);
+    beginListRequest();
     try {
       const { data } = await getAdminCategories({ limit: 100, search });
       setCategories(data.data || []);
+      finishListRequest(true);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to load categories");
-    } finally {
-      setLoading(false);
+      finishListRequest(false);
     }
   };
 
@@ -53,14 +55,18 @@ const CategoryManagement = () => {
     setSaving(true);
     try {
       if (editingId) {
-        await updateAdminCategory(editingId, form);
+        const { data } = await updateAdminCategory(editingId, form);
+        setCategories((current) => replaceListRecord(current, data.data));
         toast.success("Category updated");
       } else {
-        await createAdminCategory(form);
+        const { data } = await createAdminCategory(form);
+        const created = data.data;
+        if (!search || created.name.toLowerCase().includes(search.trim().toLowerCase())) {
+          setCategories((current) => prependListRecord(current, created));
+        }
         toast.success("Category created");
       }
       resetForm();
-      loadCategories();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to save category");
     } finally {
@@ -84,8 +90,8 @@ const CategoryManagement = () => {
     try {
       await deleteAdminCategory(deleteTarget._id);
       toast.success("Category deleted");
+      setCategories((current) => removeListRecord(current, deleteTarget._id));
       setDeleteTarget(null);
-      loadCategories();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Cannot delete category");
     } finally {
@@ -96,13 +102,9 @@ const CategoryManagement = () => {
   const toggleStatus = async (item) => {
     try {
       const current = Boolean(item.active ?? item.isActive);
-      await toggleAdminCategoryStatus(item._id, !current);
+      const { data } = await toggleAdminCategoryStatus(item._id, !current);
       toast.success("Category status updated");
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat._id === item._id ? { ...cat, active: !current, isActive: !current } : cat
-        )
-      );
+      setCategories((currentItems) => replaceListRecord(currentItems, data.data));
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to update category");
     }
