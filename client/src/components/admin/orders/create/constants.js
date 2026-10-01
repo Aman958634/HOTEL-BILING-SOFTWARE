@@ -15,12 +15,6 @@ export const PAYMENT_METHODS = [
   { value: "OTHER", label: "Other" },
 ];
 
-export const PAYMENT_STATUSES = [
-  { value: "PENDING", label: "Pending" },
-  { value: "PAID", label: "Paid" },
-  { value: "FAILED", label: "Failed" },
-];
-
 export const TABLE_STATUS_STYLES = {
   AVAILABLE: { label: "Available", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   OCCUPIED: { label: "Occupied", className: "bg-rose-50 text-rose-700 border-rose-200" },

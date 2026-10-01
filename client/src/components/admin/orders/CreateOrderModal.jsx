@@ -386,9 +386,6 @@ const CreateOrderModal = ({
       deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
       deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
       paymentMethod: form.paymentMethod,
-      // Provider-backed Cashfree orders must enter the checkout flow unpaid.
-      // The server independently enforces this invariant before persistence.
-      paymentStatus: String(form.paymentMethod).toLowerCase() === "cashfree" ? "PENDING" : form.paymentStatus,
       _idempotencyKey: form.idempotencyKey,
     });
   };

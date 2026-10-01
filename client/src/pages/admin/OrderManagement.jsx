@@ -563,31 +563,13 @@ const OrderManagement = () => {
     setCreateSubmitError("");
     setSaving(true);
     try {
-      const { paymentStatus, _idempotencyKey, ...orderPayload } = payload;
+      const { _idempotencyKey, ...orderPayload } = payload;
       const { data } = await createOrder(orderPayload, _idempotencyKey);
-      let order = data.data;
-      const isCashSettlement = paymentStatus === "PAID" && String(orderPayload.paymentMethod || "CASH").toUpperCase() === "CASH";
-
-      if (isCashSettlement) {
-        await payOrder(order._id, {
-          paymentMethod: "CASH",
-          paymentStatus: "PAID",
-          gateway: "CASH",
-          transactionId: `CASH-${order.orderNumber}-${Date.now()}`,
-          paidAt: new Date().toISOString(),
-        });
-        const refreshed = await getOrderById(order._id);
-        order = refreshed.data?.data || order;
-      }
+      const order = data.data;
 
       toast.success("Order created successfully");
       clearOrderDraft(getOrderDraftScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" }));
       setCreateOpen(false);
-
-      if (isCashSettlement) {
-        await Promise.all([loadOrders(), loadStats()]);
-        return;
-      }
 
       setCreatedOrder(order);
       setPaymentPromptOpen(true);

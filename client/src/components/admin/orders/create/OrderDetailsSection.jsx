@@ -2,7 +2,6 @@ import { memo } from "react";
 import { FiCalendar, FiClock, FiMinus, FiPlus } from "react-icons/fi";
 import {
   ORDER_TYPES,
-  PAYMENT_STATUSES,
   TABLE_STATUS_STYLES,
   cardClass,
   fieldClass,
@@ -184,13 +183,7 @@ const OrderDetailsSection = ({
           id="payment-method"
           className={fieldClass}
           value={form.paymentMethod}
-          onChange={(e) => {
-            const paymentMethod = e.target.value;
-            onPatch({
-              paymentMethod,
-              ...(paymentMethod === "UPI" ? { paymentStatus: "PENDING" } : {}),
-            });
-          }}
+          onChange={(e) => onPatch({ paymentMethod: e.target.value })}
         >
           {CREATE_ORDER_PAYMENT_METHODS.map((m) => (
             <option key={m.value} value={m.value} disabled={m.value === "UPI" && !hotelUpiCapability.canCollect}>{m.label}</option>
@@ -199,24 +192,14 @@ const OrderDetailsSection = ({
         {!hotelUpiCapability.canCollect ? <p className="mt-1 text-xs text-amber-700">{hotelUpiCapability.reason || "Hotel UPI is unavailable."}</p> : null}
       </div>
       <div>
-        <label htmlFor="payment-status" className={labelClass}>Payment Status</label>
-        <select
-          id="payment-status"
-          className={fieldClass}
-          value={form.paymentStatus}
-          onChange={(e) => onPatch({ paymentStatus: e.target.value })}
-          disabled={isEdit || form.paymentMethod === "UPI"}
+        <p className={labelClass}>Payment Status</p>
+        <output
+          aria-label="Payment status"
+          className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700"
         >
-          {PAYMENT_STATUSES.filter((s) => form.paymentMethod !== "UPI" || s.value !== "PAID").map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        {!isEdit && form.paymentMethod === "UPI" ? (
-          <p className="mt-1 text-xs text-slate-500">Hotel UPI stays pending until a different authorized cashier verifies the bank credit.</p>
-        ) : null}
-        {!isEdit && form.paymentStatus === "PAID" ? (
-          <p className="mt-1 text-xs text-slate-500">Payment recorded immediately after order creation.</p>
-        ) : null}
+          {isEdit ? String(form.paymentStatus || "PENDING").replaceAll("_", " ") : "PENDING"}
+        </output>
+        {!isEdit ? <p className="mt-1 text-xs text-slate-500">Payment status updates after payment is collected.</p> : null}
       </div>
     </div>
   </section>
