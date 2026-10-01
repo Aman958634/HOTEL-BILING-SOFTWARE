@@ -213,7 +213,7 @@ const MySubscriptionPage = () => {
                 <td className="px-4 py-3">{p.status}</td>
                 <td className="px-4 py-3">{formatDate(p.paymentDate || p.paidAt || p.createdAt)}</td>
                 <td className="px-4 py-3">
-                  <button
+                  {p.receiptAvailable ? <button
                     type="button"
                     disabled={Boolean(pdfBusyId && pdfBusyId !== p.id)}
                     onClick={() => downloadPdf(p)}
@@ -222,13 +222,13 @@ const MySubscriptionPage = () => {
                   >
                     <FiDownload className="text-sm" />
                     {pdfBusyId === p.id ? "Downloading..." : "Download PDF"}
-                  </button>
+                  </button> : null}
                 </td>
               </tr>
             ))}
           </tbody>
         </table></div>
-        <div className="space-y-3 p-3 md:hidden">{payments.length === 0 ? <p className="p-5 text-center text-sm text-slate-500">No payments yet.</p> : payments.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-all font-mono text-xs text-slate-700">{p.paymentId || "—"}</p><p className="mt-1 font-semibold text-slate-900">{formatMoney(p.amount, p.currency)}</p></div><span className="shrink-0 text-xs font-semibold text-slate-700">{p.status}</span></div><p className="mt-2 text-xs text-slate-500">{planDisplayName(p.plan)} · {formatDate(p.paymentDate || p.paidAt || p.createdAt)}</p><button type="button" disabled={Boolean(pdfBusyId && pdfBusyId !== p.id)} onClick={() => downloadPdf(p)} className="mt-3 min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">{pdfBusyId === p.id ? "Downloading..." : "Download PDF"}</button></article>)}</div>
+        <div className="space-y-3 p-3 md:hidden">{payments.length === 0 ? <p className="p-5 text-center text-sm text-slate-500">No payments yet.</p> : payments.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="break-all font-mono text-xs text-slate-700">{p.paymentId || "—"}</p><p className="mt-1 font-semibold text-slate-900">{formatMoney(p.amount, p.currency)}</p></div><span className="shrink-0 text-xs font-semibold text-slate-700">{p.status}</span></div><p className="mt-2 text-xs text-slate-500">{planDisplayName(p.plan)} · {formatDate(p.paymentDate || p.paidAt || p.createdAt)}</p>{p.receiptAvailable ? <button type="button" disabled={Boolean(pdfBusyId && pdfBusyId !== p.id)} onClick={() => downloadPdf(p)} className="mt-3 min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">{pdfBusyId === p.id ? "Downloading..." : "Download PDF"}</button> : null}</article>)}</div>
       </div>
     </div>
   );

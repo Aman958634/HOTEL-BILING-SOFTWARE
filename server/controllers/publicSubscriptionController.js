@@ -21,6 +21,7 @@ import {
   toSubscriptionView,
 } from "../utils/subscriptionUtils.js";
 import { buildSaasPaymentReceiptBuffer } from "../utils/saasPaymentPdf.js";
+import { getSaasReceiptNumber, isSaasPaymentReceiptAvailable } from "../utils/saasPaymentReceipt.js";
 import mongoose from "mongoose";
 import { buildSessionPayload } from "./authController.js";
 import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../services/restaurantProvisioningService.js";
@@ -335,6 +336,8 @@ export const listMyBillingPayments = asyncHandler(async (req, res) => {
     paidAt: p.paidAt || (p.status === "paid" ? p.updatedAt : null),
     paymentDate: p.paidAt || p.updatedAt || p.createdAt || null,
     createdAt: p.createdAt,
+    receiptAvailable: isSaasPaymentReceiptAvailable(p),
+    receiptNumber: isSaasPaymentReceiptAvailable(p) ? getSaasReceiptNumber(p) : null,
   }));
 
   res.status(200).json(new ApiResponse(true, "Billing payments fetched", items));
@@ -357,6 +360,9 @@ export const downloadMyBillingPaymentPdf = asyncHandler(async (req, res) => {
     .lean();
 
   if (!payment) throw new ApiError(404, "Payment not found");
+  if (!isSaasPaymentReceiptAvailable(payment)) {
+    throw new ApiError(409, "A subscription receipt is available only after the payment is verified as paid.");
+  }
 
   const subscription = payment.subscription || null;
   const restaurant = payment.restaurant || null;
@@ -364,8 +370,12 @@ export const downloadMyBillingPaymentPdf = asyncHandler(async (req, res) => {
   const paymentReceipt = {
     _id: payment._id,
     id: payment._id,
-    paymentId: payment.gatewayPaymentId || null,
+    paymentId: payment.providerPaymentId || payment.gatewayPaymentId || null,
+    receiptNumber: getSaasReceiptNumber(payment),
+    internalReference: getSaasReceiptNumber(payment),
     razorpayPaymentId: payment.gatewayPaymentId || null,
+    providerPaymentId: payment.providerPaymentId || null,
+    providerOrderId: payment.providerOrderId || null,
     razorpayOrderId: payment.gatewayOrderId || null,
     customerName: req.user?.fullName || "—",
     customer: {

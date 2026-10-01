@@ -6,6 +6,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { buildSaasPaymentReceiptBuffer } from "../utils/saasPaymentPdf.js";
+import { isSaasPaymentReceiptAvailable } from "../utils/saasPaymentReceipt.js";
 
 const PLAN_DISPLAY = {
   basic: "Basic",
@@ -409,10 +410,14 @@ export const downloadSaasPaymentPdf = asyncHandler(async (req, res) => {
 
   const payment = await SaasPayment.findById(id).populate("restaurant", "name email phone");
   if (!payment) throw new ApiError(404, "Payment not found");
+  if (!isSaasPaymentReceiptAvailable(payment)) {
+    throw new ApiError(409, "A subscription receipt is available only after the payment is verified as paid.");
+  }
 
   const customerMap = await loadCustomerMap([payment]);
   const rid = String(payment.restaurant?._id || payment.restaurant || "");
   const view = toSaasPaymentView(payment, customerMap.get(rid) || null);
+  view.receiptNumber = payment.internalReference;
 
   const buffer = await buildSaasPaymentReceiptBuffer(view);
   const paymentId = view.razorpayPaymentId || view.paymentId || String(view.id);
