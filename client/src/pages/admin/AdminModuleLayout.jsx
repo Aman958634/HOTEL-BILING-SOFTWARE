@@ -33,6 +33,7 @@ const useDesktopLayout = () => {
 
 const AdminModuleLayout = () => {
   const user = useSelector((state) => state.auth.user);
+  const activeOutletId = useSelector((state) => state.auth.activeOutletId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [blocked, setBlocked] = useState(null);
@@ -126,7 +127,7 @@ const AdminModuleLayout = () => {
           <main className="admin-module-main min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="admin-module-content app-page-container">
               {!isBilling && <TrialBanner subscription={subscription} />}
-              {denied ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><h1 className="text-lg font-semibold">Access Denied</h1><p className="mt-1 text-sm">Your role does not allow this module.</p></div> : <Suspense fallback={<RouteSkeleton />}><Outlet /></Suspense>}
+              {denied ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800" role="alert"><h1 className="text-lg font-semibold">Access Denied</h1><p className="mt-1 text-sm">Your role does not allow this module.</p></div> : <Suspense fallback={<RouteSkeleton />}><Outlet key={activeOutletId || "no-outlet"} /></Suspense>}
             </div>
           </main>
         </div>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { FiChevronDown, FiLoader, FiMapPin } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 import { selectAuthorizedOutlet } from "../../redux/slices/authSlice";
@@ -13,13 +13,17 @@ const OutletSwitcher = ({ className = "", detailed = false }) => {
   const dispatch = useDispatch();
   const { authorizedOutlets: outlets, activeOutletId, outletStatus } = useSelector((state) => state.auth);
   const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    setSwitching(false);
+  }, [activeOutletId]);
+
   const changeOutlet = useCallback((event) => {
     const outletId = event.target.value;
     if (!outletId || outletId === activeOutletId || switching) return;
     setSwitching(true);
     dispatch(selectAuthorizedOutlet(outletId));
     window.dispatchEvent(new CustomEvent("restosphere:outlet-changed", { detail: { outletId } }));
-    window.location.reload();
   }, [activeOutletId, dispatch, switching]);
   if (outletStatus !== "ready" || !outlets.length) return null;
   const activeOutlet = outlets.find((outlet) => outlet._id === activeOutletId) || outlets[0];

@@ -58,7 +58,9 @@ const paymentSchema = new mongoose.Schema(
     gateway: { type: String, default: "", trim: true, index: true },
     provider: { type: String, default: "", trim: true, index: true },
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: "PENDING", index: true },
-    transactionId: { type: String, default: "", trim: true, index: true, sparse: true, unique: true },
+    // A sparse unique index must not receive a shared empty-string default.
+    // Unverified payments have no transaction reference until one is supplied.
+    transactionId: { type: String, trim: true, index: true, sparse: true, unique: true },
     razorpayOrderId: { type: String, default: "", trim: true, index: true, sparse: true },
     razorpayPaymentId: { type: String, default: "", trim: true, index: true, sparse: true },
     cashfreeOrderId: { type: String, trim: true, index: true, sparse: true, unique: true },
