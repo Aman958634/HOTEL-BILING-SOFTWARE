@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import PDFDocument from "pdfkit";
 import Bill from "../models/Bill.js";
 import Order from "../models/Order.js";
 import Payment from "../models/Payment.js";
@@ -7,7 +6,7 @@ import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
 import ApiError from "../utils/ApiError.js";
 import { formatPaymentId } from "../utils/paymentId.js";
-import { normalizePaymentMethod, paymentMethodLabel } from "../utils/paymentUtils.js";
+import { buildReceiptBuffer, normalizePaymentMethod } from "../utils/paymentUtils.js";
 import { serializePayment } from "./paymentService.js";
 import { normalizeGstRate } from "./gstService.js";
 
@@ -170,9 +169,36 @@ export const splitOpenBillByOrders = async ({ billId, restaurantId, groups, user
 };
 
 export const buildBillReceiptBuffer = async (bill) => {
-  const populated = bill?.populate ? await bill.populate([{ path: "restaurant", select: "name address phone email" }, { path: "table", select: "tableNumber" }]) : await Bill.findById(bill).populate("restaurant", "name address phone email").populate("table", "tableNumber");
-  if (!populated) throw new ApiError(404, "Bill not found"); const payments = await Payment.find({ bill: populated._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).sort({ paidAt: 1 }).lean();
-  return new Promise((resolve) => { const doc = new PDFDocument({ margin: 36 }); const chunks = []; doc.on("data", (chunk) => chunks.push(chunk)); doc.on("end", () => resolve(Buffer.concat(chunks))); doc.fontSize(20).text(populated.restaurant?.name || "RestoSphere", { align: "center" }); doc.fontSize(14).text("Bill Receipt", { align: "center" }); doc.moveDown(); doc.fontSize(10).text(`Bill: ${populated.billNumber}`); doc.text(`Table: ${populated.table?.tableNumber || "-"}`); doc.text(`Status: ${populated.status}`); doc.moveDown(); populated.allocations.forEach((row) => doc.text(`Order #${row.orderNumber}  ₹${Number(row.total).toFixed(2)}`)); doc.moveDown(); [["Subtotal", populated.subtotal], ["Discount", populated.discount], ["Loyalty redemption", populated.loyaltyDiscount], ["Tax", populated.tax], ["Service charge", populated.serviceCharge], ["Delivery charge", populated.deliveryCharge], ["Grand total", populated.total], ["Paid", populated.paidAmount], ["Balance due", populated.balanceDue]].forEach(([label, value]) => doc.text(`${label}: ₹${Number(value || 0).toFixed(2)}`, { align: "right" })); doc.moveDown(); doc.text("Payments"); payments.forEach((payment) => doc.text(`${paymentMethodLabel(payment.paymentMethod, payment.provider)} · ${payment.paymentId} · ₹${Number(payment.amount).toFixed(2)}`)); doc.end(); });
+  const populated = bill?.populate
+    ? await bill.populate([{ path: "restaurant", select: "name address phone email" }, { path: "table", select: "tableNumber" }])
+    : await Bill.findById(bill).populate("restaurant", "name address phone email").populate("table", "tableNumber");
+  if (!populated) throw new ApiError(404, "Bill not found");
+
+  const payments = await Payment.find({ bill: populated._id, paymentStatus: { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] } }).sort({ paidAt: 1 }).lean();
+  const payment = payments.at(-1) || {
+    paymentId: populated.billNumber,
+    paymentMethod: "OTHER",
+    paymentStatus: "PAID",
+    totalAmount: populated.paidAmount,
+    paidAt: populated.settledAt || populated.createdAt,
+  };
+  const order = {
+    orderNumber: populated.billNumber,
+    table: populated.table,
+    items: populated.allocations.map((row) => ({
+      name: "Order " + row.orderNumber,
+      quantity: 1,
+      price: Number(row.total || 0),
+      subtotal: Number(row.total || 0),
+    })),
+    subtotal: populated.subtotal,
+    discount: Number(populated.discount || 0) + Number(populated.loyaltyDiscount || 0),
+    tax: populated.tax,
+    serviceCharge: populated.serviceCharge,
+    total: populated.total,
+  };
+
+  return buildReceiptBuffer({ payment, order, restaurant: populated.restaurant });
 };
 
 export const serializeBill = async (bill) => {

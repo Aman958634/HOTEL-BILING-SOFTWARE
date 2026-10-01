@@ -1,91 +1,117 @@
-import { FiDownload, FiPrinter, FiX } from "react-icons/fi";
-import { formatCurrency, formatPaymentDate, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { FiCheck, FiDownload, FiPrinter, FiX } from "react-icons/fi";
+import { formatCurrency, formatPaymentDate, getPaymentAmount, paymentMethodLabel } from "../../utils/paymentUtils";
 import { formatPaymentId } from "../../utils/paymentId";
 
+const valueOr = (value, fallback = "-") => value ?? fallback;
+
 const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
-  if (!open) return null;
+  if (!open || !payment) return null;
 
   const order = payment?.order || {};
+  const items = Array.isArray(order.items) ? order.items : [];
+  const paymentDate = payment?.paidAt || payment?.createdAt;
+  const subtotal = valueOr(order.subtotal, payment?.subtotal);
+  const discount = valueOr(order.discount, payment?.discount);
+  const tax = valueOr(order.tax, payment?.tax);
+  const serviceCharge = order.serviceCharge ?? payment?.serviceCharge;
+  const total = getPaymentAmount(payment) || valueOr(order.total, 0);
+  const transactionReference = payment?.transactionId || payment?.razorpayPaymentId || payment?.cashfreePaymentId || "-";
+  const restaurantName = payment?.restaurant?.name || payment?.restaurantName || "RestoSphere";
+  const tableName = order.table?.tableNumber ? "Table " + order.table.tableNumber : payment.tableNumber ? "Table " + payment.tableNumber : "-";
+  const contactAndTable = (order.customer?.phone || payment.customerPhone || "-") + " / " + tableName;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50">
-      <div className="h-full w-full max-w-2xl overflow-y-auto bg-slate-50 p-4 shadow-2xl">
-        <div className="flex items-start justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm">
+    <div className="fixed inset-0 z-50 bg-slate-950/50 p-0 sm:p-4 print:static print:bg-white">
+      <div className="ml-auto flex h-full w-full max-w-3xl flex-col bg-slate-50 shadow-2xl print:max-w-none print:shadow-none">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white p-4 print:hidden">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Receipt Preview</h3>
-            <p className="text-sm text-slate-500">Printable receipt for the selected payment.</p>
+            <p className="text-sm text-slate-500">A receipt is available for this verified payment.</p>
           </div>
-          <button onClick={onClose} className="rounded-xl border border-slate-300 p-2 text-slate-600">
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 p-2 text-slate-600 hover:bg-slate-50" aria-label="Close receipt preview">
             <FiX />
           </button>
         </div>
 
-        {payment ? (
-          <div className="mt-4 rounded-3xl bg-white p-6 shadow-sm print:shadow-none">
-            <div className="border-b border-dashed border-slate-300 pb-4 text-center">
-              <p className="text-2xl font-black tracking-wide text-brand-700">RestoSphere</p>
-              <p className="mt-1 text-sm text-slate-500">Restaurant Management System</p>
-              <p className="text-xs text-slate-400">Professional Receipt</p>
-            </div>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 print:overflow-visible print:p-0">
+          <article className="mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
+            <header className="border-b border-slate-200 px-5 py-7 text-center sm:px-10">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-sm"><FiCheck aria-hidden="true" /></span>
+              <h1 className="mt-3 text-2xl font-extrabold text-emerald-800">Payment Successful!</h1>
+              <p className="mt-1 text-sm text-slate-500">Thank you! Your payment has been completed.</p>
+              <img src="/restosphere-logo.png" alt="RestoSphere" className="mx-auto mt-6 h-10 w-auto object-contain" />
+              <p className="mt-1 text-sm font-medium text-slate-700">Restaurant Management System</p>
+              <div className="mt-5 border-t border-slate-200 pt-4"><h2 className="text-sm font-extrabold tracking-[0.18em] text-slate-900">PAYMENT RECEIPT</h2></div>
+            </header>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 text-sm text-slate-700">
-              <div>
-                <p><strong>Payment ID:</strong> {formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</p>
-                <p><strong>Order ID:</strong> {order.orderNumber || payment.orderIdValue}</p>
-                <p><strong>Transaction ID:</strong> {payment.transactionId || "-"}</p>
-                <p><strong>Date & Time:</strong> {formatPaymentDate(payment.createdAt)}</p>
+            <section className="grid gap-5 border-b border-slate-200 px-5 py-5 text-sm sm:grid-cols-2 sm:px-10">
+              <div className="space-y-3">
+                <ReceiptField label="Receipt No." value={formatPaymentId(payment.paymentIdDisplay || payment.paymentId)} />
+                <ReceiptField label="Order No." value={order.orderNumber || payment.orderIdValue} />
+                <ReceiptField label="Payment Date" value={formatPaymentDate(paymentDate)} />
               </div>
-              <div>
-                <p><strong>Customer:</strong> {order.customer?.fullName || payment.customerName || "Guest"}</p>
-                <p><strong>Phone:</strong> {order.customer?.phone || payment.customerPhone || "-"}</p>
-                <p><strong>Table:</strong> {order.table?.tableNumber ? `Table ${order.table.tableNumber}` : payment.tableNumber ? `Table ${payment.tableNumber}` : "-"}</p>
-                <p><strong>Status:</strong> {paymentStatusLabel(payment.paymentStatus)}</p>
-                <p><strong>Gateway:</strong> {payment.gatewayLabel || payment.gateway || payment.metadata?.gateway || payment.metadata?.provider || "-"}</p>
+              <div className="space-y-3">
+                <ReceiptField label="Restaurant" value={restaurantName} />
+                <ReceiptField label="Customer" value={order.customer?.fullName || payment.customerName || "Guest"} />
+                <ReceiptField label="Phone / Table" value={contactAndTable} />
               </div>
-            </div>
+            </section>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 p-4">
-              <p className="mb-3 text-sm font-semibold text-slate-900">Items</p>
-              <div className="space-y-2 text-sm">
-                {(order.items || []).map((item, index) => (
-                  <div key={index} className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-slate-800">{item.menuItem?.name || item.name || "Item"}</p>
-                      <p className="text-xs text-slate-500">Qty {item.quantity} · {formatCurrency(item.price)}</p>
-                    </div>
-                    <p className="font-semibold text-slate-900">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</p>
-                  </div>
-                ))}
+            <section className="px-5 py-5 sm:px-10">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[510px] text-left text-sm">
+                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+                    <tr><th className="rounded-l-lg px-3 py-3 font-semibold">#</th><th className="px-3 py-3 font-semibold">Item</th><th className="px-3 py-3 text-right font-semibold">Qty</th><th className="px-3 py-3 text-right font-semibold">Price</th><th className="rounded-r-lg px-3 py-3 text-right font-semibold">Total</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {items.length ? items.map((item, index) => (
+                      <tr key={(item._id || item.name || "item") + "-" + index} className="align-top">
+                        <td className="px-3 py-3 text-slate-500">{index + 1}</td>
+                        <td className="max-w-[240px] break-words px-3 py-3 font-medium text-slate-800">{item.menuItem?.name || item.name || "Item"}</td>
+                        <td className="px-3 py-3 text-right text-slate-700">{item.quantity}</td>
+                        <td className="px-3 py-3 text-right text-slate-700">{formatCurrency(item.price)}</td>
+                        <td className="px-3 py-3 text-right font-semibold text-slate-900">{formatCurrency(item.subtotal ?? item.price * item.quantity)}</td>
+                      </tr>
+                    )) : <tr><td colSpan="5" className="px-3 py-5 text-center text-slate-500">No item details were recorded for this payment.</td></tr>}
+                  </tbody>
+                </table>
               </div>
-            </div>
 
-            <div className="mt-5 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(order.subtotal ?? payment.subtotal)}</span></div>
-              <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(order.discount ?? payment.discount)}</span></div>
-              <div className="flex justify-between"><span>Tax / GST</span><span>{formatCurrency(order.tax ?? payment.tax)}</span></div>
-              <div className="flex justify-between"><span>Service Charge</span><span>{formatCurrency(order.serviceCharge ?? payment.serviceCharge)}</span></div>
-              <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><span>Grand Total</span><span>{formatCurrency(getPaymentAmount(payment) || order.total)}</span></div>
-              <div className="mt-2 flex justify-between"><span>Payment Method</span><span>{paymentMethodLabel(payment.paymentMethod, payment.provider)}</span></div>
-              <div className="flex justify-between"><span>Refund Amount</span><span>{formatCurrency(payment.refundAmount || 0)}</span></div>
-            </div>
+              <div className="ml-auto mt-5 w-full max-w-xs space-y-2 text-sm">
+                <AmountRow label="Subtotal" value={subtotal} />
+                <AmountRow label="Discount" value={discount} negative={Number(discount) > 0} />
+                <AmountRow label="Tax / GST" value={tax} />
+                {serviceCharge !== undefined && serviceCharge !== null ? <AmountRow label="Service Charge" value={serviceCharge} /> : null}
+                <div className="mt-2 flex justify-between rounded-lg bg-emerald-50 px-3 py-3 text-base font-extrabold text-emerald-800"><span>Grand Total</span><span>{formatCurrency(total)}</span></div>
+              </div>
+            </section>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2 print:hidden">
-              <button onClick={onPrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700">
-                <FiPrinter /> Print
-              </button>
-              <button onClick={onDownload} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white">
-                <FiDownload /> Download PDF
-              </button>
-            </div>
+            <section className="border-t border-slate-200 px-5 py-5 text-sm sm:px-10">
+              <div className="grid gap-2 sm:grid-cols-[155px_1fr]">
+                <span className="text-slate-500">Payment Method</span><span className="break-all text-right font-semibold text-slate-900">{paymentMethodLabel(payment.paymentMethod, payment.provider)}</span>
+                <span className="text-slate-500">Payment ID</span><span className="break-all text-right font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</span>
+                <span className="text-slate-500">Transaction / Reference</span><span className="break-all text-right font-semibold text-slate-900">{transactionReference}</span>
+                <span className="text-slate-500">Status</span><span className="text-right font-extrabold text-emerald-700">SUCCESS</span>
+              </div>
+            </section>
+
+            <footer className="border-t border-slate-200 px-5 py-6 text-center sm:px-10">
+              <p className="font-bold text-brand-700">Thank you for choosing RestoSphere!</p>
+              <p className="mt-1 text-xs text-slate-400">This is a computer-generated receipt.</p>
+            </footer>
+          </article>
+
+          <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-end gap-2 print:hidden">
+            <button type="button" onClick={onPrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><FiPrinter /> Print</button>
+            <button type="button" onClick={onDownload} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"><FiDownload /> Download PDF</button>
           </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-            Receipt data unavailable.
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
 };
+
+const ReceiptField = ({ label, value }) => <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 break-words font-semibold text-slate-800">{value || "-"}</p></div>;
+const AmountRow = ({ label, value, negative = false }) => <div className="flex justify-between text-slate-600"><span>{label}</span><span>{negative ? "-" : ""}{formatCurrency(value)}</span></div>;
 
 export default PaymentReceipt;
