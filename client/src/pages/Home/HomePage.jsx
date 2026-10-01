@@ -9,9 +9,6 @@ const HomePage = () => {
   return (
   <div className="landing-page space-y-16">
     <section className="landing-hero relative isolate overflow-hidden text-center">
-      <div className="hero-ambient hero-ambient-left" aria-hidden="true" />
-      <div className="hero-ambient hero-ambient-right" aria-hidden="true" />
-      <div className="hero-ambient hero-ambient-ring" aria-hidden="true" />
       <div className="landing-hero-content relative z-10 animate-fade-in-up">
         <div className="hero-badge inline-flex items-center gap-2 rounded-full">
           ⭐ {t("home.badge")}
