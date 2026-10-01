@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { FiCheck, FiRadio, FiShield } from "react-icons/fi";
 import { useLanguage } from "../../i18n/LanguageContext";
 
 const HomePage = () => {
@@ -7,14 +8,17 @@ const HomePage = () => {
 
   return (
   <div className="landing-page space-y-16">
-    <section className="landing-hero mx-auto flex max-w-4xl flex-col items-center gap-10 text-center">
-      <div className="landing-hero-content animate-fade-in-up">
-        <div className="hero-badge inline-flex items-center gap-2 rounded-full border border-teal-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-teal-800 shadow-sm shadow-teal-100/80">
+    <section className="landing-hero relative isolate overflow-hidden text-center">
+      <div className="hero-ambient hero-ambient-left" aria-hidden="true" />
+      <div className="hero-ambient hero-ambient-right" aria-hidden="true" />
+      <div className="hero-ambient hero-ambient-ring" aria-hidden="true" />
+      <div className="landing-hero-content relative z-10 animate-fade-in-up">
+        <div className="hero-badge inline-flex items-center gap-2 rounded-full">
           ⭐ {t("home.badge")}
         </div>
 
         <div className="hero-copy">
-          <h1 className="hero-title text-5xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-6xl">
+          <h1 className="hero-title text-slate-950">
             {t("home.heroTitleBefore")} <span className="hero-title-highlight text-brand-700">{t("home.heroTitleHighlight")}</span>{t("home.heroTitleAfter") ? ` ${t("home.heroTitleAfter")}` : ""}
           </h1>
           <p className="hero-description mx-auto max-w-2xl text-lg leading-8 text-slate-600">
@@ -25,30 +29,33 @@ const HomePage = () => {
         <div className="hero-ctas flex flex-wrap items-center justify-center gap-4">
           <Link
             to="/pricing"
-            className="inline-flex items-center justify-center rounded-full bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-700/20 transition duration-200 hover:bg-brand-800"
+            className="hero-primary-action inline-flex items-center justify-center rounded-full bg-brand-700 px-6 py-3 text-sm font-semibold text-white transition duration-200 hover:bg-brand-800"
           >
             {t("home.viewPricing")}
           </Link>
           <Link
             to="/login"
-            className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition duration-200 hover:border-slate-400"
+            className="hero-secondary-action inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-slate-900 transition duration-200"
           >
             {t("header.login")}
           </Link>
         </div>
 
-        <div className="hero-feature-grid grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-            <p className="text-sm font-semibold text-slate-900">{t("home.easyToUse")}</p>
-            <p className="mt-2 text-sm text-slate-500">{t("home.intuitiveInterface")}</p>
+        <div className="hero-feature-grid grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="hero-feature-card transition">
+            <span className="hero-feature-icon" aria-hidden="true"><FiCheck /></span>
+            <div><p className="text-sm font-semibold text-slate-900">{t("home.easyToUse")}</p>
+            <p className="mt-1 text-sm text-slate-500">{t("home.intuitiveInterface")}</p></div>
           </div>
-          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-            <p className="text-sm font-semibold text-slate-900">{t("home.realtimeUpdates")}</p>
-            <p className="mt-2 text-sm text-slate-500">{t("home.liveSynchronization")}</p>
+          <div className="hero-feature-card transition">
+            <span className="hero-feature-icon" aria-hidden="true"><FiRadio /></span>
+            <div><p className="text-sm font-semibold text-slate-900">{t("home.realtimeUpdates")}</p>
+            <p className="mt-1 text-sm text-slate-500">{t("home.liveSynchronization")}</p></div>
           </div>
-          <div className="hero-feature-card rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-            <p className="text-sm font-semibold text-slate-900">{t("home.secureReliable")}</p>
-            <p className="mt-2 text-sm text-slate-500">{t("home.uptime")}</p>
+          <div className="hero-feature-card transition">
+            <span className="hero-feature-icon" aria-hidden="true"><FiShield /></span>
+            <div><p className="text-sm font-semibold text-slate-900">{t("home.secureReliable")}</p>
+            <p className="mt-1 text-sm text-slate-500">{t("home.uptime")}</p></div>
           </div>
         </div>
       </div>
