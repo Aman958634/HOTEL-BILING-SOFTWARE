@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { FiFileText, FiRefreshCw, FiSearch, FiTrash2, FiX } from "react-icons/fi";
+import { canDownloadSaasPaymentReceipt } from "../../utils/saasPaymentReceiptEligibility";
 import {
   deleteSaasPayment,
   downloadSaasPaymentPdf,
@@ -532,16 +533,18 @@ const SuperAdminPaymentsPage = () => {
                         >
                           View
                         </button>
-                        <button
-                          type="button"
-                          disabled={pdfBusyId === (p._id || p.id)}
-                          onClick={() => downloadPdf(p)}
-                          className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          title="Download PDF receipt"
-                        >
-                          <FiFileText className="text-sm" />
-                          {pdfBusyId === (p._id || p.id) ? "..." : "PDF"}
-                        </button>
+                        {canDownloadSaasPaymentReceipt(p) ? (
+                          <button
+                            type="button"
+                            disabled={pdfBusyId === (p._id || p.id)}
+                            onClick={() => downloadPdf(p)}
+                            className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                            title="Download payment receipt"
+                          >
+                            <FiFileText className="text-sm" />
+                            {pdfBusyId === (p._id || p.id) ? "..." : "Receipt"}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(p)}
