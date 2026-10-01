@@ -1,9 +1,11 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FiBell, FiChevronRight, FiX, FiShoppingBag, FiCreditCard, FiUsers, FiDollarSign, FiAlertCircle, FiExternalLink, FiXCircle } from "react-icons/fi";
 import { getNotificationSummary, getNotifications, markAllNotificationsRead, updateNotificationStatus } from "../../services/notificationService";
 import { useSocket } from "../../context/SocketContext";
+import { isRealtimeNotificationVisible, prependRealtimeNotification, realtimeNotificationId } from "../../utils/realtimeNotifications";
 
 const getNotificationLink = (notification) => {
   if (notification?.route) return notification.route;
@@ -118,6 +120,7 @@ const actionLabelMap = {
 };
 
 const NotificationBell = () => {
+  const { user, activeOutletId } = useSelector((state) => state.auth);
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState({ total: 0, unread: 0 });
   const [notifications, setNotifications] = useState([]);
@@ -125,34 +128,50 @@ const NotificationBell = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const wrapperRef = useRef(null);
+  const seenNotificationIdsRef = useRef(new Set());
   const socket = useSocket();
 
-  const loadSummary = async () => {
+  const rememberNotificationIds = useCallback((items) => {
+    for (const item of items || []) {
+      const id = realtimeNotificationId(item);
+      if (id) seenNotificationIdsRef.current.add(id);
+    }
+  }, []);
+
+  const loadSummary = useCallback(async () => {
     try {
       const { data } = await getNotificationSummary();
       setSummary(data.data || {});
     } catch {
       setSummary({ total: 0, unread: 0 });
     }
-  };
+  }, []);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const { data } = await getNotifications({ page: 1, limit: 3, isRead: false, sortBy: "createdAt", sortOrder: "desc" });
-      setNotifications(data.data || []);
+      const items = data.data || [];
+      rememberNotificationIds(items);
+      setNotifications(items);
     } catch {
       setNotifications([]);
       setError("Unable to load notifications.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [rememberNotificationIds]);
 
   useEffect(() => {
+    seenNotificationIdsRef.current.clear();
+    setNotifications([]);
+    setSummary({ total: 0, unread: 0 });
+    if (!user?._id) return undefined;
     loadSummary();
-  }, []);
+    loadNotifications();
+    return undefined;
+  }, [activeOutletId, loadNotifications, loadSummary, user?._id, user?.restaurant]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -162,23 +181,42 @@ const NotificationBell = () => {
   }, [open]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !user?._id) return undefined;
 
     const onNewNotification = (notification) => {
-      if (!notification?.id && !notification?.notificationId) return;
-      const id = notification.id || notification.notificationId;
+      if (!isRealtimeNotificationVisible({ notification, user, activeOutletId })) return;
+      const id = realtimeNotificationId(notification);
+      if (!id || seenNotificationIdsRef.current.has(id)) return;
+      seenNotificationIdsRef.current.add(id);
       setNotifications((current) => {
-        if (current.some((item) => String(item._id || item.id) === String(id))) return current;
-        return [{ ...notification, _id: id, isRead: Boolean(notification.isRead) }, ...current].slice(0, 3);
+        return prependRealtimeNotification(current, notification);
       });
       setSummary((current) => ({ ...current, total: Number(current.total || 0) + 1, unread: Number(current.unread || 0) + (notification.isRead ? 0 : 1) }));
-      // REST remains canonical after reconnect/reload; defer avoids duplicate UI races.
-      window.setTimeout(() => { loadSummary(); loadNotifications(); }, 250);
+      if (notification.isRead) return;
+      const Icon = typeIconMap[notification.type] || FiBell;
+      const iconColor = typeIconColorMap[notification.type] || "text-slate-600 bg-slate-50";
+      const link = getNotificationLink(notification);
+      const actionLabel = actionLabelMap[notification.type];
+      toast.custom((toastItem) => (
+        <div role="status" className="flex w-[min(24rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconColor}`}><Icon className="h-4 w-4" aria-hidden="true" /></div>
+          <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{notification.title || "New notification"}</p><p className="mt-0.5 text-xs leading-5 text-slate-600">{notification.message || "You have a new notification."}</p>{link && actionLabel ? <Link to={link} onClick={() => toast.dismiss(toastItem.id)} className="mt-2 inline-flex text-xs font-semibold text-brand-700 hover:text-brand-800">{actionLabel}</Link> : null}</div>
+          <button type="button" aria-label="Dismiss notification" onClick={() => toast.dismiss(toastItem.id)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX aria-hidden="true" /></button>
+        </div>
+      ), { duration: 5000, position: "top-right" });
+    };
+    const onConnect = () => {
+      loadSummary();
+      loadNotifications();
     };
 
     socket.on("notification:new", onNewNotification);
-    return () => socket.off("notification:new", onNewNotification);
-  }, [socket]);
+    socket.on("connect", onConnect);
+    return () => {
+      socket.off("notification:new", onNewNotification);
+      socket.off("connect", onConnect);
+    };
+  }, [activeOutletId, loadNotifications, loadSummary, socket, user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

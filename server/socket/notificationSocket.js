@@ -9,10 +9,11 @@ const safeEmitToUser = (userId, event, payload) => {
   }
 };
 
-export const emitNotificationCreated = (notification) => {
-  const payload = {
+export const buildNotificationRealtimePayload = (notification) => ({
     id: notification._id,
     notificationId: notification._id,
+    restaurantId: notification.restaurantId || null,
+    outlet: notification.outlet || null,
     eventType: notification.eventType || notification.type,
     category: notification.category || "SYSTEM",
     severity: notification.severity || "INFO",
@@ -23,7 +24,9 @@ export const emitNotificationCreated = (notification) => {
     readAt: notification.readAt || null,
     isRead: Boolean(notification.isRead),
     createdAt: notification.createdAt,
-  };
+  });
 
+export const emitNotificationCreated = (notification) => {
+  const payload = buildNotificationRealtimePayload(notification);
   safeEmitToUser(notification.user, "notification:new", payload);
 };
