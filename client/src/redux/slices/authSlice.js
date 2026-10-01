@@ -2,12 +2,14 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { getMyProfile, loginUser, logoutUser, registerUser } from "../../services/authService";
 import { clearOutletSession, persistAuthorizedOutlet } from "../../utils/outletSession";
 import { clearAllOrderDrafts } from "../../utils/orderDraft";
+import { clearOrderListCache } from "../../utils/orderListCache";
 
 const clearStoredTokens = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   clearOutletSession();
   clearAllOrderDrafts();
+  clearOrderListCache();
 };
 
 const persistTokens = (accessToken, refreshToken) => {
@@ -124,6 +126,7 @@ const authSlice = createSlice({
       }
     },
     setAuthSession: (state, action) => {
+      clearOrderListCache();
       state.user = action.payload?.user || null;
       state.accessToken = action.payload?.accessToken || "";
       state.refreshToken = action.payload?.refreshToken || state.refreshToken;
@@ -150,6 +153,7 @@ const authSlice = createSlice({
         state.loading = true;
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
+        clearOrderListCache();
         state.loading = false;
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;

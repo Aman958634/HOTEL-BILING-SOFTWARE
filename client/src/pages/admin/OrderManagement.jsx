@@ -38,6 +38,13 @@ import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
 import { listPendingOfflineOrders } from "../../utils/offlineOrderQueue";
 import { syncPendingOfflineOrders } from "../../services/offlineOrderSync";
+import {
+  cacheOrderList,
+  createOrderListCacheKey,
+  createOrderListScope,
+  getCachedOrderList,
+  getSharedOrderListRequest,
+} from "../../utils/orderListCache";
 
 const STATUS_TRANSITIONS = {
   PENDING: ["CONFIRMED", "CANCELLED"],
@@ -71,14 +78,12 @@ const loadRazorpayScript = () =>
 
 const OrderManagement = () => {
   const socket = useSocket();
-  const user = useSelector((state) => state.auth.user);
+  const { user, activeOutletId, authorizedOutlets, outletStatus } = useSelector((state) => state.auth);
   const isChef = user?.role === "chef";
   const location = useLocation();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [meta, setMeta] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -89,9 +94,21 @@ const OrderManagement = () => {
     page: 1,
   });
 
+  const orderCacheScope = useMemo(
+    () => outletStatus === "ready" ? createOrderListScope({ user, activeOutletId, authorizedOutlets }) : "",
+    [activeOutletId, authorizedOutlets, outletStatus, user]
+  );
+  const orderCacheKey = useMemo(() => createOrderListCacheKey(orderCacheScope, filters), [filters, orderCacheScope]);
+  const initialOrderCache = getCachedOrderList(orderCacheKey);
+  const [orders, setOrders] = useState(() => initialOrderCache?.orders || []);
+  const [meta, setMeta] = useState(() => initialOrderCache?.meta || { page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [ordersCacheKey, setOrdersCacheKey] = useState(() => initialOrderCache ? orderCacheKey : "");
+
   const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [initialLoadingOrders, setInitialLoadingOrders] = useState(() => Boolean(orderCacheKey && !initialOrderCache));
+  const [backgroundRefreshingOrders, setBackgroundRefreshingOrders] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const [ordersErrorCacheKey, setOrdersErrorCacheKey] = useState("");
   const [dependenciesLoading, setDependenciesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -130,6 +147,9 @@ const OrderManagement = () => {
   const [hotelPaymentData, setHotelPaymentData] = useState(null);
   const [hotelPaymentActionLoading, setHotelPaymentActionLoading] = useState(false);
   const filtersRef = useRef(filters);
+  const ordersCacheKeyRef = useRef(initialOrderCache ? orderCacheKey : "");
+  const activeOrderCacheKeyRef = useRef(orderCacheKey);
+  const orderRequestRef = useRef(0);
   const createSubmittingRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
@@ -142,6 +162,8 @@ const OrderManagement = () => {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  activeOrderCacheKeyRef.current = orderCacheKey;
 
   useEffect(() => {
     if (!createOpen) return undefined;
@@ -190,9 +212,28 @@ const OrderManagement = () => {
     }
   }, []);
 
-  const loadOrders = useCallback(async (currentFilters = filtersRef.current) => {
-    setLoadingOrders(true);
+  const loadOrders = useCallback(async (currentFilters = filtersRef.current, requestCacheKey = orderCacheKey) => {
+    if (!requestCacheKey) {
+      setInitialLoadingOrders(false);
+      setBackgroundRefreshingOrders(false);
+      return;
+    }
+
+    const requestId = orderRequestRef.current + 1;
+    orderRequestRef.current = requestId;
+    const cached = getCachedOrderList(requestCacheKey);
+    const hasCurrentData = ordersCacheKeyRef.current === requestCacheKey;
+    if (!hasCurrentData && cached) {
+      setOrders(cached.orders);
+      setMeta(cached.meta);
+      setOrdersCacheKey(requestCacheKey);
+      ordersCacheKeyRef.current = requestCacheKey;
+    }
+    const hasUsableData = hasCurrentData || Boolean(cached);
+    setInitialLoadingOrders(!hasUsableData);
+    setBackgroundRefreshingOrders(hasUsableData);
     setOrdersError("");
+    setOrdersErrorCacheKey("");
     try {
       const params = {
         page: currentFilters.page,
@@ -205,16 +246,27 @@ const OrderManagement = () => {
       if (currentFilters.paymentStatus) params.paymentStatus = currentFilters.paymentStatus;
       if (currentFilters.date) params.date = currentFilters.date;
 
-      const { data } = await getOrders(params);
-      setOrders(data.data || []);
-      setMeta(data.meta || { page: currentFilters.page, limit: 20, total: 0, totalPages: 1 });
+      const { data } = await getSharedOrderListRequest(requestCacheKey, () => getOrders(params));
+      if (requestId !== orderRequestRef.current || activeOrderCacheKeyRef.current !== requestCacheKey) return;
+      const nextOrders = data.data || [];
+      const nextMeta = data.meta || { page: currentFilters.page, limit: 20, total: 0, totalPages: 1 };
+      cacheOrderList(requestCacheKey, nextOrders, nextMeta);
+      setOrders(nextOrders);
+      setMeta(nextMeta);
+      setOrdersCacheKey(requestCacheKey);
+      ordersCacheKeyRef.current = requestCacheKey;
     } catch (error) {
+      if (error?.code === "ERR_CANCELED" || requestId !== orderRequestRef.current || activeOrderCacheKeyRef.current !== requestCacheKey) return;
       toast.error(error?.response?.data?.message || "Failed to load orders");
       setOrdersError(error?.response?.data?.message || "Failed to load orders");
+      setOrdersErrorCacheKey(requestCacheKey);
     } finally {
-      setLoadingOrders(false);
+      if (requestId === orderRequestRef.current && activeOrderCacheKeyRef.current === requestCacheKey) {
+        setInitialLoadingOrders(false);
+        setBackgroundRefreshingOrders(false);
+      }
     }
-  }, []);
+  }, [orderCacheKey]);
 
   const loadOrderDependencies = useCallback(async () => {
     setDependenciesLoading(true);
@@ -246,8 +298,12 @@ const OrderManagement = () => {
   }, [isChef, loadStats, loadOrderDependencies]);
 
   useEffect(() => {
-    loadOrders(filters);
-  }, [filters, loadOrders]);
+    loadOrders(filters, orderCacheKey);
+  }, [filters, loadOrders, orderCacheKey]);
+
+  useEffect(() => () => {
+    orderRequestRef.current += 1;
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -778,6 +834,14 @@ const OrderManagement = () => {
   }, [loadOrders, loadStats, refreshOfflineCount, user]);
 
   const requestDelete = useCallback((order) => setDeleteTarget(order), []);
+  const hasCurrentOrders = Boolean(orderCacheKey) && ordersCacheKey === orderCacheKey;
+  const currentOrdersError = ordersErrorCacheKey === orderCacheKey ? ordersError : "";
+  const visibleOrders = hasCurrentOrders ? orders : [];
+  const visibleMeta = hasCurrentOrders ? meta : { page: filters.page, limit: 20, total: 0, totalPages: 1 };
+  const orderTableLoading = Boolean(orderCacheKey)
+    && !hasCurrentOrders
+    && !currentOrdersError
+    && (initialLoadingOrders || !backgroundRefreshingOrders);
 
   return (
     <div className="ui-page">
@@ -785,6 +849,7 @@ const OrderManagement = () => {
         <div className="min-w-0">
           <h2 className="ui-page-title">Orders</h2>
           <p className="ui-page-description">Review live order status, table context, kitchen progress and payment state.</p>
+          {backgroundRefreshingOrders && hasCurrentOrders ? <p className="mt-1 text-xs font-medium text-slate-500" role="status">Refreshing orders…</p> : null}
         </div>
         {!isChef && <button type="button" onClick={openCreate} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800 lg:hidden">
           <FiPlus className="h-4 w-4" aria-hidden="true" /> New Order
@@ -807,9 +872,9 @@ const OrderManagement = () => {
       />}
 
       <OrderTable
-        orders={orders}
-        loading={loadingOrders}
-        error={ordersError}
+        orders={visibleOrders}
+        loading={orderTableLoading}
+        error={!hasCurrentOrders ? currentOrdersError : ""}
         hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
         onOpen={openDetails}
         onEdit={openEdit}
@@ -818,9 +883,9 @@ const OrderManagement = () => {
         canCollectPayments={canCollectPayments}
         kitchenOnly={isChef}
       />
-      {ordersError ? <RequestState message={ordersError} onRetry={loadOrders} /> : null}
+      {currentOrdersError ? <RequestState message={currentOrdersError} onRetry={() => loadOrders()} /> : null}
 
-      <TablePagination meta={meta} onPageChange={goToPage} itemLabel="orders" className="ui-card" />
+      <TablePagination meta={visibleMeta} onPageChange={goToPage} itemLabel="orders" className="ui-card" />
 
       {!isChef && <CreateOrderModal
         open={createOpen}
