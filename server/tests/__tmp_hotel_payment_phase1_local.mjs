@@ -12,7 +12,7 @@ import Payment from "../models/Payment.js";
 import Restaurant from "../models/Restaurant.js";
 import Hotel from "../models/Hotel.js";
 import Table from "../models/Table.js";
-import { createHotelPaymentQr, getHotelPaymentSettings, rejectHotelPayment, saveHotelPaymentSettings, verifyHotelPayment } from "../controllers/hotelPaymentController.js";
+import { canSelfConfirmHotelUpiPayment, createHotelPaymentQr, getHotelPaymentSettings, rejectHotelPayment, saveHotelPaymentSettings, verifyHotelPayment } from "../controllers/hotelPaymentController.js";
 import { buildPaymentReceipt } from "../services/paymentService.js";
 import { dashboardStats } from "../controllers/adminController.js";
 import { getOrderPaymentSummary, getPaymentReceipt } from "../controllers/paymentController.js";
@@ -78,10 +78,10 @@ try {
   ]);
   created.foods.push(foodA._id, foodB._id);
 
-  const staffA = { _id: id(), hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Cashier" };
-  const staffAVerifier = { _id: id(), hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Verifier" };
-  const hotelWideVerifier = { _id: id(), hotelId: hotelA, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Wide Verifier" };
-  const staffB = { _id: id(), hotelId: hotelB, restaurant: restaurantB._id, activeOutlet: outletB._id, defaultOutlet: outletB._id, allOutletsAccess: true, fullName: "Hotel B Cashier" };
+  const staffA = { _id: id(), role: "cashier", hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Cashier" };
+  const staffAVerifier = { _id: id(), role: "cashier", hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Verifier" };
+  const hotelWideVerifier = { _id: id(), role: "hotel_admin", hotelId: hotelA, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true, fullName: "Hotel A Wide Verifier" };
+  const staffB = { _id: id(), role: "cashier", hotelId: hotelB, restaurant: restaurantB._id, activeOutlet: outletB._id, defaultOutlet: outletB._id, allOutletsAccess: true, fullName: "Hotel B Cashier" };
   const orderRequest = (user, body = {}, query = {}) => ({ user, body, query });
 
   for (const [hotelId, restaurant, outlet, payeeName, upiId, user] of [
@@ -205,7 +205,7 @@ try {
   assert.ok([403, 404].includes(sameHotelUnauthorizedQr.statusCode), "Same-hotel staff without outlet access cannot create a QR");
 
   const selfVerification = await invoke(verifyHotelPayment, orderRequest(staffA, { paymentId, amount: 60, transactionId: `BANK-A-SELF-${suffix}` }));
-  assert.equal(selfVerification.statusCode, 403, "A QR generator cannot approve its own hotel UPI payment");
+  assert.equal(selfVerification.statusCode, 403, "A cashier QR generator cannot approve its own hotel UPI payment");
   const verify = await invoke(verifyHotelPayment, orderRequest(staffAVerifier, { paymentId, amount: 0.01, transactionId: `BANK-A-${suffix}` }));
   assert.equal(verify.statusCode, 200);
   const paidOrder = await Order.findById(partialOrder._id).lean();
@@ -221,6 +221,17 @@ try {
   assert.equal(invoice.totalPaid, 100);
   assert.equal(await Payment.countDocuments({ orderId: partialOrder._id, paymentStatus: "PAID" }), 2);
   assert.ok((await buildPaymentReceipt(await Payment.findById(paidPayment._id))).length > 0, "Paid hotel payment must have a receipt");
+
+  const adminSelfConfirmOrder = await makeOrder({ restaurant: restaurantA, outlet: outletA, number: "ADMIN-SELF", total: 35, status: "PREPARING" });
+  const restaurantAdmin = { ...staffA, _id: id(), role: "restaurant_admin", fullName: "Hotel A Restaurant Admin" };
+  const adminQr = await invoke(createHotelPaymentQr, orderRequest(restaurantAdmin, { orderId: adminSelfConfirmOrder._id }));
+  assert.equal(adminQr.statusCode, 201);
+  const adminSelfConfirm = await invoke(verifyHotelPayment, orderRequest(restaurantAdmin, { paymentId: adminQr.body.data.payment.paymentId, amount: 0.01 }));
+  assert.equal(adminSelfConfirm.statusCode, 200, "A scoped restaurant admin may self-confirm after checking the hotel account");
+  const adminSelfConfirmPayment = await Payment.findOne({ paymentId: adminQr.body.data.payment.paymentId }).lean();
+  assert.equal(adminSelfConfirmPayment.amount, 35, "A client amount cannot alter an admin self-confirmation");
+  assert.equal(adminSelfConfirmPayment.metadata.privilegedSelfConfirmation, true);
+  assert.equal((await Order.findById(adminSelfConfirmOrder._id).lean()).status, "PREPARING", "Hotel UPI confirmation must not change operational status");
   const dashboard = await invoke(dashboardStats, orderRequest({ _id: new mongoose.Types.ObjectId(), role: "admin", hotelId: hotelA, restaurant: restaurantA._id, activeOutlet: outletA._id, defaultOutlet: outletA._id, allOutletsAccess: true }));
   assert.equal(dashboard.statusCode, 200);
   assert.equal(dashboard.body.data.totalRevenue.value, 100, "Dashboard revenue must count the invoice once");

@@ -157,6 +157,16 @@ const toUpiUri = ({ upiId, payeeName, amount, orderNumber }) => {
 };
 
 const HOTEL_UPI_QR_EXPIRY_MS = 15 * 60 * 1000;
+const HOTEL_UPI_SELF_CONFIRMATION_ROLES = new Set(["admin", "hotel_admin", "restaurant_admin"]);
+
+// A QR issuer normally needs a second operator to approve a manual bank
+// check. Hotel/restaurant administrators are the explicit exception: they
+// are accountable for the hotel account and may attest a credit themselves.
+// Deliberately do not include super_admin here; global platform access is not
+// a substitute for restaurant payment authority.
+export const canSelfConfirmHotelUpiPayment = (user) => HOTEL_UPI_SELF_CONFIRMATION_ROLES.has(
+  String(user?.role || "").trim().toLowerCase()
+);
 
 const hotelPaymentCapability = (settings) => getHotelPaymentCapability({
   settings,
@@ -423,10 +433,16 @@ export const verifyHotelPayment = asyncHandler(async (req, res) => {
   const payment = await findScopedHotelPayment(req, lookupId);
 
   // QR generation is a payment-request action, not proof of a bank credit.
-  // A second cashier must independently match the hotel-account credit before
-  // the attempt can affect an order, bill, invoice, or revenue.
+  // Preserve two-person confirmation for operational staff. A scoped
+  // restaurant/hotel administrator is the narrow, explicit self-confirmation
+  // exception after independently checking the hotel account.
   const generatedBy = payment.metadata?.generatedBy || payment.receivedBy;
-  if (!generatedBy || String(generatedBy) === String(req.user?._id || "")) {
+  const privilegedSelfConfirmation = Boolean(
+    generatedBy
+    && String(generatedBy) === String(req.user?._id || "")
+    && canSelfConfirmHotelUpiPayment(req.user)
+  );
+  if (!generatedBy || (String(generatedBy) === String(req.user?._id || "") && !privilegedSelfConfirmation)) {
     throw new ApiError(403, "Hotel UPI verification must be completed by a different cashier than the QR generator.");
   }
 
@@ -479,13 +495,27 @@ export const verifyHotelPayment = asyncHandler(async (req, res) => {
     ? await recordBillPayment({
       billId: bill._id, restaurantId: payment.restaurant, amount: finalAmount, paymentMethod: "UPI", transactionId: reference,
       idempotencyKey: `hotel-payment:${payment.paymentId}`, existingPaymentId: payment._id, receivedBy: req.user._id,
-      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference || null, provider: "HOTEL_UPI" },
+      metadata: {
+        hotelPayment: true,
+        verifiedBy: req.user._id,
+        verifierRole: String(req.user?.role || "").toLowerCase(),
+        privilegedSelfConfirmation,
+        verificationReference: reference || null,
+        provider: "HOTEL_UPI",
+      },
     })
     : await recordVerifiedPayment(order, {
       amount: finalAmount, paymentMethod: "UPI", gateway: "HOTEL_UPI", transactionId: reference,
       idempotencyKey: `hotel-payment:${payment.paymentId}`, existingPaymentId: payment._id, receivedBy: req.user._id,
       note: `Hotel UPI payment verified by ${req.user.fullName || "staff"}`,
-      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference || null, provider: "HOTEL_UPI" },
+      metadata: {
+        hotelPayment: true,
+        verifiedBy: req.user._id,
+        verifierRole: String(req.user?.role || "").toLowerCase(),
+        privilegedSelfConfirmation,
+        verificationReference: reference || null,
+        provider: "HOTEL_UPI",
+      },
     });
 
   await createOrderAuditLog({
@@ -499,6 +529,9 @@ export const verifyHotelPayment = asyncHandler(async (req, res) => {
       amount: finalAmount,
       paymentMethod: "UPI",
       transactionReference: reference || null,
+      verifierUserId: req.user._id,
+      verifierRole: String(req.user?.role || "").toLowerCase(),
+      privilegedSelfConfirmation,
     },
   });
 
