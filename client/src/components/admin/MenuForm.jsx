@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Button from "../ui/Button";
+import { validateMenuForm } from "../../utils/formValidation";
 
 const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData }) => {
   const [form, setForm] = useState({
@@ -57,18 +58,15 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
   if (!open) return null;
 
   const validate = () => {
-    const nextErrors = {};
-
-    if (!form.name.trim()) nextErrors.name = "Food name required";
-    if (!form.category) nextErrors.category = "Category required";
-    if (!form.price || Number(form.price) <= 0) nextErrors.price = "Price must be greater than 0";
-    if (form.image && !/^https?:\/\//i.test(form.image)) nextErrors.image = "Image must be valid URL";
-    if (form.description && (form.description.length < 10 || form.description.length > 1200)) {
-      nextErrors.description = "Description must be between 10 and 1200 characters";
-    }
-
+    const nextErrors = validateMenuForm(form);
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
+  };
+
+  const update = (field, value) => {
+    const next = { ...form, [field]: value };
+    setForm(next);
+    if (errors[field]) setErrors(validateMenuForm(next));
   };
 
   const submit = (e) => {
@@ -93,36 +91,38 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label className="text-sm text-slate-600">Food Name</label>
-            <input className="mt-1 w-full rounded-xl border p-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
+            <input aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "menu-name-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.name ? "border-rose-500" : ""}`} value={form.name} onChange={(e) => update("name", e.target.value)} />
+            {errors.name && <p id="menu-name-error" role="alert" className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Category</label>
-            <select className="mt-1 w-full rounded-xl border p-2" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+            <select aria-invalid={Boolean(errors.category)} aria-describedby={errors.category ? "menu-category-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.category ? "border-rose-500" : ""}`} value={form.category} onChange={(e) => update("category", e.target.value)}>
               <option value="">Select Category</option>
               {categories.map((cat) => (
                 <option key={cat._id} value={cat._id}>{cat.name}</option>
               ))}
             </select>
-            {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category}</p>}
+            {errors.category && <p id="menu-category-error" role="alert" className="mt-1 text-xs text-red-600">{errors.category}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Price</label>
-            <input type="number" className="mt-1 w-full rounded-xl border p-2" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-            {errors.price && <p className="mt-1 text-xs text-red-600">{errors.price}</p>}
+            <input type="number" min="0.01" step="0.01" aria-invalid={Boolean(errors.price)} aria-describedby={errors.price ? "menu-price-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.price ? "border-rose-500" : ""}`} value={form.price} onChange={(e) => update("price", e.target.value)} />
+            {errors.price && <p id="menu-price-error" role="alert" className="mt-1 text-xs text-red-600">{errors.price}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Discount Price</label>
-            <input type="number" className="mt-1 w-full rounded-xl border p-2" value={form.discountPrice} onChange={(e) => setForm({ ...form, discountPrice: e.target.value })} />
+            <input type="number" min="0" step="0.01" aria-invalid={Boolean(errors.discountPrice)} aria-describedby={errors.discountPrice ? "menu-discount-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.discountPrice ? "border-rose-500" : ""}`} value={form.discountPrice} onChange={(e) => update("discountPrice", e.target.value)} />
+            {errors.discountPrice && <p id="menu-discount-error" role="alert" className="mt-1 text-xs text-red-600">{errors.discountPrice}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Food Image URL</label>
-            <input className="mt-1 w-full rounded-xl border p-2" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} />
-            {errors.image && <p className="mt-1 text-xs text-red-600">{errors.image}</p>}
+            <input type="url" aria-invalid={Boolean(errors.image)} aria-describedby={errors.image ? "menu-image-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.image ? "border-rose-500" : ""}`} value={form.image} onChange={(e) => update("image", e.target.value)} />
+            {errors.image && <p id="menu-image-error" role="alert" className="mt-1 text-xs text-red-600">{errors.image}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Preparation Time (min)</label>
-            <input type="number" className="mt-1 w-full rounded-xl border p-2" value={form.preparationTime} onChange={(e) => setForm({ ...form, preparationTime: e.target.value })} />
+            <input type="number" min="1" step="1" aria-invalid={Boolean(errors.preparationTime)} aria-describedby={errors.preparationTime ? "menu-prep-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.preparationTime ? "border-rose-500" : ""}`} value={form.preparationTime} onChange={(e) => update("preparationTime", e.target.value)} />
+            {errors.preparationTime && <p id="menu-prep-error" role="alert" className="mt-1 text-xs text-red-600">{errors.preparationTime}</p>}
           </div>
           <div>
             <label className="text-sm text-slate-600">Spicy Level</label>
@@ -144,8 +144,8 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
 
         <div className="mt-4">
           <label className="text-sm text-slate-600">Description</label>
-          <textarea className="mt-1 w-full rounded-xl border p-2" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          {errors.description && <p className="mt-1 text-xs text-red-600">{errors.description}</p>}
+          <textarea aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "menu-description-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.description ? "border-rose-500" : ""}`} rows={3} value={form.description} onChange={(e) => update("description", e.target.value)} />
+          {errors.description && <p id="menu-description-error" role="alert" className="mt-1 text-xs text-red-600">{errors.description}</p>}
         </div>
 
         <div className="mt-4">

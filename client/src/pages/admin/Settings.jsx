@@ -8,6 +8,7 @@ import { FiSettings } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
 import LanguageSelector from "../../components/common/LanguageSelector";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { validateRestaurantSettings } from "../../utils/formValidation";
 
 const defaultSettings = {
   name: "",
@@ -132,6 +133,7 @@ const Settings = () => {
   const { t } = useLanguage();
   const user = useSelector((state) => state.auth.user);
   const [settings, setSettings] = useState(defaultSettings);
+  const [settingsErrors, setSettingsErrors] = useState({});
   const [hotelPaymentSettings, setHotelPaymentSettings] = useState({ hotelId: "", restaurant: "", outlet: "", payeeName: "", upiId: "", isEnabled: false, status: "DISABLED", notes: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -199,11 +201,18 @@ const Settings = () => {
   }, []);
 
   const handleChange = (field, value) => {
-    setSettings((current) => ({ ...current, [field]: value }));
+    setSettings((current) => {
+      const next = { ...current, [field]: value };
+      if (settingsErrors[field]) setSettingsErrors(validateRestaurantSettings(next));
+      return next;
+    });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const nextErrors = validateRestaurantSettings(settings);
+    setSettingsErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     setSaving(true);
 
     try {
@@ -265,6 +274,7 @@ const Settings = () => {
       </section>
 
       <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]" aria-busy={loading || saving}>
+        {Object.keys(settingsErrors).length ? <p role="alert" className="lg:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{Object.values(settingsErrors)[0]}</p> : null}
         <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div><h3 className="text-lg font-semibold text-slate-900">{t("settings.information")}</h3><p className="mt-1 text-sm text-slate-500">{t("settings.informationDescription")}</p></div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -274,9 +284,12 @@ const Settings = () => {
                 type="text"
                 value={settings.name}
                 onChange={(event) => handleChange("name", event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                aria-invalid={Boolean(settingsErrors.name)}
+                aria-describedby={settingsErrors.name ? "settings-name-error" : undefined}
+                className={`w-full rounded-2xl border p-3 text-sm text-slate-900 ${settingsErrors.name ? "border-rose-500" : "border-slate-300"}`}
                 required
               />
+              {settingsErrors.name && <span id="settings-name-error" role="alert" className="block text-xs text-rose-600">{settingsErrors.name}</span>}
             </label>
             <label className="space-y-2 text-sm text-slate-700">
               <span>Branch Code</span>
@@ -284,9 +297,12 @@ const Settings = () => {
                 type="text"
                 value={settings.branchCode}
                 onChange={(event) => handleChange("branchCode", event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                aria-invalid={Boolean(settingsErrors.branchCode)}
+                aria-describedby={settingsErrors.branchCode ? "settings-branch-error" : undefined}
+                className={`w-full rounded-2xl border p-3 text-sm text-slate-900 ${settingsErrors.branchCode ? "border-rose-500" : "border-slate-300"}`}
                 required
               />
+              {settingsErrors.branchCode && <span id="settings-branch-error" role="alert" className="block text-xs text-rose-600">{settingsErrors.branchCode}</span>}
             </label>
             <label className="space-y-2 text-sm text-slate-700">
               <span>Slug</span>
@@ -303,9 +319,12 @@ const Settings = () => {
                 type="url"
                 value={settings.website}
                 onChange={(event) => handleChange("website", event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                aria-invalid={Boolean(settingsErrors.website)}
+                aria-describedby={settingsErrors.website ? "settings-website-error" : undefined}
+                className={`w-full rounded-2xl border p-3 text-sm text-slate-900 ${settingsErrors.website ? "border-rose-500" : "border-slate-300"}`}
                 placeholder="https://example.com"
               />
+              {settingsErrors.website && <span id="settings-website-error" role="alert" className="block text-xs text-rose-600">{settingsErrors.website}</span>}
             </label>
           </div>
 
@@ -316,9 +335,12 @@ const Settings = () => {
                 type="email"
                 value={settings.email}
                 onChange={(event) => handleChange("email", event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                aria-invalid={Boolean(settingsErrors.email)}
+                aria-describedby={settingsErrors.email ? "settings-email-error" : undefined}
+                className={`w-full rounded-2xl border p-3 text-sm text-slate-900 ${settingsErrors.email ? "border-rose-500" : "border-slate-300"}`}
                 placeholder="contact@restosphere.com"
               />
+              {settingsErrors.email && <span id="settings-email-error" role="alert" className="block text-xs text-rose-600">{settingsErrors.email}</span>}
             </label>
             <label className="space-y-2 text-sm text-slate-700">
               <span>Phone</span>
@@ -326,9 +348,12 @@ const Settings = () => {
                 type="tel"
                 value={settings.phone}
                 onChange={(event) => handleChange("phone", event.target.value)}
-                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900"
+                aria-invalid={Boolean(settingsErrors.phone)}
+                aria-describedby={settingsErrors.phone ? "settings-phone-error" : undefined}
+                className={`w-full rounded-2xl border p-3 text-sm text-slate-900 ${settingsErrors.phone ? "border-rose-500" : "border-slate-300"}`}
                 placeholder="1234567890"
               />
+              {settingsErrors.phone && <span id="settings-phone-error" role="alert" className="block text-xs text-rose-600">{settingsErrors.phone}</span>}
             </label>
           </div>
 

@@ -5,6 +5,7 @@ import CategoryTable from "../../components/admin/CategoryTable";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import useListRequestState from "../../hooks/useListRequestState";
 import { prependListRecord, removeListRecord, replaceListRecord } from "../../utils/listMutationState";
+import { validateCategoryForm } from "../../utils/formValidation";
 import {
   createAdminCategory,
   deleteAdminCategory,
@@ -21,6 +22,7 @@ const CategoryManagement = () => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
   const [editingId, setEditingId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -42,15 +44,21 @@ const CategoryManagement = () => {
 
   const resetForm = () => {
     setForm(emptyForm);
+    setErrors({});
     setEditingId("");
+  };
+
+  const updateForm = (field, value) => {
+    const next = { ...form, [field]: value };
+    setForm(next);
+    if (errors[field]) setErrors(validateCategoryForm(next));
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
+    const nextErrors = validateCategoryForm(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
 
     setSaving(true);
     try {
@@ -82,6 +90,7 @@ const CategoryManagement = () => {
       image: item.image || "",
       active: Boolean(item.active ?? item.isActive),
     });
+    setErrors({});
   };
 
   const confirmDelete = async () => {
@@ -131,24 +140,35 @@ const CategoryManagement = () => {
 
         <form onSubmit={submit} className="mt-4 grid gap-3 md:grid-cols-2">
           <input
-            className="rounded-xl border border-slate-300 p-2 text-sm"
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? "category-name-error" : undefined}
+            className={`rounded-xl border p-2 text-sm ${errors.name ? "border-rose-500" : "border-slate-300"}`}
             placeholder="Category Name"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => updateForm("name", e.target.value)}
           />
+          {errors.name && <p id="category-name-error" role="alert" className="-mt-2 text-xs text-rose-600">{errors.name}</p>}
           <input
-            className="rounded-xl border border-slate-300 p-2 text-sm"
+            type="url"
+            aria-invalid={Boolean(errors.image)}
+            aria-describedby={errors.image ? "category-image-error" : undefined}
+            className={`rounded-xl border p-2 text-sm ${errors.image ? "border-rose-500" : "border-slate-300"}`}
             placeholder="Image URL"
             value={form.image}
-            onChange={(e) => setForm({ ...form, image: e.target.value })}
+            onChange={(e) => updateForm("image", e.target.value)}
           />
+          {errors.image && <p id="category-image-error" role="alert" className="-mt-2 text-xs text-rose-600">{errors.image}</p>}
           <textarea
-            className="rounded-xl border border-slate-300 p-2 text-sm md:col-span-2"
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={errors.description ? "category-description-error" : undefined}
+            className={`rounded-xl border p-2 text-sm md:col-span-2 ${errors.description ? "border-rose-500" : "border-slate-300"}`}
             placeholder="Description"
             rows={2}
+            maxLength={500}
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => updateForm("description", e.target.value)}
           />
+          {errors.description && <p id="category-description-error" role="alert" className="-mt-2 text-xs text-rose-600 md:col-span-2">{errors.description}</p>}
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Active

@@ -84,16 +84,33 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
     if (!form.firstName.trim()) next.firstName = "First name is required";
     if (!form.lastName.trim()) next.lastName = "Last name is required";
     if (!form.phone.trim()) next.phone = "Phone is required";
+    else if (form.phone.trim().length < 10 || form.phone.trim().length > 15) next.phone = "Phone must be 10 to 15 characters";
     if (!form.role) next.role = "Role is required";
     if (!form.department) next.department = "Department is required";
     if (!form.joiningDate) next.joiningDate = "Joining date is required";
     if (!form.status) next.status = "Status is required";
     if (form.createLoginAccount && !initialData && !form.password.trim()) next.password = "Password is required for login-enabled staff";
+    else if (form.createLoginAccount && form.password && form.password.length < 8) next.password = "Password must be at least 8 characters";
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Email must be valid";
     if (form.salary && Number(form.salary) < 0) next.salary = "Salary cannot be negative";
 
     setErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  const update = (field, value) => {
+    const next = { ...form, [field]: value };
+    setForm(next);
+    if (errors[field]) {
+      const nextErrors = { ...errors };
+      delete nextErrors[field];
+      if ((field === "firstName" || field === "lastName") && !String(value).trim()) nextErrors[field] = `${field === "firstName" ? "First" : "Last"} name is required`;
+      if (field === "phone" && (!String(value).trim() || String(value).trim().length < 10 || String(value).trim().length > 15)) nextErrors.phone = String(value).trim() ? "Phone must be 10 to 15 characters" : "Phone is required";
+      if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) nextErrors.email = "Email must be valid";
+      if (field === "salary" && value && Number(value) < 0) nextErrors.salary = "Salary cannot be negative";
+      if (field === "password" && value && value.length < 8) nextErrors.password = "Password must be at least 8 characters";
+      setErrors(nextErrors);
+    }
   };
 
   const submit = (e) => {
@@ -152,10 +169,13 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
                 readOnly={key === "employeeId" && !initialData}
                 placeholder={key === "employeeId" && !initialData ? "Generated automatically" : ""}
                 type={key === "salary" ? "number" : "text"}
+                min={key === "salary" ? "0" : undefined}
+                aria-invalid={Boolean(errors[key])}
+                aria-describedby={errors[key] ? `staff-${key}-error` : undefined}
                 className={`mt-1 w-full rounded-xl border border-slate-300 p-2 ${key === "employeeId" && !initialData ? "bg-slate-100" : ""}`}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                onChange={(e) => update(key, e.target.value)}
               />
-              {errors[key] && <p className="mt-1 text-xs text-rose-600">{errors[key]}</p>}
+              {errors[key] && <p id={`staff-${key}-error`} role="alert" className="mt-1 text-xs text-rose-600">{errors[key]}</p>}
             </div>
           ))}
 
@@ -208,8 +228,8 @@ const StaffForm = ({ open, loading, initialData, onClose, onSubmit }) => {
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div>
                 <label className="text-sm text-slate-600">Password</label>
-                <PasswordInput autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                {errors.password && <p className="mt-1 text-xs text-rose-600">{errors.password}</p>}
+                <PasswordInput aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "staff-password-error" : undefined} autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 p-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20" value={form.password} onChange={(e) => update("password", e.target.value)} />
+                {errors.password && <p id="staff-password-error" role="alert" className="mt-1 text-xs text-rose-600">{errors.password}</p>}
               </div>
             </div>
           )}

@@ -58,8 +58,26 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
       next.section = "Section is required";
     }
 
+    if (form.description.length > 500) {
+      next.description = "Description must be 500 characters or fewer";
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  const update = (field, value) => {
+    const next = { ...form, [field]: value };
+    setForm(next);
+    if (errors[field]) {
+      const nextErrors = {};
+      if (!next.tableNumber.trim()) nextErrors.tableNumber = "Table number is required";
+      if (!next.capacity || Number(next.capacity) < 1) nextErrors.capacity = "Capacity must be at least 1 guest";
+      if (!next.floor.trim()) nextErrors.floor = "Floor is required";
+      if (!next.section.trim()) nextErrors.section = "Section is required";
+      if (next.description.length > 500) nextErrors.description = "Description must be 500 characters or fewer";
+      setErrors(nextErrors);
+    }
   };
 
   const submit = (e) => {
@@ -87,11 +105,13 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
             <label htmlFor="table-number" className="text-sm font-medium text-slate-600">Table Number</label>
             <input
               id="table-number"
+              aria-invalid={Boolean(errors.tableNumber)}
+              aria-describedby={errors.tableNumber ? "table-number-error" : undefined}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.tableNumber}
-              onChange={(e) => setForm({ ...form, tableNumber: e.target.value })}
+              onChange={(e) => update("tableNumber", e.target.value)}
             />
-            {errors.tableNumber && <p className="mt-1 break-words text-xs text-rose-600">{errors.tableNumber}</p>}
+            {errors.tableNumber && <p id="table-number-error" role="alert" className="mt-1 break-words text-xs text-rose-600">{errors.tableNumber}</p>}
           </div>
 
           <div>
@@ -100,41 +120,47 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
               id="table-capacity"
               type="number"
               min="1"
+              aria-invalid={Boolean(errors.capacity)}
+              aria-describedby={errors.capacity ? "table-capacity-error" : undefined}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.capacity}
-              onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+              onChange={(e) => update("capacity", e.target.value)}
             />
-            {errors.capacity && <p className="mt-1 break-words text-xs text-rose-600">{errors.capacity}</p>}
+            {errors.capacity && <p id="table-capacity-error" role="alert" className="mt-1 break-words text-xs text-rose-600">{errors.capacity}</p>}
           </div>
 
           <div>
             <label htmlFor="table-floor" className="text-sm font-medium text-slate-600">Floor</label>
             <select
               id="table-floor"
+              aria-invalid={Boolean(errors.floor)}
+              aria-describedby={errors.floor ? "table-floor-error" : undefined}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.floor}
-              onChange={(e) => setForm({ ...form, floor: e.target.value })}
+              onChange={(e) => update("floor", e.target.value)}
             >
               {floorOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            {errors.floor && <p className="mt-1 break-words text-xs text-rose-600">{errors.floor}</p>}
+            {errors.floor && <p id="table-floor-error" role="alert" className="mt-1 break-words text-xs text-rose-600">{errors.floor}</p>}
           </div>
 
           <div>
             <label htmlFor="table-section" className="text-sm font-medium text-slate-600">Section</label>
             <select
               id="table-section"
+              aria-invalid={Boolean(errors.section)}
+              aria-describedby={errors.section ? "table-section-error" : undefined}
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.section}
-              onChange={(e) => setForm({ ...form, section: e.target.value })}
+              onChange={(e) => update("section", e.target.value)}
             >
               {sectionOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            {errors.section && <p className="mt-1 break-words text-xs text-rose-600">{errors.section}</p>}
+            {errors.section && <p id="table-section-error" role="alert" className="mt-1 break-words text-xs text-rose-600">{errors.section}</p>}
           </div>
 
           <div>
@@ -143,7 +169,7 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
               id="table-shape"
               className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
               value={form.shape}
-              onChange={(e) => setForm({ ...form, shape: e.target.value })}
+              onChange={(e) => update("shape", e.target.value)}
             >
               {shapeOptions.map((item) => (
                 <option key={item} value={item}>{item}</option>
@@ -158,11 +184,15 @@ const TableForm = ({ open, loading, initialData, onClose, onSubmit }) => {
           <textarea
             id="table-description"
             rows={3}
+            maxLength={500}
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={errors.description ? "table-description-error" : undefined}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
             placeholder="Add any specific notes for this table"
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => update("description", e.target.value)}
           />
+          {errors.description && <p id="table-description-error" role="alert" className="mt-1 break-words text-xs text-rose-600">{errors.description}</p>}
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-3">
