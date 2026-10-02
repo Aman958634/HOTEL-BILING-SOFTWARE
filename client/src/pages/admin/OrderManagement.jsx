@@ -324,6 +324,7 @@ const OrderManagement = () => {
     socket.on("order:new", scheduleRefresh);
     socket.on("order:status", scheduleRefresh);
     socket.on("order:paymentUpdated", scheduleRefresh);
+    socket.on("payment:updated", scheduleRefresh);
     socket.on("order:cancelled", scheduleRefresh);
     socket.on("table:statusChanged", scheduleRefresh);
 
@@ -332,6 +333,7 @@ const OrderManagement = () => {
       socket.off("order:new", scheduleRefresh);
       socket.off("order:status", scheduleRefresh);
       socket.off("order:paymentUpdated", scheduleRefresh);
+      socket.off("payment:updated", scheduleRefresh);
       socket.off("order:cancelled", scheduleRefresh);
       socket.off("table:statusChanged", scheduleRefresh);
     };
@@ -441,7 +443,7 @@ const OrderManagement = () => {
     }
   };
 
-  const refreshHotelUpiStatus = async () => {
+  const refreshHotelUpiStatus = async ({ silent = false } = {}) => {
     const paymentId = hotelPaymentData?.payment?._id || hotelPaymentData?.payment?.paymentId;
     if (!paymentId || hotelPaymentActionLoading) return;
     setHotelPaymentActionLoading(true);
@@ -451,10 +453,10 @@ const OrderManagement = () => {
       setHotelPaymentData((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || current?.paymentStatus }));
       await Promise.all([loadOrders(), loadStats()]);
       if (String(paymentRecord.paymentStatus || "").toUpperCase() === "PAID") {
-        toast.success("Hotel payment was independently verified. Order balances and reports are refreshed.");
+        if (!silent) toast.success("Hotel payment was independently verified. Order balances and reports are refreshed.");
       } else if (paymentRecord.metadata?.rejectionNote) {
-        toast.error(`Hotel UPI attempt rejected: ${paymentRecord.metadata.rejectionNote}. Generate a new QR to retry.`);
-      } else {
+        if (!silent) toast.error(`Hotel UPI attempt rejected: ${paymentRecord.metadata.rejectionNote}. Generate a new QR to retry.`);
+      } else if (!silent) {
         toast("No independent bank-credit verification has been recorded yet.");
       }
     } catch (error) {

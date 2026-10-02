@@ -8,6 +8,7 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
   const [openedUpi, setOpenedUpi] = useState(false);
   const data = payment?.data || payment || {};
   const paymentRecord = data.payment || {};
+  const currentStatus = String(data.paymentStatus || paymentRecord.paymentStatus || "AWAITING_VERIFICATION").toUpperCase();
   const expiryTimestamp = data.expiresAt ? Date.parse(data.expiresAt) : paymentRecord.createdAt ? new Date(paymentRecord.createdAt).getTime() + 15 * 60 * 1000 : Number.NaN;
   const [now, setNow] = useState(Date.now());
 
@@ -22,10 +23,16 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
     return () => window.clearInterval(timer);
   }, [expiryTimestamp, open]);
 
+  useEffect(() => {
+    if (!open || currentStatus !== "AWAITING_VERIFICATION" || !paymentRecord?._id || !onRefreshStatus) return undefined;
+    const timer = window.setInterval(() => onRefreshStatus({ silent: true }), 10_000);
+    return () => window.clearInterval(timer);
+  }, [currentStatus, onRefreshStatus, open, paymentRecord?._id]);
+
   if (!open || !order) return null;
 
   const amount = Number(data.amount || order.total || 0);
-  const status = String(data.paymentStatus || paymentRecord.paymentStatus || "AWAITING_VERIFICATION").toUpperCase();
+  const status = currentStatus;
   const expired = Number.isFinite(expiryTimestamp) && expiryTimestamp <= now;
   const secondsRemaining = Number.isFinite(expiryTimestamp) ? Math.max(0, Math.ceil((expiryTimestamp - now) / 1000)) : null;
   const expiryLabel = secondsRemaining === null ? "" : `${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, "0")}`;

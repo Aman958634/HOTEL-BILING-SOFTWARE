@@ -177,7 +177,6 @@ const applyOrderPaymentMirror = async (orderDoc, payment, session = null) => {
   orderDoc.paymentId = payment?.paymentId || orderDoc.paymentId || "";
   orderDoc.transactionId = payment?.transactionId || orderDoc.transactionId || "";
   orderDoc.paidAt = settlement.fullyPaid ? payment?.paidAt || orderDoc.paidAt || new Date() : null;
-  if (settlement.fullyPaid) orderDoc.status = "COMPLETED";
   await orderDoc.save(session ? { session } : undefined);
   return settlement;
 };

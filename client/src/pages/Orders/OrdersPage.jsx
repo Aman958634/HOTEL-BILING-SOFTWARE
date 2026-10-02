@@ -48,7 +48,7 @@ const OrdersPage = () => {
     }
   };
 
-  const refreshHotelPaymentStatus = async () => {
+  const refreshHotelPaymentStatus = async ({ silent = false } = {}) => {
     const paymentId = hotelPayment?.payment?._id || hotelPayment?.payment?.paymentId;
     if (!paymentId || hotelPaymentLoading) return;
     setHotelPaymentLoading(true);
@@ -56,8 +56,12 @@ const OrdersPage = () => {
       const { data } = await getPaymentById(paymentId);
       const paymentRecord = data?.data || {};
       setHotelPayment((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || current?.paymentStatus }));
-      if (String(paymentRecord.paymentStatus || "").toUpperCase() === "PAID") toast.success("Hotel payment independently verified.");
-      else toast("No independent bank-credit verification has been recorded yet.");
+      if (String(paymentRecord.paymentStatus || "").toUpperCase() === "PAID") {
+        setOrders((current) => current.map((item) => String(item._id) === String(hotelPaymentOrder?._id)
+          ? { ...item, paymentStatus: "PAID", paymentMethod: paymentRecord.paymentMethod || "UPI" }
+          : item));
+        if (!silent) toast.success("Hotel payment independently verified.");
+      } else if (!silent) toast("No independent bank-credit verification has been recorded yet.");
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to refresh Hotel UPI payment status");
     } finally {

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The landing hero is the only Manrope 800 text. Keep its real face local and
+   preload it so its first paint never uses a fallback or synthetic 800 weight. */
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url("/fonts/manrope-latin-800.woff2") format("woff2");
+}
+
 :root {
   font-family: "Sora", sans-serif;
   color-scheme: light;
