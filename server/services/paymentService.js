@@ -513,7 +513,9 @@ export const recordVerifiedPayment = async (
   } else {
     await runPostCommitTasks();
   }
-  if (!idempotent) emitPaymentCreated(serializePayment(payment));
+  if (!idempotent) {
+    (existingPaymentId ? emitPaymentUpdated : emitPaymentCreated)(serializePayment(payment));
+  }
   return { order: committedOrder, payment, paidTotal, remaining, fullyPaid, idempotent };
 };
 

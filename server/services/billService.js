@@ -9,6 +9,7 @@ import { formatPaymentId } from "../utils/paymentId.js";
 import { buildReceiptBuffer, normalizePaymentMethod } from "../utils/paymentUtils.js";
 import { serializePayment } from "./paymentService.js";
 import { normalizeGstRate } from "./gstService.js";
+import { emitPaymentUpdated } from "../socket/paymentSocket.js";
 
 const OPEN_STATUSES = ["OPEN", "PARTIALLY_PAID"];
 const MONEY_FACTOR = 100;
@@ -48,7 +49,6 @@ export const syncBillOrderPaymentMirrors = async (bill, session) => {
     const fullySettled = allocated >= allocationTotal && allocationTotal > 0;
     order.paymentStatus = fullySettled ? "PAID" : "PENDING";
     order.paidAt = fullySettled ? bill.settledAt || new Date() : null;
-    if (fullySettled) order.status = "COMPLETED";
     await order.save({ session });
     remaining = Math.max(remaining - allocationTotal, 0);
   }
@@ -133,6 +133,7 @@ export const recordBillPayment = async ({ billId, restaurantId, amount, paymentM
     const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
     await maybeReleaseTableAfterSettlement({ table: result.bill.table });
   }
+  if (!result.idempotent && existingPaymentId) emitPaymentUpdated(serializePayment(result.payment));
   return result;
 };
 

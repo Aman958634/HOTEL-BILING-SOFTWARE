@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getOrders } from "../../services/orderService";
-import { generateHotelPaymentQr } from "../../services/hotelPaymentService";
+import { generateHotelPaymentQr, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { getPaymentById, getPaymentReceipt } from "../../services/paymentService";
 import { currency, dateTime } from "../../utils/format";
 import { FiShoppingBag } from "react-icons/fi";
@@ -69,6 +69,27 @@ const OrdersPage = () => {
     }
   };
 
+  const confirmHotelPaymentReceived = async (transactionId) => {
+    const paymentId = hotelPayment?.payment?._id || hotelPayment?.payment?.paymentId;
+    if (!paymentId || hotelPaymentLoading) return false;
+    setHotelPaymentLoading(true);
+    try {
+      const { data } = await verifyHotelPayment({ paymentId, transactionId: transactionId || undefined });
+      const paymentRecord = data?.data?.payment || {};
+      setHotelPayment((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || "PAID" }));
+      setOrders((current) => current.map((item) => String(item._id) === String(hotelPaymentOrder?._id)
+        ? { ...item, paymentStatus: "PAID", paymentMethod: paymentRecord.paymentMethod || "UPI" }
+        : item));
+      toast.success("Payment successful");
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to confirm payment received");
+      return false;
+    } finally {
+      setHotelPaymentLoading(false);
+    }
+  };
+
   const downloadHotelPaymentReceipt = async () => {
     const paymentId = hotelPayment?.payment?._id || hotelPayment?.payment?.paymentId;
     if (!paymentId) return;
@@ -111,6 +132,7 @@ const OrdersPage = () => {
         loading={hotelPaymentLoading}
         onGenerate={regenerateHotelPaymentQr}
         onRefreshStatus={refreshHotelPaymentStatus}
+        onConfirmPaymentReceived={confirmHotelPaymentReceived}
         onReceipt={downloadHotelPaymentReceipt}
         onClose={() => { if (!hotelPaymentLoading) { setHotelPaymentOrder(null); setHotelPayment(null); } }}
       />

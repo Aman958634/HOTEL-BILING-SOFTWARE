@@ -301,11 +301,11 @@ const Payments = () => {
     || user?.permissions?.includes("payments.collect");
 
   const verifyHotelPaymentFromQueue = async (transactionId) => {
-    if (!hotelPaymentTarget || !transactionId?.trim()) return;
+    if (!hotelPaymentTarget) return;
     setHotelPaymentLoading(true);
     try {
-      await verifyHotelPayment({ paymentId: hotelPaymentTarget.paymentId || hotelPaymentTarget._id, amount: getPaymentAmount(hotelPaymentTarget), transactionId: transactionId.trim() });
-      toast.success("Hotel UPI payment verified and order marked paid");
+      await verifyHotelPayment({ paymentId: hotelPaymentTarget.paymentId || hotelPaymentTarget._id, transactionId: transactionId || undefined });
+      toast.success("Payment successful");
       setHotelPaymentTarget(null);
       await refreshPaymentWorkspace();
     } catch (err) {

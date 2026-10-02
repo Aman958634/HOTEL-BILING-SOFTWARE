@@ -13,6 +13,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { buildOutletQuery, hasAllOutletsAccess, hasExplicitOutletAccess } from "../utils/tenantUtils.js";
 import { deriveOrderPaymentState, recordVerifiedPayment, serializePayment } from "../services/paymentService.js";
 import { recordBillPayment } from "../services/billService.js";
+import { createOrderAuditLog } from "../services/orderService.js";
 import { getHotelPaymentCapability, isValidHotelUpiId } from "../services/hotelPaymentCapability.js";
 
 const normalizeText = (value, fallback = "") => {
@@ -413,7 +414,7 @@ export const createHotelPaymentQr = asyncHandler(async (req, res) => {
 });
 
 export const verifyHotelPayment = asyncHandler(async (req, res) => {
-  const { paymentId, orderId, transactionId, amount } = req.body || {};
+  const { paymentId, orderId, transactionId } = req.body || {};
   const lookupId = paymentId || orderId;
   if (!lookupId) {
     throw new ApiError(400, "Payment ID or order ID is required to verify a hotel payment.");
@@ -449,16 +450,20 @@ export const verifyHotelPayment = asyncHandler(async (req, res) => {
     throw new ApiError(409, "This hotel payment has already been verified and marked as paid.");
   }
 
-  const finalAmount = Number(amount ?? payment.totalAmount ?? payment.amount ?? order.total ?? 0);
+  // The confirmation only identifies the payment attempt. The amount is always
+  // recovered from the server-created Hotel UPI record and checked again below
+  // against the current outstanding balance; a browser cannot settle a changed
+  // amount by submitting an `amount` field.
+  const finalAmount = Number(payment.totalAmount ?? payment.amount ?? order.total ?? 0);
   if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
     throw new ApiError(400, "A valid settlement amount is required.");
   }
 
   const reference = normalizeText(transactionId, "");
-  if (!reference) throw new ApiError(422, "A bank or UPI transaction reference is required for approval.");
+  if (reference.length > 200) throw new ApiError(422, "The UPI transaction or reference ID must be 200 characters or fewer.");
   const currentStatus = String(payment.paymentStatus || "").toUpperCase();
-  if (currentStatus !== "AWAITING_VERIFICATION" && currentStatus !== "PENDING" && currentStatus !== "PROCESSING") {
-    throw new ApiError(409, "This hotel payment cannot be verified from its current state.");
+  if (currentStatus !== "AWAITING_VERIFICATION") {
+    throw new ApiError(409, "This hotel payment is no longer awaiting confirmation.");
   }
 
   const bill = payment.bill ? await Bill.findOne({ _id: payment.bill, restaurant: payment.restaurant, outlet: payment.outlet || null, status: { $in: ["OPEN", "PARTIALLY_PAID"] } }).lean() : null;
@@ -474,16 +479,30 @@ export const verifyHotelPayment = asyncHandler(async (req, res) => {
     ? await recordBillPayment({
       billId: bill._id, restaurantId: payment.restaurant, amount: finalAmount, paymentMethod: "UPI", transactionId: reference,
       idempotencyKey: `hotel-payment:${payment.paymentId}`, existingPaymentId: payment._id, receivedBy: req.user._id,
-      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference, provider: "HOTEL_UPI" },
+      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference || null, provider: "HOTEL_UPI" },
     })
     : await recordVerifiedPayment(order, {
       amount: finalAmount, paymentMethod: "UPI", gateway: "HOTEL_UPI", transactionId: reference,
       idempotencyKey: `hotel-payment:${payment.paymentId}`, existingPaymentId: payment._id, receivedBy: req.user._id,
       note: `Hotel UPI payment verified by ${req.user.fullName || "staff"}`,
-      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference, provider: "HOTEL_UPI" },
+      metadata: { hotelPayment: true, verifiedBy: req.user._id, verificationReference: reference || null, provider: "HOTEL_UPI" },
     });
 
-  return res.status(200).json(new ApiResponse(true, "Hotel UPI payment verified and marked as paid.", {
+  await createOrderAuditLog({
+    user: req.user,
+    action: "Hotel UPI Payment Confirmed",
+    order,
+    context: {
+      paymentId: payment.paymentId,
+      restaurantId: payment.restaurant,
+      outletId: payment.outlet,
+      amount: finalAmount,
+      paymentMethod: "UPI",
+      transactionReference: reference || null,
+    },
+  });
+
+  return res.status(200).json(new ApiResponse(true, "Payment received and marked as paid.", {
     payment: serializePayment(result.payment),
     order: order || null,
   }));

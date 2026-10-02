@@ -167,13 +167,13 @@ try {
   const forgedSettingsRead = await invoke(getHotelPaymentSettings, orderRequest(staffA, {}, { restaurantId: restaurantB._id, outletId: outletB._id }));
   assert.equal(forgedSettingsRead.statusCode, 403, "A hotel user cannot read another restaurant or outlet through settings IDs");
 
-  const makeOrder = async ({ restaurant, outlet, number, total, paymentStatus = "PENDING" }) => {
-    const order = await Order.create({ orderNumber: `${number}-${suffix}`, restaurant: restaurant._id, outlet: outlet._id, orderType: "TAKEAWAY", items: [{ menuItem: restaurant._id === restaurantA._id ? foodA._id : foodB._id, name: "Test item", price: total, quantity: 1, subtotal: total }], subtotal: total, total, paymentStatus });
+  const makeOrder = async ({ restaurant, outlet, number, total, paymentStatus = "PENDING", status = "PENDING" }) => {
+    const order = await Order.create({ orderNumber: `${number}-${suffix}`, restaurant: restaurant._id, outlet: outlet._id, orderType: "TAKEAWAY", items: [{ menuItem: restaurant._id === restaurantA._id ? foodA._id : foodB._id, name: "Test item", price: total, quantity: 1, subtotal: total }], subtotal: total, total, paymentStatus, status });
     created.orders.push(order._id);
     return order;
   };
 
-  const partialOrder = await makeOrder({ restaurant: restaurantA, outlet: outletA, number: "PARTIAL", total: 100 });
+  const partialOrder = await makeOrder({ restaurant: restaurantA, outlet: outletA, number: "PARTIAL", total: 100, status: "PREPARING" });
   const partialPayment = await Payment.create({ paymentId: `PARTIAL-${suffix}`, orderId: partialOrder._id, restaurant: restaurantA._id, outlet: outletA._id, amount: 40, totalAmount: 40, paymentMethod: "CASH", paymentStatus: "PAID", provider: "CASH", gateway: "CASH", transactionId: `CASH-${suffix}`, paidAt: new Date() });
   created.payments.push(partialPayment._id);
   const qr = await invoke(createHotelPaymentQr, orderRequest(staffA, { orderId: partialOrder._id }));
@@ -206,12 +206,14 @@ try {
 
   const selfVerification = await invoke(verifyHotelPayment, orderRequest(staffA, { paymentId, amount: 60, transactionId: `BANK-A-SELF-${suffix}` }));
   assert.equal(selfVerification.statusCode, 403, "A QR generator cannot approve its own hotel UPI payment");
-  const verify = await invoke(verifyHotelPayment, orderRequest(staffAVerifier, { paymentId, amount: 60, transactionId: `BANK-A-${suffix}` }));
+  const verify = await invoke(verifyHotelPayment, orderRequest(staffAVerifier, { paymentId, amount: 0.01, transactionId: `BANK-A-${suffix}` }));
   assert.equal(verify.statusCode, 200);
   const paidOrder = await Order.findById(partialOrder._id).lean();
   const paidPayment = await Payment.findOne({ paymentId }).lean();
   assert.equal(paidOrder.paymentStatus, "PAID");
+  assert.equal(paidOrder.status, "PREPARING", "Payment confirmation must not change the kitchen/service lifecycle");
   assert.equal(paidPayment.paymentStatus, "PAID");
+  assert.equal(paidPayment.amount, 60, "The server-created amount must win over any frontend amount field");
   assert.equal(paidPayment.transactionId, `BANK-A-${suffix}`);
   const invoice = await Invoice.findOne({ order: partialOrder._id }).lean();
   assert.ok(invoice, "Canonical approval must generate one invoice");

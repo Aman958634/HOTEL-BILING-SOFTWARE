@@ -3,9 +3,11 @@ import { FiCheckCircle, FiCopy, FiDownload, FiExternalLink, FiRefreshCw, FiX } f
 import toast from "react-hot-toast";
 import { currency } from "../../utils/format";
 import Button from "../ui/Button";
+import HotelUpiVerificationModal from "./HotelUpiVerificationModal";
 
-const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerate, onRefreshStatus, onReceipt, onClose }) => {
+const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerate, onRefreshStatus, onConfirmPaymentReceived, onReceipt, onClose }) => {
   const [openedUpi, setOpenedUpi] = useState(false);
+  const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
   const data = payment?.data || payment || {};
   const paymentRecord = data.payment || {};
   const currentStatus = String(data.paymentStatus || paymentRecord.paymentStatus || "AWAITING_VERIFICATION").toUpperCase();
@@ -13,7 +15,10 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (!open) setOpenedUpi(false);
+    if (!open) {
+      setOpenedUpi(false);
+      setConfirmPaymentOpen(false);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -46,12 +51,26 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
     }
   };
 
+  if (confirmPaymentOpen) {
+    return <HotelUpiVerificationModal
+      open
+      payment={paymentRecord}
+      order={order}
+      loading={loading}
+      onClose={() => { if (!loading) setConfirmPaymentOpen(false); }}
+      onVerify={async (transactionId) => {
+        const confirmed = await onConfirmPaymentReceived?.(transactionId);
+        if (confirmed !== false) setConfirmPaymentOpen(false);
+      }}
+    />;
+  }
+
   return (
     <div className="ui-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!loading && event.target === event.currentTarget) onClose?.(); }}>
       <div className="ui-modal max-w-xl" role="dialog" aria-modal="true" aria-labelledby="hotel-upi-payment-title">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Hotel UPI payment</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Pay with UPI</p>
             <h2 id="hotel-upi-payment-title" className="mt-1 text-xl font-bold text-slate-900">Order #{order.orderNumber}</h2>
             <p className="mt-1 text-sm text-slate-500">Scan the server-generated QR and pay the exact amount.</p>
           </div>
@@ -59,7 +78,7 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
         </div>
 
         {loading ? <div className="mt-6 h-72 animate-pulse rounded-2xl bg-slate-100" aria-busy="true" /> : status === "PAID" ? (
-          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="flex items-center gap-2 font-semibold"><FiCheckCircle aria-hidden="true" />Payment verified by an authorized cashier</p><p className="mt-1">The ledger and order status have been refreshed. Download the receipt from the verified payment record.</p></div>
+          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><p className="flex items-center gap-2 text-lg font-semibold"><FiCheckCircle aria-hidden="true" />Payment Successful</p><p className="mt-3 text-2xl font-bold">{currency(amount)}</p><p className="mt-1 text-sm">Order #{order.orderNumber}</p><p className="mt-1 text-sm">Payment Method: UPI</p></div>
         ) : data.qrCode && !expired && status === "AWAITING_VERIFICATION" ? (
           <div className="mt-5 space-y-4">
             <div className="grid gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-[auto_1fr]">
@@ -73,16 +92,17 @@ const HotelUpiPaymentModal = ({ open, order, payment, loading = false, onGenerat
             </div>
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <p className="flex items-center justify-between gap-3 font-semibold"><span>Awaiting hotel verification</span><span className="tabular-nums">Expires in {expiryLabel || "15:00"}</span></p>
-              <p className="mt-1">This QR is for the exact backend-calculated outstanding balance. Partial Hotel UPI collection is not supported. A QR display, UPI app launch, screenshot, or customer confirmation does not mark this order paid; a different authorized cashier must verify the actual bank credit.</p>
+              <p className="flex items-center justify-between gap-3 font-semibold"><span>Awaiting Payment Confirmation</span><span className="tabular-nums">Expires in {expiryLabel || "15:00"}</span></p>
+              <p className="mt-1">Payment Status: AWAITING VERIFICATION</p><p className="mt-1">After receiving payment in your bank or UPI app, confirm it below.</p>
             </div>
 
             <div className="grid gap-2 sm:flex sm:justify-end">
+              {onConfirmPaymentReceived ? <Button onClick={() => setConfirmPaymentOpen(true)} disabled={loading} className="bg-emerald-700 hover:bg-emerald-800"><FiCheckCircle aria-hidden="true" />Payment Received</Button> : null}
               <Button variant="secondary" onClick={onRefreshStatus} disabled={loading}><FiRefreshCw aria-hidden="true" />Refresh status</Button>
               <Button variant="secondary" onClick={onClose} disabled={loading}>Close</Button>
               {data.upiLink ? <a href={data.upiLink} onClick={() => setOpenedUpi(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"><FiExternalLink aria-hidden="true" />Open UPI app</a> : null}
             </div>
-            {openedUpi || status === "AWAITING_VERIFICATION" ? <p className="flex items-center gap-2 text-sm font-medium text-slate-600"><FiCheckCircle className="text-emerald-600" aria-hidden="true" />Payment record is awaiting verification.</p> : null}
+            {openedUpi || status === "AWAITING_VERIFICATION" ? <p className="flex items-center gap-2 text-sm font-medium text-slate-600"><FiCheckCircle className="text-emerald-600" aria-hidden="true" />Scan using any UPI app.</p> : null}
           </div>
         ) : retryable ? (
           <div className="mt-5 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">

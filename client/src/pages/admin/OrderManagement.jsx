@@ -30,7 +30,7 @@ import {
   updateOrderStatus,
 } from "../../services/orderService";
 import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentById, getPaymentByOrderId, getPaymentReceipt, verifyGatewayPayment } from "../../services/paymentService";
-import { generateHotelPaymentQr, getHotelPaymentSettings } from "../../services/hotelPaymentService";
+import { generateHotelPaymentQr, getHotelPaymentSettings, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { getTables } from "../../services/tableService";
 import { getRestaurantSettings } from "../../services/restaurantService";
@@ -461,6 +461,25 @@ const OrderManagement = () => {
       }
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to refresh Hotel UPI payment status");
+    } finally {
+      setHotelPaymentActionLoading(false);
+    }
+  };
+
+  const confirmHotelUpiPaymentReceived = async (transactionId) => {
+    const paymentId = hotelPaymentData?.payment?._id || hotelPaymentData?.payment?.paymentId;
+    if (!paymentId || hotelPaymentActionLoading) return false;
+    setHotelPaymentActionLoading(true);
+    try {
+      const { data } = await verifyHotelPayment({ paymentId, transactionId: transactionId || undefined });
+      const paymentRecord = data?.data?.payment || {};
+      setHotelPaymentData((current) => ({ ...current, payment: paymentRecord, paymentStatus: paymentRecord.paymentStatus || "PAID" }));
+      await Promise.all([loadOrders(), loadStats()]);
+      toast.success("Payment successful");
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to confirm payment received");
+      return false;
     } finally {
       setHotelPaymentActionLoading(false);
     }
@@ -960,6 +979,7 @@ const OrderManagement = () => {
         loading={hotelPaymentActionLoading}
         onGenerate={() => requestHotelUpiQr(hotelPaymentOrder).then(() => toast.success("A new Hotel UPI QR is ready for the current outstanding balance.")).catch((error) => toast.error(error?.response?.data?.message || error?.message || "Unable to regenerate Hotel UPI QR"))}
         onRefreshStatus={refreshHotelUpiStatus}
+        onConfirmPaymentReceived={confirmHotelUpiPaymentReceived}
         onReceipt={downloadHotelUpiReceipt}
         onClose={closeHotelUpiPayment}
       />
