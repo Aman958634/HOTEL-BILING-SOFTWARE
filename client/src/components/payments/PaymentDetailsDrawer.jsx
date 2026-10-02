@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { FiCheckCircle, FiClock, FiDollarSign, FiFileText, FiPhone, FiTable, FiUser } from "react-icons/fi";
-import { canRefundPayment, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, getPaymentAmount } from "../../utils/paymentUtils";
+import { canRefundPayment, canViewPaymentReceipt, formatCurrency, formatPaymentDate, paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, getPaymentAmount } from "../../utils/paymentUtils";
 import { formatPaymentId } from "../../utils/paymentId";
 
 const Section = ({ title, children }) => (
@@ -153,9 +153,9 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                   <FiPhone className="inline-block -translate-y-px" /> {whatsAppSending ? "Sending Receipt..." : payment.whatsappReceipt?.status === "SENT" ? "Resend Receipt" : "Send Receipt on WhatsApp"}
                 </button>
               ) : null}
-              <button onClick={() => onReceipt(payment)} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
+              {canViewPaymentReceipt(payment) ? <button onClick={() => onReceipt(payment)} className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 text-sm text-slate-700">
                 <FiFileText className="inline-block -translate-y-px" /> View Receipt
-              </button>
+              </button> : null}
               {canRefundPayment(payment) ? (
                 <button onClick={() => onRefund(payment)} className="min-h-11 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700">
                   Refund

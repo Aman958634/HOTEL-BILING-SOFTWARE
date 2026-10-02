@@ -601,6 +601,22 @@ button:disabled { cursor: not-allowed; }
   overflow-wrap: anywhere;
 }
 
+/* Print mode is entered only by a receipt's explicit Print Receipt action.
+   The selected receipt is the sole visible content in browser print preview. */
+@media print {
+  body.payment-receipt-printing * { visibility: hidden !important; }
+  body.payment-receipt-printing #payment-receipt-print,
+  body.payment-receipt-printing #payment-receipt-print * { visibility: visible !important; }
+  body.payment-receipt-printing #payment-receipt-print {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}
+
 @media (max-width: 639px) {
   .app-page-container { padding: 0.75rem; }
   .ui-page-header { gap: 0.75rem; }

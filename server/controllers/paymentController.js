@@ -281,6 +281,7 @@ const mapPaymentDetail = (payment) => {
     order,
     customer: paymentObject.customerId || null,
     table: paymentObject.tableId || null,
+    restaurant: paymentObject.restaurant || null,
     refundAmount: paymentObject.refundAmount || 0,
     refundReason: paymentObject.refundReason || "",
     refundStatus: paymentObject.refundStatus || "",
@@ -302,6 +303,7 @@ const getPaymentDoc = async (identifier, user) => {
     .populate("orderId")
     .populate("customerId", "fullName email phone avatar")
     .populate("tableId", "tableNumber floor section")
+    .populate("restaurant", "name address phone gstNumber")
     .populate("refundedBy", "fullName email role")
     .populate("bill", "billNumber total status");
 };

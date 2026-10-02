@@ -16,7 +16,8 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   const serviceCharge = order.serviceCharge ?? payment?.serviceCharge;
   const total = getPaymentAmount(payment) || valueOr(order.total, 0);
   const transactionReference = payment?.transactionId || payment?.razorpayPaymentId || payment?.cashfreePaymentId || "-";
-  const restaurantName = payment?.restaurant?.name || payment?.restaurantName || "RestoSphere";
+  const restaurant = payment?.restaurant || {};
+  const restaurantName = restaurant?.name || payment?.restaurantName || "RestoSphere";
   const tableName = order.table?.tableNumber ? "Table " + order.table.tableNumber : payment.tableNumber ? "Table " + payment.tableNumber : "-";
   const contactAndTable = (order.customer?.phone || payment.customerPhone || "-") + " / " + tableName;
 
@@ -34,13 +35,15 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 print:overflow-visible print:p-0">
-          <article className="mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
+          <article id="payment-receipt-print" className="mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
             <header className="border-b border-slate-200 px-5 py-7 text-center sm:px-10">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-sm"><FiCheck aria-hidden="true" /></span>
               <h1 className="mt-3 text-2xl font-extrabold text-emerald-800">Payment Successful!</h1>
               <p className="mt-1 text-sm text-slate-500">Thank you! Your payment has been completed.</p>
               <img src="/restosphere-logo.png" alt="RestoSphere" className="mx-auto mt-6 h-10 w-auto object-contain" />
-              <p className="mt-1 text-sm font-medium text-slate-700">Restaurant Management System</p>
+              <p className="mt-1 text-sm font-medium text-slate-700">{restaurantName}</p>
+              {restaurant.address ? <p className="mt-1 text-xs text-slate-500">{restaurant.address}</p> : null}
+              {restaurant.phone || restaurant.gstNumber ? <p className="mt-1 text-xs text-slate-500">{[restaurant.phone, restaurant.gstNumber ? `GSTIN: ${restaurant.gstNumber}` : ""].filter(Boolean).join(" · ")}</p> : null}
               <div className="mt-5 border-t border-slate-200 pt-4"><h2 className="text-sm font-extrabold tracking-[0.18em] text-slate-900">PAYMENT RECEIPT</h2></div>
             </header>
 
@@ -102,8 +105,9 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
           </article>
 
           <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-end gap-2 print:hidden">
-            <button type="button" onClick={onPrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><FiPrinter /> Print</button>
+            <button type="button" onClick={onPrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><FiPrinter /> Print Receipt</button>
             <button type="button" onClick={onDownload} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"><FiDownload /> Download PDF</button>
+            <button type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Close</button>
           </div>
         </div>
       </div>

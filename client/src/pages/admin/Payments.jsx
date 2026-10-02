@@ -215,10 +215,16 @@ const Payments = () => {
   const openReceipt = async (payment) => {
     if (!canViewPaymentReceipt(payment)) return;
     try {
+      let receiptPayment = selectedPayment;
       if (!selectedPayment || selectedPayment.paymentId !== payment.paymentId) {
         const { data } = await getPaymentById(payment._id || payment.paymentId);
-        setSelectedPayment(data.data);
+        receiptPayment = data.data;
       }
+      if (!canViewPaymentReceipt(receiptPayment)) {
+        toast.error("A receipt is available only after the payment is marked paid.");
+        return;
+      }
+      setSelectedPayment(receiptPayment);
       setReceiptOpen(true);
       setDetailOpen(false);
     } catch (err) {
@@ -245,7 +251,18 @@ const Payments = () => {
   };
 
   const printReceipt = () => {
-    window.print();
+    const receipt = document.getElementById("payment-receipt-print");
+    if (!receipt) return;
+
+    const clearPrintMode = () => document.body.classList.remove("payment-receipt-printing");
+    document.body.classList.add("payment-receipt-printing");
+    window.addEventListener("afterprint", clearPrintMode, { once: true });
+    try {
+      window.print();
+    } catch (_error) {
+      clearPrintMode();
+      toast.error("Unable to open the print dialog");
+    }
   };
 
   const openRefund = async (payment) => {
