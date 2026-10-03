@@ -601,28 +601,200 @@ button:disabled { cursor: not-allowed; }
   overflow-wrap: anywhere;
 }
 
-/* Receipt printing deliberately removes non-receipt layout from pagination.
-   visibility alone leaves the dashboard's height in Chrome's print flow. */
-@media print {
-  @page { size: A4 portrait; margin: 10mm; }
+/* The print tree retains only the receipt branch; hidden dashboard siblings do not
+   participate in pagination.  The fixed 80 mm width also works with thermal drivers. */
+.payment-receipt-payment-row { display: contents; }
 
-  html, body.payment-receipt-printing { width: auto !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
-  body.payment-receipt-printing #root * { display: none !important; }
-  /* Keep only ancestors that lead to the selected receipt, collapsing their siblings. */
-  body.payment-receipt-printing #root *:has(#payment-receipt-print) { display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important; position: static !important; transform: none !important; }
-  body.payment-receipt-printing #payment-receipt-print,
-  body.payment-receipt-printing #payment-receipt-print * { display: revert !important; visibility: visible !important; }
-  body.payment-receipt-printing #payment-receipt-print {
-    width: 100% !important; max-width: none !important; height: auto !important; min-height: 0 !important;
-    margin: 0 !important; padding: 0 !important; overflow: visible !important; border-radius: 0 !important;
-    box-shadow: none !important; transform: none !important; break-after: auto !important; page-break-after: auto !important;
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+
+  html,
+  body.payment-receipt-printing,
+  body.payment-receipt-printing #root {
+    width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
   }
-  body.payment-receipt-printing #payment-receipt-print header { padding: 10px 16px !important; }
-  body.payment-receipt-printing #payment-receipt-print section { padding: 10px 16px !important; }
-  body.payment-receipt-printing #payment-receipt-print footer { padding: 10px 16px !important; break-before: auto !important; page-break-before: auto !important; }
-  body.payment-receipt-printing #payment-receipt-print table,
-  body.payment-receipt-printing #payment-receipt-print tr,
-  body.payment-receipt-printing #payment-receipt-print .max-w-xs { break-inside: avoid; page-break-inside: avoid; }
+
+  body.payment-receipt-printing #root * { display: none !important; }
+
+  /* Restore only the three modal ancestors needed to reach the printable article.
+     All their siblings stay display:none, so they cannot leave blank print pages. */
+  body.payment-receipt-printing #root *:has(#payment-receipt-print) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print,
+  body.payment-receipt-printing #payment-receipt-print * {
+    display: revert !important;
+    visibility: visible !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 0 2.5mm !important;
+    border-bottom: 1px dashed #94a3b8 !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header > span {
+    display: inline-flex !important;
+    width: 8mm !important;
+    height: 8mm !important;
+    font-size: 14px !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header h1 {
+    margin-top: 1.5mm !important;
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header img {
+    display: block !important;
+    height: 7mm !important;
+    margin-top: 2.5mm !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header .mt-5 {
+    margin-top: 2.5mm !important;
+    padding-top: 2mm !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-header h2 {
+    font-size: 11px !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-details,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-footer {
+    display: block !important;
+    margin: 0 !important;
+    padding: 2.5mm 0 !important;
+    border-color: #94a3b8 !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-details > div {
+    display: block !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-details > div + div {
+    margin-top: 2mm !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-field + .payment-receipt-field {
+    margin-top: 1.5mm !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-field p {
+    margin: 0 !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-field .payment-receipt-value {
+    margin-top: 0.4mm !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items > div {
+    overflow: visible !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 10px !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table td {
+    padding: 1.25mm 0.6mm !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th:first-child,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table td:first-child {
+    display: none !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th:nth-child(2) { width: 46% !important; }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th:nth-child(3) { width: 12% !important; }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th:nth-child(4) { width: 20% !important; }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-items-table th:nth-child(5) { width: 22% !important; }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-totals {
+    width: 100% !important;
+    max-width: none !important;
+    margin-top: 2.5mm !important;
+    font-size: 11px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-grand-total {
+    margin-top: 1.5mm !important;
+    padding: 2mm !important;
+    border: 1px solid #a7f3d0 !important;
+    border-radius: 1mm !important;
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment-details {
+    display: grid !important;
+    grid-template-columns: 29mm minmax(0, 1fr) !important;
+    gap: 1.3mm 2mm !important;
+    margin: 0 !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment-row {
+    display: contents !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment-details dt,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment-details dd {
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment-value {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-payment,
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  body.payment-receipt-printing #payment-receipt-print .payment-receipt-footer {
+    padding-bottom: 0 !important;
+    font-size: 11px !important;
+  }
 }
 
 @media (max-width: 639px) {

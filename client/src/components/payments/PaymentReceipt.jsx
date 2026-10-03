@@ -35,8 +35,8 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 print:overflow-visible print:p-0">
-          <article id="payment-receipt-print" className="mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
-            <header className="border-b border-slate-200 px-5 py-7 text-center sm:px-10">
+          <article id="payment-receipt-print" className="payment-receipt mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
+            <header className="payment-receipt-header border-b border-slate-200 px-5 py-7 text-center sm:px-10">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-sm"><FiCheck aria-hidden="true" /></span>
               <h1 className="mt-3 text-2xl font-extrabold text-emerald-800">Payment Successful!</h1>
               <p className="mt-1 text-sm text-slate-500">Thank you! Your payment has been completed.</p>
@@ -47,7 +47,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
               <div className="mt-5 border-t border-slate-200 pt-4"><h2 className="text-sm font-extrabold tracking-[0.18em] text-slate-900">PAYMENT RECEIPT</h2></div>
             </header>
 
-            <section className="grid gap-5 border-b border-slate-200 px-5 py-5 text-sm sm:grid-cols-2 sm:px-10">
+            <section className="payment-receipt-details grid gap-5 border-b border-slate-200 px-5 py-5 text-sm sm:grid-cols-2 sm:px-10">
               <div className="space-y-3">
                 <ReceiptField label="Receipt No." value={formatPaymentId(payment.paymentIdDisplay || payment.paymentId)} />
                 <ReceiptField label="Order No." value={order.orderNumber || payment.orderIdValue} />
@@ -60,9 +60,9 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
               </div>
             </section>
 
-            <section className="px-5 py-5 sm:px-10">
+            <section className="payment-receipt-items px-5 py-5 sm:px-10">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[510px] text-left text-sm">
+                <table className="payment-receipt-items-table w-full text-left text-sm">
                   <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
                     <tr><th className="rounded-l-lg px-3 py-3 font-semibold">#</th><th className="px-3 py-3 font-semibold">Item</th><th className="px-3 py-3 text-right font-semibold">Qty</th><th className="px-3 py-3 text-right font-semibold">Price</th><th className="rounded-r-lg px-3 py-3 text-right font-semibold">Total</th></tr>
                   </thead>
@@ -80,25 +80,25 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
                 </table>
               </div>
 
-              <div className="ml-auto mt-5 w-full max-w-xs space-y-2 text-sm">
+              <div className="payment-receipt-totals ml-auto mt-5 w-full max-w-xs space-y-2 text-sm">
                 <AmountRow label="Subtotal" value={subtotal} />
                 <AmountRow label="Discount" value={discount} negative={Number(discount) > 0} />
                 <AmountRow label="Tax / GST" value={tax} />
                 {serviceCharge !== undefined && serviceCharge !== null ? <AmountRow label="Service Charge" value={serviceCharge} /> : null}
-                <div className="mt-2 flex justify-between rounded-lg bg-emerald-50 px-3 py-3 text-base font-extrabold text-emerald-800"><span>Grand Total</span><span>{formatCurrency(total)}</span></div>
+                <div className="payment-receipt-grand-total mt-2 flex justify-between rounded-lg bg-emerald-50 px-3 py-3 text-base font-extrabold text-emerald-800"><span>Grand Total</span><span>{formatCurrency(total)}</span></div>
               </div>
             </section>
 
-            <section className="border-t border-slate-200 px-5 py-5 text-sm sm:px-10">
-              <div className="grid gap-2 sm:grid-cols-[155px_1fr]">
-                <span className="text-slate-500">Payment Method</span><span className="break-all text-right font-semibold text-slate-900">{paymentMethodLabel(payment.paymentMethod, payment.provider)}</span>
-                <span className="text-slate-500">Payment ID</span><span className="break-all text-right font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</span>
-                <span className="text-slate-500">Transaction / Reference</span><span className="break-all text-right font-semibold text-slate-900">{transactionReference}</span>
-                <span className="text-slate-500">Status</span><span className="text-right font-extrabold text-emerald-700">SUCCESS</span>
-              </div>
+            <section className="payment-receipt-payment border-t border-slate-200 px-5 py-5 text-sm sm:px-10">
+              <dl className="payment-receipt-payment-details grid gap-2 sm:grid-cols-[155px_1fr]">
+                <ReceiptPaymentField label="Payment Method" value={paymentMethodLabel(payment.paymentMethod, payment.provider)} />
+                <ReceiptPaymentField label="Payment ID" value={formatPaymentId(payment.paymentIdDisplay || payment.paymentId)} />
+                <ReceiptPaymentField label="Transaction / Reference" value={transactionReference} />
+                <ReceiptPaymentField label="Status" value="SUCCESS" success />
+              </dl>
             </section>
 
-            <footer className="border-t border-slate-200 px-5 py-6 text-center sm:px-10">
+            <footer className="payment-receipt-footer border-t border-slate-200 px-5 py-6 text-center sm:px-10">
               <p className="font-bold text-brand-700">Thank you for choosing RestoSphere!</p>
               <p className="mt-1 text-xs text-slate-400">This is a computer-generated receipt.</p>
             </footer>
@@ -115,7 +115,8 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   );
 };
 
-const ReceiptField = ({ label, value }) => <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 break-words font-semibold text-slate-800">{value || "-"}</p></div>;
+const ReceiptField = ({ label, value }) => <div className="payment-receipt-field"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="payment-receipt-value mt-1 break-words font-semibold text-slate-800">{value || "-"}</p></div>;
+const ReceiptPaymentField = ({ label, value, success = false }) => <div className="payment-receipt-payment-row"><dt className="text-slate-500">{label}</dt><dd className={`payment-receipt-payment-value text-right font-semibold ${success ? "text-emerald-700" : "text-slate-900"}`}>{value || "-"}</dd></div>;
 const AmountRow = ({ label, value, negative = false }) => <div className="flex justify-between text-slate-600"><span>{label}</span><span>{negative ? "-" : ""}{formatCurrency(value)}</span></div>;
 
 export default PaymentReceipt;
