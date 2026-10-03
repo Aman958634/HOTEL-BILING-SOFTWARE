@@ -15,8 +15,13 @@ const plans = Object.fromEntries(DEFAULT_PLANS.map((plan) => [plan.key, plan]));
 
 assert.deepEqual(
   [plans.basic.price, plans.professional.price, plans.enterprise.price],
-  [7500, 15000, 30000],
+  [2997, 5994, 11988],
   "Fixed-duration pricing must come from the server plan catalog"
+);
+assert.deepEqual(
+  [plans.basic.monthlyEquivalentPrice, plans.professional.monthlyEquivalentPrice, plans.enterprise.monthlyEquivalentPrice],
+  [999, 999, 999],
+  "Every paid plan must use the canonical 999 monthly price"
 );
 for (const key of ["basic", "professional", "enterprise", "pro", "premium"]) {
   assert.equal(hasAllPaidFeatures(key), true, `${key} must receive all paid product features`);
@@ -49,13 +54,13 @@ assert.equal(calculateSubscriptionEndDate(activation, 6).toISOString(), "2027-02
 assert.equal(calculateSubscriptionEndDate(activation, 12).toISOString(), "2027-08-25T12:00:00.000Z");
 
 const purchase = getPlanSnapshot(plans.professional);
-assert.equal(purchase.amount, 15000);
+assert.equal(purchase.amount, 5994);
 assert.equal(purchase.durationMonths, 6);
 
 const premiumOffers = [1, 2, 3, 4, 5].map((years) => getPlanOffer(plans.enterprise, years));
-assert.deepEqual(premiumOffers.map((offer) => offer.amount), [30000, 60000, 90000, 120000, 150000]);
+assert.deepEqual(premiumOffers.map((offer) => offer.amount), [11988, 23976, 35964, 47952, 59940]);
 assert.deepEqual(premiumOffers.map((offer) => offer.durationMonths), [12, 24, 36, 48, 60]);
-assert.deepEqual(premiumOffers.map((offer) => offer.monthlyEquivalentPrice), [2500, 2500, 2500, 2500, 2500]);
+assert.deepEqual(premiumOffers.map((offer) => offer.monthlyEquivalentPrice), [999, 999, 999, 999, 999]);
 assert.throws(() => getPremiumDurationYears(6), /Premium duration/i);
 assert.throws(() => getPremiumDurationYears("invalid"), /Premium duration/i);
 assert.equal(

@@ -22,7 +22,7 @@ try {
 
   for (const years of [1, 2, 3, 4, 5]) {
     const offer = getPlanOffer(premium, years);
-    assert.equal(offer.amount, 2500 * 12 * years, "server catalog controls Premium amount");
+    assert.equal(offer.amount, 999 * 12 * years, "server catalog controls Premium amount");
     const restaurant = await Restaurant.create({ name: `Premium test ${years} ${suffix}`, slug: `premium-${years}-${suffix}`, branchCode: `P${years}${suffix.slice(0, 5)}`, address: "Isolated test" });
     restaurantIds.push(restaurant._id);
     const subscription = await Subscription.create({ restaurant: restaurant._id, planId: premium._id, planName: premium.key, status: "expired", metadata: { recurringBillingEnabled: false, selectedPaidPlan: premium.key, selectedPremiumDurationYears: years } });

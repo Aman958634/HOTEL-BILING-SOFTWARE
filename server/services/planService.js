@@ -38,12 +38,12 @@ export const DEFAULT_PLANS = [
   {
     key: "basic",
     name: "Basic",
-    price: 7500,
+    price: 2997,
     currency: "INR",
     billingCycle: "fixed",
     durationMonths: 3,
     durationLabel: "3 months",
-    monthlyEquivalentPrice: 2500,
+    monthlyEquivalentPrice: 999,
     ...FULL_ACCESS_CAPACITY,
     entitlement: "all_paid_features",
     features: [...ALL_PAID_PLAN_FEATURES],
@@ -52,12 +52,12 @@ export const DEFAULT_PLANS = [
   {
     key: "professional",
     name: "Pro",
-    price: 15000,
+    price: 5994,
     currency: "INR",
     billingCycle: "fixed",
     durationMonths: 6,
     durationLabel: "6 months",
-    monthlyEquivalentPrice: 2500,
+    monthlyEquivalentPrice: 999,
     ...FULL_ACCESS_CAPACITY,
     entitlement: "all_paid_features",
     features: [...ALL_PAID_PLAN_FEATURES],
@@ -66,12 +66,12 @@ export const DEFAULT_PLANS = [
   {
     key: "enterprise",
     name: "Premium",
-    price: 30000,
+    price: 11988,
     currency: "INR",
     billingCycle: "fixed",
     durationMonths: 12,
     durationLabel: "1 year",
-    monthlyEquivalentPrice: 2500,
+    monthlyEquivalentPrice: 999,
     ...FULL_ACCESS_CAPACITY,
     entitlement: "all_paid_features",
     features: [...ALL_PAID_PLAN_FEATURES],
@@ -79,15 +79,6 @@ export const DEFAULT_PLANS = [
   },
 ];
 
-// This offer is intentionally fail-closed. It is available only to the
-// local/test checkout simulator, never to staging or production—even if an
-// override flag is accidentally present there.
-export const isTestBasicOneMonthPricingEnabled = () => {
-  const environment = String(process.env.NODE_ENV || "").toLowerCase();
-  return ["test", "development"].includes(environment)
-    && String(process.env.BILLING_TEST_MODE || "").toLowerCase() === "true"
-    && String(process.env.TEST_BASIC_1M_PRICE || "").toLowerCase() === "true";
-};
 const PLAN_ALIASES = {
   pro: "professional",
   premium: "enterprise",
@@ -142,17 +133,6 @@ export const getPlanSnapshot = (plan) => ({
  * retain their fixed catalog terms; only Premium accepts a selected year term.
  */
 export const getPlanOffer = (plan, premiumDurationYears = undefined) => {
-  if (String(plan?.key || "").toLowerCase() === "basic" && isTestBasicOneMonthPricingEnabled()) {
-    return {
-      ...getPlanSnapshot(plan),
-      amount: 1,
-      billingCycle: "fixed",
-      durationMonths: 1,
-      durationLabel: "1 month",
-      monthlyEquivalentPrice: 1,
-      testPrice: true,
-    };
-  }
   if (!isPremiumPlan(plan)) return getPlanSnapshot(plan);
 
   const years = premiumDurationYears === undefined || premiumDurationYears === null || premiumDurationYears === ""
@@ -192,7 +172,6 @@ export const getPlanOfferView = (plan, premiumDurationYears = undefined) => {
     durationMonths: offer.durationMonths,
     durationLabel: offer.durationLabel,
     monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
-    testPrice: offer.testPrice === true,
     premiumDurationOptions: getPremiumDurationOptions(plan).map((premiumOffer) => ({
       years: premiumOffer.premiumDurationYears,
       amount: premiumOffer.amount,

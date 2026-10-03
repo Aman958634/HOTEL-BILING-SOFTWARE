@@ -260,7 +260,6 @@ const PricingPage = () => {
                   ? `${formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month`
                   : plan.description}
               </p>
-              {plan.testPrice ? <p className="mt-2 text-sm font-semibold text-teal-800">Total payable: {formatMoney(displayedAmount, plan.currency)}</p> : null}
               {isPremium && (
                 <fieldset className="mt-4" aria-label="Premium subscription term">
                   <legend className="text-sm font-semibold text-slate-700">Choose your term</legend>

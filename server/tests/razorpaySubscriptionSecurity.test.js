@@ -18,9 +18,9 @@ const checkoutSignature = crypto
   .update(`${orderId}|${paymentId}`)
   .digest("hex");
 
-assert.equal(toPaise(7500), 750000);
-assert.equal(toPaise(15000), 1500000);
-assert.equal(toPaise(30000), 3000000);
+assert.equal(toPaise(2997), 299700);
+assert.equal(toPaise(5994), 599400);
+assert.equal(toPaise(11988), 1198800);
 assert.equal(verifyCheckoutSignature({ orderId, paymentId, signature: checkoutSignature }), true);
 assert.equal(verifyCheckoutSignature({ orderId, paymentId, signature: `${checkoutSignature.slice(0, -1)}0` }), false);
 
@@ -29,14 +29,14 @@ const webhookSignature = crypto.createHmac("sha256", process.env.RAZORPAY_WEBHOO
 assert.equal(verifyWebhookSignature(raw, webhookSignature), true);
 assert.equal(verifyWebhookSignature(raw, "invalid"), false);
 
-const captured = { id: paymentId, order_id: orderId, amount: 750000, currency: "INR", status: "captured" };
-assert.equal(assertCapturedSubscriptionPayment({ providerPayment: captured, orderId, amount: 7500, currency: "INR" }), captured);
+const captured = { id: paymentId, order_id: orderId, amount: 299700, currency: "INR", status: "captured" };
+assert.equal(assertCapturedSubscriptionPayment({ providerPayment: captured, orderId, amount: 2997, currency: "INR" }), captured);
 assert.throws(
-  () => assertCapturedSubscriptionPayment({ providerPayment: { ...captured, amount: 1 }, orderId, amount: 7500, currency: "INR" }),
+  () => assertCapturedSubscriptionPayment({ providerPayment: { ...captured, amount: 1 }, orderId, amount: 2997, currency: "INR" }),
   /Payment verification failed/
 );
 assert.throws(
-  () => assertCapturedSubscriptionPayment({ providerPayment: { ...captured, order_id: "order_other" }, orderId, amount: 7500, currency: "INR" }),
+  () => assertCapturedSubscriptionPayment({ providerPayment: { ...captured, order_id: "order_other" }, orderId, amount: 2997, currency: "INR" }),
   /Payment verification failed/
 );
 

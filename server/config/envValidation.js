@@ -110,9 +110,6 @@ export const validateProductionEnvironment = () => {
   if (String(process.env.BILLING_TEST_MODE || "").trim().toLowerCase() === "true") {
     throw new Error("Production runtime requires BILLING_TEST_MODE=false");
   }
-  if (String(process.env.TEST_BASIC_1M_PRICE || "").trim().toLowerCase() === "true") {
-    throw new Error("Production runtime must not enable TEST_BASIC_1M_PRICE");
-  }
 
   const emailPort = Number(process.env.EMAIL_PORT);
   if (!Number.isInteger(emailPort) || emailPort < 1 || emailPort > 65535) {

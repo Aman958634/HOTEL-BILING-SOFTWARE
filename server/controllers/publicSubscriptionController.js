@@ -39,7 +39,6 @@ const toPublicPlan = (plan) => {
     durationMonths: offerView.durationMonths,
     durationLabel: offerView.durationLabel,
     monthlyEquivalentPrice: offerView.monthlyEquivalentPrice,
-    testPrice: offerView.testPrice,
     entitlement: plan.entitlement || "all_paid_features",
     description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
     features: plan.features || [],
@@ -61,8 +60,7 @@ const selectedPlanMetadata = (plan, premiumDurationYears) => {
 
 /** GET /public/plans — safe catalog for Pricing page (no secrets, no auth). */
 export const listPublicPlans = asyncHandler(async (_req, res) => {
-  // Public plan data is environment-dependent in authorized test mode, so it
-  // must not be served from a browser/CDN cache after a deployment.
+  // The public plan catalog must not be served from a browser/CDN cache after a deployment.
   res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
   const plans = await listActivePlans();
   const publicPlans = plans

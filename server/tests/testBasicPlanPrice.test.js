@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DEFAULT_PLANS, getPlanOffer, getPlanOfferView, isTestBasicOneMonthPricingEnabled } from "../services/planService.js";
+import { DEFAULT_PLANS, getPlanOffer, getPlanOfferView } from "../services/planService.js";
 import { buildSaasPaymentReceiptData } from "../utils/saasPaymentPdf.js";
 import { calculateSubscriptionEndDate, toSubscriptionView } from "../utils/subscriptionUtils.js";
 
@@ -7,24 +7,22 @@ const basic = DEFAULT_PLANS.find((plan) => plan.key === "basic");
 const original = {
   NODE_ENV: process.env.NODE_ENV,
   BILLING_TEST_MODE: process.env.BILLING_TEST_MODE,
-  TEST_BASIC_1M_PRICE: process.env.TEST_BASIC_1M_PRICE,
 };
 
 try {
   process.env.NODE_ENV = "test";
   process.env.BILLING_TEST_MODE = "true";
-  process.env.TEST_BASIC_1M_PRICE = "true";
-  assert.equal(isTestBasicOneMonthPricingEnabled(), true);
-  const testOffer = getPlanOffer(basic);
+
+  const offer = getPlanOffer(basic);
   assert.deepEqual(
     {
-      amount: testOffer.amount,
-      durationMonths: testOffer.durationMonths,
-      durationLabel: testOffer.durationLabel,
-      monthlyEquivalentPrice: testOffer.monthlyEquivalentPrice,
-      testPrice: testOffer.testPrice,
+      amount: offer.amount,
+      durationMonths: offer.durationMonths,
+      durationLabel: offer.durationLabel,
+      monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
     },
-    { amount: 1, durationMonths: 1, durationLabel: "1 month", monthlyEquivalentPrice: 1, testPrice: true }
+    { amount: 2997, durationMonths: 3, durationLabel: "3 months", monthlyEquivalentPrice: 999 },
+    "The server-owned Basic offer must be identical in test and production modes"
   );
 
   const offerView = getPlanOfferView(basic);
@@ -34,57 +32,41 @@ try {
       price: offerView.price,
       durationLabel: offerView.durationLabel,
       monthlyEquivalentPrice: offerView.monthlyEquivalentPrice,
-      testPrice: offerView.testPrice,
     },
-    { price: 1, durationLabel: "1 month", monthlyEquivalentPrice: 1, testPrice: true },
-    "public and authenticated plan lists derive their Basic display values from the canonical offer view"
+    { price: 2997, durationLabel: "3 months", monthlyEquivalentPrice: 999 },
+    "Public and authenticated plan lists derive Basic from the canonical offer view"
   );
 
   const start = new Date("2026-01-31T00:00:00.000Z");
-  const end = calculateSubscriptionEndDate(start, testOffer.durationMonths);
-  assert.equal(end.toISOString(), "2026-02-28T00:00:00.000Z");
+  const end = calculateSubscriptionEndDate(start, offer.durationMonths);
+  assert.equal(end.toISOString(), "2026-04-30T00:00:00.000Z");
   const subscriptionView = toSubscriptionView({
     status: "active",
     planName: "basic",
-    price: testOffer.amount,
-    durationMonths: testOffer.durationMonths,
-    durationLabel: testOffer.durationLabel,
+    price: offer.amount,
+    durationMonths: offer.durationMonths,
+    durationLabel: offer.durationLabel,
     subscriptionStartAt: start,
     subscriptionEndAt: end,
     renewalDate: end,
   }, {}, start);
-  assert.equal(subscriptionView.price, 1);
-  assert.equal(subscriptionView.durationLabel, "1 month");
+  assert.equal(subscriptionView.price, 2997);
+  assert.equal(subscriptionView.durationLabel, "3 months");
   assert.equal(subscriptionView.subscriptionEndAt.toISOString(), end.toISOString());
   const receipt = buildSaasPaymentReceiptData({
-    amount: testOffer.amount,
-    durationLabel: testOffer.durationLabel,
+    amount: offer.amount,
+    durationLabel: offer.durationLabel,
     currency: "INR",
     status: "paid",
   }, subscriptionView);
-  assert.equal(receipt.amount, 1);
-  assert.equal(receipt.durationLabel, "1 month");
+  assert.equal(receipt.amount, 2997);
+  assert.equal(receipt.durationLabel, "3 months");
 
-  process.env.BILLING_TEST_MODE = "false";
-  assert.equal(isTestBasicOneMonthPricingEnabled(), false);
-  assert.equal(getPlanOffer(basic).amount, basic.price);
-
-  process.env.BILLING_TEST_MODE = "true";
   process.env.NODE_ENV = "production";
-  assert.equal(isTestBasicOneMonthPricingEnabled(), false);
-  assert.equal(getPlanOffer(basic).amount, basic.price);
-  assert.deepEqual(
-    {
-      price: getPlanOfferView(basic).price,
-      durationLabel: getPlanOfferView(basic).durationLabel,
-      monthlyEquivalentPrice: getPlanOfferView(basic).monthlyEquivalentPrice,
-      testPrice: getPlanOfferView(basic).testPrice,
-    },
-    { price: 7500, durationLabel: "3 months", monthlyEquivalentPrice: 2500, testPrice: false },
-    "production public and authenticated plan views retain the configured Basic catalog price"
-  );
+  assert.equal(getPlanOffer(basic).amount, 2997);
+  assert.equal(getPlanOfferView(basic).monthlyEquivalentPrice, 999);
 
-  console.log("testBasicPlanPrice.test.js passed: the ₹1 Basic offer is development/test-only and production retains catalog pricing.");
+  console.log("testBasicPlanPrice.test.js passed: the server catalog always returns the 999/month Basic offer.");
 } finally {
   for (const [key, value] of Object.entries(original)) {
     if (value === undefined) delete process.env[key];
