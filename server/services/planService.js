@@ -79,8 +79,15 @@ export const DEFAULT_PLANS = [
   },
 ];
 
-// Opt-in local/test offer; production is excluded even if the flag is set.
-export const isTestBasicOneMonthPricingEnabled = () => ["test", "development"].includes(String(process.env.NODE_ENV || "").toLowerCase()) && String(process.env.TEST_BASIC_1M_PRICE || "").toLowerCase() === "true";
+// This offer is intentionally fail-closed. It is available only to the
+// local/test checkout simulator, never to staging or production—even if an
+// override flag is accidentally present there.
+export const isTestBasicOneMonthPricingEnabled = () => {
+  const environment = String(process.env.NODE_ENV || "").toLowerCase();
+  return ["test", "development"].includes(environment)
+    && String(process.env.BILLING_TEST_MODE || "").toLowerCase() === "true"
+    && String(process.env.TEST_BASIC_1M_PRICE || "").toLowerCase() === "true";
+};
 const PLAN_ALIASES = {
   pro: "professional",
   premium: "enterprise",
@@ -135,7 +142,17 @@ export const getPlanSnapshot = (plan) => ({
  * retain their fixed catalog terms; only Premium accepts a selected year term.
  */
 export const getPlanOffer = (plan, premiumDurationYears = undefined) => {
-  if (String(plan?.key || "").toLowerCase() === "basic" && isTestBasicOneMonthPricingEnabled()) return { ...getPlanSnapshot(plan), amount: 1, billingCycle: "fixed", durationMonths: 1, durationLabel: "1 month", monthlyEquivalentPrice: 1, testPrice: true };
+  if (String(plan?.key || "").toLowerCase() === "basic" && isTestBasicOneMonthPricingEnabled()) {
+    return {
+      ...getPlanSnapshot(plan),
+      amount: 1,
+      billingCycle: "fixed",
+      durationMonths: 1,
+      durationLabel: "1 month",
+      monthlyEquivalentPrice: 1,
+      testPrice: true,
+    };
+  }
   if (!isPremiumPlan(plan)) return getPlanSnapshot(plan);
 
   const years = premiumDurationYears === undefined || premiumDurationYears === null || premiumDurationYears === ""

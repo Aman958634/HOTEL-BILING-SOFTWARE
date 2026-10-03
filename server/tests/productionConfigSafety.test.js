@@ -6,6 +6,8 @@ import { assertEasySplitAvailable, assertEasySplitPaymentsAvailable } from "../s
 
 const original = {
   NODE_ENV: process.env.NODE_ENV,
+  BILLING_TEST_MODE: process.env.BILLING_TEST_MODE,
+  TEST_BASIC_1M_PRICE: process.env.TEST_BASIC_1M_PRICE,
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
   RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
@@ -37,6 +39,8 @@ const original = {
 
 try {
   process.env.NODE_ENV = "production";
+  process.env.BILLING_TEST_MODE = "false";
+  delete process.env.TEST_BASIC_1M_PRICE;
   process.env.JWT_ACCESS_SECRET = "prod-access-secret";
   process.env.JWT_REFRESH_SECRET = "prod-refresh-secret";
   process.env.PUBLIC_MENU_CONTEXT_SECRET = "prod-public-menu-secret";
@@ -81,6 +85,10 @@ try {
   assert.throws(() => validateProductionEnvironment(), /HTTPS/i);
 
   process.env.CASHFREE_RETURN_URL = "https://app.example.com/payment/cashfree/return";
+  assert.doesNotThrow(() => validateProductionEnvironment());
+  process.env.TEST_BASIC_1M_PRICE = "true";
+  assert.throws(() => validateProductionEnvironment(), /TEST_BASIC_1M_PRICE/i);
+  delete process.env.TEST_BASIC_1M_PRICE;
   assert.doesNotThrow(() => validateProductionEnvironment());
   delete process.env.EMAIL_HOST;
   assert.throws(() => validateProductionEnvironment(), /EMAIL_HOST/i);

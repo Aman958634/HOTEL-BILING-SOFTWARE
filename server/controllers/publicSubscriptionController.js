@@ -28,29 +28,33 @@ import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../
 
 const PUBLIC_PLAN_KEYS = ["basic", "professional", "enterprise"];
 
-const toPublicPlan = (plan) => ({
-  id: plan._id || plan.key,
-  key: plan.key,
-  name: plan.name,
-  price: plan.price,
-  currency: plan.currency || "INR",
-  billingCycle: plan.billingCycle,
-  billingCycleLabel: plan.billingCycle || "monthly",
-  durationMonths: getPlanDurationMonths(plan),
-  durationLabel: getPlanDurationLabel(plan),
-  monthlyEquivalentPrice: Number(plan.monthlyEquivalentPrice) || null,
-  entitlement: plan.entitlement || "all_paid_features",
-  description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
-  features: plan.features || [],
-  sortOrder: plan.sortOrder || 0,
-  premiumDurationOptions: getPremiumDurationOptions(plan).map((offer) => ({
-    years: offer.premiumDurationYears,
-    amount: offer.amount,
+const toPublicPlan = (plan) => {
+  const offer = getPlanOffer(plan);
+  return {
+    id: plan._id || plan.key,
+    key: plan.key,
+    name: plan.name,
+    price: offer.amount,
+    currency: offer.currency || plan.currency || "INR",
+    billingCycle: offer.billingCycle,
+    billingCycleLabel: offer.billingCycle || "monthly",
     durationMonths: offer.durationMonths,
     durationLabel: offer.durationLabel,
     monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
-  })),
-});
+    testPrice: offer.testPrice === true,
+    entitlement: plan.entitlement || "all_paid_features",
+    description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
+    features: plan.features || [],
+    sortOrder: plan.sortOrder || 0,
+    premiumDurationOptions: getPremiumDurationOptions(plan).map((premiumOffer) => ({
+      years: premiumOffer.premiumDurationYears,
+      amount: premiumOffer.amount,
+      durationMonths: premiumOffer.durationMonths,
+      durationLabel: premiumOffer.durationLabel,
+      monthlyEquivalentPrice: premiumOffer.monthlyEquivalentPrice,
+    })),
+  };
+};
 
 const selectedPlanMetadata = (plan, premiumDurationYears) => {
   const offer = getPlanOffer(plan, premiumDurationYears);

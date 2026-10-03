@@ -178,6 +178,7 @@ const BillingPage = () => {
               <span className="text-sm font-normal text-slate-500">/{displayedDuration}</span>
             </p>
             {plan.monthlyEquivalentPrice ? <p className="mt-1 text-sm text-slate-500">{formatMoney(plan.monthlyEquivalentPrice, plan.currency)} per month</p> : null}
+            {plan.testPrice ? <p className="mt-2 text-sm font-semibold text-teal-800">Total payable: {formatMoney(displayedAmount, plan.currency)}</p> : null}
             {plan.key === "enterprise" && <fieldset className="mt-3" aria-label="Premium subscription term"><legend className="text-sm font-medium text-slate-700">Premium term</legend><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((years) => <button key={years} type="button" aria-pressed={premiumDurationYears === years} onClick={() => setPremiumDurationYears(years)} className={`min-h-10 rounded-lg border text-xs font-semibold ${premiumDurationYears === years ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 text-slate-700 hover:bg-teal-50"}`}>{years}Y</button>)}</div><p className="mt-2 text-sm font-medium text-slate-700">Total payable: {formatMoney(displayedAmount, plan.currency)} · {displayedDuration}</p></fieldset>}
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {(plan.features || []).map((feature) => (
