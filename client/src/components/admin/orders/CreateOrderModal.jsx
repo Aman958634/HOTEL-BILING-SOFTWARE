@@ -9,7 +9,7 @@ import CustomerSection from "./create/CustomerSection";
 import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
-import { INSTRUCTIONS_MAX, cardClass, fieldClass, labelClass } from "./create/constants";
+import { cardClass, fieldClass, labelClass } from "./create/constants";
 import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 
 const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
@@ -52,7 +52,7 @@ const buildInitialState = (initialData, menuItems, categories, restaurantGstRate
     table: initialData?.table?._id || initialData?.table || "",
     customer: initialData?.customer?._id ? initialData.customer : null,
     items: (initialData?.items || []).map((item) => mapOrderItem(item, menuItems, categories)),
-    specialInstructions: initialData?.specialInstructions || "",
+
     notes: initialData?.notes || "",
     discountPercent: derivePercent(discount, subtotal),
     taxPercent: normalizeGstRate(initialData?.gstRate ?? restaurantGstRate),
@@ -362,7 +362,7 @@ const CreateOrderModal = ({
       orderType: form.orderType,
       table: form.orderType === "DINE_IN" ? form.table : null,
       items: form.items.map(({ menuItem, name, price, quantity }) => ({ menuItem, name, price, quantity })),
-      specialInstructions: form.specialInstructions.trim(),
+
       notes: form.notes.trim(),
       discount: discountAmount,
       serviceChargePercent: Number(form.serviceChargePercent) || 0,
@@ -475,24 +475,6 @@ const CreateOrderModal = ({
                 submitting={loading}
                 isEdit={isEdit}
               />
-
-              <section className={cardClass}>
-                <label htmlFor="special-instructions" className="text-base font-semibold text-slate-900">
-                  Special Instructions <span className="text-sm font-normal text-slate-400">(Optional)</span>
-                </label>
-                <textarea
-                  id="special-instructions"
-                  rows={3}
-                  maxLength={INSTRUCTIONS_MAX}
-                  className={`${fieldClass} mt-3`}
-                  value={form.specialInstructions}
-                  onChange={(e) => patchForm({ specialInstructions: e.target.value })}
-                  placeholder="Add any special instructions for the kitchen..."
-                />
-                <p className="mt-1 text-right text-xs text-slate-400">
-                  {form.specialInstructions.length}/{INSTRUCTIONS_MAX}
-                </p>
-              </section>
             </div>
 
             <SummaryPanel

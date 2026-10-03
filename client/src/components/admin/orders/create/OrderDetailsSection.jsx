@@ -24,6 +24,19 @@ const TableStatusBadge = ({ status }) => {
   );
 };
 
+const tableOptionLabel = (table) => {
+  const status = String(table.status || "AVAILABLE").toUpperCase();
+  const capacity = Number(table.capacity);
+  const parts = [`Table ${table.tableNumber}`];
+
+  if (Number.isFinite(capacity) && capacity > 0) parts.push(`${capacity} seats`);
+  parts.push(TABLE_STATUS_STYLES[status]?.label || status);
+
+  const activeCount = Number(table.activeOrderCount || 0);
+  if (activeCount > 0) parts.push(`${activeCount} active`);
+  return parts.join(" · ");
+};
+
 const OrderDetailsSection = ({
   orderType,
   tableId,
@@ -87,12 +100,9 @@ const OrderDetailsSection = ({
               <option value="">Select Table</option>
               {tables.map((table) => {
                 const selectable = isTableSelectable(table);
-                const status = String(table.status || "AVAILABLE").toUpperCase();
-                const activeCount = Number(table.activeOrderCount || 0);
-                const countSuffix = activeCount > 0 ? ` · ${activeCount} active` : "";
                 return (
                   <option key={table._id} value={table._id} disabled={!selectable}>
-                    Table {table.tableNumber} · {table.capacity} seats · {TABLE_STATUS_STYLES[status]?.label || status}{countSuffix}
+                    {tableOptionLabel(table)}
                   </option>
                 );
               })}

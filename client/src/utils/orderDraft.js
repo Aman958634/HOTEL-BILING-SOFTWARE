@@ -40,7 +40,7 @@ export const writeOrderDraft = (scope, form) => {
       orderType: form.orderType,
       table: form.orderType === "DINE_IN" ? form.table || "" : "",
       items: form.items.map(({ menuItem, quantity }) => ({ menuItem, quantity })),
-      specialInstructions: String(form.specialInstructions || "").slice(0, 2000),
+
       notes: String(form.notes || "").slice(0, 2000),
       discountPercent: String(form.discountPercent || ""),
       taxPercent: Number(form.taxPercent) || 0,

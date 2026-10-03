@@ -32,7 +32,7 @@ import {
 import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentById, getPaymentByOrderId, getPaymentReceipt, verifyGatewayPayment } from "../../services/paymentService";
 import { generateHotelPaymentQr, getHotelPaymentSettings, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
-import { getTables } from "../../services/tableService";
+import { getAllTablesForOrder } from "../../services/tableService";
 import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { applyAuthoritativeCashPayment } from "../../utils/cashPaymentConfirmation";
@@ -111,6 +111,7 @@ const OrderManagement = () => {
   const [ordersError, setOrdersError] = useState("");
   const [ordersErrorCacheKey, setOrdersErrorCacheKey] = useState("");
   const [dependenciesLoading, setDependenciesLoading] = useState(false);
+  const [tablesLoading, setTablesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [foods, setFoods] = useState([]);
@@ -151,6 +152,7 @@ const OrderManagement = () => {
   const ordersCacheKeyRef = useRef(initialOrderCache ? orderCacheKey : "");
   const activeOrderCacheKeyRef = useRef(orderCacheKey);
   const orderRequestRef = useRef(0);
+  const tableRequestRef = useRef(0);
   const createSubmittingRef = useRef(false);
   const cashConfirmSubmittingRef = useRef(false);
   const cashSettlementIdempotencyKeyRef = useRef("");
@@ -274,16 +276,16 @@ const OrderManagement = () => {
   const loadOrderDependencies = useCallback(async () => {
     setDependenciesLoading(true);
     try {
-      const [{ data: foodsData }, { data: categoriesData }, { data: tablesData }, { data: restaurantData }] = await Promise.all([
+      const [{ data: foodsData }, { data: categoriesData }, { data: restaurantData }] = await Promise.all([
         getAdminMenu({ limit: 200, available: true }),
         getAdminCategories(),
-        getTables(),
+
         getRestaurantSettings(),
       ]);
 
       setFoods(foodsData.data || []);
       setCategories(categoriesData.data || []);
-      setTables(tablesData.data || []);
+
       const configuredRate = Number(restaurantData?.data?.gstRate);
       setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
     } catch {
@@ -293,12 +295,36 @@ const OrderManagement = () => {
     }
   }, []);
 
+  const loadOrderTables = useCallback(async () => {
+    const requestId = tableRequestRef.current + 1;
+    tableRequestRef.current = requestId;
+    setTablesLoading(true);
+    try {
+      const nextTables = await getAllTablesForOrder();
+      if (requestId === tableRequestRef.current) setTables(nextTables);
+    } catch (error) {
+      if (requestId === tableRequestRef.current) {
+        setTables([]);
+        toast.error(error?.response?.data?.message || "Unable to load tables for this order");
+      }
+    } finally {
+      if (requestId === tableRequestRef.current) setTablesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isChef) {
       loadStats();
       loadOrderDependencies();
     }
   }, [isChef, loadStats, loadOrderDependencies]);
+
+  // Refresh at the interaction boundary so recently-created tables are never
+  // hidden behind a dependency cache or the paginated list's first page.
+  useEffect(() => {
+    if (!createOpen) return;
+    void loadOrderTables();
+  }, [createOpen, loadOrderTables, activeOutletId]);
 
   useEffect(() => {
     loadOrders(filters, orderCacheKey);
@@ -318,6 +344,7 @@ const OrderManagement = () => {
         timeoutId = null;
         loadOrders();
         loadStats();
+        if (createOpen) void loadOrderTables();
       }, 250);
     };
 
@@ -337,7 +364,7 @@ const OrderManagement = () => {
       socket.off("order:cancelled", scheduleRefresh);
       socket.off("table:statusChanged", scheduleRefresh);
     };
-  }, [socket, loadOrders, loadStats]);
+  }, [socket, createOpen, loadOrderTables, loadOrders, loadStats]);
 
   const openDetails = useCallback(async (order) => {
     setDetailsOpen(true);
@@ -360,10 +387,11 @@ const OrderManagement = () => {
       const { data } = await getOrderById(order._id);
       setEditOrder(data.data);
       setEditOpen(true);
+      void loadOrderTables();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load order for editing");
     }
-  }, []);
+  }, [loadOrderTables]);
 
   const openReceipt = async (order) => {
     if (isChef) return;
@@ -918,7 +946,7 @@ const OrderManagement = () => {
         menuItems={foods}
         categories={categories}
         tables={tables}
-        dependenciesLoading={dependenciesLoading}
+        dependenciesLoading={dependenciesLoading || tablesLoading}
         submissionError={createSubmitError}
         initialData={createInitialTable ? { table: createInitialTable } : null}
         hotelUpiCapability={createHotelUpiCapability}
@@ -936,7 +964,7 @@ const OrderManagement = () => {
         menuItems={foods}
         categories={categories}
         tables={tables}
-        dependenciesLoading={dependenciesLoading}
+        dependenciesLoading={dependenciesLoading || tablesLoading}
         initialData={editOrder}
         onClose={() => {
           setEditOpen(false);

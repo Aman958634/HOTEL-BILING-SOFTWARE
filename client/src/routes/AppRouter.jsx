@@ -220,6 +220,7 @@ const AppRouter = () => (
       <Route path="settings" element={<Settings />} />
       <Route path="integrations" element={<IntegrationsPage />} />
       <Route path="outlets" element={<Outlets />} />
+      <Route path="kitchen" element={<RoleRoute roles={["admin", "manager", "kitchen_manager", "chef"]}><KitchenDisplay /></RoleRoute>} />
     </Route>
 
     <Route
@@ -231,22 +232,6 @@ const AppRouter = () => (
       element={<Suspense fallback={<PageSkeleton />}><ProtectedRoute><RoleRoute roles={["admin", "manager", "cashier", "waiter"]}><MobileServiceMode /></RoleRoute></ProtectedRoute></Suspense>}
     />
 
-    <Route
-      path="/dashboard/admin/kitchen"
-      element={
-        <Suspense fallback={<PageSkeleton />}>
-          <ProtectedRoute>
-            <Suspense fallback={<PageSkeleton />}>
-              <RoleRoute roles={["admin", "manager", "kitchen_manager", "chef"]}>
-                <AdminModuleLayout />
-              </RoleRoute>
-            </Suspense>
-          </ProtectedRoute>
-        </Suspense>
-      }
-    >
-      <Route index element={<KitchenDisplay />} />
-    </Route>
 
     <Route
       path="/super-admin/*"
