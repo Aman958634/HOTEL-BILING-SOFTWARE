@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DEFAULT_PLANS, getPlanOffer, isTestBasicOneMonthPricingEnabled } from "../services/planService.js";
+import { DEFAULT_PLANS, getPlanOffer, getPlanOfferView, isTestBasicOneMonthPricingEnabled } from "../services/planService.js";
 import { buildSaasPaymentReceiptData } from "../utils/saasPaymentPdf.js";
 import { calculateSubscriptionEndDate, toSubscriptionView } from "../utils/subscriptionUtils.js";
 
@@ -25,6 +25,19 @@ try {
       testPrice: testOffer.testPrice,
     },
     { amount: 1, durationMonths: 1, durationLabel: "1 month", monthlyEquivalentPrice: 1, testPrice: true }
+  );
+
+  const offerView = getPlanOfferView(basic);
+  assert.deepEqual(offerView.premiumDurationOptions, [], "Basic's server view contains no client-selected term");
+  assert.deepEqual(
+    {
+      price: offerView.price,
+      durationLabel: offerView.durationLabel,
+      monthlyEquivalentPrice: offerView.monthlyEquivalentPrice,
+      testPrice: offerView.testPrice,
+    },
+    { price: 1, durationLabel: "1 month", monthlyEquivalentPrice: 1, testPrice: true },
+    "public and authenticated plan lists derive their Basic display values from the canonical offer view"
   );
 
   const start = new Date("2026-01-31T00:00:00.000Z");
@@ -60,6 +73,16 @@ try {
   process.env.NODE_ENV = "production";
   assert.equal(isTestBasicOneMonthPricingEnabled(), false);
   assert.equal(getPlanOffer(basic).amount, basic.price);
+  assert.deepEqual(
+    {
+      price: getPlanOfferView(basic).price,
+      durationLabel: getPlanOfferView(basic).durationLabel,
+      monthlyEquivalentPrice: getPlanOfferView(basic).monthlyEquivalentPrice,
+      testPrice: getPlanOfferView(basic).testPrice,
+    },
+    { price: 7500, durationLabel: "3 months", monthlyEquivalentPrice: 2500, testPrice: false },
+    "production public and authenticated plan views retain the configured Basic catalog price"
+  );
 
   console.log("testBasicPlanPrice.test.js passed: the ₹1 Basic offer is development/test-only and production retains catalog pricing.");
 } finally {

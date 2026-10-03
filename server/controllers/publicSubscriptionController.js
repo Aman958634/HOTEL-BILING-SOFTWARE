@@ -6,10 +6,8 @@ import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createActivity } from "../services/activityService.js";
 import {
-  getPlanDurationLabel,
-  getPlanDurationMonths,
   getPlanOffer,
-  getPremiumDurationOptions,
+  getPlanOfferView,
   isPremiumPlan,
   listActivePlans,
   resolvePlan,
@@ -29,30 +27,24 @@ import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../
 const PUBLIC_PLAN_KEYS = ["basic", "professional", "enterprise"];
 
 const toPublicPlan = (plan) => {
-  const offer = getPlanOffer(plan);
+  const offerView = getPlanOfferView(plan);
   return {
     id: plan._id || plan.key,
     key: plan.key,
     name: plan.name,
-    price: offer.amount,
-    currency: offer.currency || plan.currency || "INR",
-    billingCycle: offer.billingCycle,
-    billingCycleLabel: offer.billingCycle || "monthly",
-    durationMonths: offer.durationMonths,
-    durationLabel: offer.durationLabel,
-    monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
-    testPrice: offer.testPrice === true,
+    price: offerView.price,
+    currency: offerView.currency,
+    billingCycle: offerView.billingCycle,
+    billingCycleLabel: offerView.billingCycle || "monthly",
+    durationMonths: offerView.durationMonths,
+    durationLabel: offerView.durationLabel,
+    monthlyEquivalentPrice: offerView.monthlyEquivalentPrice,
+    testPrice: offerView.testPrice,
     entitlement: plan.entitlement || "all_paid_features",
     description: plan.description || (plan.features || []).slice(0, 1).join("") || `${plan.name} plan`,
     features: plan.features || [],
     sortOrder: plan.sortOrder || 0,
-    premiumDurationOptions: getPremiumDurationOptions(plan).map((premiumOffer) => ({
-      years: premiumOffer.premiumDurationYears,
-      amount: premiumOffer.amount,
-      durationMonths: premiumOffer.durationMonths,
-      durationLabel: premiumOffer.durationLabel,
-      monthlyEquivalentPrice: premiumOffer.monthlyEquivalentPrice,
-    })),
+    premiumDurationOptions: offerView.premiumDurationOptions,
   };
 };
 
@@ -69,6 +61,9 @@ const selectedPlanMetadata = (plan, premiumDurationYears) => {
 
 /** GET /public/plans — safe catalog for Pricing page (no secrets, no auth). */
 export const listPublicPlans = asyncHandler(async (_req, res) => {
+  // Public plan data is environment-dependent in authorized test mode, so it
+  // must not be served from a browser/CDN cache after a deployment.
+  res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
   const plans = await listActivePlans();
   const publicPlans = plans
     .filter((p) => PUBLIC_PLAN_KEYS.includes(p.key))

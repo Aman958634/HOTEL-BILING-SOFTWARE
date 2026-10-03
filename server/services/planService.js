@@ -177,6 +177,32 @@ export const getPlanOffer = (plan, premiumDurationYears = undefined) => {
 export const getPremiumDurationOptions = (plan) =>
   isPremiumPlan(plan) ? PREMIUM_DURATION_YEARS.map((years) => getPlanOffer(plan, years)) : [];
 
+/**
+ * One server-owned representation for every customer-facing plan surface.
+ * Catalog records retain their production price; this view exposes the active
+ * environment's offer without allowing a client to choose an amount.
+ */
+export const getPlanOfferView = (plan, premiumDurationYears = undefined) => {
+  const offer = getPlanOffer(plan, premiumDurationYears);
+  return {
+    ...plan,
+    price: offer.amount,
+    currency: offer.currency || plan?.currency || "INR",
+    billingCycle: offer.billingCycle,
+    durationMonths: offer.durationMonths,
+    durationLabel: offer.durationLabel,
+    monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
+    testPrice: offer.testPrice === true,
+    premiumDurationOptions: getPremiumDurationOptions(plan).map((premiumOffer) => ({
+      years: premiumOffer.premiumDurationYears,
+      amount: premiumOffer.amount,
+      durationMonths: premiumOffer.durationMonths,
+      durationLabel: premiumOffer.durationLabel,
+      monthlyEquivalentPrice: premiumOffer.monthlyEquivalentPrice,
+    })),
+  };
+};
+
 export const ensureDefaultPlans = async () => {
   for (const plan of DEFAULT_PLANS) {
     await Plan.findOneAndUpdate(
@@ -220,6 +246,7 @@ export default {
   getPlanSnapshot,
   getPlanOffer,
   getPremiumDurationOptions,
+  getPlanOfferView,
   getPremiumDurationYears,
   PREMIUM_DURATION_YEARS,
   isPremiumPlan,

@@ -9,7 +9,7 @@ import {
   getPlanDurationLabel,
   getPlanDurationMonths,
   getPlanOffer,
-  getPremiumDurationOptions,
+  getPlanOfferView,
   isPremiumPlan,
   listActivePlans,
   resolvePlan,
@@ -781,26 +781,7 @@ export const activateSubscription = asyncHandler(async (req, res) => {
 
 export const listPlans = asyncHandler(async (_req, res) => {
   const plans = await listActivePlans();
-  res.status(200).json(new ApiResponse(true, "Plans fetched", plans.map((plan) => {
-    const offer = getPlanOffer(plan);
-    return {
-      ...plan,
-      price: offer.amount,
-      currency: offer.currency || plan.currency || "INR",
-      billingCycle: offer.billingCycle,
-      durationMonths: offer.durationMonths,
-      durationLabel: offer.durationLabel,
-      monthlyEquivalentPrice: offer.monthlyEquivalentPrice,
-      testPrice: offer.testPrice === true,
-      premiumDurationOptions: getPremiumDurationOptions(plan).map((premiumOffer) => ({
-        years: premiumOffer.premiumDurationYears,
-        amount: premiumOffer.amount,
-        durationMonths: premiumOffer.durationMonths,
-        durationLabel: premiumOffer.durationLabel,
-        monthlyEquivalentPrice: premiumOffer.monthlyEquivalentPrice,
-      })),
-    };
-  })));
+  res.status(200).json(new ApiResponse(true, "Plans fetched", plans.map((plan) => getPlanOfferView(plan))));
 });
 
 export const getMySubscription = asyncHandler(async (req, res) => {
