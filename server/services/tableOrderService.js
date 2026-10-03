@@ -1,30 +1,35 @@
 import ApiError from "../utils/ApiError.js";
 import Order from "../models/Order.js";
 import Table from "../models/Table.js";
-import { activeOrderStatuses, updateTableStatus } from "./tableStateService.js";
+import { buildActiveTableOrderQuery, updateTableStatus } from "./tableStateService.js";
 
 const resolveId = (value) => (typeof value === "object" && value ? value._id || value.id : value) || null;
 
-const activeOrderFilter = (tableId, { excludeOrderId = null } = {}) => {
-  const filter = { table: tableId, $or: [
-    { status: { $in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] } },
-    { status: "SERVED", billingState: { $ne: "SETTLED" } },
-  ] };
-  if (excludeOrderId) filter._id = { $ne: excludeOrderId };
-  return filter;
+const activeOrderFilter = async (tableId, options = {}) => {
+  const table = await Table.findById(tableId).select("_id restaurant outlet").lean();
+  if (!table) throw new ApiError(404, "Table not found");
+  return buildActiveTableOrderQuery({
+    restaurantId: table.restaurant,
+    outletId: table.outlet,
+    tableId: table._id,
+    ...options,
+  });
 };
 
-export const findActiveOrdersForTable = async (tableId, options = {}) =>
-  Order.find(activeOrderFilter(tableId, options))
-    .select("_id orderNumber status paymentStatus total")
+export const findActiveOrdersForTable = async (tableId, options = {}) => {
+  const filter = await activeOrderFilter(tableId, options);
+  return Order.find(filter)
+    .select("_id orderNumber status paymentStatus total customer createdAt")
+    .populate("customer", "fullName email phone")
     .sort({ createdAt: -1 })
     .lean();
+};
 
 export const findActiveOrderForTable = async (tableId, options = {}) =>
   (await findActiveOrdersForTable(tableId, options))[0] || null;
 
-export const countActiveOrdersForTable = (tableId, options = {}) =>
-  Order.countDocuments(activeOrderFilter(tableId, options));
+export const countActiveOrdersForTable = async (tableId, options = {}) =>
+  Order.countDocuments(await activeOrderFilter(tableId, options));
 
 export const recalculateTableStatus = updateTableStatus;
 export const reconcileTableAvailability = updateTableStatus;

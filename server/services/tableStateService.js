@@ -19,7 +19,9 @@ const statusAliases = {
 };
 
 const toObjectId = (value, fieldName) => {
-  const id = typeof value === "object" && value ? value._id || value.id : value;
+  const id = typeof value === "object" && value && !mongoose.isValidObjectId(value)
+    ? value._id || value.id
+    : value;
   if (!id) return null;
   if (!mongoose.isValidObjectId(id)) throw new ApiError(400, `Invalid ${fieldName}`);
   return id;
@@ -34,11 +36,36 @@ export const normalizeTableStatus = (value) => {
   throw new ApiError(422, "Invalid table status");
 };
 
-// The sole definition of an active order for table occupancy.
-// A ready/served dine-in order still represents an occupied table. A served
-// order becomes releasable only after its bill has been settled.
-export const activeOrderStatuses = ["PENDING", "CONFIRMED", "PREPARING", "READY", "SERVED"];
+// The sole definition of operational work that keeps a dine-in table occupied.
+// Financial state intentionally does not appear here: serving an order ends its
+// table occupancy even if settlement happens afterwards.
+export const TABLE_ACTIVE_ORDER_STATUSES = Object.freeze(["PENDING", "CONFIRMED", "PREPARING", "READY"]);
+export const TABLE_TERMINAL_ORDER_STATUSES = Object.freeze(["SERVED", "COMPLETED", "CANCELLED", "REJECTED"]);
+// Kept for consumers that only need the active labels. Queries must use
+// buildActiveTableOrderQuery so scope and archival checks cannot drift.
+export const activeOrderStatuses = TABLE_ACTIVE_ORDER_STATUSES;
 export const activeReservationStatuses = ["pending", "confirmed", "PENDING", "CONFIRMED"];
+
+export const isOrderActiveForTable = (order) => Boolean(order)
+  && order.isArchived !== true
+  && TABLE_ACTIVE_ORDER_STATUSES.includes(String(order.status || "").toUpperCase());
+
+export const buildActiveTableOrderQuery = ({ restaurantId, outletId, tableId, excludeOrderId = null } = {}) => {
+  const table = toObjectId(tableId, "table id");
+  if (!table) throw new ApiError(400, "Table id is required");
+  const restaurant = toObjectId(restaurantId, "restaurant id");
+  const outlet = toObjectId(outletId, "outlet id");
+  const query = {
+    table,
+    restaurant: restaurant || null,
+    outlet: outlet || null,
+    orderType: "DINE_IN",
+    isArchived: { $ne: true },
+    status: { $in: TABLE_ACTIVE_ORDER_STATUSES },
+  };
+  if (excludeOrderId) query._id = { $ne: excludeOrderId };
+  return query;
+};
 
 export const getTableSocketRoom = (table) => {
   const outletId = table?.outlet?._id || table?.outlet || null;
@@ -67,33 +94,43 @@ export const emitTableStatusChange = (table) => {
  * The single table-status lifecycle writer. Never accept a requested status:
  * table occupancy is derived exclusively from the current order records.
  */
-export const updateTableStatus = async (tableId) => {
+export const reconcileTableOccupancy = async (tableId, { session = null } = {}) => {
   const id = toObjectId(tableId, "table id");
   if (!id) throw new ApiError(400, "Table id is required");
 
-  const activeFilter = { table: id, $or: [
-    { status: { $in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] } },
-    { status: "SERVED", billingState: { $ne: "SETTLED" } },
-  ] };
+  const tableScope = await Table.findById(id)
+    .select("_id restaurant outlet status currentOrder")
+    .session(session)
+    .lean();
+  if (!tableScope) throw new ApiError(404, "Table not found");
+
+  const activeFilter = buildActiveTableOrderQuery({
+    restaurantId: tableScope.restaurant,
+    outletId: tableScope.outlet,
+    tableId: tableScope._id,
+  });
   const [activeOrders, currentOrder] = await Promise.all([
-    Order.countDocuments(activeFilter),
-    Order.findOne(activeFilter).sort({ createdAt: -1 }).select("_id").lean(),
+    Order.countDocuments(activeFilter).session(session),
+    Order.findOne(activeFilter).sort({ createdAt: -1 }).select("_id").session(session).lean(),
   ]);
 
-  const table = await Table.findByIdAndUpdate(
-    id,
-    {
-      status: activeOrders > 0 ? TABLE_STATUS.OCCUPIED : TABLE_STATUS.AVAILABLE,
-      currentOrder: currentOrder?._id || null,
-    },
-    { new: true, runValidators: true }
-  );
-  if (!table) throw new ApiError(404, "Table not found");
+  // Reservation and maintenance are explicit operational controls. Deriving
+  // order occupancy must not silently erase either state.
+  const derivedStatus = [TABLE_STATUS.RESERVED, TABLE_STATUS.MAINTENANCE].includes(tableScope.status)
+    ? tableScope.status
+    : activeOrders > 0 ? TABLE_STATUS.OCCUPIED : TABLE_STATUS.AVAILABLE;
+  const table = await Table.findByIdAndUpdate(id, {
+    $set: { status: derivedStatus, currentOrder: currentOrder?._id || null },
+  }, { new: true, runValidators: true, session });
 
   table.activeOrderCount = activeOrders;
-  emitTableStatusChange(table);
+  if (tableScope.status !== table.status || String(tableScope.currentOrder || "") !== String(table.currentOrder || "")) {
+    emitTableStatusChange(table);
+  }
   return table;
 };
+
+export const updateTableStatus = reconcileTableOccupancy;
 
 // Compatibility alias for callers that previously used the old lifecycle API.
 export const updateTableLifecycleState = updateTableStatus;

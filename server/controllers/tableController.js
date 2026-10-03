@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Table from "../models/Table.js";
-import Order from "../models/Order.js";
 import Reservation from "../models/Reservation.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -9,7 +8,6 @@ import { getPagination } from "../utils/pagination.js";
 import { buildOutletQuery, buildOutletQuery as buildRestaurantQuery } from "../utils/tenantUtils.js";
 import {
   TABLE_STATUS,
-  activeOrderStatuses,
   activeReservationStatuses,
   normalizeTableStatus,
   updateTableStatus as deriveTableStatus,
@@ -101,12 +99,6 @@ const tableWithDetailsPopulate = [
   },
 ];
 
-const findCurrentOrderForTable = async (tableId) =>
-  Order.findOne({ table: tableId, status: { $in: activeOrderStatuses } })
-    .select("orderNumber status total createdAt customer")
-    .populate("customer", "fullName email phone")
-    .sort({ createdAt: -1 });
-
 const findCurrentReservationForTable = async (tableId) =>
   Reservation.findOne({ table: tableId, status: { $in: activeReservationStatuses } })
     .select("date guests status customer notes createdAt")
@@ -115,16 +107,15 @@ const findCurrentReservationForTable = async (tableId) =>
 
 const toPresentation = async (tableDoc) => {
   const table = tableDoc.toObject();
+  const activeOrders = await findActiveOrdersForTable(table._id);
 
-  if (!table.currentOrder) {
-    table.currentOrder = await findCurrentOrderForTable(table._id);
-  }
+  // currentOrder is denormalized; only the canonical active query may present it.
+  table.currentOrder = activeOrders[0] || null;
 
   if (!table.currentReservation) {
     table.currentReservation = await findCurrentReservationForTable(table._id);
   }
 
-  const activeOrders = await findActiveOrdersForTable(table._id);
   table.activeOrders = activeOrders;
   table.activeOrderCount = activeOrders.length;
 
@@ -178,24 +169,9 @@ export const getTables = asyncHandler(async (req, res) => {
   // Heal stale OCCUPIED status when no active order remains (keeps Create Order dropdown accurate)
   const healedTables = await reconcileTablesAvailability(tables);
 
-  const tableIds = healedTables.map((table) => table._id);
-  const countRows = tableIds.length
-    ? await Order.aggregate([
-        {
-          $match: {
-            table: { $in: tableIds },
-            isArchived: { $ne: true },
-            status: { $in: activeOrderStatuses },
-          },
-        },
-        { $group: { _id: "$table", count: { $sum: 1 } } },
-      ])
-    : [];
-  const countMap = new Map(countRows.map((row) => [String(row._id), row.count]));
-
   const tablesWithCounts = healedTables.map((table) => {
     const obj = table.toObject();
-    obj.activeOrderCount = countMap.get(String(table._id)) || 0;
+    obj.activeOrderCount = table.activeOrderCount || 0;
     return obj;
   });
 
@@ -214,7 +190,10 @@ export const getTableById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Table not found");
   }
 
-  const table = await Table.findOne(await buildOutletQuery({ _id: req.params.id }, req.user)).populate(tableWithDetailsPopulate);
+  const scopedTable = await Table.findOne(await buildOutletQuery({ _id: req.params.id }, req.user)).select("_id").lean();
+  if (!scopedTable) throw new ApiError(404, "Table not found");
+  await deriveTableStatus(scopedTable._id);
+  const table = await Table.findById(scopedTable._id).populate(tableWithDetailsPopulate);
   if (!table) throw new ApiError(404, "Table not found");
 
   const data = await toPresentation(table);
@@ -283,7 +262,7 @@ export const deleteTable = asyncHandler(async (req, res) => {
   if (!table) throw new ApiError(404, "Table not found");
 
   const [activeOrdersCount, activeReservationsCount] = await Promise.all([
-    Order.countDocuments({ table: table._id, status: { $in: activeOrderStatuses } }),
+    countActiveOrdersForTable(table._id),
     Reservation.countDocuments({ table: table._id, status: { $in: activeReservationStatuses } }),
   ]);
 
