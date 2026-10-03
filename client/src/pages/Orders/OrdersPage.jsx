@@ -4,7 +4,8 @@ import { getOrders } from "../../services/orderService";
 import { generateHotelPaymentQr, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { getPaymentById, getPaymentReceipt } from "../../services/paymentService";
 import { currency, dateTime } from "../../utils/format";
-import { FiShoppingBag } from "react-icons/fi";
+import { orderPaymentLabel, paymentBadgeClasses } from "../../utils/paymentUtils";
+import { FiCheckCircle, FiShoppingBag } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
 import HotelUpiPaymentModal from "../../components/payments/HotelUpiPaymentModal";
 
@@ -121,7 +122,7 @@ const OrdersPage = () => {
             </div>
             <p className="text-sm text-slate-500">{dateTime(order.createdAt)}</p>
             <p className="mt-1 font-semibold">{currency(order.total)}</p>
-            {String(order.paymentStatus || "").toUpperCase() === "PAID" ? <p className="mt-1 text-sm font-medium text-emerald-700">PAID</p> : <button type="button" onClick={() => openHotelPayment(order)} className="mt-3 min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">{String(order.paymentStatus || "").toUpperCase() === "AWAITING_VERIFICATION" ? "View Hotel UPI QR" : "Pay via Hotel UPI"}</button>}
+            {String(order.paymentStatus || "").toUpperCase() === "PAID" ? <span className={`mt-1 inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentBadgeClasses(order.paymentStatus)}`}><FiCheckCircle aria-hidden="true" className="shrink-0" /><span className="truncate">{orderPaymentLabel(order.paymentStatus, order.paymentMethod, order.paymentProvider || order.provider || order.gateway)}</span></span> : <button type="button" onClick={() => openHotelPayment(order)} className="mt-3 min-h-10 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">{String(order.paymentStatus || "").toUpperCase() === "AWAITING_VERIFICATION" ? "View Hotel UPI QR" : "Pay via Hotel UPI"}</button>}
           </div>
         ))}
       </div>

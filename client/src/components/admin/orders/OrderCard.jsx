@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { FiEdit2, FiEye, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiCheckCircle, FiEdit2, FiEye, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
-import { paymentBadgeClasses, paymentStatusLabel } from "../../../utils/paymentUtils";
+import { orderPaymentLabel, paymentBadgeClasses } from "../../../utils/paymentUtils";
 import OrderStatusBadge from "./OrderStatusBadge";
 
 const paymentMethodText = (value) => String(value || "CASH").replaceAll("_", " ");
@@ -48,7 +48,7 @@ const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollect
       {order.kitchenStatus ? <><span aria-hidden="true">·</span><span>Kitchen: {String(order.kitchenStatus).replaceAll("_", " ")}</span></> : null}
       {elapsedTime(order.createdAt) ? <><span aria-hidden="true">·</span><span>{elapsedTime(order.createdAt)}</span></> : null}
     </div>
-    {!kitchenOnly && <div className="mt-2"><span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{paymentStatusLabel(order.paymentStatus)}</span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</div>}
+    {!kitchenOnly && <div className="mt-2"><span className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{String(order.paymentStatus || "").toUpperCase() === "PAID" ? <FiCheckCircle aria-hidden="true" className="shrink-0" /> : null}<span className="truncate">{orderPaymentLabel(order.paymentStatus, order.paymentMethod, order.paymentProvider || order.provider || order.gateway)}</span></span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</div>}
 
     <button type="button" onClick={() => onOpen(order)} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-brand-700 px-3 text-sm font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30" aria-label={`Open order ${order.orderNumber}`}>
       <FiEye className="h-4 w-4 shrink-0" aria-hidden="true" /> Open Order

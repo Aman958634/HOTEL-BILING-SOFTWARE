@@ -1,13 +1,12 @@
 import { memo } from "react";
-import { FiEdit2, FiEye, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
+import { FiCheckCircle, FiEdit2, FiEye, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
-import { paymentMethodLabel } from "../../../utils/paymentUtils";
+import { orderPaymentLabel, paymentBadgeClasses } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
 import OrderStatusBadge from "./OrderStatusBadge";
 import EmptyState from "../../common/EmptyState";
 import { SkeletonTable } from "../../common/Skeletons";
 
-const paymentText = (value) => String(value || "PENDING").replaceAll("_", " ");
 const editBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md border border-teal-200 bg-white px-2 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30";
 
@@ -38,7 +37,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCol
     <td className={`${cellClass} font-semibold text-slate-900`}>{currency(order.total)}</td>
     <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
     <td className={cellClass}>{order.kitchenStatus ? String(order.kitchenStatus).replaceAll("_", " ") : "-"}</td>
-    <td className={`${cellClass} whitespace-normal`}><div>{paymentText(order.paymentStatus)} · {paymentMethodLabel(order.paymentMethod)}</div>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</td>
+    <td className={`${cellClass} whitespace-normal`}><span className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentBadgeClasses(order.paymentStatus)}`}>{String(order.paymentStatus || "").toUpperCase() === "PAID" ? <FiCheckCircle aria-hidden="true" className="shrink-0" /> : null}<span className="truncate">{orderPaymentLabel(order.paymentStatus, order.paymentMethod, order.paymentProvider || order.provider || order.gateway)}</span></span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</td>
     <td className={cellClass}>{dateTime(order.createdAt)}</td>
     <td className={cellClass}>
       <div className="flex flex-nowrap gap-2">

@@ -74,6 +74,17 @@ export const gatewayLabel = (payment = {}) => {
 
 export const paymentStatusLabel = (value) => statusLabels[String(value || "PENDING").toUpperCase()] || "Pending";
 
+// The API keeps PAID as its canonical settled state.  The Orders UI alone
+// derives its customer-facing success copy from that authoritative state.
+export const orderPaymentLabel = (status, method, provider = "") => {
+  const normalizedStatus = String(status || "PENDING").toUpperCase();
+  if (normalizedStatus !== "PAID") return paymentStatusLabel(normalizedStatus);
+
+  const isHotelUpi = [method, provider].some((value) => String(value || "").toUpperCase() === "HOTEL_UPI");
+  const displayMethod = isHotelUpi ? "UPI" : paymentMethodLabel(method, provider);
+  return `SUCCESS · ${displayMethod}`;
+};
+
 // Receipts are proof of a completed collection, not a payment request. Keep
 // this deliberately strict so new or unknown intermediate states never gain
 // receipt access by accident.
