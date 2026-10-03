@@ -21,6 +21,29 @@ import {
   updateTableStatus,
 } from "../controllers/tableController.js";
 
+const validateOptionalCapacity = (value) => {
+  if (value === undefined || value === null) return true;
+  const capacity = Number(value);
+  if (typeof value === "boolean" || String(value).trim() === "" || !Number.isInteger(capacity) || capacity < 1) {
+    throw new Error("Capacity must be at least 1");
+  }
+  return true;
+};
+
+const validateOptionalFloor = (value) => {
+  if (value === undefined || value === null) return true;
+  if (!String(value).trim()) throw new Error("Floor must not be empty");
+  return true;
+};
+
+const validateOptionalShape = (value) => {
+  if (value === undefined || value === null) return true;
+  if (!["ROUND", "SQUARE", "RECTANGLE", "round", "square", "rectangle"].includes(String(value))) {
+    throw new Error("Shape must be ROUND, SQUARE, or RECTANGLE");
+  }
+  return true;
+};
+
 const router = Router();
 
 router.use(authMiddleware, requireActiveSubscription, requireRole("admin", "manager", "waiter", "cashier"));
@@ -55,13 +78,10 @@ router.post(
   "/",
   [
     body("tableNumber").trim().notEmpty().withMessage("Table number is required"),
-    body("capacity").isInt({ min: 1 }).withMessage("Capacity must be at least 1"),
-    body("floor").trim().notEmpty().withMessage("Floor is required"),
+    body("capacity").custom(validateOptionalCapacity),
+    body("floor").custom(validateOptionalFloor),
     body("section").trim().notEmpty().withMessage("Section is required"),
-    body("shape")
-      .optional()
-      .isIn(["ROUND", "SQUARE", "RECTANGLE", "round", "square", "rectangle"])
-      .withMessage("Shape must be ROUND, SQUARE, or RECTANGLE"),
+    body("shape").custom(validateOptionalShape),
     body("status")
       .optional()
       .isIn(["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "available", "occupied", "reserved", "maintenance"])
@@ -80,13 +100,10 @@ router.put(
   [
     param("id").isMongoId().withMessage("Invalid table id"),
     body("tableNumber").optional().trim().notEmpty().withMessage("Table number is required"),
-    body("capacity").optional().isInt({ min: 1 }).withMessage("Capacity must be at least 1"),
-    body("floor").optional().trim().notEmpty().withMessage("Floor is required"),
+    body("capacity").custom(validateOptionalCapacity),
+    body("floor").custom(validateOptionalFloor),
     body("section").optional().trim().notEmpty().withMessage("Section is required"),
-    body("shape")
-      .optional()
-      .isIn(["ROUND", "SQUARE", "RECTANGLE", "round", "square", "rectangle"])
-      .withMessage("Shape must be ROUND, SQUARE, or RECTANGLE"),
+    body("shape").custom(validateOptionalShape),
     body("status")
       .optional()
       .isIn(["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "available", "occupied", "reserved", "maintenance"])

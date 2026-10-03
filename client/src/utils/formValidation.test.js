@@ -6,6 +6,7 @@ import {
   validateCustomerForm,
   validateMenuForm,
   validateRestaurantSettings,
+  validateTableForm,
 } from './formValidation.js';
 
 test('category validation rejects blank names and malformed image URLs', () => {
@@ -76,4 +77,15 @@ test('restaurant settings validation keeps optional URLs blank but rejects malfo
   assert.equal(invalid.logoUrl, 'Enter a valid URL.');
   assert.equal(invalid.website, 'Enter a valid URL.');
   assert.equal(invalid.gstRate, 'GST rate must be between 0 and 100.');
+});
+
+test('table validation requires only table number and section while checking supplied capacity', () => {
+  const minimal = validateTableForm({ tableNumber: 'T-1', capacity: '', floor: '', section: 'Non AC', shape: '', description: '' });
+  assert.deepEqual(minimal, {});
+
+  const invalid = validateTableForm({ tableNumber: '', capacity: '-1', floor: '', section: '', shape: '', description: 'x'.repeat(501) });
+  assert.equal(invalid.tableNumber, 'Table number is required.');
+  assert.equal(invalid.capacity, 'Capacity must be at least 1 guest.');
+  assert.equal(invalid.section, 'Section is required.');
+  assert.equal(invalid.description, 'Description must be 500 characters or fewer.');
 });

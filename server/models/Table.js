@@ -22,14 +22,13 @@ const tableSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
-    capacity: { type: Number, required: true, min: 1 },
-    floor: { type: String, required: true, trim: true },
+    capacity: { type: Number, min: 1 },
+    floor: { type: String, trim: true },
     section: { type: String, required: true, trim: true },
     shape: {
       type: String,
       enum: TABLE_SHAPES,
-      default: "SQUARE",
-      set: (value) => normalizeEnum(value, "SQUARE"),
+      set: (value) => (value === undefined || value === null || String(value).trim() === "" ? undefined : normalizeEnum(value, undefined)),
     },
     status: {
       type: String,

@@ -44,6 +44,14 @@ export const validateMenuForm = (form) => {
   return errors;
 };
 
+export const validateTableForm = (form) => {
+  const errors = {};
+  if (!text(form.tableNumber)) errors.tableNumber = "Table number is required.";
+  if (text(form.capacity) && (!isFiniteNumber(form.capacity) || Number(form.capacity) < 1)) errors.capacity = "Capacity must be at least 1 guest.";
+  if (!text(form.section)) errors.section = "Section is required.";
+  if (text(form.description).length > 500) errors.description = "Description must be 500 characters or fewer.";
+  return errors;
+};
 export const validateRestaurantSettings = (form) => {
   const errors = {};
   if (!text(form.name)) errors.name = "Restaurant name is required.";

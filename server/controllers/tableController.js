@@ -24,6 +24,9 @@ const parseIntOrUndefined = (value) => {
   return Number.isFinite(number) ? number : undefined;
 };
 
+const optionalNumber = (value) => (value === undefined || value === null || value === "" ? undefined : Number(value));
+const optionalText = (value) => (value === undefined || value === null || String(value).trim() === "" ? undefined : String(value).trim());
+
 const parseDateTime = (date, time) => {
   if (!date || !time) return null;
   const dt = new Date(`${date}T${time}:00`);
@@ -201,13 +204,16 @@ export const getTableById = asyncHandler(async (req, res) => {
 });
 
 export const createTable = asyncHandler(async (req, res) => {
+  const capacity = optionalNumber(req.body.capacity);
+  const floor = optionalText(req.body.floor);
+  const shape = optionalText(req.body.shape);
   const payload = {
     tableNumber: String(req.body.tableNumber || "").trim(),
-    capacity: Number(req.body.capacity),
-    floor: String(req.body.floor || "").trim(),
     section: String(req.body.section || "").trim(),
-    shape: req.body.shape || "SQUARE",
     description: req.body.description || "",
+    ...(capacity !== undefined ? { capacity } : {}),
+    ...(floor !== undefined ? { floor } : {}),
+    ...(shape !== undefined ? { shape } : {}),
   };
 
   if (req.user?.restaurant) {
@@ -234,10 +240,10 @@ export const updateTable = asyncHandler(async (req, res) => {
 
   const updates = {
     ...(req.body.tableNumber !== undefined ? { tableNumber: String(req.body.tableNumber).trim() } : {}),
-    ...(req.body.capacity !== undefined ? { capacity: Number(req.body.capacity) } : {}),
-    ...(req.body.floor !== undefined ? { floor: String(req.body.floor).trim() } : {}),
+    ...(req.body.capacity !== undefined ? { capacity: optionalNumber(req.body.capacity) } : {}),
+    ...(req.body.floor !== undefined ? { floor: optionalText(req.body.floor) } : {}),
     ...(req.body.section !== undefined ? { section: String(req.body.section).trim() } : {}),
-    ...(req.body.shape !== undefined ? { shape: req.body.shape } : {}),
+    ...(req.body.shape !== undefined ? { shape: optionalText(req.body.shape) } : {}),
     ...(req.body.description !== undefined ? { description: req.body.description } : {}),
   };
 
