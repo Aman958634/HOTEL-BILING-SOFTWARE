@@ -25,7 +25,12 @@ const TableStatusBadge = ({ status }) => {
 };
 
 const OrderDetailsSection = ({
-  form,
+  orderType,
+  tableId,
+  paymentMethod,
+  paymentStatus,
+  deliveryAddress,
+  customer,
   guestCount,
   orderDateLabel,
   orderTimeLabel,
@@ -44,12 +49,12 @@ const OrderDetailsSection = ({
     <p className={labelClass}>Order Type</p>
     <div className="grid gap-2 sm:grid-cols-3">
       {ORDER_TYPES.map(({ value, label, icon: Icon }) => {
-        const active = form.orderType === value;
+        const active = orderType === value;
         return (
           <button
             key={value}
             type="button"
-            onClick={() => onPatch({ orderType: value, table: value === "DINE_IN" ? form.table : "" })}
+            onClick={() => onPatch({ orderType: value, table: value === "DINE_IN" ? tableId : "" })}
             className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 ${
               active
                 ? "border-brand-600 bg-brand-50 text-brand-800 shadow-sm"
@@ -65,7 +70,7 @@ const OrderDetailsSection = ({
       })}
     </div>
 
-    {form.orderType === "DINE_IN" ? (
+    {orderType === "DINE_IN" ? (
       <div className="mt-5">
         <label htmlFor="order-table" className={labelClass}>Table</label>
         {tablesLoading ? (
@@ -75,7 +80,7 @@ const OrderDetailsSection = ({
             <select
               id="order-table"
               className={fieldClass}
-              value={form.table}
+              value={tableId}
               onChange={(e) => onPatch({ table: e.target.value })}
               aria-invalid={Boolean(errors.table)}
             >
@@ -92,9 +97,9 @@ const OrderDetailsSection = ({
                 );
               })}
             </select>
-            {form.table ? (
+            {tableId ? (
               <div className="mt-2">
-                <TableStatusBadge status={tables.find((t) => String(t._id) === String(form.table))?.status} />
+                <TableStatusBadge status={tables.find((t) => String(t._id) === String(tableId))?.status} />
               </div>
             ) : null}
             {errors.table ? <p className="mt-1 text-xs text-rose-600">{errors.table}</p> : null}
@@ -144,7 +149,7 @@ const OrderDetailsSection = ({
       </div>
     </div>
 
-    {form.orderType === "DELIVERY" ? (
+    {orderType === "DELIVERY" ? (
       <div className="mt-5 space-y-3 border-t border-slate-100 pt-5">
         <div>
           <label htmlFor="delivery-address" className={labelClass}>Delivery Address *</label>
@@ -152,12 +157,12 @@ const OrderDetailsSection = ({
             id="delivery-address"
             rows={2}
             className={fieldClass}
-            value={form.deliveryAddress}
+            value={deliveryAddress}
             onChange={(e) => onPatch({ deliveryAddress: e.target.value })}
             placeholder="Street, area, city..."
           />
-          {form.customer?.phone ? (
-            <p className="mt-1 text-xs text-slate-500">Delivery phone: {form.customer.phone}</p>
+          {customer?.phone ? (
+            <p className="mt-1 text-xs text-slate-500">Delivery phone: {customer.phone}</p>
           ) : null}
           {errors.deliveryAddress ? <p className="mt-1 text-xs text-rose-600">{errors.deliveryAddress}</p> : null}
         </div>
@@ -182,7 +187,7 @@ const OrderDetailsSection = ({
         <select
           id="payment-method"
           className={fieldClass}
-          value={form.paymentMethod}
+          value={paymentMethod}
           onChange={(e) => onPatch({ paymentMethod: e.target.value })}
         >
           {CREATE_ORDER_PAYMENT_METHODS.map((m) => (
@@ -197,7 +202,7 @@ const OrderDetailsSection = ({
           aria-label="Payment status"
           className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700"
         >
-          {isEdit ? String(form.paymentStatus || "PENDING").replaceAll("_", " ") : "PENDING"}
+          {isEdit ? String(paymentStatus || "PENDING").replaceAll("_", " ") : "PENDING"}
         </output>
         {!isEdit ? <p className="mt-1 text-xs text-slate-500">Payment status updates after payment is collected.</p> : null}
       </div>

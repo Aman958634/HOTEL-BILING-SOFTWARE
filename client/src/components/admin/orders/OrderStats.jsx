@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiDollarSign, FiPackage, FiXCircle, FiClock, FiTool, FiCheckCircle } from "react-icons/fi";
 import { currency } from "../../../utils/format";
 import ModuleIcon from "../../common/ModuleIcon";
@@ -40,4 +41,4 @@ const OrderStats = ({ stats, loading }) => {
   );
 };
 
-export default OrderStats;
+export default memo(OrderStats);

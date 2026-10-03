@@ -339,7 +339,7 @@ const OrderManagement = () => {
     };
   }, [socket, loadOrders, loadStats]);
 
-  const openDetails = async (order) => {
+  const openDetails = useCallback(async (order) => {
     setDetailsOpen(true);
     setDetailsLoading(true);
     setDetailsOrder(order);
@@ -353,7 +353,7 @@ const OrderManagement = () => {
     } finally {
       setDetailsLoading(false);
     }
-  };
+  }, []);
 
   const openEdit = useCallback(async (order) => {
     try {
@@ -378,7 +378,7 @@ const OrderManagement = () => {
     }
   };
 
-  const openRetryPayment = async (order) => {
+  const openRetryPayment = useCallback(async (order) => {
     if (!canCollectPayments || !order?._id) return;
     try {
       const [summaryResponse, hotelPaymentCapability] = await Promise.all([
@@ -405,7 +405,7 @@ const OrderManagement = () => {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load the outstanding payment");
     }
-  };
+  }, [canCollectPayments, loadOrders]);
 
   const closeRetryPayment = () => {
     if (retryProcessing) return;

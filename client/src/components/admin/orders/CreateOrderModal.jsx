@@ -93,8 +93,6 @@ const CreateOrderModal = ({
   const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories, restaurantGstRate));
   const [guestCount, setGuestCount] = useState(1);
   const [orderDate, setOrderDate] = useState(() => new Date());
-  const [menuSearch, setMenuSearch] = useState("");
-  const [menuCategory, setMenuCategory] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState([]);
   const [customerSearching, setCustomerSearching] = useState(false);
@@ -129,8 +127,6 @@ const CreateOrderModal = ({
     if (!isEdit && !restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
     setForm(restoredForm);
     if (draft) toast.success("Unsent order restored.", { id: "order-draft-restored" });
-    setMenuSearch("");
-    setMenuCategory("");
     setCustomerSearch("");
     setCustomerResults([]);
     setShowCustomerForm(false);
@@ -212,20 +208,6 @@ const CreateOrderModal = ({
       }),
     [form.items, discountAmount, form.taxPercent, form.serviceChargePercent, form.deliveryCharge, form.orderType]
   );
-
-  const filteredMenuItems = useMemo(() => {
-    const query = menuSearch.trim().toLowerCase();
-    return menuItems.filter((item) => {
-      const matchesSearch =
-        !query ||
-        item.name?.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query);
-      const categoryId = item.category?._id || item.category;
-      const matchesCategory = !menuCategory || String(categoryId) === String(menuCategory);
-      const available = item.isAvailable ?? item.available ?? true;
-      return matchesSearch && matchesCategory && available;
-    });
-  }, [menuItems, menuSearch, menuCategory]);
 
   const getCategoryName = useCallback((item) => {
     if (item.categoryName) return item.categoryName;
@@ -314,6 +296,7 @@ const CreateOrderModal = ({
   const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: value }), [patchForm]);
   const patchNotes = useCallback((value) => patchForm({ notes: value }), [patchForm]);
   const patchServiceChargePercent = useCallback((value) => patchForm({ serviceChargePercent: value }), [patchForm]);
+  const closeMobileCart = useCallback(() => setMobileCartOpen(false), []);
 
   const saveCustomer = useCallback(async () => {
     const fullName = customerForm.fullName.trim();
@@ -453,7 +436,12 @@ const CreateOrderModal = ({
               />
 
               <OrderDetailsSection
-                form={form}
+                orderType={form.orderType}
+                tableId={form.table}
+                paymentMethod={form.paymentMethod}
+                paymentStatus={form.paymentStatus}
+                deliveryAddress={form.deliveryAddress}
+                customer={form.customer}
                 guestCount={guestCount}
                 orderDateLabel={formatLocalDate(orderDate)}
                 orderTimeLabel={formatLocalTime(orderDate)}
@@ -469,16 +457,12 @@ const CreateOrderModal = ({
 
               <ItemsSection
                 menuSearchRef={menuSearchRef}
-                menuSearch={menuSearch}
-                menuCategory={menuCategory}
+                menuItems={menuItems}
                 categories={categories}
-                filteredMenuItems={filteredMenuItems}
                 menuLoading={dependenciesLoading}
                 items={form.items}
                 errors={errors}
                 discountPercent={form.discountPercent}
-                onMenuSearchChange={setMenuSearch}
-                onCategoryChange={setMenuCategory}
                 onAddItem={addMenuItem}
                 onUpdateQty={updateItemQty}
                 onRemoveItem={removeItem}
@@ -487,7 +471,7 @@ const CreateOrderModal = ({
                 totals={totals}
                 orderType={form.orderType}
                 mobileCartOpen={mobileCartOpen}
-                onCloseMobileCart={() => setMobileCartOpen(false)}
+                onCloseMobileCart={closeMobileCart}
                 submitting={loading}
                 isEdit={isEdit}
               />
