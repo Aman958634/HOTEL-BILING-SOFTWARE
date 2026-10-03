@@ -10,9 +10,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
     price: "",
     discountPrice: "",
     image: "",
-    preparationTime: "20",
-    ingredients: "",
-    spicyLevel: "mild",
     foodType: "vegetarian",
     available: true,
     featured: false,
@@ -29,9 +26,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
         price: initialData.price || "",
         discountPrice: initialData.discountPrice || "",
         image: initialData.image || "",
-        preparationTime: initialData.preparationTime || initialData.prepTimeMins || "20",
-        ingredients: Array.isArray(initialData.ingredients) ? initialData.ingredients.join(", ") : "",
-        spicyLevel: initialData.spicyLevel || "mild",
         foodType: initialData.foodType || (initialData.isVeg ? "vegetarian" : "non_vegetarian"),
         available: initialData.isAvailable ?? initialData.available ?? true,
         featured: initialData.featured || false,
@@ -44,9 +38,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
         price: "",
         discountPrice: "",
         image: "",
-        preparationTime: "20",
-        ingredients: "",
-        spicyLevel: "mild",
         foodType: "vegetarian",
         available: true,
         featured: false,
@@ -77,8 +68,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
       ...form,
       price: Number(form.price),
       discountPrice: Number(form.discountPrice || 0),
-      preparationTime: Number(form.preparationTime || 20),
-      ingredients: form.ingredients,
       available: Boolean(form.available),
       featured: Boolean(form.featured),
     });
@@ -120,20 +109,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
             {errors.image && <p id="menu-image-error" role="alert" className="mt-1 text-xs text-red-600">{errors.image}</p>}
           </div>
           <div>
-            <label className="text-sm text-slate-600">Preparation Time (min)</label>
-            <input type="number" min="1" step="1" aria-invalid={Boolean(errors.preparationTime)} aria-describedby={errors.preparationTime ? "menu-prep-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.preparationTime ? "border-rose-500" : ""}`} value={form.preparationTime} onChange={(e) => update("preparationTime", e.target.value)} />
-            {errors.preparationTime && <p id="menu-prep-error" role="alert" className="mt-1 text-xs text-red-600">{errors.preparationTime}</p>}
-          </div>
-          <div>
-            <label className="text-sm text-slate-600">Spicy Level</label>
-            <select className="mt-1 w-full rounded-xl border p-2" value={form.spicyLevel} onChange={(e) => setForm({ ...form, spicyLevel: e.target.value })}>
-              <option value="mild">Mild</option>
-              <option value="medium">Medium</option>
-              <option value="hot">Hot</option>
-              <option value="extra_hot">Extra Hot</option>
-            </select>
-          </div>
-          <div>
             <label className="text-sm text-slate-600">Food Type</label>
             <select className="mt-1 w-full rounded-xl border p-2" value={form.foodType} onChange={(e) => setForm({ ...form, foodType: e.target.value })}>
               <option value="vegetarian">Vegetarian</option>
@@ -146,11 +121,6 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
           <label className="text-sm text-slate-600">Description</label>
           <textarea aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "menu-description-error" : undefined} className={`mt-1 w-full rounded-xl border p-2 ${errors.description ? "border-rose-500" : ""}`} rows={3} value={form.description} onChange={(e) => update("description", e.target.value)} />
           {errors.description && <p id="menu-description-error" role="alert" className="mt-1 text-xs text-red-600">{errors.description}</p>}
-        </div>
-
-        <div className="mt-4">
-          <label className="text-sm text-slate-600">Ingredients (comma separated)</label>
-          <input className="mt-1 w-full rounded-xl border p-2" value={form.ingredients} onChange={(e) => setForm({ ...form, ingredients: e.target.value })} />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-6">
@@ -166,7 +136,7 @@ const MenuForm = ({ open, onClose, onSubmit, loading, categories, initialData })
 
         <div className="mt-6 flex justify-end gap-3">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button type="submit" loading={loading} loadingText="Saving…">Save Food</Button>
+          <Button type="submit" loading={loading} loadingText="Savingâ€¦">Save Food</Button>
         </div>
       </form>
     </div>

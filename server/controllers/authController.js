@@ -60,7 +60,12 @@ const buildPasswordResetLink = (token) => {
 
 export const buildSessionPayload = async (user) => {
   if (user?.restaurant) await ensureDefaultOutlet({ _id: user.restaurant });
-  const safeUser = await User.findById(user._id).select("-password -refreshToken").lean();
+  const suppliedUser = typeof user?.toObject === "function" ? user.toObject() : null;
+  const safeUser = suppliedUser?.email
+    ? suppliedUser
+    : await User.findById(user._id).select("-password -refreshToken").lean();
+  delete safeUser.password;
+  delete safeUser.refreshToken;
   const authorizedOutlets = await getAllowedOutlets(safeUser);
   return {
     user: {
@@ -117,11 +122,11 @@ export const login = asyncHandler(async (req, res) => {
   const refreshToken = generateRefreshToken(payload);
 
   user.refreshToken = refreshToken;
-  await user.save();
-
-  await Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } });
-
-  const session = await buildSessionPayload(user);
+  const [session] = await Promise.all([
+    buildSessionPayload(user),
+    user.save(),
+    Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } }),
+  ]);
   logger.info(`Login succeeded for user=${user._id}`);
   res.status(200).json(new ApiResponse(true, "Logged in", { ...session, accessToken, refreshToken }));
 });

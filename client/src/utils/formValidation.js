@@ -41,7 +41,6 @@ export const validateMenuForm = (form) => {
   if (text(form.discountPrice) && (!isFiniteNumber(form.discountPrice) || Number(form.discountPrice) < 0)) errors.discountPrice = "Discount price must be 0 or greater.";
   if (text(form.image) && !isHttpUrl(form.image)) errors.image = "Enter a valid image URL.";
   if (text(form.description) && (text(form.description).length < 10 || text(form.description).length > 1200)) errors.description = "Description must be between 10 and 1200 characters.";
-  if (text(form.preparationTime) && (!Number.isInteger(Number(form.preparationTime)) || Number(form.preparationTime) < 1)) errors.preparationTime = "Preparation time must be at least 1 minute.";
   return errors;
 };
 

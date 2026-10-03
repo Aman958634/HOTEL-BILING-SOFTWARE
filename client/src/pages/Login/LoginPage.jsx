@@ -22,18 +22,8 @@ const resolvePostLoginPath = (user, location) => {
   return roleLandingPath(role);
 };
 
-let adminDashboardPrefetch;
-const prefetchAdminDashboard = () => {
-  if (!adminDashboardPrefetch) {
-    adminDashboardPrefetch = Promise.all([
-      import("../../pages/admin/AdminModuleLayout"),
-      import("../../pages/admin/AdminDashboard"),
-    ]).catch(() => null);
-  }
-};
-
 const LoginPage = ({ superAdminOnly = false }) => {
-  const { register, handleSubmit, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm();
+  const { register, handleSubmit, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm({ mode: "onSubmit", reValidateMode: "onChange", shouldFocusError: true });
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,9 +89,10 @@ const LoginPage = ({ superAdminOnly = false }) => {
       toast.success("Welcome back");
       navigate(resolvePostLoginPath(loggedInUser, location), { replace: true });
     } catch (error) {
-      const message = typeof error === "string" ? error : error?.message || "Invalid credentials";
-      setError("root", { message: message === "Invalid credentials" ? "Your email or password is incorrect. Please try again." : message });
-      toast.error(message);
+      const message = typeof error === "string" ? error : error?.message || "";
+      const safeMessage = message.startsWith("Too many login attempts") ? message : "Invalid email or password.";
+      setError("root", { message: safeMessage });
+      toast.error(safeMessage);
     }
   };
 
@@ -123,7 +114,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
               <p className="mt-2 text-sm text-[#64748B]">Login to your account to continue</p>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} onFocus={prefetchAdminDashboard} className="mt-6 space-y-4">
+            <form noValidate onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
               <div className="space-y-4">
                 <div>
                   <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#172033]">
@@ -143,7 +134,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                       className={`h-[56px] w-full rounded-xl border bg-white pl-11 pr-4 text-sm text-[#172033] outline-none transition-all placeholder:text-[#94A3B8] ${errors.email ? "border-rose-500 focus:border-rose-500 focus:ring-[3px] focus:ring-rose-500/10" : "border-[#E2E8F0] focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/10"}`}
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? "email-error" : undefined}
-                      {...register("email", { required: "Email address is required.", pattern: { value: /^\S+@\S+\.\S+$/, message: "Enter a valid email address." } })}
+                      {...register("email", { required: "Email is required.", setValueAs: (value) => String(value || "").trim(), pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Please enter a valid email address." } })}
                     />
                   </div>
                   {errors.email ? <p id="email-error" className="mt-1.5 text-sm text-rose-600" role="alert">{errors.email.message}</p> : null}
@@ -203,7 +194,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Signing In...
+                    Signing in...
                   </span>
                 ) : (
                   "Login"

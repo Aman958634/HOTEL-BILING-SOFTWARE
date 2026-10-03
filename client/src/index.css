@@ -53,6 +53,14 @@ canvas {
 
 button, input, select, textarea { font: inherit; }
 input, select, textarea { accent-color: #059669; }
+.auth-page input[aria-invalid="true"] {
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 0 3px rgb(244 63 94 / 0.1);
+}
+.auth-page input[aria-invalid="true"]:focus {
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 0 3px rgb(244 63 94 / 0.16);
+}
 button:not(:disabled), [role="button"]:not([aria-disabled="true"]) { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 
