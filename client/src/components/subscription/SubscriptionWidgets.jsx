@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FiClock, FiCreditCard, FiLock, FiRefreshCw } from "react-icons/fi";
+import { FiCalendar, FiCreditCard, FiGift, FiLock, FiRefreshCw } from "react-icons/fi";
 import { getServerClockOffset, getTrialCountdown } from "../../utils/trialCountdown";
 
 const statusStyles = {
@@ -48,15 +48,31 @@ export const TrialBanner = ({ subscription, onElapsed }) => {
 
   if (!isTrialActive(subscription) || !endAt) return null;
   return (
-    <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-950 sm:px-5" aria-label="Free trial status">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><p className="text-sm font-bold">5-Day Free Trial</p><p className="mt-1 text-xs text-amber-900">Trial Started: {formatDateTime(subscription.trialStartAt)} · Trial Ends: {formatDateTime(endAt)}</p></div>
-        <Link to="/dashboard/admin/billing" className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white hover:bg-teal-800">View Plans</Link>
+    <section className="mb-5 overflow-hidden rounded-[28px] border border-orange-200 bg-[#fff9ef] px-4 py-5 text-slate-900 shadow-[0_14px_34px_rgba(177,101,23,0.08)] sm:px-6 sm:py-6 xl:px-7" aria-label="Free trial status">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:gap-7">
+        <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#ffedcf] text-2xl text-orange-500 sm:h-16 sm:w-16" aria-hidden="true"><FiGift /></span>
+          <div className="min-w-0">
+            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl"><span className="text-orange-500">5-Day</span>{" "}<span className="text-slate-900">Free Trial</span></h2>
+            <p className="mt-1 text-sm font-medium text-slate-600 sm:text-[15px]">Explore all premium features. No payment required.</p>
+            <div className="mt-4 flex flex-col gap-2 text-xs font-medium text-slate-600 sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
+              <span className="flex min-w-0 items-center gap-2"><FiCalendar className="shrink-0 text-emerald-600" aria-hidden="true" /><span className="truncate"><strong className="font-semibold text-slate-700">Trial Started:</strong> {formatDateTime(subscription.trialStartAt)}</span></span>
+              <span className="hidden h-5 w-px bg-orange-200 sm:block" aria-hidden="true" />
+              <span className="flex min-w-0 items-center gap-2"><FiCalendar className="shrink-0 text-orange-500" aria-hidden="true" /><span className="truncate"><strong className="font-semibold text-slate-700">Trial Ends:</strong> {formatDateTime(endAt)}</span></span>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-orange-200 pt-5 xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
+          <p className="mb-3 text-center text-sm font-bold text-slate-700 xl:text-left">Trial ends in</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3" aria-live="polite">
+            {[[remaining.days, "Days"], [remaining.hours, "Hours"], [remaining.minutes, "Minutes"], [remaining.seconds, "Seconds"]].map(([value, label]) => <div key={label} className="flex min-h-[78px] min-w-0 flex-col items-center justify-center rounded-2xl bg-[#ffedd4] px-2 py-2 text-center sm:min-w-[74px]"><span className="text-xl font-extrabold tabular-nums text-orange-500 sm:text-2xl">{pad(value)}</span><span className="mt-1 text-[10px] font-semibold text-slate-500 sm:text-[11px]">{label}</span></div>)}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 border-t border-orange-200 pt-5 sm:flex-row xl:border-l xl:border-t-0 xl:flex-col xl:pl-7 xl:pt-0">
+          <Link to="/dashboard/admin/billing" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40">View Plans</Link>
+          <Link to="/dashboard/admin/billing" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-600 bg-white/70 px-5 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40">Upgrade Now</Link>
+        </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2" aria-live="polite">
-        {[[remaining.days, "Days"], [remaining.hours, "Hours"], [remaining.minutes, "Minutes"], [remaining.seconds, "Seconds"]].map(([value, label]) => <div key={label} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-center"><span className="block text-lg font-bold tabular-nums">{pad(value)}</span><span className="block text-[11px] font-medium uppercase tracking-wide text-amber-800">{label}</span></div>)}
-      </div>
-      <p className="mt-3 flex items-center gap-2 text-sm text-amber-900"><FiClock aria-hidden="true" /> Trial ends in the time shown above.</p>
     </section>
   );
 };
