@@ -2,13 +2,16 @@ import axios from "axios";
 import { API_URL } from "../utils/constants";
 import { getApiErrorMessage } from "../utils/apiError";
 import { activateGlobalErrorCondition, observeApiError, reportGlobalError, resolveGlobalErrorCondition } from "./errorNotificationService";
+import { clearStoredAuthTokens, getAccessToken, persistAccessToken } from "../utils/authSession";
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
 });
 
-const refreshClient = axios.create({
+export const refreshClient = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
 });
 
 let authStore = null;
@@ -47,7 +50,6 @@ const processQueue = (error, token = null) => {
     if (error) {
       reject(error);
     } else {
-      delete config._retry;
       config.headers.Authorization = `Bearer ${token}`;
       resolve(api(config));
     }
@@ -62,8 +64,7 @@ const clearAuthAndRedirectToLogin = (accountStatusMessage = "") => {
       // A restricted browser storage context still clears its auth state below.
     }
   }
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  clearStoredAuthTokens();
   localStorage.removeItem("selectedOutletId");
   localStorage.removeItem("activeOutletId");
   localStorage.removeItem("activeOutlet");
@@ -87,7 +88,7 @@ if (typeof window !== "undefined") {
 
 api.interceptors.request.use((config) => {
   const url = String(config.url || "");
-  const token = localStorage.getItem("accessToken");
+  const token = getAccessToken();
   if (token && !isPublicRequest(url)) {
     config.headers.Authorization = `Bearer ${token}`;
   } else if (isPublicRequest(url)) {
@@ -156,7 +157,7 @@ api.interceptors.response.use(
 
       if (!outletRecoveryPromise) {
         outletRecoveryPromise = (async () => {
-          const token = localStorage.getItem("accessToken");
+          const token = getAccessToken();
           const { data } = await refreshClient.get("/outlets/me", {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
@@ -215,13 +216,10 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const refreshToken = localStorage.getItem("refreshToken");
-    if (!refreshToken) {
-      clearAuthAndRedirectToLogin();
-      return Promise.reject(error);
-    }
-
     if (isRefreshing) {
+      // Mark queued requests before retrying them so each original request can
+      // enter the refresh path only once.
+      originalRequest._retry = true;
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject, config: originalRequest });
       });
@@ -231,13 +229,13 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const { data } = await refreshClient.post("/auth/refresh", { refreshToken });
+      const { data } = await refreshClient.post("/auth/refresh");
       const newAccessToken = data?.data?.accessToken;
       if (!newAccessToken) {
         throw new Error("Refresh response missing access token");
       }
 
-      localStorage.setItem("accessToken", newAccessToken);
+      persistAccessToken(newAccessToken);
       authStore?.dispatch({
         type: "auth/setAccessToken",
         payload: newAccessToken,
@@ -248,12 +246,31 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      reportGlobalError({
-        code: "AUTH_SESSION_EXPIRED",
-        userMessage: "Your session has expired. Please sign in again.",
-        config: { method: "POST", url: "/auth/refresh" },
-      }, { context: "auth-refresh" });
-      clearAuthAndRedirectToLogin();
+      const refreshStatus = Number(refreshError?.response?.status || 0);
+      const invalidRefreshSession = refreshStatus === 401;
+      const blockedAccount = isRestaurantAccountBlocked(refreshError);
+
+      // A network timeout/cold start/5xx is not evidence that the refresh
+      // session is invalid. Keep the local session intact so the user can
+      // retry normally without being sent to Login.
+      if (!invalidRefreshSession && !blockedAccount) {
+        if (!refreshError?.response) {
+          reportGlobalError(Object.assign(refreshError || new Error("Refresh unavailable"), {
+            code: "NETWORK_UNAVAILABLE",
+            userMessage: "Unable to renew your session right now. Please check your connection and try again.",
+          }), { context: "auth-refresh" });
+        }
+        return Promise.reject(refreshError);
+      }
+
+      if (invalidRefreshSession) {
+        reportGlobalError({
+          code: "AUTH_SESSION_EXPIRED",
+          userMessage: "Your session has expired. Please sign in again.",
+          config: { method: "POST", url: "/auth/refresh" },
+        }, { context: "auth-refresh" });
+      }
+      clearAuthAndRedirectToLogin(blockedAccount ? refreshError?.response?.data?.message : "");
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

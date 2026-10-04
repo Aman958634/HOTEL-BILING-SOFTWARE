@@ -11,6 +11,7 @@ import TableDetails from "../../components/admin/tables/TableDetails";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
 import { currency } from "../../utils/format";
 import ModuleIcon from "../../components/common/ModuleIcon";
+import { getAccessToken } from "../../utils/authSession";
 
 const BOARD_COLUMNS = [
   { key: "NEW", label: "New", statuses: ["PENDING", "CONFIRMED"] },
@@ -101,7 +102,7 @@ const ServiceCockpit = () => {
     [overview]
   );
 
-  const hasAuthToken = () => Boolean(localStorage.getItem("accessToken"));
+  const hasAuthToken = () => Boolean(getAccessToken());
 
   // Guards to prevent overlapping polling requests and honour 429 backoff.
   const inFlightRef = useRef(false);

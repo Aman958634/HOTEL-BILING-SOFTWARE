@@ -10,14 +10,17 @@ export const ROLES = {
   CUSTOMER: "customer",
 };
 
+const viteEnv = import.meta.env || {};
+const isNodeTest = typeof process !== "undefined" && process.env?.NODE_ENV === "test";
+
 const runtimeConfig = resolveFrontendRuntimeConfig({
-  apiUrl: import.meta.env.VITE_API_URL,
-  socketUrl: import.meta.env.VITE_SOCKET_URL,
-  deploymentEnvironment: import.meta.env.VITE_DEPLOYMENT_ENV,
+  apiUrl: viteEnv.VITE_API_URL,
+  socketUrl: viteEnv.VITE_SOCKET_URL,
+  deploymentEnvironment: viteEnv.VITE_DEPLOYMENT_ENV,
   platformEnvironment: globalThis.__RESTOSPHERE_PLATFORM_ENV__,
-  stagingApiHosts: import.meta.env.VITE_STAGING_API_HOSTS,
-  isProduction: import.meta.env.PROD,
-  isDevelopment: import.meta.env.DEV,
+  stagingApiHosts: viteEnv.VITE_STAGING_API_HOSTS,
+  isProduction: viteEnv.PROD,
+  isDevelopment: viteEnv.DEV || isNodeTest,
 });
 
 export const API_URL = runtimeConfig.apiUrl;

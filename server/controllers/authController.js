@@ -22,6 +22,19 @@ const restaurantWideRoles = new Set(["admin", "restaurant_admin", "hotel_admin",
 const PASSWORD_RESET_GENERIC_MESSAGE = "If an account exists, a reset email has been sent.";
 const PASSWORD_RESET_OTP_GENERIC_MESSAGE = "If an account exists, a verification code has been sent.";
 const passwordResetFields = "+password +passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetOtpAttempts +passwordResetOtpResendAvailableAt +passwordResetVerificationHash +passwordResetVerificationExpiresAt";
+const REFRESH_COOKIE_NAME = "restosphere_refresh";
+const refreshSessionMs = () => {
+  const value = String(process.env.JWT_REFRESH_EXPIRES_IN || process.env.JWT_REFRESH_EXPIRES || "30d").trim();
+  const match = /^(\d+)\s*([smhd])$/i.exec(value);
+  const multiplier = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[match?.[2]?.toLowerCase()] || 86_400_000;
+  return (Number(match?.[1]) || 30) * multiplier;
+};
+const refreshCookieOptions = (rememberMe = false) => {
+  const secure = ["production", "staging"].includes(String(process.env.NODE_ENV || "").toLowerCase());
+  return { httpOnly: true, secure, sameSite: secure ? "none" : "lax", path: "/api/v1/auth", ...(rememberMe ? { maxAge: refreshSessionMs() } : {}) };
+};
+export const setRefreshSessionCookie = (res, refreshToken, rememberMe) => res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions(rememberMe));
+export const clearRefreshSessionCookie = (res) => res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions(false));
 
 const resetOtpVerifier = (value) => {
   const secret = String(process.env.PASSWORD_RESET_OTP_SECRET || process.env.JWT_REFRESH_SECRET || "");
@@ -96,6 +109,7 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = req.body.password;
+  const rememberMe = req.body.rememberMe === true;
 
   const user = await User.findOne({ email }).select("+password");
   if (!user) {
@@ -128,11 +142,12 @@ export const login = asyncHandler(async (req, res) => {
     Staff.updateOne({ user: user._id }, { $set: { lastLogin: new Date() } }),
   ]);
   logger.info(`Login succeeded for user=${user._id}`);
-  res.status(200).json(new ApiResponse(true, "Logged in", { ...session, accessToken, refreshToken }));
+  setRefreshSessionCookie(res, refreshToken, rememberMe);
+  res.status(200).json(new ApiResponse(true, "Logged in", { ...session, accessToken }));
 });
 
 export const refresh = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
   if (!refreshToken) throw new ApiError(401, "Invalid refresh token");
 
   let decoded;
@@ -161,10 +176,11 @@ export const refresh = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
   if (refreshToken) {
     await User.updateOne({ refreshToken }, { $set: { refreshToken: "" } });
   }
+  clearRefreshSessionCookie(res);
   res.status(200).json(new ApiResponse(true, "Logged out"));
 });
 

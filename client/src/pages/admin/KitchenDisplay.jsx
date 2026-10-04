@@ -9,6 +9,7 @@ import KdsBoard from "../../components/kitchen/KdsBoard";
 import EmptyState from "../../components/common/EmptyState";
 import { SkeletonList } from "../../components/common/Skeletons";
 import { deriveKitchenTicketStage, getKitchenTicketKey, groupKitchenTickets, isKitchenItemTransitionAllowed, mergeKitchenTicket } from "../../utils/kitchenTicketState";
+import { getAccessToken } from "../../utils/authSession";
 
 const DEFAULT_THRESHOLDS = { warning: 15, delayed: 30, critical: 45 };
 
@@ -109,7 +110,7 @@ const KitchenDisplay = () => {
     }
   }, [soundMuted]);
 
-  const hasAuthToken = () => Boolean(localStorage.getItem("accessToken"));
+  const hasAuthToken = () => Boolean(getAccessToken());
 
   const loadTickets = useCallback(
     async (signal) => {

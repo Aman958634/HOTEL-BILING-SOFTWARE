@@ -74,6 +74,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
         loginThunk({
           email: String(values.email || "").trim(),
           password: String(values.password || ""),
+          rememberMe: Boolean(values.rememberMe),
         })
       ).unwrap();
       const loggedInUser = result?.user;
@@ -169,6 +170,7 @@ const LoginPage = ({ superAdminOnly = false }) => {
                   <input
                     type="checkbox"
                     className="h-4 w-4 rounded border-[#E2E8F0] text-brand-600 focus:ring-brand-600/20"
+                    {...register("rememberMe")}
                   />
                   <span className="text-sm text-[#475569]">Remember me</span>
                 </label>

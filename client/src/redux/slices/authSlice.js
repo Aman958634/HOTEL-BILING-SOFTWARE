@@ -3,38 +3,23 @@ import { getMyProfile, loginUser, logoutUser, registerUser } from "../../service
 import { clearOutletSession, persistAuthorizedOutlet } from "../../utils/outletSession";
 import { clearAllOrderDrafts } from "../../utils/orderDraft";
 import { clearOrderListCache } from "../../utils/orderListCache";
+import { clearStoredAuthTokens, getAccessToken, persistAccessToken, persistAuthTokens } from "../../utils/authSession";
 
 const clearStoredTokens = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
+  clearStoredAuthTokens();
   clearOutletSession();
   clearAllOrderDrafts();
   clearOrderListCache();
 };
 
-const persistTokens = (accessToken, refreshToken) => {
-  if (accessToken) {
-    localStorage.setItem("accessToken", accessToken);
-  }
-  if (refreshToken) {
-    localStorage.setItem("refreshToken", refreshToken);
-  }
-};
-
-const readStoredToken = (key) => {
-  try {
-    return localStorage.getItem(key) || "";
-  } catch {
-    // A restricted WebView must still boot to the public/login shell.
-    console.warn("RestoSphere stored session is unavailable.");
-    return "";
-  }
+const persistTokens = (accessToken, refreshToken, rememberMe = true) => {
+  persistAuthTokens({ accessToken, refreshToken, rememberMe });
 };
 
 const initialState = {
   user: null,
-  accessToken: readStoredToken("accessToken"),
-  refreshToken: readStoredToken("refreshToken"),
+  accessToken: getAccessToken(),
+  refreshToken: "",
   loading: false,
   profileLoading: false,
   profileError: "",
@@ -122,16 +107,16 @@ const authSlice = createSlice({
     setAccessToken: (state, action) => {
       state.accessToken = action.payload || "";
       if (action.payload) {
-        localStorage.setItem("accessToken", action.payload);
+        persistAccessToken(action.payload);
       }
     },
     setAuthSession: (state, action) => {
       clearOrderListCache();
       state.user = action.payload?.user || null;
       state.accessToken = action.payload?.accessToken || "";
-      state.refreshToken = action.payload?.refreshToken || state.refreshToken;
+      state.refreshToken = "";
       state.profileError = "";
-      persistTokens(action.payload?.accessToken, action.payload?.refreshToken);
+      persistTokens(action.payload?.accessToken, undefined, action.payload?.rememberMe ?? true);
       applyOutletSession(state, action.payload);
     },
     outletRecoveryStarted: (state) => {
@@ -157,9 +142,9 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken || "";
+        state.refreshToken = "";
         state.profileError = "";
-        persistTokens(action.payload.accessToken, action.payload.refreshToken);
+        persistTokens(action.payload.accessToken, undefined, Boolean(action.meta.arg?.rememberMe));
         applyOutletSession(state, action.payload);
       })
       .addCase(loginThunk.rejected, (state) => {

@@ -21,7 +21,7 @@ import {
 import { buildSaasPaymentReceiptBuffer } from "../utils/saasPaymentPdf.js";
 import { getSaasReceiptNumber, isSaasPaymentReceiptAvailable } from "../utils/saasPaymentReceipt.js";
 import mongoose from "mongoose";
-import { buildSessionPayload } from "./authController.js";
+import { buildSessionPayload, setRefreshSessionCookie } from "./authController.js";
 import { isTransactionUnsupportedError, provisionRestaurantWithAdmin } from "../services/restaurantProvisioningService.js";
 
 const PUBLIC_PLAN_KEYS = ["basic", "professional", "enterprise"];
@@ -226,12 +226,12 @@ export const publicSubscribeSignup = asyncHandler(async (req, res) => {
   await user.save();
 
   const session = await buildSessionPayload(user);
+  setRefreshSessionCookie(res, refreshToken, true);
 
   res.status(201).json(
     new ApiResponse(true, "Restaurant registered. Continue to payment.", {
       ...session,
       accessToken,
-      refreshToken,
       restaurant: {
         _id: restaurant._id,
         name: restaurant.name,

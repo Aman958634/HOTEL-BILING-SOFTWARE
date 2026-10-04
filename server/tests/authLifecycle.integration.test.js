@@ -22,6 +22,7 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const baseUrl = `http://127.0.0.1:${server.address().port}/api/v1`;
 
 const request = (path, options = {}) => fetch(`${baseUrl}${path}`, options);
+const refreshCookieFrom = (response) => String(response.headers.get("set-cookie") || "").split(";")[0];
 
 try {
   const registered = await request("/auth/register", {
@@ -41,13 +42,12 @@ try {
   assert.equal(login.status, 200);
   const loginPayload = await login.json();
   assert.ok(loginPayload.data?.accessToken);
-  assert.ok(loginPayload.data?.refreshToken);
+  assert.equal(loginPayload.data?.refreshToken, undefined);
+  const refreshCookie = refreshCookieFrom(login);
+  assert.match(refreshCookie, /^restosphere_refresh=/);
+  assert.match(String(login.headers.get("set-cookie") || ""), /HttpOnly/i);
 
-  const refresh = await request("/auth/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken: loginPayload.data.refreshToken }),
-  });
+  const refresh = await request("/auth/refresh", { method: "POST", headers: { Cookie: refreshCookie } });
   assert.equal(refresh.status, 200);
   const refreshPayload = await refresh.json();
   assert.ok(refreshPayload.data?.accessToken);
@@ -58,18 +58,10 @@ try {
   const unauthorizedOrders = await request("/orders/");
   assert.equal(unauthorizedOrders.status, 401);
 
-  const logout = await request("/auth/logout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken: loginPayload.data.refreshToken }),
-  });
+  const logout = await request("/auth/logout", { method: "POST", headers: { Cookie: refreshCookie } });
   assert.equal(logout.status, 200);
 
-  const revokedRefresh = await request("/auth/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken: loginPayload.data.refreshToken }),
-  });
+  const revokedRefresh = await request("/auth/refresh", { method: "POST", headers: { Cookie: refreshCookie } });
   assert.equal(revokedRefresh.status, 401);
 
   const forgot = await request("/auth/forgot-password", {
@@ -109,6 +101,11 @@ try {
     body: JSON.stringify({ email, password: resetPassword }),
   });
   assert.equal(resetPasswordLogin.status, 200);
+  const activeSession = await resetPasswordLogin.json();
+
+  await User.updateOne({ email }, { $set: { isActive: false } });
+  const disabledRefresh = await request("/auth/refresh", { method: "POST", headers: { Cookie: refreshCookieFrom(resetPasswordLogin) } });
+  assert.equal(disabledRefresh.status, 401);
   console.log("Auth lifecycle integration checks passed.");
 } finally {
   await new Promise((resolve) => server.close(resolve));

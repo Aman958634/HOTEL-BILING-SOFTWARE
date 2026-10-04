@@ -74,17 +74,12 @@ const SubscribeRegisterPage = () => {
       });
       const payload = data?.data;
       if (!payload?.accessToken) throw new Error("Signup failed");
-
-      localStorage.setItem("accessToken", payload.accessToken);
-      if (payload.refreshToken) {
-        localStorage.setItem("refreshToken", payload.refreshToken);
-      }
       dispatch(
         setAuthSession({
           user: payload.user,
           authorizedOutlets: payload.authorizedOutlets,
           accessToken: payload.accessToken,
-          refreshToken: payload.refreshToken,
+          rememberMe: true,
         })
       );
 
