@@ -23,7 +23,7 @@ export const TABLE_STATUS_STYLES = {
 };
 
 export const fieldClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
+  "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
 
 export const labelClass = "mb-1.5 block text-xs font-medium text-slate-600";
 

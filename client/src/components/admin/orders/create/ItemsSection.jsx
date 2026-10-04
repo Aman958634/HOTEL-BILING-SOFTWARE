@@ -21,27 +21,24 @@ const SelectedOrderRow = memo(({ item, onUpdateQty, onRemoveItem }) => (
     <td className="px-3 py-3"><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"><FiTrash2 className="h-4 w-4" /></button></td>
   </tr>
 ));
-
-const MobileCartSheet = ({ open, onClose, items, totals, orderType, onUpdateQty, onRemoveItem, submitting, isEdit }) => {
-  if (!open) return null;
-  const itemCount = items.reduce((count, item) => count + Number(item.quantity || 0), 0);
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-slate-950/45 lg:hidden" role="dialog" aria-modal="true" aria-label="Order cart" onClick={onClose}>
-      <section className="max-h-[88dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Current order</p><h3 className="text-lg font-bold text-slate-900">Cart · {itemCount} {itemCount === 1 ? "item" : "items"}</h3></div><button type="button" onClick={onClose} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600" aria-label="Close cart"><FiX /></button></div>
-        <div className="mt-3 space-y-2">{items.map((item) => <article key={item.menuItem} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{item.name}</p><p className="mt-0.5 text-xs text-slate-500">{currency(item.price)} each</p></div><p className="shrink-0 text-sm font-semibold text-slate-900">{currency(item.price * item.quantity)}</p></div><div className="mt-2 flex items-center gap-2"><QuantityControl item={item} onUpdateQty={onUpdateQty} /><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"><FiTrash2 /></button></div></article>)}</div>
-        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm"><div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{currency(totals.subtotal)}</span></div><div className="flex justify-between text-slate-600"><span>Discount</span><span>-{currency(totals.discount)}</span></div><div className="flex justify-between text-slate-600"><span>Tax</span><span>{currency(totals.tax)}</span></div>{orderType === "DELIVERY" ? <div className="flex justify-between text-slate-600"><span>Delivery</span><span>{currency(totals.deliveryCharge)}</span></div> : null}<div className="flex items-end justify-between rounded-xl bg-slate-900 px-3 py-3 text-white"><span className="text-xs font-semibold uppercase tracking-wide text-slate-300">Grand total</span><strong className="text-xl">{currency(totals.total)}</strong></div></div>
-        <button type="submit" disabled={submitting || !items.length} className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white disabled:opacity-60">{submitting ? "Processing…" : isEdit ? "Update Order" : "Place Order"}</button>
-      </section>
+const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
+  <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{item.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{item.categoryName || "Uncategorised"} · {currency(item.price)} each</p></div>
+      <p className="shrink-0 text-sm font-bold text-slate-900">{currency(item.price * item.quantity)}</p>
     </div>
-  );
-};
+    <div className="mt-3 flex items-center gap-2">
+      <QuantityControl item={item} onUpdateQty={onUpdateQty} />
+      <button type="button" aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="ml-auto inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-rose-700 hover:bg-rose-50"><FiTrash2 className="h-4 w-4" />Remove</button>
+    </div>
+  </article>
+));
 
 const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore }) => {
   if (loading) return <p className="mt-3 text-sm text-slate-500">Loading menu items...</p>;
 
   return <>
-    <div className="mt-3 grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2 sm:grid-cols-2 sm:gap-2">
+    <div className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-slate-100 bg-slate-50/60 p-2 md:max-h-72 md:grid-cols-2 md:gap-2 md:overflow-y-auto">
       {items.length ? items.slice(0, visibleCount).map((item) => (
         <button key={item._id} type="button" onClick={() => onAddItem(item)} className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-transparent bg-white px-2 py-2 text-left transition hover:border-brand-200 hover:bg-brand-50/40 focus:outline-none focus:ring-2 focus:ring-brand-600/20">
           {item.image ? <img src={item.image} alt="" className="h-9 w-9 rounded-lg object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-400">{item.name?.charAt(0) || "?"}</span>}
@@ -53,7 +50,7 @@ const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore 
     {items.length > visibleCount ? <button type="button" onClick={onShowMore} className="mt-2 min-h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50">Show more ({items.length - visibleCount} remaining)</button> : null}
   </>;
 });
-const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, totals, orderType, mobileCartOpen, onCloseMobileCart, submitting, isEdit, menuSearchRef }) => {
+const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, menuSearchRef }) => {
   const [menuSearch, setMenuSearch] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [visibleCount, setVisibleCount] = useState(60);
@@ -76,11 +73,11 @@ const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, 
   return <>
     <section className={cardClass}>
       <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-slate-900">Menu</h3><p className="text-xs text-slate-500">Search or tap an item to add it.</p></div>{items.length ? <span className="rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">{items.length} selected</span> : null}</div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_180px]"><div className="relative"><FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input ref={menuSearchRef} type="search" aria-label="Search food items" className={`${fieldClass} pl-10`} value={menuSearch} onChange={(event) => setMenuSearch(event.target.value)} placeholder="Search food items…" />{menuSearch ? <button type="button" onClick={() => setMenuSearch("")} aria-label="Clear menu search" className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX className="h-4 w-4" /></button> : null}</div><select aria-label="Filter by category" className={`${fieldClass} hidden sm:block`} value={menuCategory} onChange={(event) => setMenuCategory(event.target.value)}><option value="">All Categories</option>{categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}</select></div>
-      <div className="ops-scroll-tabs mt-3 sm:hidden" aria-label="Menu categories"><button type="button" onClick={() => setMenuCategory("")} className={`min-h-10 rounded-full px-3 text-xs font-semibold ${!menuCategory ? "bg-brand-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>All</button>{categories.map((cat) => <button key={cat._id} type="button" onClick={() => setMenuCategory(cat._id)} className={`min-h-10 rounded-full px-3 text-xs font-semibold ${menuCategory === cat._id ? "bg-brand-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>{cat.name}</button>)}</div>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]"><div className="relative"><FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input ref={menuSearchRef} type="search" aria-label="Search food items" className={`${fieldClass} pl-10`} value={menuSearch} onChange={(event) => setMenuSearch(event.target.value)} placeholder="Search food items…" />{menuSearch ? <button type="button" onClick={() => setMenuSearch("")} aria-label="Clear menu search" className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX className="h-4 w-4" /></button> : null}</div><select aria-label="Filter by category" className={fieldClass} value={menuCategory} onChange={(event) => setMenuCategory(event.target.value)}><option value="">All Categories</option>{categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}</select></div>
       <MenuResults loading={menuLoading} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
-      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 sm:block">
+      <div className="mt-4 space-y-2 md:hidden">{items.length ? items.map((item) => <SelectedOrderCard key={item.menuItem} item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} />) : <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}</div>
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
         <table className="min-w-[640px] w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2.5">Item</th><th className="px-3 py-2.5">Category</th><th className="px-3 py-2.5">Price</th><th className="px-3 py-2.5">Qty</th><th className="px-3 py-2.5">Total</th><th className="px-3 py-2.5"><span className="sr-only">Action</span></th></tr></thead>
           <tbody className="divide-y divide-slate-100">
@@ -90,7 +87,6 @@ const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, 
       </div>
       <div className="mt-3 flex items-center gap-2"><label htmlFor="discount-percent" className="text-xs font-medium text-slate-600">Discount</label><div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1"><input id="discount-percent" type="number" min="0" max="100" step="0.01" className="w-14 border-0 bg-transparent text-sm text-slate-900 outline-none focus:ring-0" value={discountPercent} onChange={(event) => onDiscountPercentChange(event.target.value)} aria-label="Discount percentage" /><span className="text-sm text-slate-500">%</span></div></div>
     </section>
-    <MobileCartSheet open={mobileCartOpen} onClose={onCloseMobileCart} items={items} totals={totals} orderType={orderType} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} submitting={submitting} isEdit={isEdit} />
   </>;
 };
 

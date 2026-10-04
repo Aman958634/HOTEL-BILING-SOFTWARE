@@ -13,7 +13,7 @@ const SummaryPanel = ({
   onNotesChange,
   onServiceChargePercentChange,
 }) => (
-  <aside className="hidden lg:sticky lg:top-4 lg:block lg:self-start">
+  <aside className="lg:sticky lg:top-4 lg:self-start">
     <section className={`${cardClass} space-y-4`}>
       <h3 className="text-base font-semibold text-slate-900">Order Summary</h3>
 

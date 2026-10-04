@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { FiCalendar, FiShoppingBag, FiX } from "react-icons/fi";
+import { FiCalendar, FiX } from "react-icons/fi";
 import { addOrderCustomer, searchOrderCustomers } from "../../../services/orderService";
 import { calculateOrderTotals, normalizeGstRate } from "../../../utils/orderCalculations";
-import { currency } from "../../../utils/format";
 import CustomerSection from "./create/CustomerSection";
 import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
@@ -99,7 +98,6 @@ const CreateOrderModal = ({
   const [customerForm, setCustomerForm] = useState({ fullName: "", email: "", phone: "" });
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
-  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const menuSearchRef = useRef(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
 
@@ -133,7 +131,6 @@ const CreateOrderModal = ({
     setErrors({});
     setSubmissionMessage("");
     setGuestCount(1);
-    setMobileCartOpen(false);
 
     if (initialData?.createdAt) {
       const created = new Date(initialData.createdAt);
@@ -148,6 +145,18 @@ const CreateOrderModal = ({
     const timer = window.setTimeout(() => writeOrderDraft(draftScope, form), 350);
     return () => window.clearTimeout(timer);
   }, [draftScope, form, isEdit, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -281,7 +290,6 @@ const CreateOrderModal = ({
   const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: value }), [patchForm]);
   const patchNotes = useCallback((value) => patchForm({ notes: value }), [patchForm]);
   const patchServiceChargePercent = useCallback((value) => patchForm({ serviceChargePercent: value }), [patchForm]);
-  const closeMobileCart = useCallback(() => setMobileCartOpen(false), []);
 
   const saveCustomer = useCallback(async () => {
     const fullName = customerForm.fullName.trim();
@@ -368,12 +376,12 @@ const CreateOrderModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/55 p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-slate-900/55 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-order-title"
     >
-      <div className="my-0 flex max-h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-slate-100 shadow-2xl sm:my-2 sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl">
+      <div className="flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden bg-slate-100 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl sm:border sm:border-slate-200">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <div className="min-w-0 flex items-start gap-3">
@@ -385,12 +393,11 @@ const CreateOrderModal = ({
                 {isEdit ? "Edit Order" : "Create New Order"}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Add items, manage order details and create a new order
+                {isEdit ? "Correct order details and items" : "Add items, manage order details and create a new order"}
               </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            {itemCount > 0 ? <button type="button" onClick={() => setMobileCartOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white lg:hidden" aria-label={`View cart with ${itemCount} items`}><FiShoppingBag aria-hidden="true" /> {itemCount} · {currency(totals.total)}</button> : null}
             <button
               type="button"
               onClick={onClose}
@@ -403,7 +410,7 @@ const CreateOrderModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="grid flex-1 gap-4 overflow-y-auto p-3 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid flex-1 gap-4 overflow-y-auto overscroll-contain p-3 pb-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-4 sm:space-y-5">
               <CustomerSection
                 customer={form.customer}
@@ -459,12 +466,6 @@ const CreateOrderModal = ({
                 onUpdateQty={updateItemQty}
                 onRemoveItem={removeItem}
                 onDiscountPercentChange={patchDiscountPercent}
-                totals={totals}
-                orderType={form.orderType}
-                mobileCartOpen={mobileCartOpen}
-                onCloseMobileCart={closeMobileCart}
-                submitting={loading}
-                isEdit={isEdit}
               />
             </div>
 
@@ -482,20 +483,20 @@ const CreateOrderModal = ({
           </div>
 
           {/* Bottom action bar */}
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-            {submissionMessage || submissionError ? <p className="text-sm text-amber-800" role="status">{submissionMessage || submissionError}</p> : null}
+          <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-slate-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-6 sm:py-4">
+            {submissionMessage || submissionError ? <p className="col-span-2 text-sm text-amber-800 sm:mr-auto" role="status">{submissionMessage || submissionError}</p> : null}
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="min-h-11 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60 sm:w-auto"
+              className="min-h-12 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="min-h-11 w-full rounded-xl bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              className="min-h-12 w-full rounded-xl bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {loading ? (isEdit ? "Updating Order..." : "Creating Order...") : isEdit ? "Update Order" : "Create Order"}
             </button>

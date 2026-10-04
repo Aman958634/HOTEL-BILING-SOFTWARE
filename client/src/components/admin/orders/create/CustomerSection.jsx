@@ -28,7 +28,7 @@ const CustomerSection = ({
         <button
           type="button"
           onClick={onOpenAddForm}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-800 transition hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 min-h-11 px-3 py-1.5 text-xs font-semibold text-brand-800 transition hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
         >
           <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
           Add Customer
@@ -148,7 +148,7 @@ const CustomerSection = ({
           <p className="mt-2 text-xs text-slate-500">Searching customers...</p>
         ) : null}
         {customerResults.length > 0 ? (
-          <ul className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-sm">
+          <ul className="mt-2 rounded-xl sm:max-h-44 sm:overflow-y-auto border border-slate-200 bg-white py-1 shadow-sm">
             {customerResults.map((entry) => (
               <li key={entry._id}>
                 <button

@@ -61,7 +61,7 @@ const OrderDetailsSection = ({
     <h3 className="mb-4 text-base font-semibold text-slate-900">Order Details</h3>
 
     <p className={labelClass}>Order Type</p>
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-3">
       {ORDER_TYPES.map(({ value, label, icon: Icon }) => {
         const active = orderType === value;
         return (
@@ -69,7 +69,7 @@ const OrderDetailsSection = ({
             key={value}
             type="button"
             onClick={() => onPatch({ orderType: value, table: value === "DINE_IN" ? tableId : "" })}
-            className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 ${
+            className={`flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 ${
               active
                 ? "border-brand-600 bg-brand-50 text-brand-800 shadow-sm"
                 : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
