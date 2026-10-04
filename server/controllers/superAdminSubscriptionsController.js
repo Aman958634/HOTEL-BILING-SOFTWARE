@@ -29,6 +29,8 @@ import {
   calculateSubscriptionEndDate,
   calculateTrialEndDate,
   expireTrialIfNeeded,
+  syncSubscriptionEntitlement,
+  getSubscriptionEndDate,
   getDaysRemaining,
   getFreeTrialDays,
   normalizeTrialDates,
@@ -412,14 +414,10 @@ export const verifyAndActivatePayment = async ({
 };
 
 const syncAndExpire = async (sub) => {
-  if (normalizeTrialDates(sub)) {
-    await sub.save();
-  }
-  if (sub.status === "trial" && expireTrialIfNeeded(sub)) {
-    await sub.save();
-    return true;
-  }
-  return false;
+  const previousStatus = sub.status;
+  const { changed, state } = syncSubscriptionEntitlement(sub);
+  if (changed) await sub.save();
+  return previousStatus !== "expired" && sub.status === "expired" ? state : false;
 };
 
 const activatePaidSubscription = async ({
@@ -432,6 +430,9 @@ const activatePaidSubscription = async ({
   payment = null,
 }) => {
   const now = new Date();
+  // An early renewal extends from the current paid end, preserving every remaining paid day.
+  const existingEnd = getSubscriptionEndDate(subscription);
+  const activationBase = subscription.status === "active" && existingEnd && existingEnd > now ? existingEnd : now;
   // A payment's values are a purchase-time snapshot. This protects old pending
   // checkout records if plan catalog pricing changes before verification.
   const snapshot = payment?.metadata?.planSnapshot || null;
@@ -441,7 +442,7 @@ const activatePaidSubscription = async ({
   const durationMonths = Number(snapshot?.durationMonths || persistedPaymentDuration) || getPlanDurationMonths(plan);
   const durationLabel = snapshot?.durationLabel || payment?.durationLabel || getPlanDurationLabel(plan);
   const amount = payment ? Number(payment.amount) : Number(plan.price);
-  const endDate = calculateSubscriptionEndDate(now, durationMonths);
+  const endDate = calculateSubscriptionEndDate(activationBase, durationMonths);
   subscription.status = "active";
   subscription.planId = plan._id;
   subscription.planName = plan.key;
@@ -465,6 +466,7 @@ const activatePaidSubscription = async ({
     durationMonths,
     durationLabel,
     selectedPremiumDurationYears: snapshot?.premiumDurationYears || null,
+    expiredEntitlementState: null,
   };
   await subscription.save();
 
@@ -490,9 +492,10 @@ export const listSubscriptions = asyncHandler(async (_req, res) => {
   for (const sub of subs) {
     const expiredNow = await syncAndExpire(sub);
     if (expiredNow) {
+      const trialExpired = expiredNow === "TRIAL_EXPIRED";
       await createActivity({
-        action: "Trial Expired",
-        description: `Trial expired for ${sub.restaurant?.name || sub.restaurant}`,
+        action: trialExpired ? "Trial Expired" : "Subscription Expired",
+        description: `${trialExpired ? "Trial" : "Subscription"} expired for ${sub.restaurant?.name || sub.restaurant}`,
         restaurantId: sub.restaurant?._id || sub.restaurant,
         targetId: sub._id,
         targetType: "subscription",
@@ -793,9 +796,10 @@ export const getMySubscription = asyncHandler(async (req, res) => {
 
   const expiredNow = await syncAndExpire(sub);
   if (expiredNow) {
+    const trialExpired = expiredNow === "TRIAL_EXPIRED";
     await createActivity({
-      action: "Trial Expired",
-      description: "Your free trial has ended.",
+      action: trialExpired ? "Trial Expired" : "Subscription Expired",
+      description: trialExpired ? "Your free trial has ended." : "Your subscription has expired.",
       performedBy: req.user._id,
       restaurantId,
       targetId: sub._id,
@@ -876,8 +880,8 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
   const sub = await Subscription.findOne({ restaurant: restaurantId }).sort({ createdAt: -1 });
   if (!sub) throw new ApiError(404, "Subscription not found");
 
-  if (sub.status === "trial") await syncAndExpire(sub);
-  if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
+  await syncAndExpire(sub);
+  if (["cancelled", "suspended"].includes(sub.status)) throw new ApiError(403, "This subscription cannot be renewed while it is inactive.");
 
   // Remember selected plan in metadata only during trial — do not overwrite trial plan name.
   const alreadySelected = sub.metadata?.selectedPaidPlan === plan.key && sub.metadata?.selectedPremiumDurationYears === (offer.premiumDurationYears || null);
@@ -889,7 +893,8 @@ export const createBillingCheckout = asyncHandler(async (req, res) => {
     selectedPremiumDurationYears: isPremiumPlan(plan) ? offer.premiumDurationYears : null,
     paymentRecorded: false,
   };
-  if (sub.status !== "trial") {
+  // An active tenant keeps its current canonical plan until verified payment.
+  if (!["trial", "active"].includes(sub.status)) {
     sub.planId = plan._id;
     sub.planName = plan.key;
   }
@@ -930,8 +935,8 @@ export const createSubscriptionPaymentCheckout = asyncHandler(async (req, res) =
   const sub = await Subscription.findById(req.params.id).populate("restaurant", "name");
   if (!sub) throw new ApiError(404, "Subscription not found");
 
-  if (sub.status === "trial") await syncAndExpire(sub);
-  if (sub.status === "active") throw new ApiError(400, "Subscription is already active");
+  await syncAndExpire(sub);
+  if (["cancelled", "suspended"].includes(sub.status)) throw new ApiError(403, "This subscription cannot be renewed while it is inactive.");
 
   const { plan, offer } = await getSelectedOfferForSubscription(sub);
   const checkout = await createCheckoutPayment(sub, plan, offer, sub.restaurant?.name, req.user._id);

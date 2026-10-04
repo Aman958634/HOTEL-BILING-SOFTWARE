@@ -67,6 +67,7 @@ const BillingPage = () => {
           testSuccess: true,
         });
         setSubscription(verify.data?.data || null);
+        window.dispatchEvent(new CustomEvent("restosphere:subscription-updated"));
         toast.success("Payment successful. Subscription is now active.");
         return;
       }
@@ -97,6 +98,7 @@ const BillingPage = () => {
               razorpay_signature: response.razorpay_signature,
             });
             setSubscription(verify.data?.data || null);
+            window.dispatchEvent(new CustomEvent("restosphere:subscription-updated"));
             toast.success("Payment successful. Subscription is now active.");
           } catch (err) {
             toast.error(err?.response?.data?.message || "Payment verification failed");
@@ -186,14 +188,14 @@ const BillingPage = () => {
             </ul>
             <button
               type="button"
-              disabled={Boolean(busyPlan) || (subscription?.status === "active" && subscription?.planName === plan.key)}
+              disabled={Boolean(busyPlan)}
               onClick={() => upgrade(plan)}
               className="mt-5 w-full rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
             >
               {busyPlan === plan.key
                 ? "Processing..."
                 : subscription?.status === "active" && subscription?.planName === plan.key
-                  ? "Current plan"
+                  ? "Renew Plan"
                   : subscription?.status === "expired"
                     ? "Upgrade Subscription"
                     : "Upgrade Now"}

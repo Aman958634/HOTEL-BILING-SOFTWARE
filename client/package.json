@@ -8,6 +8,7 @@
     "build": "vite build && node scripts/generatePricingStaticPage.mjs && node scripts/generatePwaServiceWorker.mjs",
     "lint": "eslint src",
     "test:runtime-config": "node --test src/utils/runtimeEnvironment.test.js",
+    "test:trial-countdown": "node --test src/utils/trialCountdown.test.js",
     "test:auth-session": "set NODE_ENV=test&& node --test --experimental-loader=./scripts/extensionless-test-loader.mjs src/services/api.auth.test.js",
     "test:e2e": "playwright test",
     "preview": "vite preview"

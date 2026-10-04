@@ -34,6 +34,8 @@
     "migrate:order-idempotency-index": "node scripts/migrateOrderIdempotencyIndex.js",
     "migrate:performance-indexes": "node scripts/migratePerformanceIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
+    "test:subscription-entitlement": "node tests/subscriptionEntitlement.test.js",
+    "test:subscription-access": "node tests/subscriptionAccessMiddleware.integration.test.js",
     "test:fixed-duration-pricing": "node tests/fixedDurationPricing.test.js",
     "test:bi": "node tests/businessIntelligenceRange.test.js",
     "test:intelligence": "node tests/intelligenceSignals.test.js",

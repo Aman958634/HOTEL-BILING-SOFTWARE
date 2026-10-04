@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from "react";
-import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiChevronDown, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin } from "react-icons/fi";
+import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiChevronDown, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin, FiLock } from "react-icons/fi";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
@@ -39,7 +39,7 @@ const linkGroups = Object.entries(
 const groupLabel = (group) => group === "Menu & Customers" ? "Menu & customers" : group;
 const groupId = (group) => `admin-navigation-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 
-const AdminSidebar = ({ open, setOpen }) => {
+const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -117,24 +117,13 @@ const AdminSidebar = ({ open, setOpen }) => {
                 <FiChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
               <div id={controls} className="space-y-1" hidden={!expanded}>
-              {groupLinks.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end
-              className={({ isActive }) =>
-                `module-sidebar-link admin-sidebar__link flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium min-h-[48px] ${
-                  isActive
-                    ? "is-active"
-                    : ""
-                }`
-              }
-              onClick={() => setOpen(false)}
-            >
-              <ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" />
-              <span className="min-w-0 truncate">{link.label}</span>
-            </NavLink>
-              ))}
+              {groupLinks.map((link) => {
+                const isPlanLink = link.to.endsWith("/billing") || link.to.endsWith("/my-subscription");
+                const isLockedOperation = subscriptionLocked && !isPlanLink;
+                const label = subscriptionLocked && link.to.endsWith("/billing") ? "Plans & Subscription" : link.label;
+                if (isLockedOperation) return <button key={link.to} type="button" disabled title="Subscription required to access this module" className="module-sidebar-link flex min-h-[48px] w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium opacity-55"><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 flex-1 truncate">{label}</span><FiLock className="shrink-0" aria-label="Locked" /></button>;
+                return <NavLink key={link.to} to={link.to} end className={({ isActive }) => `module-sidebar-link admin-sidebar__link flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium ${isActive ? "is-active" : ""} ${subscriptionLocked && isPlanLink ? "border border-teal-200 bg-teal-50 text-teal-900" : ""}`} onClick={() => setOpen(false)}><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 truncate">{label}</span></NavLink>;
+              })}
               </div>
             </div>
           })}

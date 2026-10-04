@@ -181,6 +181,7 @@ api.interceptors.response.use(
     }
 
     if (
+      code === "SUBSCRIPTION_REQUIRED" ||
       code === "SUBSCRIPTION_EXPIRED" ||
       code === "SUBSCRIPTION_CANCELLED" ||
       code === "SUBSCRIPTION_SUSPENDED" ||

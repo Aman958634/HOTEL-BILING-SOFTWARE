@@ -52,6 +52,15 @@ try {
   assert.equal((await SaasPayment.findById(failedPayment._id)).status, "failed");
   assert.equal((await Subscription.findById(failedSubscription._id)).status, "expired");
 
+  // Renewing before expiry must extend from the existing canonical end, not discard remaining time.
+  const renewalRestaurant = await Restaurant.create({ name: `Premium early renewal ${suffix}`, slug: `premium-renew-${suffix}`, branchCode: `R${suffix.slice(0, 6)}`, address: "Isolated test" });
+  restaurantIds.push(renewalRestaurant._id);
+  const existingEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const renewalSubscription = await Subscription.create({ restaurant: renewalRestaurant._id, planId: premium._id, planName: premium.key, status: "active", subscriptionStartAt: new Date(), subscriptionEndAt: existingEnd, renewalDate: existingEnd, metadata: { recurringBillingEnabled: false } });
+  const renewalOffer = getPlanOffer(premium, 1);
+  const renewalPayment = await SaasPayment.create({ restaurant: renewalRestaurant._id, subscription: renewalSubscription._id, planId: premium._id, planName: premium.key, amount: renewalOffer.amount, currency: "INR", billingCycle: renewalOffer.billingCycle, durationMonths: renewalOffer.durationMonths, durationLabel: renewalOffer.durationLabel, gateway: "test", provider: "TEST", metadata: { planSnapshot: renewalOffer, purpose: "SUBSCRIPTION" } });
+  const renewed = await verifyAndActivatePayment({ payment: renewalPayment, restaurantId: renewalRestaurant._id, source: "isolated_early_renewal", testSuccess: true });
+  assert.equal(renewed.subscriptionEndAt.getTime(), calculateSubscriptionEndDate(existingEnd, renewalOffer.durationMonths).getTime());
   assert.throws(() => getPlanOffer(premium, 0), /Premium duration/i);
   assert.throws(() => getPlanOffer(premium, 6), /Premium duration/i);
   assert.equal(calculateSubscriptionEndDate(new Date("2024-02-29T00:00:00.000Z"), 12).toISOString(), "2025-02-28T00:00:00.000Z");

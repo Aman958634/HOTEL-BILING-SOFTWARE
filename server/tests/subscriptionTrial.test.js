@@ -41,6 +41,9 @@ const run = () => {
   };
   assert.equal(getDaysRemaining(trialSub, created), 5);
   assert.equal(formatDaysRemainingLabel(trialSub, created), "5 days remaining");
+  // Labels use completed 24-hour periods: just after creation is 4d 23h rather than a rounded-up 5.
+  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + 1)), 4);
+  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + MS_DAY + 1)), 3);
 
   const at1 = new Date(trialEnd.getTime() - 1 * MS_DAY);
   assert.equal(getDaysRemaining(trialSub, at1), 1);
