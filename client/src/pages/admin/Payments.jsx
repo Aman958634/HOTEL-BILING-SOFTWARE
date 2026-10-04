@@ -48,6 +48,7 @@ const Payments = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptDownloadLoading, setReceiptDownloadLoading] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundTarget, setRefundTarget] = useState(null);
   const [processingRefund, setProcessingRefund] = useState(false);
@@ -63,6 +64,14 @@ const Payments = () => {
   const filtersRef = useRef(filters);
   const paymentRefreshPromise = useRef(null);
   const socketRefreshTimer = useRef(null);
+  const selectedPaymentRef = useRef(null);
+  const receiptOpenRequestRef = useRef("");
+  const receiptDownloadRequestRef = useRef(false);
+  const receiptPrintRequestRef = useRef(false);
+
+  useEffect(() => {
+    selectedPaymentRef.current = selectedPayment;
+  }, [selectedPayment]);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -198,7 +207,7 @@ const Payments = () => {
     if (socketRefreshTimer.current) clearTimeout(socketRefreshTimer.current);
   }, []);
 
-  const openDetails = async (payment) => {
+  const openDetails = useCallback(async (payment) => {
     setDetailOpen(true);
     setDetailLoading(true);
     try {
@@ -210,13 +219,16 @@ const Payments = () => {
     } finally {
       setDetailLoading(false);
     }
-  };
+  }, []);
 
-  const openReceipt = async (payment) => {
+  const openReceipt = useCallback(async (payment) => {
     if (!canViewPaymentReceipt(payment)) return;
+    const paymentKey = String(payment._id || payment.paymentId || "");
+    if (!paymentKey || receiptOpenRequestRef.current === paymentKey) return;
+    receiptOpenRequestRef.current = paymentKey;
     try {
-      let receiptPayment = selectedPayment;
-      if (!selectedPayment || selectedPayment.paymentId !== payment.paymentId) {
+      let receiptPayment = selectedPaymentRef.current;
+      if (!receiptPayment || receiptPayment.paymentId !== payment.paymentId) {
         const { data } = await getPaymentById(payment._id || payment.paymentId);
         receiptPayment = data.data;
       }
@@ -229,17 +241,22 @@ const Payments = () => {
       setDetailOpen(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to load receipt");
+    } finally {
+      if (receiptOpenRequestRef.current === paymentKey) receiptOpenRequestRef.current = "";
     }
-  };
+  }, []);
 
-  const downloadReceipt = async () => {
-    if (!selectedPayment) return;
+  const downloadReceipt = useCallback(async () => {
+    const payment = selectedPaymentRef.current;
+    if (!payment || receiptDownloadRequestRef.current) return;
+    receiptDownloadRequestRef.current = true;
+    setReceiptDownloadLoading(true);
     try {
-      const { data } = await getPaymentReceipt(selectedPayment._id || selectedPayment.paymentId);
+      const { data } = await getPaymentReceipt(payment._id || payment.paymentId);
       const url = URL.createObjectURL(data);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `receipt-${selectedPayment.paymentId}.pdf`;
+      anchor.download = `receipt-${payment.paymentId}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -247,14 +264,22 @@ const Payments = () => {
       toast.success("Receipt downloaded");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to download receipt");
+    } finally {
+      receiptDownloadRequestRef.current = false;
+      setReceiptDownloadLoading(false);
     }
-  };
+  }, []);
 
-  const printReceipt = () => {
+  const printReceipt = useCallback(() => {
+    if (receiptPrintRequestRef.current) return;
     const receipt = document.getElementById("payment-receipt-print");
     if (!receipt) return;
 
-    const clearPrintMode = () => document.body.classList.remove("payment-receipt-printing");
+    receiptPrintRequestRef.current = true;
+    const clearPrintMode = () => {
+      document.body.classList.remove("payment-receipt-printing");
+      receiptPrintRequestRef.current = false;
+    };
     document.body.classList.add("payment-receipt-printing");
     window.addEventListener("afterprint", clearPrintMode, { once: true });
     try {
@@ -263,11 +288,11 @@ const Payments = () => {
       clearPrintMode();
       toast.error("Unable to open the print dialog");
     }
-  };
+  }, []);
 
-  const openRefund = async (payment) => {
+  const openRefund = useCallback(async (payment) => {
     try {
-      if (!selectedPayment || selectedPayment.paymentId !== payment.paymentId) {
+      if (!selectedPaymentRef.current || selectedPaymentRef.current.paymentId !== payment.paymentId) {
         const { data } = await getPaymentById(payment._id || payment.paymentId);
         setSelectedPayment(data.data);
       }
@@ -276,7 +301,7 @@ const Payments = () => {
     } catch (err) {
       toast.error(err?.response?.data?.message || "Unable to open refund dialog");
     }
-  };
+  }, []);
 
   const submitRefund = async (payload) => {
     if (!refundTarget) return;
@@ -400,7 +425,8 @@ const Payments = () => {
     }
   };
 
-  const retry = () => loadPayments(filtersRef.current);
+  const retry = useCallback(() => loadPayments(filtersRef.current), [loadPayments]);
+  const changePage = useCallback((page) => setFilters((current) => ({ ...current, page })), []);
 
   const tableContent = payments;
   const attentionPayments = payments.filter((payment) => {
@@ -479,7 +505,7 @@ const Payments = () => {
             onReceipt={openReceipt}
             onRefund={openRefund}
             onDelete={setDeleteTarget}
-            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+            onPageChange={changePage}
           />
         </section>
       )}
@@ -516,6 +542,7 @@ const Payments = () => {
         <PaymentReceipt
           open={receiptOpen}
           payment={selectedPayment}
+          downloading={receiptDownloadLoading}
           onClose={() => setReceiptOpen(false)}
           onDownload={downloadReceipt}
           onPrint={printReceipt}

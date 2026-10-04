@@ -44,7 +44,6 @@ const en = {
       reports: ["Reports & Analytics", "Get detailed insights and analytics to grow your restaurant business."],
     },
     footerTagline: "Smarter Restaurant Management",
-    operatedBy: "Operated by: AMANULLAH RAHAMATULLABHAI ATHANIYA",
     copyright: "© 2026 RestoSphere. All rights reserved.",
   },
   settings: {

@@ -80,7 +80,6 @@ const HomePage = () => {
         <div className="text-center sm:text-left">
           <p className="text-lg font-bold text-white sm:text-xl">RestoSphere</p>
           <p className="mt-0.5 text-sm text-slate-400">{t("home.footerTagline")}</p>
-          <p className="mt-1 text-sm text-slate-400">{t("home.operatedBy")}</p>
         </div>
         <p className="shrink-0 text-center text-sm text-slate-500 sm:text-right">
           {t("home.copyright")}

@@ -43,6 +43,7 @@ const OrderDetailsSection = ({
   paymentMethod,
   paymentStatus,
   deliveryAddress,
+  deliveryCharge,
   customer,
   guestCount,
   orderDateLabel,
@@ -126,6 +127,7 @@ const OrderDetailsSection = ({
             type="button"
             aria-label="Decrease guest count"
             onClick={() => onGuestChange(Math.max(1, guestCount - 1))}
+            disabled={isEdit}
             className="inline-flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
           >
             <FiMinus className="h-4 w-4" />
@@ -135,11 +137,13 @@ const OrderDetailsSection = ({
             type="button"
             aria-label="Increase guest count"
             onClick={() => onGuestChange(guestCount + 1)}
+            disabled={isEdit}
             className="inline-flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
           >
             <FiPlus className="h-4 w-4" />
           </button>
         </div>
+        {isEdit ? <p className="mt-2 text-xs text-slate-500">Guest count is only recorded during new-order entry and cannot be changed here.</p> : null}
       </div>
 
       <div>
@@ -184,7 +188,7 @@ const OrderDetailsSection = ({
             min="0"
             step="0.01"
             className={fieldClass}
-            value={form.deliveryCharge}
+            value={deliveryCharge}
             onChange={(e) => onPatch({ deliveryCharge: e.target.value })}
           />
         </div>
@@ -199,12 +203,14 @@ const OrderDetailsSection = ({
           className={fieldClass}
           value={paymentMethod}
           onChange={(e) => onPatch({ paymentMethod: e.target.value })}
+          disabled={isEdit}
         >
           {CREATE_ORDER_PAYMENT_METHODS.map((m) => (
             <option key={m.value} value={m.value} disabled={m.value === "UPI" && !hotelUpiCapability.canCollect}>{m.label}</option>
           ))}
         </select>
         {!hotelUpiCapability.canCollect ? <p className="mt-1 text-xs text-amber-700">{hotelUpiCapability.reason || "Hotel UPI is unavailable."}</p> : null}
+        {isEdit ? <p className="mt-1 text-xs text-slate-500">Payment method is controlled by the payment workflow and cannot be changed here.</p> : null}
       </div>
       <div>
         <p className={labelClass}>Payment Status</p>

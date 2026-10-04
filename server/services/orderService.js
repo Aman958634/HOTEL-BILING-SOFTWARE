@@ -428,6 +428,16 @@ export const ensureOrderEditAllowed = (order) => {
   if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(status)) {
     throw new ApiError(409, "This order cannot be edited in its current status.");
   }
+
+  const paymentStatus = normalizePaymentStatus(order.paymentStatus);
+  if ([
+    PAYMENT_STATUSES.PAID,
+    PAYMENT_STATUSES.AWAITING_VERIFICATION,
+    PAYMENT_STATUSES.REFUNDED,
+    PAYMENT_STATUSES.PARTIALLY_REFUNDED,
+  ].includes(paymentStatus)) {
+    throw new ApiError(409, "This order cannot be edited while its payment is being verified or has been settled.");
+  }
 };
 
 export const ensureOrderDeleteAllowed = (order) => {

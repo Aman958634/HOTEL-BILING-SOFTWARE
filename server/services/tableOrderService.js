@@ -42,10 +42,13 @@ export const reconcileTablesAvailability = async (tables = []) => {
 export const assignTableForDineInOrder = async (tableId, _orderId, { restaurantId, alreadyValidated = false } = {}) => {
   if (!tableId) throw new ApiError(422, "Table is required for DINE_IN orders.");
   if (!alreadyValidated) {
-    const table = await Table.findById(tableId).select("restaurant");
+    const table = await Table.findById(tableId).select("restaurant status");
     if (!table) throw new ApiError(404, "Table not found");
     if (restaurantId && table.restaurant && String(table.restaurant) !== String(restaurantId)) {
       throw new ApiError(403, "Table does not belong to your restaurant");
+    }
+    if (String(table.status || "").toUpperCase() === "MAINTENANCE") {
+      throw new ApiError(422, "A table under maintenance cannot be assigned to an order");
     }
   }
   return updateTableStatus(tableId);

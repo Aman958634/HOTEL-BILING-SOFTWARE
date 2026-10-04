@@ -14,20 +14,30 @@ export const normalizeGstRate = (value) => {
 export const calculateOrderTotals = ({
   items = [],
   discount = 0,
+  discountPercent,
   taxPercent = 0,
   serviceChargePercent = 0,
   deliveryCharge = 0,
   orderType = "DINE_IN",
 }) => {
+  let rawSubtotal = 0;
+  let normalizedSubtotal = 0;
+  let itemCount = 0;
   const normalizedItems = items.map((item) => {
     const quantity = Math.max(1, toNumber(item.quantity, 1));
     const price = Math.max(0, toNumber(item.price, 0));
-    const subtotal = round2(price * quantity);
-    return { ...item, quantity, price, subtotal, lineTotal: subtotal };
+    const lineSubtotal = round2(price * quantity);
+    rawSubtotal += price * quantity;
+    normalizedSubtotal += lineSubtotal;
+    itemCount += quantity;
+    return { ...item, quantity, price, subtotal: lineSubtotal, lineTotal: lineSubtotal };
   });
 
-  const subtotal = round2(normalizedItems.reduce((sum, item) => sum + item.subtotal, 0));
-  let safeDiscount = Math.max(0, toNumber(discount));
+  const subtotal = round2(normalizedSubtotal);
+  const requestedDiscount = discountPercent === undefined
+    ? discount
+    : round2((rawSubtotal * Math.max(0, Math.min(100, toNumber(discountPercent)))) / 100);
+  let safeDiscount = Math.max(0, toNumber(requestedDiscount));
   safeDiscount = Math.min(safeDiscount, subtotal);
 
   const taxableBase = Math.max(0, subtotal - safeDiscount);
@@ -41,6 +51,7 @@ export const calculateOrderTotals = ({
 
   return {
     items: normalizedItems,
+    itemCount,
     subtotal,
     discount: round2(safeDiscount),
     tax,

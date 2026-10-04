@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { FiFileText, FiEye, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import { paymentBadgeClasses, paymentMethodLabel, paymentStatusLabel, formatCurrency, formatPaymentDate, canRefundPayment, canViewPaymentReceipt, getPaymentAmount } from "../../utils/paymentUtils";
 import EmptyState from "../common/EmptyState";
@@ -114,4 +115,4 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
   );
 };
 
-export default PaymentTable;
+export default memo(PaymentTable);

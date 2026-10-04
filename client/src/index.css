@@ -637,8 +637,7 @@ button:disabled { cursor: not-allowed; }
   @page { size: 80mm auto; margin: 0; }
 
   html,
-  body.payment-receipt-printing,
-  body.payment-receipt-printing #root {
+  body.payment-receipt-printing {
     width: 80mm !important;
     height: auto !important;
     min-height: 0 !important;
@@ -648,11 +647,13 @@ button:disabled { cursor: not-allowed; }
     background: #fff !important;
   }
 
-  body.payment-receipt-printing #root * { display: none !important; }
+  /* The receipt is portaled beside #root, so printing hides the application in
+     one operation instead of restyling every dashboard descendant. */
+  body.payment-receipt-printing > :not(.payment-receipt-modal) { display: none !important; }
 
-  /* Restore only the three modal ancestors needed to reach the printable article.
-     All their siblings stay display:none, so they cannot leave blank print pages. */
-  body.payment-receipt-printing #root *:has(#payment-receipt-print) {
+  body.payment-receipt-printing .payment-receipt-modal,
+  body.payment-receipt-printing .payment-receipt-dialog,
+  body.payment-receipt-printing .payment-receipt-scroll {
     display: block !important;
     position: static !important;
     inset: auto !important;
@@ -674,6 +675,8 @@ button:disabled { cursor: not-allowed; }
     display: revert !important;
     visibility: visible !important;
   }
+
+  body.payment-receipt-printing .payment-receipt-actions { display: none !important; }
 
   body.payment-receipt-printing #payment-receipt-print {
     width: 72mm !important;

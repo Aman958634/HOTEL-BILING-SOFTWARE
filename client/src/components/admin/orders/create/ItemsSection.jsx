@@ -3,13 +3,24 @@ import { FiMinus, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import { currency } from "../../../../utils/format";
 import { cardClass, fieldClass } from "./constants";
 
-const QuantityControl = ({ item, onUpdateQty }) => (
+const QuantityControl = memo(({ item, onUpdateQty }) => (
   <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
     <button type="button" aria-label={`Decrease ${item.name} quantity`} onClick={() => onUpdateQty(item.menuItem, -1)} className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"><FiMinus className="h-3.5 w-3.5" /></button>
     <span className="min-w-9 text-center text-sm font-semibold text-slate-900">{item.quantity}</span>
     <button type="button" aria-label={`Increase ${item.name} quantity`} onClick={() => onUpdateQty(item.menuItem, 1)} className="inline-flex h-10 w-10 items-center justify-center hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"><FiPlus className="h-3.5 w-3.5" /></button>
   </div>
-);
+));
+
+const SelectedOrderRow = memo(({ item, onUpdateQty, onRemoveItem }) => (
+  <tr className="bg-white">
+    <td className="px-3 py-3"><p className="font-medium text-slate-900">{item.name}</p>{item.description ? <p className="line-clamp-1 text-xs text-slate-500">{item.description}</p> : null}</td>
+    <td className="px-3 py-3 text-xs text-slate-600">{item.categoryName || "—"}</td>
+    <td className="whitespace-nowrap px-3 py-3 text-slate-700">{currency(item.price)}</td>
+    <td className="px-3 py-3"><QuantityControl item={item} onUpdateQty={onUpdateQty} /></td>
+    <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{currency(item.price * item.quantity)}</td>
+    <td className="px-3 py-3"><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"><FiTrash2 className="h-4 w-4" /></button></td>
+  </tr>
+));
 
 const MobileCartSheet = ({ open, onClose, items, totals, orderType, onUpdateQty, onRemoveItem, submitting, isEdit }) => {
   if (!open) return null;
@@ -42,7 +53,7 @@ const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore 
     {items.length > visibleCount ? <button type="button" onClick={onShowMore} className="mt-2 min-h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50">Show more ({items.length - visibleCount} remaining)</button> : null}
   </>;
 });
-const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, getCategoryName, totals, orderType, mobileCartOpen, onCloseMobileCart, submitting, isEdit, menuSearchRef }) => {
+const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, totals, orderType, mobileCartOpen, onCloseMobileCart, submitting, isEdit, menuSearchRef }) => {
   const [menuSearch, setMenuSearch] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [visibleCount, setVisibleCount] = useState(60);
@@ -69,7 +80,14 @@ const ItemsSection = ({ menuItems = [], categories, menuLoading, items, errors, 
       <div className="ops-scroll-tabs mt-3 sm:hidden" aria-label="Menu categories"><button type="button" onClick={() => setMenuCategory("")} className={`min-h-10 rounded-full px-3 text-xs font-semibold ${!menuCategory ? "bg-brand-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>All</button>{categories.map((cat) => <button key={cat._id} type="button" onClick={() => setMenuCategory(cat._id)} className={`min-h-10 rounded-full px-3 text-xs font-semibold ${menuCategory === cat._id ? "bg-brand-700 text-white" : "border border-slate-200 bg-white text-slate-600"}`}>{cat.name}</button>)}</div>
       <MenuResults loading={menuLoading} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
-      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 sm:block"><table className="min-w-[640px] w-full text-sm"><thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2.5">Item</th><th className="px-3 py-2.5">Category</th><th className="px-3 py-2.5">Price</th><th className="px-3 py-2.5">Qty</th><th className="px-3 py-2.5">Total</th><th className="px-3 py-2.5"><span className="sr-only">Action</span></th></tr></thead><tbody className="divide-y divide-slate-100">{items.length ? items.map((item) => <tr key={item.menuItem} className="bg-white"><td className="px-3 py-3"><p className="font-medium text-slate-900">{item.name}</p>{item.description ? <p className="line-clamp-1 text-xs text-slate-500">{item.description}</p> : null}</td><td className="px-3 py-3 text-xs text-slate-600">{getCategoryName(item)}</td><td className="whitespace-nowrap px-3 py-3 text-slate-700">{currency(item.price)}</td><td className="px-3 py-3"><QuantityControl item={item} onUpdateQty={onUpdateQty} /></td><td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{currency(item.price * item.quantity)}</td><td className="px-3 py-3"><button type="button" aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.menuItem)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"><FiTrash2 className="h-4 w-4" /></button></td></tr>) : <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</td></tr>}</tbody></table></div>
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 sm:block">
+        <table className="min-w-[640px] w-full text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2.5">Item</th><th className="px-3 py-2.5">Category</th><th className="px-3 py-2.5">Price</th><th className="px-3 py-2.5">Qty</th><th className="px-3 py-2.5">Total</th><th className="px-3 py-2.5"><span className="sr-only">Action</span></th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.length ? items.map((item) => <SelectedOrderRow key={item.menuItem} item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} />) : <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</td></tr>}
+          </tbody>
+        </table>
+      </div>
       <div className="mt-3 flex items-center gap-2"><label htmlFor="discount-percent" className="text-xs font-medium text-slate-600">Discount</label><div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1"><input id="discount-percent" type="number" min="0" max="100" step="0.01" className="w-14 border-0 bg-transparent text-sm text-slate-900 outline-none focus:ring-0" value={discountPercent} onChange={(event) => onDiscountPercentChange(event.target.value)} aria-label="Discount percentage" /><span className="text-sm text-slate-500">%</span></div></div>
     </section>
     <MobileCartSheet open={mobileCartOpen} onClose={onCloseMobileCart} items={items} totals={totals} orderType={orderType} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} submitting={submitting} isEdit={isEdit} />

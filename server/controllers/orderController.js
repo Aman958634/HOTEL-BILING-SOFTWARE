@@ -697,7 +697,11 @@ export const updateOrder = asyncHandler(async (req, res) => {
     orderType: nextOrderType,
     items: itemsWithKitchenStatus,
     discount: req.body.discount !== undefined ? req.body.discount : order.discount,
-    serviceCharge: req.body.serviceCharge !== undefined ? req.body.serviceCharge : order.serviceCharge,
+    // A submitted percentage intentionally supersedes the historical fixed
+    // amount; otherwise a partial update retains the existing amount.
+    serviceCharge: req.body.serviceChargePercent !== undefined
+      ? undefined
+      : req.body.serviceCharge !== undefined ? req.body.serviceCharge : order.serviceCharge,
     serviceChargePercent: req.body.serviceChargePercent,
     deliveryCharge: req.body.deliveryCharge !== undefined ? req.body.deliveryCharge : order.deliveryCharge,
     gstType: await resolveOrderGstType(
@@ -728,6 +732,10 @@ export const updateOrder = asyncHandler(async (req, res) => {
   order.igst = calculated.igst;
   order.total = calculated.total;
   order.specialInstructions = req.body.specialInstructions ?? order.specialInstructions;
+  order.notes = req.body.notes !== undefined ? String(req.body.notes).trim() : order.notes;
+  order.deliveryAddress = nextOrderType === ORDER_TYPES.DELIVERY
+    ? req.body.deliveryAddress !== undefined ? String(req.body.deliveryAddress).trim() : order.deliveryAddress
+    : "";
   order.billingState = req.body.billingState ?? req.body.customerState ?? order.billingState;
 
   if (nextOrderType !== ORDER_TYPES.DINE_IN) {
@@ -756,10 +764,10 @@ export const updateOrder = asyncHandler(async (req, res) => {
     .populate("items.menuItem", "name")
     .populate("statusHistory.changedBy", "fullName role");
 
-  await syncKotForOrder(populated);
+  // Corrections are intentionally independent from kitchen tickets. The
+  // original KOT/KDS snapshot and its workflow are never regenerated or
+  // synchronized when an existing order is edited.
   await createOrderAuditLog({ user: req.user, action: "Order Updated", order: populated });
-
-  emitOrderStatusChanged(populated);
 
   res.status(200).json(new ApiResponse(true, "Order updated", normalizeOrderOutput(populated)));
 });

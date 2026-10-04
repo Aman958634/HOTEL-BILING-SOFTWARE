@@ -12,7 +12,6 @@ import SummaryPanel from "./create/SummaryPanel";
 import { cardClass, fieldClass, labelClass } from "./create/constants";
 import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 
-const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
 const newIdempotencyKey = () => globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const derivePercent = (amount, base) => {
@@ -186,33 +185,19 @@ const CreateOrderModal = ({
     return () => clearTimeout(timer);
   }, [customerSearch, open]);
 
-  const rawSubtotal = useMemo(
-    () => form.items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
-    [form.items]
-  );
-
-  const discountAmount = useMemo(() => {
-    const pct = Math.max(0, Math.min(100, Number(form.discountPercent) || 0));
-    return round2((rawSubtotal * pct) / 100);
-  }, [form.discountPercent, rawSubtotal]);
-
   const totals = useMemo(
     () =>
       calculateOrderTotals({
         items: form.items,
-        discount: discountAmount,
+        discountPercent: form.discountPercent,
         taxPercent: form.taxPercent,
         serviceChargePercent: form.serviceChargePercent,
         deliveryCharge: form.deliveryCharge,
         orderType: form.orderType,
       }),
-    [form.items, discountAmount, form.taxPercent, form.serviceChargePercent, form.deliveryCharge, form.orderType]
+    [form.items, form.discountPercent, form.taxPercent, form.serviceChargePercent, form.deliveryCharge, form.orderType]
   );
-
-  const getCategoryName = useCallback((item) => {
-    if (item.categoryName) return item.categoryName;
-    return categories.find((cat) => String(cat._id) === String(item.category))?.name || "—";
-  }, [categories]);
+  const discountAmount = totals.discount;
 
   const isTableSelectable = useCallback((table) => {
     // Only MAINTENANCE tables are invalid for seating. AVAILABLE, OCCUPIED and
@@ -253,7 +238,7 @@ const CreateOrderModal = ({
           ];
       return { ...prev, items };
     });
-    setErrors((prev) => ({ ...prev, items: "" }));
+    setErrors((prev) => (prev.items ? { ...prev, items: "" } : prev));
   }, [categories]);
 
   const updateItemQty = useCallback((menuItemId, delta) => {
@@ -358,24 +343,28 @@ const CreateOrderModal = ({
     }
     setSubmissionMessage("");
     onSubmit({
-      customer: form.customer?._id || null,
       orderType: form.orderType,
       table: form.orderType === "DINE_IN" ? form.table : null,
-      items: form.items.map(({ menuItem, name, price, quantity }) => ({ menuItem, name, price, quantity })),
+      // The API resolves names and prices from the current tenant menu. Only
+      // menu identifiers and quantities are user-editable order input.
+      items: form.items.map(({ menuItem, quantity }) => ({ menuItem, quantity })),
 
       notes: form.notes.trim(),
       discount: discountAmount,
       serviceChargePercent: Number(form.serviceChargePercent) || 0,
       deliveryCharge: form.orderType === "DELIVERY" ? Number(form.deliveryCharge) || 0 : 0,
       deliveryAddress: form.orderType === "DELIVERY" ? form.deliveryAddress.trim() : "",
-      paymentMethod: form.paymentMethod,
-      _idempotencyKey: form.idempotencyKey,
+      ...(!isEdit ? {
+        customer: form.customer?._id || null,
+        paymentMethod: form.paymentMethod,
+        _idempotencyKey: form.idempotencyKey,
+      } : {}),
     });
   };
 
   if (!open) return null;
 
-  const itemCount = form.items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = totals.itemCount;
 
   return (
     <div
@@ -418,6 +407,7 @@ const CreateOrderModal = ({
             <div className="space-y-4 sm:space-y-5">
               <CustomerSection
                 customer={form.customer}
+                readOnly={isEdit}
                 customerSearch={customerSearch}
                 customerResults={customerResults}
                 customerSearching={customerSearching}
@@ -441,7 +431,9 @@ const CreateOrderModal = ({
                 paymentMethod={form.paymentMethod}
                 paymentStatus={form.paymentStatus}
                 deliveryAddress={form.deliveryAddress}
+                deliveryCharge={form.deliveryCharge}
                 customer={form.customer}
+                readOnly={isEdit}
                 guestCount={guestCount}
                 orderDateLabel={formatLocalDate(orderDate)}
                 orderTimeLabel={formatLocalTime(orderDate)}
@@ -467,7 +459,6 @@ const CreateOrderModal = ({
                 onUpdateQty={updateItemQty}
                 onRemoveItem={removeItem}
                 onDiscountPercentChange={patchDiscountPercent}
-                getCategoryName={getCategoryName}
                 totals={totals}
                 orderType={form.orderType}
                 mobileCartOpen={mobileCartOpen}

@@ -663,7 +663,14 @@ const OrderManagement = () => {
 
     setSaving(true);
     try {
-      await updateOrder(editOrder._id, payload);
+      const { data } = await updateOrder(editOrder._id, payload);
+      const updatedOrder = data.data;
+      setOrders((current) => {
+        const next = current.map((order) => String(order._id) === String(updatedOrder._id) ? updatedOrder : order);
+        cacheOrderList(activeOrderCacheKeyRef.current, next, meta);
+        return next;
+      });
+      setDetailsOrder((current) => String(current?._id || "") === String(updatedOrder._id) ? updatedOrder : current);
       toast.success("Order updated successfully");
       setEditOpen(false);
       setEditOrder(null);

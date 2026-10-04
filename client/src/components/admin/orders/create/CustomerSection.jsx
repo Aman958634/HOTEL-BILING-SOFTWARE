@@ -4,6 +4,7 @@ import { cardClass, fieldClass, labelClass } from "./constants";
 
 const CustomerSection = ({
   customer,
+  readOnly = false,
   customerSearch,
   customerResults,
   customerSearching,
@@ -23,7 +24,7 @@ const CustomerSection = ({
   <section className={cardClass}>
     <div className="mb-4 flex items-center justify-between gap-2">
       <h3 className="text-base font-semibold text-slate-900">Customer</h3>
-      {!customer && !showCustomerForm ? (
+      {!readOnly && !customer && !showCustomerForm ? (
         <button
           type="button"
           onClick={onOpenAddForm}
@@ -48,10 +49,11 @@ const CustomerSection = ({
               <p className="text-sm text-slate-500">{customer.email || "—"}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          {!readOnly ? <div className="flex gap-2">
             <button
               type="button"
               onClick={onOpenEditForm}
+              disabled={readOnly}
               aria-label="Edit customer"
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
             >
@@ -61,15 +63,19 @@ const CustomerSection = ({
             <button
               type="button"
               onClick={onClearCustomer}
+              disabled={readOnly}
               aria-label="Remove customer"
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
             >
               <FiX className="h-3.5 w-3.5" />
               Clear
             </button>
-          </div>
+          </div> : null}
         </div>
+        {readOnly ? <p className="mt-2 text-xs text-slate-500">Customer details are retained for this order.</p> : null}
       </div>
+    ) : readOnly ? (
+      <p className="text-sm text-slate-500">Customer assignment is locked while editing an existing order.</p>
     ) : showCustomerForm ? (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -133,6 +139,7 @@ const CustomerSection = ({
             className={`${fieldClass} pl-10`}
             value={customerSearch}
             onChange={(e) => onSearchChange(e.target.value)}
+            disabled={readOnly}
             placeholder="Search by name, phone or email..."
             aria-describedby={errors.customer ? "customer-error" : undefined}
           />

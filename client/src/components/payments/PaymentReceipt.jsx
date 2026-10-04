@@ -1,10 +1,12 @@
+import { memo } from "react";
+import { createPortal } from "react-dom";
 import { FiCheck, FiDownload, FiPrinter, FiX } from "react-icons/fi";
 import { formatCurrency, formatPaymentDate, getPaymentAmount, paymentMethodLabel } from "../../utils/paymentUtils";
 import { formatPaymentId } from "../../utils/paymentId";
 
 const valueOr = (value, fallback = "-") => value ?? fallback;
 
-const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
+const PaymentReceipt = ({ open, payment, downloading = false, onClose, onDownload, onPrint }) => {
   if (!open || !payment) return null;
 
   const order = payment?.order || {};
@@ -21,9 +23,9 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
   const tableName = order.table?.tableNumber ? "Table " + order.table.tableNumber : payment.tableNumber ? "Table " + payment.tableNumber : "-";
   const contactAndTable = (order.customer?.phone || payment.customerPhone || "-") + " / " + tableName;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/50 p-0 sm:p-4 print:static print:bg-white">
-      <div className="ml-auto flex h-full w-full max-w-3xl flex-col bg-slate-50 shadow-2xl print:max-w-none print:shadow-none">
+  return createPortal(
+    <div className="payment-receipt-modal fixed inset-0 z-50 bg-slate-950/50 p-0 sm:p-4 print:static print:bg-white">
+      <div className="payment-receipt-dialog ml-auto flex h-full w-full max-w-3xl flex-col bg-slate-50 shadow-2xl print:max-w-none print:shadow-none">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white p-4 print:hidden">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Receipt Preview</h3>
@@ -34,7 +36,7 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 print:overflow-visible print:p-0">
+        <div className="payment-receipt-scroll flex-1 overflow-y-auto p-3 sm:p-6 print:overflow-visible print:p-0">
           <article id="payment-receipt-print" className="payment-receipt mx-auto max-w-2xl overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 print:max-w-none print:rounded-none print:shadow-none print:ring-0">
             <header className="payment-receipt-header border-b border-slate-200 px-5 py-7 text-center sm:px-10">
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white shadow-sm"><FiCheck aria-hidden="true" /></span>
@@ -104,14 +106,15 @@ const PaymentReceipt = ({ open, payment, onClose, onDownload, onPrint }) => {
             </footer>
           </article>
 
-          <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-end gap-2 print:hidden">
+          <div className="payment-receipt-actions mx-auto mt-4 flex max-w-2xl flex-wrap justify-end gap-2 print:hidden">
             <button type="button" onClick={onPrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><FiPrinter /> Print Receipt</button>
-            <button type="button" onClick={onDownload} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"><FiDownload /> Download PDF</button>
+            <button type="button" onClick={onDownload} disabled={downloading} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-60"><FiDownload /> {downloading ? "Preparing PDF..." : "Download PDF"}</button>
             <button type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Close</button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -119,4 +122,4 @@ const ReceiptField = ({ label, value }) => <div className="payment-receipt-field
 const ReceiptPaymentField = ({ label, value, success = false }) => <div className="payment-receipt-payment-row"><dt className="text-slate-500">{label}</dt><dd className={`payment-receipt-payment-value text-right font-semibold ${success ? "text-emerald-700" : "text-slate-900"}`}>{value || "-"}</dd></div>;
 const AmountRow = ({ label, value, negative = false }) => <div className="flex justify-between text-slate-600"><span>{label}</span><span>{negative ? "-" : ""}{formatCurrency(value)}</span></div>;
 
-export default PaymentReceipt;
+export default memo(PaymentReceipt);
