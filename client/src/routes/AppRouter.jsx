@@ -6,6 +6,7 @@ import NotFoundPage from "../pages/NotFound/NotFoundPage";
 import ProtectedRoute from "../components/common/ProtectedRoute";
 import CashfreeReturnPage from "../pages/Payments/CashfreeReturnPage";
 import AdminRoute from "../components/common/AdminRoute";
+import AppLoader from "../components/common/AppLoader";
 import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
 import { clearChunkRecoveryAttempt } from "../utils/chunkRecovery";
 
@@ -75,11 +76,7 @@ const ProcurementPage = lazy(() => import("../pages/admin/ProcurementPage"));
 const Outlets = lazy(() => import("../pages/admin/Outlets"));
 const CentralKitchen = lazy(() => import("../pages/admin/CentralKitchen"));
 const MobileServiceMode = lazy(() => import("../pages/service/MobileServiceMode"));
-const PageSkeleton = () => (
-  <div className="flex min-h-[50vh] items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-700" />
-  </div>
-);
+const PageSkeleton = () => <AppLoader />;
 
 const AppRouter = () => (
   <Routes>
