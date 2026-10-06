@@ -95,6 +95,9 @@ const bootstrap = async () => {
     process.exit(1);
   }
 
+  const { runOrderNumberMigrationPreflightIfEnabled } = await import("./services/orderNumberMigrationPreflightService.js");
+  await runOrderNumberMigrationPreflightIfEnabled();
+
   const { scheduleDailyBackup } = await import("./services/backupService.js");
   scheduleDailyBackup();
   const { createSettlementReconciliationWorker } = await import("./services/settlementReconciliationWorker.js");
