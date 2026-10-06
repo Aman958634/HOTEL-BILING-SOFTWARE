@@ -37,7 +37,7 @@ const AdminHeader = ({ title, subtitle }) => {
   const resolvedTitle = title || matchedMeta?.[1] || "Dashboard";
   const resolvedSubtitle = subtitle || matchedMeta?.[2] || "Today’s restaurant performance at a glance.";
   return (
-    <header className="admin-header sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur-sm sm:px-4">
+    <header className="admin-header sticky top-0 z-20 border-b border-slate-200 bg-white px-3 py-3 sm:px-4">
       <div className="admin-header__inner mx-auto flex min-w-0 items-center gap-3">
         {showContext && <div className="admin-header__context hidden min-w-0 flex-1 xl:block">
           <h1 className="truncate text-xl font-bold tracking-tight text-slate-900">{resolvedTitle}</h1>

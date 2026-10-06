@@ -296,7 +296,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
   profileMark("menu_pricing");
   profileCount(1);
-  const orderNumber = await generateOrderNumber();
+  const orderNumber = await generateOrderNumber(restaurantId);
   profileMark("order_number");
   profileCount(2);
   const billingState = req.body.billingState || req.body.customerState || "";
@@ -457,7 +457,7 @@ export const createGuestOrder = asyncHandler(async (req, res) => {
   }
 
   const processedItems = await prepareOrderItems(req.body.items || [], { restaurantId });
-  const orderNumber = await generateOrderNumber();
+  const orderNumber = await generateOrderNumber(restaurantId);
   const billingState = req.body.billingState || req.body.customerState || "";
   const taxConfig = await resolveOrderTaxConfig(restaurantId, billingState);
   const calculated = buildCalculatedOrderPayload({

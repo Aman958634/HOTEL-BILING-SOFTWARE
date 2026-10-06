@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { FiCheckCircle, FiEdit2, FiEye, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { orderPaymentLabel, paymentBadgeClasses } from "../../../utils/paymentUtils";
@@ -14,6 +14,19 @@ const deleteBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30";
 
 const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
+
+const useDesktopOrderLayout = () => {
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(media.matches);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  return isDesktop;
+};
 
 const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
@@ -56,11 +69,11 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCol
 ));
 
 const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, hasFilters = false, kitchenOnly = false }) => {
+  const isDesktop = useDesktopOrderLayout();
+
   if (loading) {
-    return (
-      <>
-        <div className="hidden lg:block"><SkeletonTable rows={6} columns={6} /></div>
-        <div className="grid gap-3 lg:hidden" aria-busy="true" aria-label="Loading orders">
+    return isDesktop ? <SkeletonTable rows={6} columns={6} /> : (
+      <div className="grid gap-3" aria-busy="true" aria-label="Loading orders">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-3">
               <div className="flex items-start justify-between gap-3"><div className="space-y-2"><div className="h-4 w-32 rounded bg-slate-200" /><div className="h-3 w-24 rounded bg-slate-100" /></div><div className="h-6 w-20 rounded-full bg-slate-100" /></div>
@@ -68,8 +81,7 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryP
               <div className="mt-3 h-11 rounded-xl bg-slate-100" />
             </div>
           ))}
-        </div>
-      </>
+      </div>
     );
   }
 
@@ -79,9 +91,8 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryP
     return <EmptyState icon={<FiShoppingBag className="h-8 w-8" />} title={hasFilters ? "No matching orders" : "No orders yet"} description={hasFilters ? "Try changing your search or filters." : "Create your first order to start managing restaurant service."} />;
   }
 
-  return (
-    <>
-      <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+  return isDesktop ? (
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className={`${kitchenOnly ? "min-w-[800px]" : "min-w-[1080px]"} w-full text-sm`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
@@ -98,13 +109,12 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryP
           </tbody>
         </table>
       </div>
-
-      <div className="grid gap-3 lg:hidden">
-          {orders.map((order) => (
+  ) : (
+      <div className="grid gap-3">
+        {orders.map((order) => (
           <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />
         ))}
       </div>
-    </>
   );
 };
 

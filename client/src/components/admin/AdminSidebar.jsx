@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { FiBarChart2, FiBell, FiBookOpen, FiBox, FiChevronDown, FiCoffee, FiCreditCard, FiDollarSign, FiFileText, FiGrid, FiHome, FiLayout, FiLogOut, FiSettings, FiShoppingBag, FiTag, FiTruck, FiUsers, FiWifi, FiX, FiAward, FiMapPin, FiLock } from "react-icons/fi";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -39,29 +39,68 @@ const linkGroups = Object.entries(
 const groupLabel = (group) => group === "Menu & Customers" ? "Menu & customers" : group;
 const groupId = (group) => `admin-navigation-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 
-const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+// NavLink updates its own active state. This listener only opens the group for
+// the current route, so route changes do not rebuild the sidebar tree.
+const ActiveGroupListener = memo(({ onActiveGroup }) => {
   const { pathname } = useLocation();
-  const user = useSelector((state) => state.auth.user);
-  const [expandedGroups, setExpandedGroups] = useState(() => new Set(["Overview", "Operations"]));
-  const canManageHotelSettings = ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
-  const allowed = (link) => user?.role === "admin"
-    || (link.to.endsWith("/settings") && canManageHotelSettings)
-    || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission));
-
-  const visibleGroups = linkGroups.map(([group, groupLinks]) => [group, groupLinks.filter(allowed)]).filter(([, groupLinks]) => groupLinks.length);
 
   useEffect(() => {
     const activeGroup = linkGroups.find(([, groupLinks]) => groupLinks.some((link) => link.to === pathname))?.[0];
-    if (!activeGroup) return;
+    if (activeGroup) onActiveGroup(activeGroup);
+  }, [onActiveGroup, pathname]);
+
+  return null;
+});
+
+const SidebarLink = memo(({ link, subscriptionLocked, onNavigate }) => {
+  const isPlanLink = link.to.endsWith("/billing") || link.to.endsWith("/my-subscription");
+  const isLockedOperation = subscriptionLocked && !isPlanLink;
+  const label = subscriptionLocked && link.to.endsWith("/billing") ? "Plans & Subscription" : link.label;
+
+  if (isLockedOperation) {
+    return <button type="button" disabled title="Subscription required to access this module" className="module-sidebar-link flex min-h-[48px] w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium opacity-55"><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 flex-1 truncate">{label}</span><FiLock className="shrink-0" aria-label="Locked" /></button>;
+  }
+
+  return <NavLink to={link.to} end className={({ isActive }) => `module-sidebar-link admin-sidebar__link flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium ${isActive ? "is-active" : ""} ${subscriptionLocked && isPlanLink ? "border border-teal-200 bg-teal-50 text-teal-900" : ""}`} onClick={onNavigate}><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 truncate">{label}</span></NavLink>;
+});
+
+const SidebarSection = memo(({ group, groupLinks, expanded, subscriptionLocked, onToggle, onNavigate }) => {
+  const controls = groupId(group);
+
+  return <div>
+    <button type="button" className="admin-sidebar__section flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.06em] transition-colors duration-150 motion-reduce:transition-none hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300" aria-expanded={expanded} aria-controls={controls} onClick={() => onToggle(group)}>
+      <span>{groupLabel(group)}</span>
+      <FiChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+    </button>
+    <div id={controls} className="space-y-1" hidden={!expanded}>
+      {groupLinks.map((link) => <SidebarLink key={link.to} link={link} subscriptionLocked={subscriptionLocked} onNavigate={onNavigate} />)}
+    </div>
+  </div>;
+});
+
+const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.auth.user);
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set(["Overview", "Operations"]));
+  const canManageHotelSettings = ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
+  const allowed = useCallback((link) => user?.role === "admin"
+    || (link.to.endsWith("/settings") && canManageHotelSettings)
+    || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission)), [canManageHotelSettings, user?.permissions, user?.role]);
+
+  const visibleGroups = useMemo(
+    () => linkGroups.map(([group, groupLinks]) => [group, groupLinks.filter(allowed)]).filter(([, groupLinks]) => groupLinks.length),
+    [allowed]
+  );
+
+  const expandGroup = useCallback((activeGroup) => {
     setExpandedGroups((current) => {
       if (current.has(activeGroup)) return current;
       const next = new Set(current);
       next.add(activeGroup);
       return next;
     });
-  }, [pathname]);
+  }, []);
 
   const toggleGroup = useCallback((group) => {
     setExpandedGroups((current) => {
@@ -77,6 +116,8 @@ const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
     navigate("/", { replace: true });
   }, [dispatch, navigate]);
 
+  const closeSidebar = useCallback(() => setOpen(false), [setOpen]);
+
   return (
     <aside
       id="admin-navigation-drawer"
@@ -85,6 +126,7 @@ const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
         open ? "translate-x-0" : "-translate-x-full"
       }`}
     >
+      <ActiveGroupListener onActiveGroup={expandGroup} />
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <div className="flex shrink-0 items-center justify-between px-5 py-5 md:py-6">
           <div className="flex items-center gap-3">
@@ -108,25 +150,7 @@ const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
         </div>
 
         <nav aria-label="Restaurant administration" tabIndex={0} className="sidebar-scroll-region flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-3 py-2">
-          {visibleGroups.map(([group, groupLinks]) => {
-            const expanded = expandedGroups.has(group);
-            const controls = groupId(group);
-            return <div key={group}>
-              <button type="button" className="admin-sidebar__section flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.06em] transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300" aria-expanded={expanded} aria-controls={controls} onClick={() => toggleGroup(group)}>
-                <span>{groupLabel(group)}</span>
-                <FiChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
-              </button>
-              <div id={controls} className="space-y-1" hidden={!expanded}>
-              {groupLinks.map((link) => {
-                const isPlanLink = link.to.endsWith("/billing") || link.to.endsWith("/my-subscription");
-                const isLockedOperation = subscriptionLocked && !isPlanLink;
-                const label = subscriptionLocked && link.to.endsWith("/billing") ? "Plans & Subscription" : link.label;
-                if (isLockedOperation) return <button key={link.to} type="button" disabled title="Subscription required to access this module" className="module-sidebar-link flex min-h-[48px] w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium opacity-55"><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 flex-1 truncate">{label}</span><FiLock className="shrink-0" aria-label="Locked" /></button>;
-                return <NavLink key={link.to} to={link.to} end className={({ isActive }) => `module-sidebar-link admin-sidebar__link flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium ${isActive ? "is-active" : ""} ${subscriptionLocked && isPlanLink ? "border border-teal-200 bg-teal-50 text-teal-900" : ""}`} onClick={() => setOpen(false)}><ModuleIcon icon={link.icon} tone={link.tone} variant="sidebar" /><span className="min-w-0 truncate">{label}</span></NavLink>;
-              })}
-              </div>
-            </div>
-          })}
+          {visibleGroups.map(([group, groupLinks]) => <SidebarSection key={group} group={group} groupLinks={groupLinks} expanded={expandedGroups.has(group)} subscriptionLocked={subscriptionLocked} onToggle={toggleGroup} onNavigate={closeSidebar} />)}
         </nav>
 
         <div className="admin-sidebar__footer shrink-0 px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">

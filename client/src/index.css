@@ -292,7 +292,7 @@ button:disabled { cursor: not-allowed; }
 .module-icon--card, .module-icon--section { width: 2.75rem; height: 2.75rem; }
 .module-icon--header { width: 2.75rem; height: 2.75rem; }
 .module-icon--empty { width: 2.75rem; height: 2.75rem; opacity: 0.78; }
-.module-icon--sidebar { width: 2.375rem; height: 2.375rem; border-radius: 0.75rem; box-shadow: 0 2px 5px rgb(15 23 42 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.5); }
+.module-icon--sidebar { width: 2.375rem; height: 2.375rem; border-radius: 0.75rem; box-shadow: 0 2px 5px rgb(15 23 42 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.5); transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease; }
 .module-icon--sidebar .module-icon__glyph { width: 1.3125rem; height: 1.3125rem; stroke-width: 2.3; }
 .module-sidebar-link:hover .module-icon--sidebar { transform: translateY(-1px) scale(1.03); box-shadow: 0 4px 9px rgb(15 23 42 / 0.24); }
 .module-sidebar-link.is-active .module-icon--sidebar { border-color: rgb(255 255 255 / 0.28); background: #10b981; color: #fff; box-shadow: 0 3px 9px rgb(5 150 105 / 0.34); }
@@ -571,8 +571,8 @@ button:disabled { cursor: not-allowed; }
   .ui-page-title { @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl; }
   .ui-page-description { @apply mt-1 max-w-3xl text-sm leading-6 text-slate-500; }
   .ui-card { @apply rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl; }
-  .ui-card-interactive { @apply ui-card transition-all hover:-translate-y-px hover:border-slate-300 hover:shadow-md; }
-  .ui-input { @apply min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500; }
+  .ui-card-interactive { @apply ui-card transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-slate-300 hover:shadow-md; }
+  .ui-input { @apply min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500; }
   .ui-label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
   .ui-table-wrap { @apply overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm sm:rounded-2xl; }
   .ui-table { @apply min-w-full text-left text-sm; }

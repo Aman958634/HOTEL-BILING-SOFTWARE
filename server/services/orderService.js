@@ -240,32 +240,62 @@ export const canTransitionOrderStatus = (from, to, order = null) => {
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export const generateOrderNumber = async () => {
-  const counterExists = await Counter.exists({ key: "orderNumber" });
-  let baseline = 10000;
-  if (!counterExists) {
-    // The first allocation seeds the counter above legacy ORD-* records. This
-    // bounded scan is skipped after the counter exists.
-    const legacyMax = await Order.aggregate([
-      { $match: { orderNumber: /^ORD-\d+$/i } },
-      { $project: { sequence: { $toLong: { $substr: ["$orderNumber", 4, -1] } } } },
-      { $sort: { sequence: -1 } },
-      { $limit: 1 },
-    ]);
-    baseline = Math.max(10000, Number(legacyMax[0]?.sequence || 10000));
+const ORDER_NUMBER_COUNTER_KEY = "orderNumber";
+const FIRST_ORDER_SEQUENCE = 1001;
+
+const orderCounterOptions = (session) => ({
+  new: true,
+  ...(session ? { session } : {}),
+});
+
+const getRestaurantOrderBaseline = async (restaurantId, session = null) => {
+  // Existing restaurant history is never changed. A counter is lazily seeded
+  // above that restaurant's own legacy ORD-* values; new restaurants seed at
+  // 1000 so their first atomic increment returns ORD-1001.
+  const query = Order.aggregate([
+    { $match: { restaurant: restaurantId, orderNumber: /^ORD-\d+$/i } },
+    { $project: { sequence: { $toLong: { $substr: ["$orderNumber", 4, -1] } } } },
+    { $sort: { sequence: -1 } },
+    { $limit: 1 },
+  ]);
+  if (session) query.session(session);
+  const rows = await query;
+
+  return Math.max(FIRST_ORDER_SEQUENCE - 1, Number(rows[0]?.sequence || 0));
+};
+
+export const generateOrderNumber = async (restaurantId, { session = null } = {}) => {
+  if (!mongoose.isValidObjectId(restaurantId)) throw new ApiError(500, "A valid restaurant is required to allocate an order number");
+
+  const restaurant = new mongoose.Types.ObjectId(restaurantId);
+  const scope = { key: ORDER_NUMBER_COUNTER_KEY, restaurant };
+  const existingCounterQuery = Counter.exists(scope);
+  if (session) existingCounterQuery.session(session);
+  const existingCounter = await existingCounterQuery;
+  const baseline = existingCounter ? FIRST_ORDER_SEQUENCE - 1 : await getRestaurantOrderBaseline(restaurant, session);
+
+  // The compound unique index makes lazy initialization safe under concurrent
+  // first orders. A racing upsert can receive E11000; retrying then observes
+  // the counter created by the winner before the atomic increment below.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await Counter.findOneAndUpdate(
+        scope,
+        { $setOnInsert: { ...scope, seq: baseline } },
+        { ...orderCounterOptions(session), upsert: true, setDefaultsOnInsert: true }
+      );
+      break;
+    } catch (error) {
+      if (error?.code !== 11000 || attempt === 1) throw error;
+    }
   }
 
-  // The upsert is insert-only, so concurrent initializers cannot overwrite a
-  // counter that another process has already seeded.
-  await Counter.findOneAndUpdate(
-    { key: "orderNumber" },
-    { $setOnInsert: { key: "orderNumber", seq: baseline } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  // This allocation is intentionally not coupled to deletes or cancellation:
+  // allocated business numbers are never reused.
   const counter = await Counter.findOneAndUpdate(
-    { key: "orderNumber" },
+    scope,
     { $inc: { seq: 1 } },
-    { new: true }
+    orderCounterOptions(session)
   ).lean();
 
   return `ORD-${counter.seq}`;

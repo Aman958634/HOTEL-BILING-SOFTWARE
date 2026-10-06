@@ -313,11 +313,16 @@ const OrderManagement = () => {
   }, []);
 
   useEffect(() => {
-    if (!isChef) {
-      loadStats();
-      loadOrderDependencies();
-    }
-  }, [isChef, loadStats, loadOrderDependencies]);
+    if (!isChef) loadStats();
+  }, [isChef, loadStats]);
+
+  // Menu/category payloads are only needed by the create-order dialog. Deferring
+  // them keeps ordinary Orders navigation from parsing and rendering a large
+  // dependency set alongside the list and live summary cards.
+  useEffect(() => {
+    if ((!createOpen && !editOpen) || isChef) return;
+    void loadOrderDependencies();
+  }, [createOpen, editOpen, isChef, loadOrderDependencies]);
 
   // Refresh at the interaction boundary so recently-created tables are never
   // hidden behind a dependency cache or the paginated list's first page.

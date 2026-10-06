@@ -88,7 +88,9 @@ const statusHistorySchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    orderNumber: { type: String, required: true, unique: true, index: true },
+    // Business order numbers are unique within a restaurant, not globally.
+    // MongoDB _id remains the global internal identifier.
+    orderNumber: { type: String, required: true },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false, index: true },
     table: { type: mongoose.Schema.Types.ObjectId, ref: "Table", default: null, index: true },
     restaurant: { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant", required: false, index: true },
@@ -190,7 +192,10 @@ orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderType: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, orderSource: 1, status: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
-orderSchema.index({ restaurant: 1, orderNumber: 1 });
+orderSchema.index(
+  { restaurant: 1, orderNumber: 1 },
+  { unique: true, partialFilterExpression: { restaurant: { $type: "objectId" } } }
+);
 orderSchema.index({ restaurant: 1, externalOrderId: 1 }, { unique: true, partialFilterExpression: { externalOrderId: { $type: "string" } } });
 orderSchema.index({ restaurant: 1, outlet: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
 orderSchema.index({ restaurant: 1, customer: 1, createdAt: -1 });
