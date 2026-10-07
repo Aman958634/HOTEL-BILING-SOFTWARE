@@ -26,6 +26,8 @@ const parseBoolean = (value, fallback) => {
   return String(value).toLowerCase() === "true";
 };
 
+const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const resolveRestaurant = async (restaurantId, user) => {
   const restaurant = await resolveRestaurantForUser({ restaurantId, user });
   return restaurant;
@@ -37,12 +39,13 @@ export const listMenuItems = asyncHandler(async (req, res) => {
 
   if (req.query.search) {
     filter.$or = [
-      { name: { $regex: req.query.search, $options: "i" } },
-      { description: { $regex: req.query.search, $options: "i" } },
+      { name: { $regex: escapeRegex(req.query.search), $options: "i" } },
+      { description: { $regex: escapeRegex(req.query.search), $options: "i" } },
     ];
   }
 
-  if (req.query.category && mongoose.isValidObjectId(req.query.category)) {
+  if (req.query.category) {
+    if (!mongoose.isValidObjectId(req.query.category)) throw new ApiError(400, "Invalid category id");
     filter.category = req.query.category;
   }
 

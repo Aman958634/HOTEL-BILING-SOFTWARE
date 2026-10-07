@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { FiBookOpen, FiPlus, FiSearch } from "react-icons/fi";
 import ModuleIcon from "../../components/common/ModuleIcon";
@@ -8,13 +8,12 @@ import MenuTable from "../../components/admin/MenuTable";
 import {
   createAdminMenuItem,
   deleteAdminMenuItem,
-  getAdminMenu,
+  getAllAdminMenu,
   toggleAdminMenuAvailability,
   updateAdminMenuItem,
 } from "../../services/menuService";
 import { getAdminCategories } from "../../services/categoryService";
 import useListRequestState from "../../hooks/useListRequestState";
-import { replaceListRecord } from "../../utils/listMutationState";
 
 const MenuHeader = memo(({ total, available, onCreate }) => (
   <div className="flex flex-wrap items-center justify-between gap-4">
@@ -54,7 +53,7 @@ const MenuFilters = memo(({ search, category, availability, order, categories, o
 const MenuManagement = () => {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const { initialLoading: loading, beginListRequest, finishListRequest } = useListRequestState();
+  const { initialLoading: loading, isRefreshing, beginListRequest, finishListRequest } = useListRequestState();
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -63,6 +62,8 @@ const MenuManagement = () => {
   const [openForm, setOpenForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [menuError, setMenuError] = useState("");
+  const menuRequestRef = useRef(0);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -74,16 +75,29 @@ const MenuManagement = () => {
   }, []);
 
   const loadMenu = useCallback(async () => {
+    const requestId = menuRequestRef.current + 1;
+    menuRequestRef.current = requestId;
     beginListRequest();
     try {
-      const { data } = await getAdminMenu({ limit: 100 });
-      setItems(data.data || []);
+      const params = {
+        sortBy: "price",
+        order,
+        ...(category ? { category } : {}),
+        ...(search.trim() ? { search: search.trim() } : {}),
+        ...(availability === "all" ? {} : { available: availability }),
+      };
+      const menuItems = await getAllAdminMenu(params);
+      if (requestId !== menuRequestRef.current) return;
+      setItems(menuItems);
+      setMenuError("");
       finishListRequest(true);
     } catch (error) {
+      if (requestId !== menuRequestRef.current) return;
+      setMenuError(error?.response?.data?.message || "Failed to load menu");
       toast.error(error?.response?.data?.message || "Failed to load menu");
       finishListRequest(false);
     }
-  }, [beginListRequest, finishListRequest]);
+  }, [availability, beginListRequest, category, finishListRequest, order, search]);
 
   useEffect(() => {
     loadCategories();
@@ -112,14 +126,13 @@ const MenuManagement = () => {
     setSaving(true);
     try {
       if (editingItem?._id) {
-        const { data } = await updateAdminMenuItem(editingItem._id, payload);
-        setItems((current) => replaceListRecord(current, data.data));
+        await updateAdminMenuItem(editingItem._id, payload);
         toast.success("Menu item updated");
       } else {
         await createAdminMenuItem(payload);
-        void loadMenu();
         toast.success("Menu item created");
       }
+      void loadMenu();
       closeForm();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to save menu item");
@@ -134,24 +147,24 @@ const MenuManagement = () => {
     try {
       await deleteAdminMenuItem(deleteTarget._id);
       toast.success("Menu item deleted");
-      setItems((prev) => prev.filter((item) => item._id !== deleteTarget._id));
+      void loadMenu();
       setDeleteTarget(null);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to delete menu item");
     } finally {
       setSaving(false);
     }
-  }, [deleteTarget]);
+  }, [deleteTarget, loadMenu]);
 
   const toggleAvailability = useCallback(async (item) => {
     try {
-      const { data } = await toggleAdminMenuAvailability(item._id, !item.isAvailable);
+      await toggleAdminMenuAvailability(item._id, !item.isAvailable);
       toast.success("Availability updated");
-      setItems((current) => replaceListRecord(current, data.data));
+      void loadMenu();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to update availability");
     }
-  }, []);
+  }, [loadMenu]);
 
   const requestDelete = useCallback((item) => setDeleteTarget(item), []);
   const clearDeleteTarget = useCallback(() => setDeleteTarget(null), []);
@@ -160,35 +173,16 @@ const MenuManagement = () => {
   const updateAvailability = useCallback((event) => setAvailability(event.target.value), []);
   const updateOrder = useCallback((event) => setOrder(event.target.value), []);
 
-  const visibleItems = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    const filtered = items.filter((item) => {
-      const matchesSearch = !normalizedSearch
-        || String(item.name || "").toLowerCase().includes(normalizedSearch)
-        || String(item.description || "").toLowerCase().includes(normalizedSearch);
-      const itemCategory = item.category?._id || item.category || "";
-      const matchesCategory = !category || String(itemCategory) === String(category);
-      const itemAvailable = item.isAvailable ?? item.available ?? true;
-      const matchesAvailability = availability === "all" || itemAvailable === (availability === "true");
-      return matchesSearch && matchesCategory && matchesAvailability;
-    });
-
-    return filtered.sort((first, second) => {
-      const difference = Number(first.price || 0) - Number(second.price || 0);
-      return order === "asc" ? difference : -difference;
-    });
-  }, [availability, category, items, order, search]);
-
   const summary = useMemo(() => ({
-    total: visibleItems.length,
-    available: visibleItems.reduce((count, item) => count + (item.isAvailable ?? item.available ?? true ? 1 : 0), 0),
-  }), [visibleItems]);
+    total: items.length,
+    available: items.reduce((count, item) => count + (item.isAvailable ?? item.available ?? true ? 1 : 0), 0),
+  }), [items]);
 
   return (
     <div className="space-y-4">
       <MenuHeader total={summary.total} available={summary.available} onCreate={openCreate} />
       <MenuFilters search={search} category={category} availability={availability} order={order} categories={categories} onSearchChange={updateSearch} onCategoryChange={updateCategory} onAvailabilityChange={updateAvailability} onOrderChange={updateOrder} />
-      <MenuTable items={visibleItems} loading={loading} onEdit={openEdit} onDelete={requestDelete} onToggle={toggleAvailability} />
+      {menuError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"><p>{menuError}</p><button type="button" onClick={loadMenu} className="mt-3 rounded-lg border border-rose-300 bg-white px-3 py-2 font-medium">Retry</button></div> : <MenuTable items={items} loading={loading || isRefreshing} onEdit={openEdit} onDelete={requestDelete} onToggle={toggleAvailability} />}
       <MenuForm open={openForm} onClose={closeForm} onSubmit={submitForm} loading={saving} categories={categories} initialData={editingItem} />
       <ConfirmDialog open={Boolean(deleteTarget)} title="Delete menu item" message="Are you sure you want to delete this menu item?" onCancel={clearDeleteTarget} onConfirm={confirmDelete} loading={saving} />
     </div>
