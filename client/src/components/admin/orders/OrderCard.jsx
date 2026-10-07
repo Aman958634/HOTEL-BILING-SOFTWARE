@@ -15,7 +15,7 @@ const elapsedTime = (value) => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false }) => (
+const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false, simplePrintedKotWorkflow = false }) => (
   <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
@@ -45,7 +45,7 @@ const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot
       {!kitchenOnly && <span>{String(order.orderType || "").replaceAll("_", " ")}</span>}
       <span aria-hidden="true">·</span>
       {!kitchenOnly && <span>{paymentMethodText(order.paymentMethod)}</span>}
-      {order.kitchenStatus ? <><span aria-hidden="true">·</span><span>Kitchen: {String(order.kitchenStatus).replaceAll("_", " ")}</span></> : null}
+      {!simplePrintedKotWorkflow && order.kitchenStatus ? <><span aria-hidden="true">·</span><span>Kitchen: {String(order.kitchenStatus).replaceAll("_", " ")}</span></> : null}
       {elapsedTime(order.createdAt) ? <><span aria-hidden="true">·</span><span>{elapsedTime(order.createdAt)}</span></> : null}
     </div>
     {!kitchenOnly && <div className="mt-2"><span className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${paymentBadgeClasses(order.paymentStatus)}`}>{String(order.paymentStatus || "").toUpperCase() === "PAID" ? <FiCheckCircle aria-hidden="true" className="shrink-0" /> : null}<span className="truncate">{orderPaymentLabel(order.paymentStatus, order.paymentMethod, order.paymentProvider || order.provider || order.gateway)}</span></span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</div>}

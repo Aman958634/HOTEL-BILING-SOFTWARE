@@ -20,7 +20,7 @@ const PaymentReceipt = ({ open, payment, downloading = false, onClose, onDownloa
   const transactionReference = payment?.transactionId || payment?.razorpayPaymentId || payment?.cashfreePaymentId || "-";
   const restaurant = payment?.restaurant || {};
   const restaurantName = restaurant?.name || payment?.restaurantName || "RestoSphere";
-  const tableName = order.table?.tableNumber ? "Table " + order.table.tableNumber : payment.tableNumber ? "Table " + payment.tableNumber : "-";
+  const tableName = order.table?.tableNumber ? "Table " + order.table.tableNumber : payment.tableNumber ? "Table " + payment.tableNumber : String(order.orderType || payment.orderType || "").toUpperCase() === "TAKEAWAY" ? "PARCEL" : "-";
   const contactAndTable = (order.customer?.phone || payment.customerPhone || "-") + " / " + tableName;
 
   return createPortal(

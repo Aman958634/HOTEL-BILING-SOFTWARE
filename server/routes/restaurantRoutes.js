@@ -29,6 +29,8 @@ router.put(
     body("isActive").optional().isBoolean().withMessage("isActive must be a boolean"),
     body("reservationsEnabled").optional().isBoolean().withMessage("reservationsEnabled must be a boolean"),
     body("onlineOrdersEnabled").optional().isBoolean().withMessage("onlineOrdersEnabled must be a boolean"),
+    body("kitchenDisplayEnabled").optional().isBoolean().withMessage("kitchenDisplayEnabled must be a boolean"),
+    body("simpleOrderWorkflowEnabled").optional().isBoolean().withMessage("simpleOrderWorkflowEnabled must be a boolean"),
   ],
   validate,
   requireActiveSubscription,

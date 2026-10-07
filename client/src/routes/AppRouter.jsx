@@ -8,6 +8,7 @@ import CashfreeReturnPage from "../pages/Payments/CashfreeReturnPage";
 import AdminRoute from "../components/common/AdminRoute";
 import AppLoader from "../components/common/AppLoader";
 import AdminModuleLayout from "../pages/admin/AdminModuleLayout";
+import KitchenDisplayGate from "../components/admin/KitchenDisplayGate";
 import { clearChunkRecoveryAttempt } from "../utils/chunkRecovery";
 
 // Every route-level chunk clears the one-shot recovery marker only after it loads.
@@ -217,7 +218,7 @@ const AppRouter = () => (
       <Route path="settings" element={<Settings />} />
       <Route path="integrations" element={<IntegrationsPage />} />
       <Route path="outlets" element={<Outlets />} />
-      <Route path="kitchen" element={<RoleRoute roles={["admin", "manager", "kitchen_manager", "chef"]}><KitchenDisplay /></RoleRoute>} />
+      <Route path="kitchen" element={<RoleRoute roles={["admin", "manager", "kitchen_manager", "chef"]}><KitchenDisplayGate><KitchenDisplay /></KitchenDisplayGate></RoleRoute>} />
     </Route>
 
     <Route

@@ -38,6 +38,7 @@ import {
 } from "../services/orderService.js";
 import { findOrCreateRestaurantCustomer, getAuthorizedRestaurantIds, linkCustomerToRestaurant } from "../services/customerService.js";
 import { recordVerifiedPayment, updateOrderPaymentState } from "../services/paymentService.js";
+import { getRestaurantWorkflowSettings, isSimplePrintedKotWorkflow } from "../utils/workflowSettings.js";
 import { restoreRedeemedPointsForCancelledOrder } from "../services/loyaltyService.js";
 import { assignTableForDineInOrder, maybeReleaseTableAfterSettlement, releaseOrderTableIfNeeded } from "../services/tableOrderService.js";
 import { syncKotForOrder } from "../services/kotService.js";
@@ -243,6 +244,8 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const restaurantId = await resolveOrderRestaurant({ orderType, tableId: req.body.table, user: req.user });
+  const workflowSettings = await getRestaurantWorkflowSettings(restaurantId);
+  const simplePrintedKotWorkflow = isSimplePrintedKotWorkflow(workflowSettings);
   profileMark("auth_context");
   profileCount(2);
   const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
@@ -342,10 +345,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     total: calculated.total,
     paymentMethod,
     paymentStatus,
-    status: ORDER_STATUSES.PENDING,
+    status: simplePrintedKotWorkflow ? ORDER_STATUSES.COMPLETED : ORDER_STATUSES.PENDING,
     specialInstructions: req.body.specialInstructions || "",
     createdBy: req.user._id,
-    statusHistory: [{ status: ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
+    statusHistory: [{ status: simplePrintedKotWorkflow ? ORDER_STATUSES.COMPLETED : ORDER_STATUSES.PENDING, changedBy: req.user._id, changedAt: new Date() }],
+    ...(simplePrintedKotWorkflow ? { completedAt: new Date() } : {}),
     deliveryAddress: req.body.deliveryAddress || "",
     pickupDetails: req.body.pickupDetails || "",
     billingState,
@@ -691,7 +695,8 @@ export const updateOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Forbidden");
   }
 
-  ensureOrderEditAllowed(order);
+  const workflowSettings = await getRestaurantWorkflowSettings(order.restaurant);
+  ensureOrderEditAllowed(order, { simplePrintedKotWorkflow: isSimplePrintedKotWorkflow(workflowSettings) });
 
   const nextOrderType = req.body.orderType ? normalizeOrderType(req.body.orderType) : order.orderType;
   const nextItems = req.body.items ? await prepareOrderItems(req.body.items, { restaurantId: order.restaurant }) : order.items;

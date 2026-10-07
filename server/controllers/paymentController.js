@@ -205,6 +205,7 @@ const buildListPipeline = async (query, user) => {
     {
       $addFields: {
         orderNumber: { $ifNull: ["$order.orderNumber", ""] },
+        orderType: { $ifNull: ["$order.orderType", ""] },
         billNumber: { $ifNull: ["$billRecord.billNumber", ""] },
         customerName: { $ifNull: ["$customer.fullName", "Guest"] },
         customerPhone: { $ifNull: ["$customer.phone", ""] },
@@ -247,6 +248,7 @@ const mapPaymentRow = (payment) => {
     gatewayLabel: gatewayLabel(paymentObject || {}),
     dateTimeLabel: paymentObject?.createdAt,
     orderIdValue: paymentObject?.orderNumber || paymentObject?.orderId?.orderNumber || paymentObject?.orderId,
+    orderType: paymentObject?.orderType || paymentObject?.orderId?.orderType || "",
     billNumber: paymentObject?.billNumber || paymentObject?.billRecord?.billNumber || "",
     customerName: paymentObject?.customerName || paymentObject?.customerId?.fullName || "Guest",
     customerPhone: paymentObject?.customerPhone || paymentObject?.customerId?.phone || "",
@@ -260,6 +262,7 @@ const mapPaymentDetail = (payment) => {
     ? {
         _id: paymentObject.orderId._id || paymentObject.orderId,
         orderNumber: paymentObject.orderId.orderNumber || paymentObject.orderNumber || "",
+        orderType: paymentObject.orderId.orderType || paymentObject.orderType || "",
         status: paymentObject.orderId.status || "",
         paymentStatus: paymentObject.orderId.paymentStatus || paymentObject.paymentStatus,
         paymentMethod: paymentObject.orderId.paymentMethod || paymentObject.paymentMethod,
@@ -584,6 +587,7 @@ export const getPaymentById = asyncHandler(async (req, res) => {
     ? {
         _id: order._id,
         orderNumber: order.orderNumber,
+        orderType: order.orderType,
         status: order.status,
         paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,

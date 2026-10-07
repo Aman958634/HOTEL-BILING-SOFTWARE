@@ -27,6 +27,7 @@ const defaultSettings = {
   reservationsEnabled: true,
   onlineOrdersEnabled: true,
   kitchenDisplayEnabled: true,
+  simpleOrderWorkflowEnabled: false,
 };
 
 const getSettingsErrorMessage = (error, fallback) => {
@@ -61,6 +62,7 @@ const toSavePayload = (settings, includeGstRate) => {
     reservationsEnabled,
     onlineOrdersEnabled,
     kitchenDisplayEnabled,
+    simpleOrderWorkflowEnabled,
   } = settings;
   return {
     name,
@@ -79,6 +81,7 @@ const toSavePayload = (settings, includeGstRate) => {
     reservationsEnabled,
     onlineOrdersEnabled,
     kitchenDisplayEnabled,
+    simpleOrderWorkflowEnabled,
   };
 };
 
@@ -451,7 +454,18 @@ const Settings = () => {
               <ToggleSwitch
                 label="Kitchen Display"
                 checked={Boolean(settings.kitchenDisplayEnabled)}
-                onChange={(value) => handleChange("kitchenDisplayEnabled", value)}
+                onChange={(value) => {
+                  handleChange("kitchenDisplayEnabled", value);
+                  if (value) handleChange("simpleOrderWorkflowEnabled", false);
+                }}
+              />
+              <ToggleSwitch
+                label="Simple printed-KOT workflow"
+                checked={Boolean(settings.simpleOrderWorkflowEnabled)}
+                onChange={(value) => {
+                  handleChange("simpleOrderWorkflowEnabled", value);
+                  if (value) handleChange("kitchenDisplayEnabled", false);
+                }}
               />
             </div>
           </div>
@@ -465,6 +479,7 @@ const Settings = () => {
               <p><strong>Reservations:</strong> {settings.reservationsEnabled ? "Enabled" : "Disabled"}</p>
               <p><strong>Online orders:</strong> {settings.onlineOrdersEnabled ? "Enabled" : "Disabled"}</p>
               <p><strong>Kitchen Display:</strong> {settings.kitchenDisplayEnabled ? "Enabled" : "Disabled"}</p>
+              <p><strong>Simple printed-KOT workflow:</strong> {settings.simpleOrderWorkflowEnabled ? "Enabled" : "Disabled"}</p>
             </div>
           </div>
 

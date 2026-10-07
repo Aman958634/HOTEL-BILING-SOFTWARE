@@ -453,9 +453,12 @@ export const getSortCriteria = (sortBy = "newest") => {
   return map[sortBy] || map.newest;
 };
 
-export const ensureOrderEditAllowed = (order) => {
+export const ensureOrderEditAllowed = (order, { simplePrintedKotWorkflow = false } = {}) => {
   const status = normalizeOrderStatus(order.status);
-  if ([ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(status)) {
+  // In printed-KOT mode COMPLETED is the visible operational state set at
+  // creation, not proof of financial settlement. Unpaid orders remain safely
+  // editable under the normal permissions and payment safeguards below.
+  if ([ORDER_STATUSES.CANCELLED].includes(status) || (status === ORDER_STATUSES.COMPLETED && !simplePrintedKotWorkflow)) {
     throw new ApiError(409, "This order cannot be edited in its current status.");
   }
 

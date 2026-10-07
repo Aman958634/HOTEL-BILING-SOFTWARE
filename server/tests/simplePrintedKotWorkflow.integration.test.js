@@ -1,0 +1,104 @@
+import "dotenv/config";
+import assert from "node:assert/strict";
+import http from "node:http";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import app from "../app.js";
+import Category from "../models/Category.js";
+import Food from "../models/Food.js";
+import KotTicket from "../models/KotTicket.js";
+import Order from "../models/Order.js";
+import Outlet from "../models/Outlet.js";
+import Payment from "../models/Payment.js";
+import Restaurant from "../models/Restaurant.js";
+import Subscription from "../models/Subscription.js";
+import Table from "../models/Table.js";
+import User from "../models/User.js";
+import { requireSafeTestDatabase } from "./testDatabase.js";
+
+const { uri } = requireSafeTestDatabase();
+process.env.JWT_ACCESS_SECRET ||= "simple-printed-kot-test-secret";
+await mongoose.connect(uri, { autoIndex: false, autoCreate: false });
+const server = http.createServer(app);
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const base = `http://127.0.0.1:${server.address().port}/api/v1`;
+const suffix = `simple-kot-${Date.now()}`;
+const ids = { restaurants: [], outlets: [], users: [], categories: [], foods: [], tables: [], orders: [], payments: [] };
+
+const tenant = async (label, simple = false) => {
+  const restaurant = await Restaurant.create({ name: `${label} ${suffix}`, slug: `${label.toLowerCase()}-${suffix}`, branchCode: `${label.slice(0, 3).toUpperCase()}-${suffix.slice(-8)}`, address: "Local test", kitchenDisplayEnabled: !simple, simpleOrderWorkflowEnabled: simple });
+  const outlet = await Outlet.create({ restaurant: restaurant._id, name: "Main", code: `${label.slice(0, 5)}-${suffix.slice(-8)}`, isDefault: true });
+  const user = await User.create({ fullName: `${label} admin`, email: `${label}-${suffix}@test.invalid`, password: "local-test-password", role: "admin", restaurant: restaurant._id, defaultOutlet: outlet._id, allOutletsAccess: false, outletAccess: [{ outlet: outlet._id, isActive: true }] });
+  const category = await Category.create({ restaurant: restaurant._id, name: "Local", slug: `local-${suffix}` });
+  const food = await Food.create({ restaurant: restaurant._id, category: category._id, name: "Local item", price: 100 });
+  const table = await Table.create({ restaurant: restaurant._id, outlet: outlet._id, tableNumber: "1", capacity: 4, section: "Main" });
+  await Subscription.create({ restaurant: restaurant._id, planName: "test", status: "active", price: 0 });
+  ids.restaurants.push(restaurant._id);
+  ids.outlets.push(outlet._id);
+  ids.users.push(user._id);
+  ids.categories.push(category._id);
+  ids.foods.push(food._id);
+  ids.tables.push(table._id);
+  return { restaurant, outlet, user, food, table };
+};
+
+const token = (user) => jwt.sign({ id: String(user._id), role: user.role, restaurant: String(user.restaurant) }, process.env.JWT_ACCESS_SECRET, { algorithm: "HS256" });
+const request = (tenantData, path, { method = "GET", body } = {}) => fetch(`${base}${path}`, { method, headers: { Authorization: `Bearer ${token(tenantData.user)}`, "X-Outlet-Id": String(tenantData.outlet._id), ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+const create = async (tenantData, { table = tenantData.table, orderType = "DINE_IN", quantity = 1 } = {}) => {
+  const response = await request(tenantData, "/orders", { method: "POST", body: { orderType, table: table ? String(table._id) : null, items: [{ menuItem: String(tenantData.food._id), quantity }], paymentMethod: "CASH" } });
+  assert.equal(response.status, 201);
+  const order = (await response.json()).data;
+  ids.orders.push(order._id);
+  return order;
+};
+
+try {
+  const simple = await tenant("Simple Print", true);
+  const normal = await tenant("Normal Flow");
+  const first = await create(simple);
+  const second = await create(simple);
+  const parcel = await create(simple, { table: null, orderType: "TAKEAWAY" });
+  const normalOrder = await create(normal);
+  assert.equal(first.status, "COMPLETED");
+  assert.equal(first.paymentStatus, "PENDING");
+  assert.equal(second.status, "COMPLETED");
+  assert.notEqual(first._id, second._id, "same-table orders remain independent");
+  assert.equal(parcel.status, "COMPLETED");
+  assert.equal(parcel.paymentStatus, "PENDING");
+  assert.equal(parcel.table, null, "parcel has no fake table");
+  assert.equal(normalOrder.status, "PENDING", "normal workflow remains unchanged");
+  assert.equal((await request(simple, "/kitchen/tickets")).status, 404, "KDS backend is unavailable while disabled");
+  const kotBefore = await request(simple, `/orders/${first._id}/kot`);
+  assert.equal(kotBefore.status, 200, "printed KOT remains available with KDS off");
+  const firstKot = (await kotBefore.json()).data;
+  assert.equal(firstKot.items[0].price, undefined, "KOT payload excludes financial data");
+  const kotCount = await KotTicket.countDocuments({ orderId: first._id });
+  assert.equal((await request(simple, `/orders/${first._id}/kot`)).status, 200, "KOT reprint is read-only");
+  assert.equal(await KotTicket.countDocuments({ orderId: first._id }), kotCount, "KOT reprint creates no ticket");
+  const edited = await request(simple, `/orders/${first._id}`, { method: "PUT", body: { items: [{ menuItem: String(simple.food._id), quantity: 2 }] } });
+  assert.equal(edited.status, 200, "unpaid completed simple-workflow order remains editable");
+  const persisted = await Order.findById(first._id).lean();
+  assert.equal(persisted.status, "COMPLETED");
+  assert.equal(persisted.paymentStatus, "PENDING");
+  const cashPayment = await Payment.create({ paymentId: `PAY-${suffix}`, orderId: first._id, restaurant: simple.restaurant._id, outlet: simple.outlet._id, amount: first.total, totalAmount: first.total, paymentMethod: "CASH", paymentStatus: "PAID", reconciliationStatus: "UNRECONCILED", transactionId: `LOCAL-${suffix}`, paidAt: new Date() });
+  ids.payments.push(cashPayment._id);
+  assert.equal((await request(simple, `/payments/${cashPayment._id}`, { method: "DELETE" })).status, 200, "safe cash delete remains available");
+  const afterPaymentDelete = await Order.findById(first._id).lean();
+  assert.equal(afterPaymentDelete.status, "COMPLETED", "simple workflow keeps its operational completed status after payment deletion");
+  assert.equal(afterPaymentDelete.paymentStatus, "PENDING");
+  assert.equal((await Table.findById(simple.table._id).lean()).status, "AVAILABLE", "completed simple orders do not occupy the table");
+  console.log("Simple printed-KOT workflow integration checks passed.");
+} finally {
+  await server.close();
+  await KotTicket.deleteMany({ orderId: { $in: ids.orders } });
+  await Payment.deleteMany({ _id: { $in: ids.payments } });
+  await Order.deleteMany({ _id: { $in: ids.orders } });
+  await Table.deleteMany({ _id: { $in: ids.tables } });
+  await Food.deleteMany({ _id: { $in: ids.foods } });
+  await Category.deleteMany({ _id: { $in: ids.categories } });
+  await Subscription.deleteMany({ restaurant: { $in: ids.restaurants } });
+  await User.deleteMany({ _id: { $in: ids.users } });
+  await Outlet.deleteMany({ _id: { $in: ids.outlets } });
+  await Restaurant.deleteMany({ _id: { $in: ids.restaurants } });
+  await mongoose.disconnect();
+}

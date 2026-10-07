@@ -26,6 +26,7 @@ import { formatPaymentId } from "../utils/paymentId.js";
 import { generateInvoice, refreshInvoice } from "./invoiceService.js";
 import { awardPointsForPaidOrder } from "./loyaltyService.js";
 import { triggerSuccessfulPaymentSideEffects } from "./whatsappService.js";
+import { getRestaurantWorkflowSettings, isSimplePrintedKotWorkflow } from "../utils/workflowSettings.js";
 import logger from "../utils/logger.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -739,6 +740,7 @@ const assertPaymentDeletionAllowed = async (payment, session) => {
 };
 
 const applyBillPaymentMirror = async (bill, session) => {
+  const simplePrintedKotWorkflow = isSimplePrintedKotWorkflow(await getRestaurantWorkflowSettings(bill.restaurant));
   const payments = await Payment.find({ bill: bill._id })
     .select("amount totalAmount refundAmount paymentStatus")
     .session(session)
@@ -766,7 +768,7 @@ const applyBillPaymentMirror = async (bill, session) => {
     const fullyPaid = allocated >= allocationTotal && allocationTotal > 0;
     order.paymentStatus = fullyPaid ? "PAID" : "PENDING";
     order.paidAt = fullyPaid ? bill.settledAt || new Date() : null;
-    if (!fullyPaid && order.status === "COMPLETED") order.status = "PENDING";
+    if (!fullyPaid && order.status === "COMPLETED" && !simplePrintedKotWorkflow) order.status = "PENDING";
     await order.save({ session });
     await refreshInvoice(order, { session });
     remaining = Math.max(remaining - allocationTotal, 0);
@@ -791,8 +793,9 @@ export const deletePaymentRecord = async ({ paymentId, restaurantId, user }) => 
       const bill = payment.bill ? await Bill.findOne({ _id: payment.bill, restaurant: restaurantId }).session(session) : null;
       await payment.deleteOne({ session });
       if (orderDoc) {
+        const simplePrintedKotWorkflow = isSimplePrintedKotWorkflow(await getRestaurantWorkflowSettings(orderDoc.restaurant));
         const settlement = await applyOrderPaymentMirror(orderDoc, null, session);
-        if (!settlement.fullyPaid && orderDoc.status === "COMPLETED") {
+        if (!settlement.fullyPaid && orderDoc.status === "COMPLETED" && !simplePrintedKotWorkflow) {
           orderDoc.status = "PENDING";
           await orderDoc.save({ session });
         }

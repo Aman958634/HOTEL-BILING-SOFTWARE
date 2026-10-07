@@ -120,6 +120,7 @@ const OrderManagement = () => {
   const [categories, setCategories] = useState([]);
   const [tables, setTables] = useState([]);
   const [restaurantGstRate, setRestaurantGstRate] = useState(0);
+  const [simplePrintedKotWorkflow, setSimplePrintedKotWorkflow] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialTable, setCreateInitialTable] = useState(null);
@@ -291,11 +292,22 @@ const OrderManagement = () => {
 
       const configuredRate = Number(restaurantData?.data?.gstRate);
       setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
+      setSimplePrintedKotWorkflow(Boolean(restaurantData?.data?.simpleOrderWorkflowEnabled && restaurantData?.data?.kitchenDisplayEnabled === false));
     } catch {
       toast.error("Unable to preload order dependencies");
     } finally {
       setDependenciesLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getRestaurantSettings()
+      .then(({ data }) => {
+        if (active) setSimplePrintedKotWorkflow(Boolean(data?.data?.simpleOrderWorkflowEnabled && data?.data?.kitchenDisplayEnabled === false));
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   const loadOrderTables = useCallback(async () => {
@@ -961,6 +973,7 @@ const OrderManagement = () => {
         onPrintKot={openKitchenKot}
         canCollectPayments={canCollectPayments}
         kitchenOnly={isChef}
+        simplePrintedKotWorkflow={simplePrintedKotWorkflow}
       />
       {currentOrdersError ? <RequestState message={currentOrdersError} onRetry={() => loadOrders()} /> : null}
 

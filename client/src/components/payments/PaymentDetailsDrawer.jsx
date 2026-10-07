@@ -83,7 +83,7 @@ const PaymentDetailsDrawer = ({ open, payment, onClose, loading, onReceipt, onRe
                 <p className="flex items-center gap-2"><FiUser /> {order?.customer?.fullName || payment.customer?.fullName || payment.customerName || "Guest"}</p>
                 <p className="flex items-center gap-2"><FiPhone /> {order?.customer?.phone || payment.customer?.phone || payment.customerPhone || "-"}</p>
                 <p><strong>Email:</strong> {order?.customer?.email || payment.customer?.email || "-"}</p>
-                <p className="flex items-center gap-2"><FiTable /> {order?.table?.tableNumber ? `Table ${order.table.tableNumber}` : payment.table?.tableNumber ? `Table ${payment.table.tableNumber}` : "-"}</p>
+                <p className="flex items-center gap-2"><FiTable /> {order?.table?.tableNumber ? `Table ${order.table.tableNumber}` : payment.table?.tableNumber ? `Table ${payment.table.tableNumber}` : String(order?.orderType || payment.orderType || "").toUpperCase() === "TAKEAWAY" ? "PARCEL" : "-"}</p>
               </Section>
             </div>
 

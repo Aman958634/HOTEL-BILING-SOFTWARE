@@ -31,7 +31,7 @@ const useDesktopOrderLayout = () => {
 const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
-const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly }) => kitchenOnly ? (
+const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly, simplePrintedKotWorkflow }) => kitchenOnly ? (
   <tr className="border-b border-slate-100 text-slate-700">
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "PARCEL"}</td>
@@ -49,7 +49,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrin
     <td className={cellClass}>{order.items?.length || 0} Items</td>
     <td className={`${cellClass} font-semibold text-slate-900`}>{currency(order.total)}</td>
     <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
-    <td className={cellClass}>{order.kitchenStatus ? String(order.kitchenStatus).replaceAll("_", " ") : "-"}</td>
+    {!simplePrintedKotWorkflow && <td className={cellClass}>{order.kitchenStatus ? String(order.kitchenStatus).replaceAll("_", " ") : "-"}</td>}
     <td className={`${cellClass} whitespace-normal`}><span className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentBadgeClasses(order.paymentStatus)}`}>{String(order.paymentStatus || "").toUpperCase() === "PAID" ? <FiCheckCircle aria-hidden="true" className="shrink-0" /> : null}<span className="truncate">{orderPaymentLabel(order.paymentStatus, order.paymentMethod, order.paymentProvider || order.provider || order.gateway)}</span></span>{canCollectPayments && ["FAILED", "PENDING", "UNPAID", "AWAITING_VERIFICATION"].includes(String(order.paymentStatus || "").toUpperCase()) ? <button type="button" onClick={() => onRetryPayment(order)} className="mt-1 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100"><FiRefreshCw className="h-3 w-3" aria-hidden="true" />{String(order.paymentStatus).toUpperCase() === "AWAITING_VERIFICATION" ? "Hotel UPI QR" : "Retry Payment"}</button> : null}</td>
     <td className={cellClass}>{dateTime(order.createdAt)}</td>
     <td className={cellClass}>
@@ -71,7 +71,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrin
   </tr>
 ));
 
-const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, hasFilters = false, kitchenOnly = false }) => {
+const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, hasFilters = false, kitchenOnly = false, simplePrintedKotWorkflow = false }) => {
   const isDesktop = useDesktopOrderLayout();
 
   if (loading) {
@@ -96,26 +96,26 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryP
 
   return isDesktop ? (
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className={`${kitchenOnly ? "min-w-[800px]" : "min-w-[1080px]"} w-full text-sm`}>
+        <table className={`${kitchenOnly ? "min-w-[800px]" : simplePrintedKotWorkflow ? "min-w-[980px]" : "min-w-[1080px]"} w-full text-sm`}>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <th className={`${cellClass} min-w-[100px]`}>Order ID</th>
               {kitchenOnly ? <><th className={`${cellClass} min-w-[100px]`}>Table</th><th className={`${cellClass} min-w-[240px]`}>Items</th><th className={`${cellClass} min-w-[180px]`}>Kitchen notes</th></> : <><th className={`${cellClass} min-w-[120px]`}>Customer</th><th className={`${cellClass} min-w-[80px]`}>Table</th><th className={`${cellClass} min-w-[70px]`}>Items</th><th className={`${cellClass} min-w-[90px]`}>Amount</th></>}
               <th className={`${cellClass} min-w-[110px]`}>Status</th>
-              {!kitchenOnly && <><th className={`${cellClass} min-w-[100px]`}>Kitchen</th><th className={`${cellClass} min-w-[140px]`}>Payment</th></>}
+              {!kitchenOnly && <>{!simplePrintedKotWorkflow && <th className={`${cellClass} min-w-[100px]`}>Kitchen</th>}<th className={`${cellClass} min-w-[140px]`}>Payment</th></>}
               <th className={`${cellClass} min-w-[140px]`}>Created</th>
               <th className={`${cellClass} min-w-[120px]`}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />)}
+            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} simplePrintedKotWorkflow={simplePrintedKotWorkflow} />)}
           </tbody>
         </table>
       </div>
   ) : (
       <div className="grid gap-3">
         {orders.map((order) => (
-          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />
+          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} simplePrintedKotWorkflow={simplePrintedKotWorkflow} />
         ))}
       </div>
   );

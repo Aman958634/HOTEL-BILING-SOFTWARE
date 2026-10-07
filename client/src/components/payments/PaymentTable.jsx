@@ -22,6 +22,12 @@ const ActionButton = ({ children, onClick, tone = "default" }) => {
 
 const StatusBadge = ({ payment }) => <span className={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${paymentBadgeClasses(payment.paymentStatus)}`}>{paymentStatusLabel(payment.paymentStatus)}</span>;
 
+const tableOrType = (payment) => payment.tableNumber
+  ? `Table ${payment.tableNumber}`
+  : String(payment.orderType || "").toUpperCase() === "TAKEAWAY"
+    ? "PARCEL"
+    : payment.orderType ? String(payment.orderType).replaceAll("_", " ") : "—";
+
 const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
   <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
     <div className="flex items-start justify-between gap-3">
@@ -35,6 +41,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
     <div className="mt-3 flex items-end justify-between gap-3">
       <div className="min-w-0 text-sm text-slate-600">
         <p className="truncate">{paymentMethodLabel(payment.paymentMethod, payment.provider)}{payment.tableNumber ? ` · Table ${payment.tableNumber}` : ""}</p>
+        <p className="mt-1 text-xs text-slate-500">{payment.tableNumber ? "Table" : "Type"}: {tableOrType(payment)}</p>
         <p className="mt-1 text-xs text-slate-500">{formatPaymentDate(payment.createdAt)}</p>
       </div>
       <p className="shrink-0 text-lg font-bold tracking-tight text-slate-900">{formatCurrency(getPaymentAmount(payment))}</p>
@@ -70,6 +77,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase text-slate-500">
               <th className="px-4 py-3">Payment ID</th>
               <th className="px-4 py-3">Order / Bill</th>
+              <th className="px-4 py-3">Table / Type</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Method</th>
               <th className="px-4 py-3">Status</th>
@@ -84,6 +92,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
               <tr key={payment._id || payment.paymentId} className="border-b border-slate-100 text-slate-700 last:border-0">
                 <td className="max-w-[10rem] break-all px-4 py-3 font-mono text-xs font-semibold text-slate-900">{formatPaymentId(payment.paymentIdDisplay || payment.paymentId)}</td>
                 <td className="px-4 py-3">{payment.orderIdValue || (payment.billNumber ? `Bill ${payment.billNumber}` : "-")}</td>
+                <td className="px-4 py-3">{tableOrType(payment)}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(getPaymentAmount(payment))}</td>
                 <td className="px-4 py-3">{paymentMethodLabel(payment.paymentMethod, payment.provider)}</td>
                 <td className="px-4 py-3"><StatusBadge payment={payment} /></td>
