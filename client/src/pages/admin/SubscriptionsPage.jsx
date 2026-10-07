@@ -87,7 +87,7 @@ const SubscriptionsPage = () => {
       <div>
         <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Subscriptions</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Every new hotel receives a <strong>15-Day Free Trial</strong>. Select a paid plan, then complete payment separately.
+          Every new hotel receives a <strong>7-Day Free Trial</strong>. Select a paid plan, then complete payment separately.
         </p>
       </div>
 
@@ -119,7 +119,7 @@ const SubscriptionsPage = () => {
                 <td className="px-4 py-3 capitalize">
                   {s.status === "trial" ? (
                     <span>
-                      {s.planName || "basic"} · <span className="text-amber-700">15-Day Free Trial</span>
+                      {s.planName || "basic"} · <span className="text-amber-700">{s.trialLabel || "Free Trial"}</span>
                     </span>
                   ) : s.status === "active" ? (
                     <div>

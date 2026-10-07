@@ -15,21 +15,21 @@ import {
 const MS_DAY = 24 * 60 * 60 * 1000;
 
 const run = () => {
-  assert.equal(getFreeTrialDays(), 5, "New trials must be exactly five days");
+  assert.equal(getFreeTrialDays(), 7, "New trials must be exactly seven days");
 
-  // Test 1: trialStartAt = 2026-08-07 → trialEndAt = 2026-08-22
+  // Test 1: trialStartAt = 2026-08-07 → trialEndAt = 2026-08-14
   const startAug7 = new Date("2026-08-07T00:00:00.000Z");
-  assert.equal(calculateTrialEndDate(startAug7).toISOString(), "2026-08-12T00:00:00.000Z");
+  assert.equal(calculateTrialEndDate(startAug7).toISOString(), "2026-08-14T00:00:00.000Z");
 
-  // Test 2: trialStartAt = 2026-08-01 → trialEndAt = 2026-08-16
+  // Test 2: trialStartAt = 2026-08-01 → trialEndAt = 2026-08-08
   const startAug1 = new Date("2026-08-01T00:00:00.000Z");
-  assert.equal(calculateTrialEndDate(startAug1).toISOString(), "2026-08-06T00:00:00.000Z");
+  assert.equal(calculateTrialEndDate(startAug1).toISOString(), "2026-08-08T00:00:00.000Z");
 
   // New restaurant trial is derived from the server-side start timestamp.
   const created = new Date("2026-08-10T12:00:00.000Z");
   const trialEnd = calculateTrialEndDate(created);
-  assert.equal(trialEnd.toISOString(), "2026-08-15T12:00:00.000Z");
-  assert.equal(trialEnd.getTime() - created.getTime(), 5 * MS_DAY);
+  assert.equal(trialEnd.toISOString(), "2026-08-17T12:00:00.000Z");
+  assert.equal(trialEnd.getTime() - created.getTime(), 7 * MS_DAY);
 
   const trialSub = {
     status: "trial",
@@ -37,13 +37,13 @@ const run = () => {
     startDate: created,
     trialEndDate: trialEnd,
     renewalDate: null,
-    metadata: { trialDurationDays: 5 },
+    metadata: { trialDurationDays: 7 },
   };
-  assert.equal(getDaysRemaining(trialSub, created), 5);
-  assert.equal(formatDaysRemainingLabel(trialSub, created), "5 days remaining");
+  assert.equal(getDaysRemaining(trialSub, created), 7);
+  assert.equal(formatDaysRemainingLabel(trialSub, created), "7 days remaining");
   // Labels use completed 24-hour periods: just after creation is 4d 23h rather than a rounded-up 5.
-  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + 1)), 4);
-  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + MS_DAY + 1)), 3);
+  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + 1)), 6);
+  assert.equal(getDaysRemaining(trialSub, new Date(created.getTime() + MS_DAY + 1)), 5);
 
   const at1 = new Date(trialEnd.getTime() - 1 * MS_DAY);
   assert.equal(getDaysRemaining(trialSub, at1), 1);
@@ -118,7 +118,7 @@ const run = () => {
   assert.equal(extended.trialEndDate.toISOString(), new Date(created.getTime() + 22 * MS_DAY).toISOString());
 
   const trialView = toSubscriptionView(trialSub, created);
-  assert.equal(trialView.trialLabel, "5-Day Free Trial");
+  assert.equal(trialView.trialLabel, "7-Day Free Trial");
   assert.equal(trialView.renewalDate, null);
   assert.equal(trialView.trialStartAt.toISOString(), created.toISOString());
 

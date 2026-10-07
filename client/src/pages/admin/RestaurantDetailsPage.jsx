@@ -86,7 +86,7 @@ const RestaurantDetailsPage = () => {
           <p>Status: {subscription?.status || "-"}</p>
           {subscription?.status === "trial" && (
             <>
-              <p className="text-amber-700 font-medium">15-Day Free Trial</p>
+              <p className="text-amber-700 font-medium">{subscription?.trialLabel || "Free Trial"}</p>
               <p>Trial Start: {subscription?.trialStartAt ? new Date(subscription.trialStartAt).toLocaleString() : "-"}</p>
               <p>Trial End: {subscription?.trialEndAt ? new Date(subscription.trialEndAt).toLocaleString() : "-"}</p>
               <p>Days Remaining: {subscription?.daysRemaining <= 0 ? "EXPIRED" : subscription?.daysRemainingLabel || subscription?.daysRemaining}</p>

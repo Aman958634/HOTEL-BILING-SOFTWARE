@@ -1,5 +1,5 @@
-/** New SaaS trials are five days; existing persisted trials retain their end date. */
-const FREE_TRIAL_DAYS = 5;
+/** New SaaS trials are seven days; existing persisted trials retain their end date. */
+const FREE_TRIAL_DAYS = 7;
 const LEGACY_FREE_TRIAL_DAYS = 15;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -59,7 +59,7 @@ export const getDaysRemaining = (subscription, now = new Date()) => {
   const trialEnd = getEffectiveTrialEndDate(subscription);
   if (!trialEnd) return 0;
   const diff = trialEnd.getTime() - new Date(now).getTime();
-  // Human-facing labels show completed 24-hour periods left. This prevents 4d 23h from being rounded back up to “5 days remaining”.
+  // Human-facing labels show completed 24-hour periods left instead of rounding up.
   return diff <= 0 ? 0 : Math.floor(diff / MS_PER_DAY);
 };
 

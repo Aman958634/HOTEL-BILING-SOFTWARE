@@ -53,7 +53,7 @@ export const TrialBanner = ({ subscription, onElapsed }) => {
         <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#ffedcf] text-2xl text-orange-500 sm:h-16 sm:w-16" aria-hidden="true"><FiGift /></span>
           <div className="min-w-0">
-            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl"><span className="text-orange-500">5-Day</span>{" "}<span className="text-slate-900">Free Trial</span></h2>
+            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl"><span className="text-orange-500">{subscription?.trialLabel || "Free Trial"}</span></h2>
             <p className="mt-1 text-sm font-medium text-slate-600 sm:text-[15px]">Explore all premium features. No payment required.</p>
             <div className="mt-4 flex flex-col gap-2 text-xs font-medium text-slate-600 sm:flex-row sm:items-center sm:gap-4 sm:text-sm">
               <span className="flex min-w-0 items-center gap-2"><FiCalendar className="shrink-0 text-emerald-600" aria-hidden="true" /><span className="truncate"><strong className="font-semibold text-slate-700">Trial Started:</strong> {formatDateTime(subscription.trialStartAt)}</span></span>
@@ -84,7 +84,7 @@ export const SubscriptionRequiredScreen = ({ subscription, onRefresh, refreshing
   const title = paidExpired ? "Your subscription has expired" : "Your free trial has ended";
   const description = paidExpired
     ? "Your RestoSphere plan has ended. Renew your subscription to continue using restaurant operations."
-    : "Your 5-day RestoSphere trial has ended. Choose a plan to continue managing your restaurant.";
+    : "Your RestoSphere trial has ended. Choose a plan to continue managing your restaurant.";
   return (
     <section className="mx-auto flex min-h-[min(62vh,620px)] max-w-xl items-center py-6 sm:py-10" aria-labelledby="subscription-required-title">
       <div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-9">

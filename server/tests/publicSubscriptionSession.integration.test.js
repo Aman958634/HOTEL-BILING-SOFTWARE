@@ -50,6 +50,11 @@ const signup = async ({ label, planName }) => {
 
 const assertFirstSession = async ({ payload, expectedPlan }) => {
   assert.equal(payload.subscription.planName, expectedPlan);
+  const trialStart = new Date(payload.subscription.trialStartAt || payload.subscription.trialStartDate);
+  const trialEnd = new Date(payload.subscription.trialEndAt || payload.subscription.trialEndDate);
+  assert.equal(payload.subscription.status, "trial");
+  assert.equal(trialEnd.getTime() - trialStart.getTime(), 7 * 24 * 60 * 60 * 1000, "new signup trial is exactly seven days");
+  assert.equal(payload.subscription.trialLabel, "7-Day Free Trial");
   assert.equal(payload.authorizedOutlets.length, 1, "first session returns exactly one authorized Main Outlet");
   const outlet = payload.authorizedOutlets[0];
   assert.equal(outlet.name, "Main Outlet");

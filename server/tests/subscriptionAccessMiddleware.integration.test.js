@@ -18,7 +18,7 @@ try {
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
   const restaurant = await Restaurant.create({ name: `Entitlement ${suffix}`, slug: `entitlement-${suffix}`, branchCode: `E${suffix.slice(0, 6)}`, address: "Isolated test" });
   created.push(restaurant._id);
-  const expired = await Subscription.create({ restaurant: restaurant._id, planName: "basic", status: "trial", trialStartDate: new Date(Date.now() - 6 * 86400000), trialEndDate: new Date(Date.now() - 86400000), metadata: { trialDurationDays: 5 } });
+  const expired = await Subscription.create({ restaurant: restaurant._id, planName: "basic", status: "trial", trialStartDate: new Date(Date.now() - 8 * 86400000), trialEndDate: new Date(Date.now() - 86400000), metadata: { trialDurationDays: 7 } });
   const denied = await invoke({ _id: new mongoose.Types.ObjectId(), role: "manager", restaurant: restaurant._id });
   assert.equal(denied.error?.statusCode, 403);
   assert.equal(denied.error?.code, "SUBSCRIPTION_EXPIRED");

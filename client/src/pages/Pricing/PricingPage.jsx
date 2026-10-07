@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { fetchPublicPlans, parsePublicPlansResponse } from "../../services/publicSubscriptionService";
+import { DEFAULT_FREE_TRIAL_DAYS, fetchPublicPlans, parsePublicPlansResponse } from "../../services/publicSubscriptionService";
 import { saveSelectedPlan } from "../../utils/planSelection";
 
 const formatMoney = (amount, currency = "INR") => {
@@ -44,7 +44,7 @@ const PricingPage = () => {
   const navigate = useNavigate();
   const { accessToken, user } = useSelector((state) => state.auth);
   const [plans, setPlans] = useState([]);
-  const [trialDays, setTrialDays] = useState(5);
+  const [trialDays, setTrialDays] = useState(DEFAULT_FREE_TRIAL_DAYS);
   const [premiumDurationYears, setPremiumDurationYears] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,7 +59,7 @@ const PricingPage = () => {
       element.name = "description";
       return element;
     });
-    description.content = "Compare RestoSphere restaurant management plans and start with a 5-day free trial.";
+    description.content = "Compare RestoSphere restaurant management plans and start with a 7-day free trial.";
 
     const canonical = upsertHeadElement('link[rel="canonical"]', () => {
       const element = document.createElement("link");
