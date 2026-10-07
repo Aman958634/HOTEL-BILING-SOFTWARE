@@ -1,4 +1,7 @@
 import PDFDocument from "pdfkit";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { formatPaymentId } from "./paymentId.js";
 
 export const PAYMENT_METHOD_LABELS = {
@@ -145,19 +148,24 @@ export const paymentStatusTone = (value) => {
 export const paymentEventLabel = (value) => PAYMENT_EVENT_LABELS[String(value || "").toUpperCase()] || String(value || "");
 
 const firstDefined = (...values) => values.find((value) => value !== undefined && value !== null);
-const receiptNumber = (payment) => payment?.paymentId ? formatPaymentId(payment.paymentId) : "-";
+const receiptTableOrType = (order = {}, payment = {}) => {
+  const tableNumber = order?.table?.tableNumber || payment?.tableNumber || payment?.metadata?.tableNumber;
+  if (tableNumber) return `Table ${tableNumber}`;
+  const orderType = String(order?.orderType || payment?.orderType || "").toUpperCase();
+  if (orderType === "TAKEAWAY" || orderType === "PICKUP") return "PARCEL";
+  if (orderType === "DELIVERY") return "DELIVERY";
+  return "-";
+};
+const receiptLogoPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../client/public/restosphere-logo.png");
 
 /** Presentation-only snapshot of stored values; it never changes settlement data. */
 export const buildPaymentReceiptData = ({ payment = {}, order = {}, restaurant = {} } = {}) => {
   const serviceCharge = firstDefined(order?.serviceCharge, payment?.serviceCharge);
   return {
     restaurantName: restaurant?.name || "RestoSphere",
-    receiptNumber: receiptNumber(payment),
     orderNumber: order?.orderNumber || order?._id?.toString?.() || "-",
     paymentDate: formatDateTime(payment?.paidAt || payment?.createdAt),
-    customerName: order?.customer?.fullName || payment?.customerName || payment?.metadata?.customerName || "Guest",
-    customerPhone: order?.customer?.phone || payment?.customerPhone || payment?.metadata?.customerPhone || "-",
-    tableNumber: order?.table?.tableNumber || payment?.tableNumber || payment?.metadata?.tableNumber || "-",
+    tableOrType: receiptTableOrType(order, payment),
     items: (Array.isArray(order?.items) ? order.items : []).map((item, index) => ({
       number: index + 1, name: item?.menuItem?.name || item?.name || "Item",
       quantity: Number(item?.quantity || 0), price: Number(item?.price || 0),
@@ -169,103 +177,56 @@ export const buildPaymentReceiptData = ({ payment = {}, order = {}, restaurant =
       tax: Number(firstDefined(order?.tax, payment?.tax, 0) || 0),
       serviceCharge: serviceCharge === undefined ? null : Number(serviceCharge || 0),
       grandTotal: Number(firstDefined(payment?.totalAmount, payment?.amount, order?.total, 0) || 0),
+      gstRate: Number(firstDefined(order?.gstRate, payment?.gstRate, 0) || 0),
     },
-    paymentMethod: paymentMethodLabel(payment?.paymentMethod, payment?.provider),
-    paymentId: receiptNumber(payment),
-    transactionReference: payment?.transactionId || payment?.razorpayPaymentId || payment?.cashfreePaymentId || "-",
-    status: "SUCCESS",
   };
 };
 
 export const buildReceiptBuffer = async ({ payment, order, restaurant }) => new Promise((resolve) => {
-  const doc = new PDFDocument({ margin: 40, size: "A4", bufferPages: true });
-  const chunks = [];
   const data = buildPaymentReceiptData({ payment, order, restaurant });
-  const left = 40; const right = doc.page.width - 40; const width = right - left;
+  const receiptWidth = 226.77; // 80 mm thermal roll
+  const itemHeight = (item) => Math.max(16, Math.ceil(String(item.name).length / 24) * 10 + 6);
+  const receiptHeight = Math.max(330, 272 + data.items.reduce((total, item) => total + itemHeight(item), 0));
+  const doc = new PDFDocument({ margin: 11, size: [receiptWidth, receiptHeight], bufferPages: true });
+  const chunks = [];
+  const left = 11; const right = doc.page.width - 11; const width = right - left;
   doc.on("data", (chunk) => chunks.push(chunk));
   doc.on("end", () => resolve(Buffer.concat(chunks)));
-
-  const spaceFor = (height, includeItemHeader = false) => {
-    if (doc.y + height <= doc.page.height - 70) return;
-    doc.addPage(); doc.y = 45;
-    if (includeItemHeader) itemsHeader();
+  const row = (label, value, y, emphasized = false) => {
+    if (emphasized) doc.roundedRect(left, y - 4, width, 23, 4).fill("#ecfdf5");
+    doc.fillColor(emphasized ? "#166534" : "#475569").font(emphasized ? "Helvetica-Bold" : "Helvetica").fontSize(emphasized ? 11 : 9).text(label, left + 4, y, { width: 105 });
+    doc.text(formatCurrency(value), left + 112, y, { width: width - 116, align: "right" });
   };
-  const field = (label, value, x, y, fieldWidth) => {
-    doc.fillColor("#64748b").font("Helvetica").fontSize(8).text(label.toUpperCase(), x, y, { width: fieldWidth });
-    doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(10).text(String(value || "-"), x, y + 12, { width: fieldWidth, ellipsis: true });
-  };
-  const itemsHeader = () => {
-    const y = doc.y;
-    doc.roundedRect(left, y, width, 23, 4).fill("#f1f5f9");
-    doc.fillColor("#475569").font("Helvetica-Bold").fontSize(8);
-    [["#", 48, 24], ["ITEM", 76, 255], ["QTY", 337, 40], ["PRICE", 385, 76], ["TOTAL", 468, 83]]
-      .forEach(([text, x, columnWidth]) => doc.text(text, x, y + 8, { width: columnWidth, align: x > 80 ? "right" : "left" }));
-    doc.y = y + 31;
-  };
-
-  const center = doc.page.width / 2;
-  doc.circle(center, 66, 18).fill("#16a34a");
-  doc.moveTo(center - 8, 66).lineTo(center - 2, 72).lineTo(center + 9, 59).lineWidth(2.5).strokeColor("#fff").stroke();
-  doc.fillColor("#166534").font("Helvetica-Bold").fontSize(20).text("Payment Successful!", left, 96, { width, align: "center" });
-  doc.fillColor("#64748b").font("Helvetica").fontSize(10).text("Thank you! Your payment has been completed.", left, 122, { width, align: "center" });
-  doc.fillColor("#0f766e").font("Helvetica-Bold").fontSize(22).text("RestoSphere", left, 158, { width, align: "center" });
-  doc.fillColor("#64748b").font("Helvetica").fontSize(9).text("Restaurant Management System", left, 184, { width, align: "center" });
-  doc.moveTo(left, 208).lineTo(right, 208).lineWidth(1).strokeColor("#d1d5db").stroke();
-  doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(15).text("PAYMENT RECEIPT", left, 220, { width, align: "center", characterSpacing: 1.4 });
-
-  const infoY = 255;
-  field("Receipt No.", data.receiptNumber, left, infoY, 246);
-  field("Order No.", data.orderNumber, left, infoY + 38, 246);
-  field("Payment Date", data.paymentDate, left, infoY + 76, 246);
-  field("Restaurant", data.restaurantName, 306, infoY, 246);
-  field("Customer", data.customerName, 306, infoY + 38, 246);
-  field("Phone / Table", data.customerPhone + " / " + data.tableNumber, 306, infoY + 76, 246);
-  doc.y = infoY + 122;
-  doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(1).strokeColor("#e2e8f0").stroke();
-  doc.y += 16; itemsHeader();
-
-  if (!data.items.length) {
-    doc.fillColor("#64748b").font("Helvetica").fontSize(9).text("No item details were recorded for this payment.", left, doc.y + 4, { width });
-    doc.y += 26;
-  } else data.items.forEach((item) => {
-    const rowHeight = Math.max(28, doc.heightOfString(item.name, { width: 255, font: "Helvetica" }) + 12);
-    spaceFor(rowHeight + 5, true);
-    const y = doc.y;
-    doc.fillColor("#64748b").font("Helvetica").fontSize(9).text(String(item.number), 48, y, { width: 24 });
-    doc.fillColor("#0f172a").font("Helvetica").text(item.name, 76, y, { width: 255 });
-    doc.text(String(item.quantity), 337, y, { width: 40, align: "right" });
-    doc.text(formatCurrency(item.price), 385, y, { width: 76, align: "right" });
-    doc.font("Helvetica-Bold").text(formatCurrency(item.total), 468, y, { width: 83, align: "right" });
-    doc.moveTo(left, y + rowHeight).lineTo(right, y + rowHeight).lineWidth(0.5).strokeColor("#e2e8f0").stroke();
-    doc.y = y + rowHeight + 5;
+  let y = 12;
+  if (existsSync(receiptLogoPath)) { doc.image(receiptLogoPath, left + (width - 48) / 2, y, { fit: [48, 16] }); y += 20; }
+  doc.fillColor("#0f766e").font("Helvetica-Bold").fontSize(12).text("RestoSphere", left, y, { width, align: "center" }); y += 14;
+  doc.fillColor("#334155").font("Helvetica-Bold").fontSize(8).text(String(data.restaurantName).toUpperCase(), left, y, { width, align: "center" }); y += 17;
+  doc.roundedRect(left + 32, y, width - 64, 19, 4).fill("#ecfdf5");
+  doc.fillColor("#166534").font("Helvetica-Bold").fontSize(9).text("✓  Payment Successful", left, y + 5, { width, align: "center" }); y += 29;
+  [["Order No", data.orderNumber], ["Date & Time", data.paymentDate], ["Table / Type", data.tableOrType]].forEach(([label, value]) => {
+    doc.fillColor("#64748b").font("Helvetica").fontSize(8).text(label, left, y, { width: 72 });
+    doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(8).text(String(value || "-"), left + 76, y, { width: width - 76, align: "right", ellipsis: true });
+    y += 14;
   });
-
-  spaceFor(150);
-  const total = (label, amount, emphasis = false, negative = false) => {
-    const y = doc.y;
-    if (emphasis) doc.roundedRect(345, y - 5, 207, 26, 4).fill("#ecfdf5");
-    doc.fillColor(emphasis ? "#166534" : "#475569").font(emphasis ? "Helvetica-Bold" : "Helvetica").fontSize(emphasis ? 11 : 9).text(label, 353, y, { width: 110 });
-    doc.text((negative ? "-" : "") + formatCurrency(amount), 463, y, { width: 80, align: "right" });
-    doc.y = y + (emphasis ? 31 : 18);
-  };
-  total("Subtotal", data.totals.subtotal);
-  total("Discount", data.totals.discount, false, data.totals.discount > 0);
-  total("Tax / GST", data.totals.tax);
-  if (data.totals.serviceCharge !== null) total("Service Charge", data.totals.serviceCharge);
-  total("Grand Total", data.totals.grandTotal, true);
-
-  spaceFor(130);
-  doc.moveTo(left, doc.y + 5).lineTo(right, doc.y + 5).lineWidth(1).strokeColor("#e2e8f0").stroke(); doc.y += 17;
-  [["Payment Method", data.paymentMethod], ["Payment ID", data.paymentId], ["Transaction / Reference", data.transactionReference], ["Status", data.status]]
-    .forEach(([label, value]) => {
-      const y = doc.y;
-      doc.fillColor("#64748b").font("Helvetica").fontSize(9).text(label, left, y, { width: 170 });
-      doc.fillColor(label === "Status" ? "#15803d" : "#0f172a").font("Helvetica-Bold").text(value, 215, y, { width: 337, align: "right", ellipsis: true });
-      doc.y = y + 18;
-    });
-  doc.moveTo(left, doc.y + 5).lineTo(right, doc.y + 5).lineWidth(1).strokeColor("#e2e8f0").stroke();
-  doc.fillColor("#0f766e").font("Helvetica-Bold").fontSize(10).text("Thank you for choosing RestoSphere!", left, doc.y + 18, { width, align: "center" });
-  doc.fillColor("#94a3b8").font("Helvetica").fontSize(8).text("This is a computer-generated receipt.", left, doc.y + 34, { width, align: "center" });
+  doc.moveTo(left, y + 2).lineTo(right, y + 2).lineWidth(0.5).strokeColor("#cbd5e1").stroke(); y += 10;
+  doc.fillColor("#475569").font("Helvetica-Bold").fontSize(8).text("ITEM", left, y, { width: 112 });
+  doc.text("QTY", left + 114, y, { width: 25, align: "right" });
+  doc.text("AMOUNT", left + 142, y, { width: width - 142, align: "right" }); y += 13;
+  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor("#cbd5e1").stroke(); y += 5;
+  if (!data.items.length) { doc.fillColor("#64748b").font("Helvetica").fontSize(8).text("No item details were recorded for this payment.", left, y, { width }); y += 17; }
+  data.items.forEach((item) => {
+    const height = itemHeight(item); const rowY = y;
+    doc.fillColor("#0f172a").font("Helvetica").fontSize(8).text(item.name, left, rowY, { width: 112 });
+    doc.text(String(item.quantity), left + 114, rowY, { width: 25, align: "right" });
+    doc.font("Helvetica-Bold").text(formatCurrency(item.total), left + 142, rowY, { width: width - 142, align: "right" });
+    y += height; doc.moveTo(left, y - 2).lineTo(right, y - 2).lineWidth(0.35).strokeColor("#e2e8f0").stroke();
+  });
+  y += 7;
+  row("Subtotal", data.totals.subtotal, y); y += 14;
+  row("Discount", data.totals.discount, y); y += 14;
+  row(`GST (${data.totals.gstRate}%)`, data.totals.tax, y); y += 14;
+  row("Service Charge", data.totals.serviceCharge ?? 0, y); y += 19;
+  row("GRAND TOTAL", data.totals.grandTotal, y, true);
   doc.end();
 });
 const escapeCsvValue = (value) => {
