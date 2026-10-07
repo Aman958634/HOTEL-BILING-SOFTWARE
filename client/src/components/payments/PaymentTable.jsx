@@ -6,8 +6,6 @@ import { SkeletonTable } from "../common/Skeletons";
 import { formatPaymentId } from "../../utils/paymentId";
 import TablePagination from "../common/TablePagination";
 
-const canDeletePayment = (payment) => !["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(String(payment?.paymentStatus || "").toUpperCase());
-
 const ActionButton = ({ children, onClick, tone = "default" }) => {
   const className = tone === "danger"
     ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
@@ -50,7 +48,7 @@ const PaymentCard = ({ payment, onView, onReceipt, onRefund, onDelete }) => (
       {canRefundPayment(payment) ? (
         <ActionButton onClick={() => onRefund(payment)} tone="danger"><FiRotateCcw /> Refund</ActionButton>
       ) : null}
-      {canDeletePayment(payment) ? <ActionButton onClick={() => onDelete(payment)} tone="danger"><FiTrash2 /> Remove pending payment</ActionButton> : null}
+      <ActionButton onClick={() => onDelete(payment)} tone="danger"><FiTrash2 /> Delete</ActionButton>
     </div>
   </article>
 );
@@ -97,7 +95,7 @@ const PaymentTable = ({ payments, loading, meta, onView, onReceipt, onRefund, on
                     <ActionButton onClick={() => onView(payment)} tone="primary"><FiEye /> View</ActionButton>
                     {canViewPaymentReceipt(payment) ? <ActionButton onClick={() => onReceipt(payment)}><FiFileText /> Receipt</ActionButton> : null}
                     {canRefundPayment(payment) ? <ActionButton onClick={() => onRefund(payment)} tone="danger"><FiRotateCcw /> Refund</ActionButton> : null}
-                    {canDeletePayment(payment) ? <ActionButton onClick={() => onDelete(payment)} tone="danger"><FiTrash2 /> Remove pending payment</ActionButton> : null}
+                    <ActionButton onClick={() => onDelete(payment)} tone="danger"><FiTrash2 /> Delete</ActionButton>
                   </div>
                 </td>
               </tr>

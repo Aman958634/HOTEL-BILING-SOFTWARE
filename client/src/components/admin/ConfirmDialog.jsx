@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import Button from "../ui/Button";
 
-const ConfirmDialog = ({ open, title, message, onConfirm, onCancel, loading }) => {
+const ConfirmDialog = ({ open, title, message, onConfirm, onCancel, loading, confirmLabel = "Delete" }) => {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => { if (event.key === "Escape" && !loading) onCancel?.(); };
@@ -18,7 +18,7 @@ const ConfirmDialog = ({ open, title, message, onConfirm, onCancel, loading }) =
         <p id="confirm-dialog-message" className="mt-2 whitespace-pre-line break-words text-sm text-slate-600">{message}</p>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
           <Button variant="secondary" onClick={onCancel} disabled={loading}>Cancel</Button>
-          <Button variant="danger" onClick={onConfirm} loading={loading} loadingText="Deleting…">Delete</Button>
+          <Button variant="danger" onClick={onConfirm} loading={loading} loadingText="Deleting…">{confirmLabel}</Button>
         </div>
       </div>
     </div>

@@ -388,7 +388,7 @@ const Payments = () => {
     setDeletingPayment(true);
     try {
       await deletePayment(deleteTarget._id || deleteTarget.paymentId);
-      toast.success("Payment deleted");
+      toast.success("Payment deleted successfully.");
       setDeleteTarget(null);
       await refreshPaymentWorkspace();
     } catch (err) {
@@ -562,9 +562,10 @@ const Payments = () => {
       <Suspense fallback={null}>
         <ConfirmDialog
           open={Boolean(deleteTarget)}
-          title="Delete payment"
-          message="This will permanently remove the payment record. Continue?"
+          title="Delete Payment?"
+          message="This will remove this payment record and safely update the related order/bill payment state."
           loading={deletingPayment}
+          confirmLabel="Delete Payment"
           onCancel={() => setDeleteTarget(null)}
           onConfirm={confirmDeletePayment}
         />

@@ -2,7 +2,11 @@ import Stripe from "stripe";
 import Razorpay from "razorpay";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
+import Refund from "../models/Refund.js";
+import SettlementTransaction from "../models/SettlementTransaction.js";
 import Order from "../models/Order.js";
+import Bill from "../models/Bill.js";
+import Log from "../models/Log.js";
 import Restaurant from "../models/Restaurant.js";
 import Sequence from "../models/Sequence.js";
 import User from "../models/User.js";
@@ -19,7 +23,7 @@ import {
 import { emitPaymentCreated, emitPaymentUpdated } from "../socket/paymentSocket.js";
 import { notifyPaymentReceived } from "./notificationService.js";
 import { formatPaymentId } from "../utils/paymentId.js";
-import { generateInvoice } from "./invoiceService.js";
+import { generateInvoice, refreshInvoice } from "./invoiceService.js";
 import { awardPointsForPaidOrder } from "./loyaltyService.js";
 import { triggerSuccessfulPaymentSideEffects } from "./whatsappService.js";
 import logger from "../utils/logger.js";
@@ -172,11 +176,25 @@ const getSuccessfulPaymentTotal = async (orderId, session = null) =>
 
 const applyOrderPaymentMirror = async (orderDoc, payment, session = null) => {
   const settlement = await deriveOrderPaymentState(orderDoc, session);
-  orderDoc.paymentMethod = payment?.paymentMethod || orderDoc.paymentMethod;
+  // When a ledger entry has just been deleted, do not leave its receipt or
+  // transaction reference on the order.  Use the latest surviving collected
+  // entry, if any, as the denormalized display reference.
+  let displayPayment = payment;
+  if (!displayPayment) {
+    let query = Payment.findOne({
+      orderId: orderDoc._id,
+      paymentStatus: { $in: [...collectedPaymentStatuses] },
+    })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .select("paymentId transactionId paymentMethod paidAt");
+    if (session) query = query.session(session);
+    displayPayment = await query;
+  }
+  orderDoc.paymentMethod = displayPayment?.paymentMethod || orderDoc.paymentMethod;
   orderDoc.paymentStatus = settlement.paymentStatus;
-  orderDoc.paymentId = payment?.paymentId || orderDoc.paymentId || "";
-  orderDoc.transactionId = payment?.transactionId || orderDoc.transactionId || "";
-  orderDoc.paidAt = settlement.fullyPaid ? payment?.paidAt || orderDoc.paidAt || new Date() : null;
+  orderDoc.paymentId = displayPayment?.paymentId || "";
+  orderDoc.transactionId = displayPayment?.transactionId || "";
+  orderDoc.paidAt = settlement.fullyPaid ? displayPayment?.paidAt || new Date() : null;
   await orderDoc.save(session ? { session } : undefined);
   return settlement;
 };
@@ -686,17 +704,91 @@ export const settleCashfreePayment = async ({ order, paymentId, externalPayment,
   return result;
 };
 
-export const deleteUnsettledOrderPayment = async ({ paymentId, restaurantId }) => {
+const EXTERNAL_PAYMENT_MARKERS = new Set(["razorpay", "cashfree", "stripe", "hotel_upi"]);
+
+const isExternalPayment = (payment) => {
+  const fields = [payment.paymentMethod, payment.provider, payment.gateway, payment.razorpayOrderId, payment.razorpayPaymentId, payment.cashfreeOrderId, payment.cashfreePaymentId]
+    .map((value) => String(value || "").trim().toLowerCase());
+  return fields.some((value) => EXTERNAL_PAYMENT_MARKERS.has(value) || /razorpay|cashfree|stripe|hotel.?upi/.test(value));
+};
+
+const assertPaymentDeletionAllowed = async (payment, session) => {
+  const status = normalizePaymentStatus(payment.paymentStatus);
+  if (["PARTIALLY_REFUNDED", "REFUNDED"].includes(status) || Number(payment.refundAmount || 0) > 0 || payment.refundStatus) {
+    throw new ApiError(409, "Refunded payments cannot be deleted. Preserve the record for audit history.");
+  }
+  if (String(payment.reconciliationStatus || "UNRECONCILED").toUpperCase() !== "UNRECONCILED") {
+    throw new ApiError(409, "Reconciled payments cannot be deleted. Preserve the record for accounting.");
+  }
+  if (isExternalPayment(payment)) {
+    throw new ApiError(409, "External-provider payments cannot be deleted. A local delete does not reverse provider settlement.");
+  }
+  if (String(payment.paymentMethod || "").toUpperCase() !== "CASH") {
+    throw new ApiError(409, "Only locally collected cash payments can be deleted. Use the approved refund flow for digital payments.");
+  }
+  const [refund, split] = await Promise.all([
+    Refund.exists({ payment: payment._id }).session(session),
+    SettlementTransaction.exists({ payment: payment._id }).session(session),
+  ]);
+  if (refund) {
+    throw new ApiError(409, "Payments with refund records cannot be deleted. Preserve the record for audit history.");
+  }
+  if (split) {
+    throw new ApiError(409, "Payments with provider settlement records cannot be deleted. Preserve the record for accounting.");
+  }
+};
+
+const applyBillPaymentMirror = async (bill, session) => {
+  const payments = await Payment.find({ bill: bill._id })
+    .select("amount totalAmount refundAmount paymentStatus")
+    .session(session)
+    .lean();
+  const collected = payments.reduce((sum, payment) => {
+    if (!collectedPaymentStatuses.has(normalizePaymentStatus(payment.paymentStatus))) return sum;
+    return sum + Math.max(toPaise(payment.amount ?? payment.totalAmount) - toPaise(payment.refundAmount), 0);
+  }, 0);
+  const total = toPaise(bill.total);
+  bill.paidAmount = fromPaise(collected);
+  bill.balanceDue = fromPaise(Math.max(total - collected, 0));
+  bill.status = collected >= total && total > 0 ? "PAID" : collected > 0 ? "PARTIALLY_PAID" : "OPEN";
+  if (bill.status !== "PAID") {
+    bill.settledBy = null;
+    bill.settledAt = null;
+  }
+  await bill.save({ session });
+
+  let remaining = collected;
+  for (const allocation of bill.allocations || []) {
+    const order = await Order.findById(allocation.order).session(session);
+    if (!order) continue;
+    const allocationTotal = toPaise(allocation.total);
+    const allocated = Math.min(remaining, allocationTotal);
+    const fullyPaid = allocated >= allocationTotal && allocationTotal > 0;
+    order.paymentStatus = fullyPaid ? "PAID" : "PENDING";
+    order.paidAt = fullyPaid ? bill.settledAt || new Date() : null;
+    if (!fullyPaid && order.status === "COMPLETED") order.status = "PENDING";
+    await order.save({ session });
+    await refreshInvoice(order, { session });
+    remaining = Math.max(remaining - allocationTotal, 0);
+  }
+  await Order.updateMany({ billingBill: bill._id }, { $set: { billingState: bill.status === "PAID" ? "SETTLED" : "BILLED" } }, { session });
+  return bill;
+};
+
+/**
+ * Removes only a locally-controlled, unreconciled payment. Provider-backed,
+ * refunded and reconciled records are deliberately retained for audit safety.
+ */
+export const deletePaymentRecord = async ({ paymentId, restaurantId, user }) => {
   const session = await mongoose.startSession();
   let result;
   try {
     await session.withTransaction(async () => {
       const payment = await Payment.findOne({ _id: paymentId, restaurant: restaurantId }).session(session);
       if (!payment) throw new ApiError(404, "Payment not found");
-      if (["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(normalizePaymentStatus(payment.paymentStatus))) {
-        throw new ApiError(409, "Paid or refunded payments cannot be deleted");
-      }
+      await assertPaymentDeletionAllowed(payment, session);
       const orderDoc = payment.orderId ? await buildOrderLookup(payment.orderId, session) : null;
+      const bill = payment.bill ? await Bill.findOne({ _id: payment.bill, restaurant: restaurantId }).session(session) : null;
       await payment.deleteOne({ session });
       if (orderDoc) {
         const settlement = await applyOrderPaymentMirror(orderDoc, null, session);
@@ -704,10 +796,24 @@ export const deleteUnsettledOrderPayment = async ({ paymentId, restaurantId }) =
           orderDoc.status = "PENDING";
           await orderDoc.save({ session });
         }
-        result = { payment, order: orderDoc };
-      } else {
-        result = { payment, order: null };
+        await refreshInvoice(orderDoc, { session });
       }
+      const updatedBill = bill ? await applyBillPaymentMirror(bill, session) : null;
+      await Log.create([{
+        level: "info",
+        message: "PAYMENT_DELETED",
+        context: {
+          paymentId: payment.paymentId,
+          orderId: orderDoc?._id || null,
+          billId: updatedBill?._id || payment.bill || null,
+          amount: Number(payment.amount ?? payment.totalAmount ?? 0),
+          paymentMethod: payment.paymentMethod,
+          authorizedUserId: user?._id || null,
+          restaurantId: payment.restaurant || null,
+          outletId: payment.outlet || null,
+        },
+      }], { session });
+      result = { payment, order: orderDoc, bill: updatedBill };
     });
   } catch (error) {
     if (String(error?.message || "").includes("Transaction numbers are only allowed")) {
@@ -717,8 +823,17 @@ export const deleteUnsettledOrderPayment = async ({ paymentId, restaurantId }) =
   } finally {
     await session.endSession();
   }
+  if (result.order?.table) {
+    const { maybeReleaseTableAfterSettlement } = await import("./tableOrderService.js");
+    await maybeReleaseTableAfterSettlement(result.order);
+  }
+  emitPaymentUpdated({ ...serializePayment(result.payment), deleted: true });
   return result;
 };
+
+// Backward-compatible name for internal callers. Its eligibility rules now
+// cover safe paid cash deletion as well as locally-created unsettled attempts.
+export const deleteUnsettledOrderPayment = deletePaymentRecord;
 
 /**
  * Repairs a crash window such as a committed gateway payment followed by a

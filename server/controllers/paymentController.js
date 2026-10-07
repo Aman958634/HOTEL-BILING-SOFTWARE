@@ -26,7 +26,7 @@ import {
   recordVerifiedPayment,
   recordOrderPayment,
   deriveOrderPaymentState,
-  deleteUnsettledOrderPayment,
+  deletePaymentRecord,
   getRazorpayClient,
   serializePayment,
   stripe,
@@ -748,8 +748,8 @@ export const refundPayment = asyncHandler(async (req, res) => {
 export const deletePayment = asyncHandler(async (req, res) => {
   const payment = await getPaymentDoc(req.params.id, req.user);
   if (!payment) throw new ApiError(404, "Payment not found");
-  await deleteUnsettledOrderPayment({ paymentId: payment._id, restaurantId: payment.restaurant });
+  await deletePaymentRecord({ paymentId: payment._id, restaurantId: payment.restaurant, user: req.user });
 
   logger.info(`Payment deleted paymentId=${payment.paymentId} by user=${req.user?._id || "unknown"}`);
-  res.status(200).json(new ApiResponse(true, "Payment deleted"));
+  res.status(200).json(new ApiResponse(true, "Payment deleted successfully."));
 });
