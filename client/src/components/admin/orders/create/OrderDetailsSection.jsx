@@ -56,6 +56,7 @@ const OrderDetailsSection = ({
   onGuestChange,
   isTableSelectable,
   hotelUpiCapability = { canCollect: false, reason: "Hotel UPI is unavailable." },
+  tableSelectRef,
 }) => (
   <section className={cardClass}>
     <h3 className="mb-4 text-base font-semibold text-slate-900">Order Details</h3>
@@ -93,6 +94,7 @@ const OrderDetailsSection = ({
           <>
             <select
               id="order-table"
+              ref={tableSelectRef}
               className={fieldClass}
               value={tableId}
               onChange={(e) => onPatch({ table: e.target.value })}

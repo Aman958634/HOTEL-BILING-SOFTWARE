@@ -38,6 +38,7 @@ import { getAllTablesForOrder } from "../../services/tableService";
 import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { applyAuthoritativeCashPayment } from "../../utils/cashPaymentConfirmation";
+import { useKeyboardShortcutScope } from "../../context/useKeyboardShortcutScope";
 import { getOfflineOrderScope, savePendingOfflineOrder } from "../../utils/offlineOrderQueue";
 import { listPendingOfflineOrders } from "../../utils/offlineOrderQueue";
 import { syncPendingOfflineOrders } from "../../services/offlineOrderSync";
@@ -190,7 +191,11 @@ const OrderManagement = () => {
     const state = location.state;
     if (!state) return;
 
-    if (state.tableId) {
+    if (state.keyboardShortcut === "new-order") {
+      setCreateSubmitError("");
+      setCreateOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (state.tableId) {
       setCreateInitialTable(state.tableId);
       setCreateOpen(true);
       navigate(location.pathname, { replace: true, state: {} });
@@ -905,6 +910,36 @@ const OrderManagement = () => {
     setCreateSubmitError("");
     setCreateOpen(true);
   }, []);
+
+  const closeTopmostPanel = () => {
+    if (paymentPromptOpen) { closePaymentPrompt(); return; }
+    if (statusTarget) { setStatusTarget(null); setStatusValue(""); return; }
+    if (deleteTarget) { if (!saving) setDeleteTarget(null); return; }
+    if (cashConfirmOpen) { if (!cashConfirmLoading) setCashConfirmOpen(false); return; }
+    if (hotelPaymentOrder) { closeHotelUpiPayment(); return; }
+    if (retryTarget) { closeRetryPayment(); return; }
+    if (kitchenKot) { setKitchenKot(null); return; }
+    if (detailsOpen) { setDetailsOpen(false); setDetailsOrder(null); setPaidOrderReceipt(null); return; }
+    if (editOpen) { if (!saving) { setEditOpen(false); setEditOrder(null); } return; }
+    if (createOpen) { if (!saving) { setCreateOpen(false); setCreateInitialTable(null); } return; }
+    return false;
+  };
+
+  const selectedOrder = detailsOrder || orders[0];
+  useKeyboardShortcutScope({
+    escape: { handler: closeTopmostPanel },
+    f2: { handler: () => { if (isChef || createOpen || editOpen || detailsOpen || kitchenKot || paymentPromptOpen) return false; openCreate(); } },
+    f7: { handler: () => { if (!selectedOrder || createOpen || editOpen || paymentPromptOpen) return false; openKitchenKot(selectedOrder); } },
+    f8: { handler: () => {
+      if (!canCollectPayments || !selectedOrder || createOpen || editOpen || paymentPromptOpen) return false;
+      if (["PAID", "REFUNDED", "CANCELLED"].includes(String(selectedOrder.paymentStatus || "").toUpperCase())) return false;
+      openRetryPayment(selectedOrder);
+    } },
+    f9: { handler: () => {
+      if (!selectedOrder || createOpen || editOpen || paymentPromptOpen || String(selectedOrder.paymentStatus || "").toUpperCase() !== "PAID") return false;
+      openReceipt(selectedOrder);
+    } },
+  }, { priority: 20 });
 
   const refreshOfflineCount = useCallback(() => {
     const scope = getOfflineOrderScope({ user, outletId: localStorage.getItem("selectedOutletId") || "" });

@@ -10,6 +10,7 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 import { registerPWAServiceWorker } from "./utils/registerPWAServiceWorker";
 import { SocketProvider } from "./context/SocketContext";
 import { LanguageProvider } from "./i18n/LanguageContext";
+import { KeyboardShortcutProvider } from "./context/KeyboardShortcutContext";
 import "./index.css";
 
 setupAuthInterceptor(store);
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Provider store={store}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <KeyboardShortcutProvider>
         <LanguageProvider>
           <SocketProvider>
             <Toaster
@@ -34,6 +36,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             </ErrorBoundary>
           </SocketProvider>
         </LanguageProvider>
+        </KeyboardShortcutProvider>
       </BrowserRouter>
     </Provider>
   </React.StrictMode>

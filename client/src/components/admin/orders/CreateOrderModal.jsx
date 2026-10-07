@@ -10,6 +10,7 @@ import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
 import { cardClass, fieldClass, labelClass } from "./create/constants";
 import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
+import { useKeyboardShortcutScope } from "../../../context/useKeyboardShortcutScope";
 
 const newIdempotencyKey = () => globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -99,6 +100,7 @@ const CreateOrderModal = ({
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [errors, setErrors] = useState({});
   const menuSearchRef = useRef(null);
+  const tableSelectRef = useRef(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
 
   const patchForm = useCallback((updates) => {
@@ -156,18 +158,6 @@ const CreateOrderModal = ({
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.overflow = previousDocumentOverflow;
     };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onShortcut = (event) => {
-      const tag = String(event.target?.tagName || "").toLowerCase();
-      if (event.key !== "/" || tag === "input" || tag === "textarea" || event.target?.isContentEditable) return;
-      event.preventDefault();
-      menuSearchRef.current?.focus();
-    };
-    document.addEventListener("keydown", onShortcut);
-    return () => document.removeEventListener("keydown", onShortcut);
   }, [open]);
 
   useEffect(() => {
@@ -370,6 +360,13 @@ const CreateOrderModal = ({
     });
   };
 
+  useKeyboardShortcutScope({
+    escape: { handler: () => { if (loading) return false; onClose(); } },
+    f3: { allowInEditable: true, handler: () => { if (form.orderType !== "DINE_IN") return false; tableSelectRef.current?.focus(); } },
+    f4: { allowInEditable: true, handler: () => { if (isEdit) return false; patchForm({ orderType: "TAKEAWAY", table: "" }); } },
+    "ctrl+enter": { allowInEditable: true, handler: () => { if (loading) return false; handleSubmit({ preventDefault() {} }); } },
+  }, { enabled: open, priority: 110 });
+
   if (!open) return null;
 
   const itemCount = totals.itemCount;
@@ -452,6 +449,7 @@ const CreateOrderModal = ({
                 onGuestChange={setGuestCount}
                 isTableSelectable={isTableSelectable}
                 hotelUpiCapability={hotelUpiCapability}
+                tableSelectRef={tableSelectRef}
               />
 
               <ItemsSection

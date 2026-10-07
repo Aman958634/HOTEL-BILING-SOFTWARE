@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useKeyboardShortcutScope } from "../../context/useKeyboardShortcutScope";
 import { globalSearch } from "../../services/searchService";
 import {
   FiBox,
@@ -31,11 +32,6 @@ const categoryMeta = {
   inventory: { label: "Inventory", icon: FiBox },
   loyalty: { label: "Loyalty", icon: FiTag },
   centralKitchen: { label: "Central Kitchen", icon: FiCoffee },
-};
-
-const isEditableTarget = (target) => {
-  const tag = String(target?.tagName || "").toLowerCase();
-  return tag === "input" || tag === "textarea" || target?.isContentEditable;
 };
 
 const GlobalSearch = ({ className = "", compact = false, showShortcut = false }) => {
@@ -116,23 +112,10 @@ const GlobalSearch = ({ className = "", compact = false, showShortcut = false })
   }, [cancelPending, executeSearch]);
 
   useEffect(() => () => cancelPending(), [cancelPending]);
-  useEffect(() => {
-    const onEscape = (event) => {
-      if (event.key === "Escape" && open) close();
-    };
-    document.addEventListener("keydown", onEscape);
-    return () => document.removeEventListener("keydown", onEscape);
-  }, [close, open]);
-  useEffect(() => {
-    const onShortcut = (event) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k" || isEditableTarget(event.target)) return;
-      event.preventDefault();
-      setOpen(true);
-      window.setTimeout(() => inputRef.current?.focus(), 0);
-    };
-    document.addEventListener("keydown", onShortcut);
-    return () => document.removeEventListener("keydown", onShortcut);
-  }, []);
+  useKeyboardShortcutScope({
+    "ctrl+k": { allowInEditable: true, handler: () => { setOpen(true); window.setTimeout(() => inputRef.current?.focus(), 0); } },
+    escape: { handler: () => { if (!open) return false; close(); } },
+  }, { priority: open ? 80 : 5 });
 
   const select = useCallback((item) => {
     if (!item?.route) return;
