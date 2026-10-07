@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { FiCheckCircle, FiEdit2, FiEye, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
+import { FiCheckCircle, FiEdit2, FiEye, FiPrinter, FiRefreshCw, FiShoppingBag, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { orderPaymentLabel, paymentBadgeClasses } from "../../../utils/paymentUtils";
 import OrderCard from "./OrderCard";
@@ -31,10 +31,10 @@ const useDesktopOrderLayout = () => {
 const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
-const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, kitchenOnly }) => kitchenOnly ? (
+const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly }) => kitchenOnly ? (
   <tr className="border-b border-slate-100 text-slate-700">
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
-    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
+    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "PARCEL"}</td>
     <td className={cellClass}><ul>{order.items?.map((item) => <li key={item._id || item.name}>{item.quantity} x {item.name}</li>)}</ul></td>
     <td className={cellClass}>{order.notes || order.specialInstructions || "-"}</td>
     <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
@@ -45,7 +45,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCol
   <tr className="border-b border-slate-100 text-slate-700">
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
-    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "-"}</td>
+    <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "PARCEL"}</td>
     <td className={cellClass}>{order.items?.length || 0} Items</td>
     <td className={`${cellClass} font-semibold text-slate-900`}>{currency(order.total)}</td>
     <td className={cellClass}><OrderStatusBadge status={order.status} /></td>
@@ -60,6 +60,9 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCol
         <button type="button" onClick={() => onEdit(order)} className={editBtnClass} aria-label={`Edit order ${order.orderNumber}`}>
           <FiEdit2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Edit
         </button>
+        <button type="button" onClick={() => onPrintKot(order)} className={editBtnClass} aria-label={`Print Kitchen KOT for ${order.orderNumber}`}>
+          <FiPrinter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> KOT
+        </button>
         <button type="button" onClick={() => onDelete(order)} className={deleteBtnClass} aria-label={`Delete order ${order.orderNumber}`}>
           <FiTrash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Delete
         </button>
@@ -68,7 +71,7 @@ const OrderRow = memo(({ order, onOpen, onEdit, onDelete, onRetryPayment, canCol
   </tr>
 ));
 
-const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, hasFilters = false, kitchenOnly = false }) => {
+const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, hasFilters = false, kitchenOnly = false }) => {
   const isDesktop = useDesktopOrderLayout();
 
   if (loading) {
@@ -105,14 +108,14 @@ const OrderTable = ({ orders, loading, error, onOpen, onEdit, onDelete, onRetryP
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />)}
+            {orders.map((order) => <OrderRow key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />)}
           </tbody>
         </table>
       </div>
   ) : (
       <div className="grid gap-3">
         {orders.map((order) => (
-          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />
+          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} />
         ))}
       </div>
   );

@@ -26,6 +26,7 @@ const defaultSettings = {
   isActive: true,
   reservationsEnabled: true,
   onlineOrdersEnabled: true,
+  kitchenDisplayEnabled: true,
 };
 
 const getSettingsErrorMessage = (error, fallback) => {
@@ -59,6 +60,7 @@ const toSavePayload = (settings, includeGstRate) => {
     isActive,
     reservationsEnabled,
     onlineOrdersEnabled,
+    kitchenDisplayEnabled,
   } = settings;
   return {
     name,
@@ -76,6 +78,7 @@ const toSavePayload = (settings, includeGstRate) => {
     isActive,
     reservationsEnabled,
     onlineOrdersEnabled,
+    kitchenDisplayEnabled,
   };
 };
 
@@ -445,6 +448,11 @@ const Settings = () => {
                 checked={Boolean(settings.reservationsEnabled)}
                 onChange={(value) => handleChange("reservationsEnabled", value)}
               />
+              <ToggleSwitch
+                label="Kitchen Display"
+                checked={Boolean(settings.kitchenDisplayEnabled)}
+                onChange={(value) => handleChange("kitchenDisplayEnabled", value)}
+              />
             </div>
           </div>
 
@@ -456,6 +464,7 @@ const Settings = () => {
               <p><strong>Status:</strong> {settings.isActive ? "Active" : "Inactive"}</p>
               <p><strong>Reservations:</strong> {settings.reservationsEnabled ? "Enabled" : "Disabled"}</p>
               <p><strong>Online orders:</strong> {settings.onlineOrdersEnabled ? "Enabled" : "Disabled"}</p>
+              <p><strong>Kitchen Display:</strong> {settings.kitchenDisplayEnabled ? "Enabled" : "Disabled"}</p>
             </div>
           </div>
 

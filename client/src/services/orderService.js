@@ -4,6 +4,7 @@ export const createOrder = (payload, idempotencyKey) => api.post("/orders", payl
 export const createGuestOrder = (payload, idempotencyKey) => api.post("/orders/guest", payload, { headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {} });
 export const getOrders = (params = {}) => api.get("/orders", { params });
 export const getOrderById = (id) => api.get(`/orders/${id}`);
+export const getOrderKot = (id) => api.get(`/orders/${id}/kot`);
 export const updateOrder = (id, payload) => api.put(`/orders/${id}`, payload);
 export const deleteOrder = (id) => api.delete(`/orders/${id}`);
 export const updateOrderStatus = (id, status, payload = {}) => api.patch(`/orders/${id}/status`, { status, ...payload });

@@ -856,6 +856,14 @@ button:disabled { cursor: not-allowed; }
   }
 }
 
+@media print {
+  body.kitchen-kot-printing > :not(.kitchen-kot-modal) { display: none !important; }
+  body.kitchen-kot-printing .kitchen-kot-modal { display: block !important; position: static !important; background: #fff !important; }
+  body.kitchen-kot-printing .kitchen-kot-dialog { display: block !important; position: static !important; width: 80mm !important; max-width: 80mm !important; box-shadow: none !important; background: #fff !important; }
+  body.kitchen-kot-printing #kitchen-kot-print { display: block !important; width: 72mm !important; margin: 0 !important; padding: 4mm !important; box-shadow: none !important; }
+  body.kitchen-kot-printing #kitchen-kot-print * { color: #000 !important; }
+}
+
 @media (max-width: 639px) {
   .app-page-container { padding: 0.75rem; }
   .ui-page-header { gap: 0.75rem; }

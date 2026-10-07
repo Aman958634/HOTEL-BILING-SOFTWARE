@@ -5,6 +5,7 @@ import Payment from "../models/Payment.js";
 import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import Table from "../models/Table.js";
+import KotTicket from "../models/KotTicket.js";
 import Staff from "../models/Staff.js";
 import Restaurant from "../models/Restaurant.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -650,6 +651,34 @@ export const getOrderById = asyncHandler(async (req, res) => {
   if (!canAccessOrder(req.user, order)) throw new ApiError(403, "Forbidden");
 
   res.status(200).json(new ApiResponse(true, "Order fetched", req.user.role === "chef" ? normalizeKitchenOrderOutput(order) : normalizeOrderOutput(order)));
+});
+
+// This is a read-only representation. Printing or reprinting a KOT never
+// creates a ticket, payment, order, or inventory event.
+export const getOrderKot = asyncHandler(async (req, res) => {
+  const order = await Order.findOne(await buildRestaurantQuery({ _id: req.params.id }, req.user))
+    .populate("table", "tableNumber floor section")
+    .populate("restaurant", "name address phone");
+  if (!order || order.isArchived) throw new ApiError(404, "Order not found");
+  if (!canAccessOrder(req.user, order)) throw new ApiError(403, "Forbidden");
+
+  const kot = await KotTicket.findOne({ orderId: order._id, restaurant: order.restaurant?._id || order.restaurant }).lean();
+  if (!kot) throw new ApiError(404, "Kitchen ticket is not available for this order");
+
+  res.status(200).json(new ApiResponse(true, "Kitchen ticket fetched", {
+    kotNumber: `KOT-${String(kot.orderNumber || order.orderNumber || "").replace(/^ORD-/i, "")}`,
+    orderNumber: kot.orderNumber,
+    orderType: kot.orderType,
+    createdAt: kot.createdAt,
+    table: order.table ? { tableNumber: order.table.tableNumber, floor: order.table.floor, section: order.table.section } : null,
+    restaurant: order.restaurant ? { name: order.restaurant.name, address: order.restaurant.address, phone: order.restaurant.phone } : null,
+    notes: order.notes || "",
+    items: (kot.items || []).map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      specialInstructions: item.specialInstructions || "",
+    })),
+  }));
 });
 
 export const updateOrder = asyncHandler(async (req, res) => {

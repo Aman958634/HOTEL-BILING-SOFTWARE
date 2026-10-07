@@ -14,7 +14,7 @@ const elapsedTime = (value) => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPrintReceipt }) => {
+const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPrintReceipt, onPrintKot }) => {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => { if (event.key === "Escape") onClose?.(); };
@@ -108,12 +108,13 @@ const OrderDetailsDrawer = ({ open, order, onClose, loading, onViewReceipt, onPr
               {order.rejectionReason ? <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-700"><strong>Rejection reason:</strong> {order.rejectionReason}</p> : null}
             </div>
 
-            {String(order.paymentStatus || "").toUpperCase() === "PAID" ? (
-              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <button type="button" onClick={() => onPrintKot?.(order)} className="min-h-11 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">Print Kitchen KOT</button>
+              {String(order.paymentStatus || "").toUpperCase() === "PAID" ? <>
                 <button type="button" onClick={() => onViewReceipt?.(order)} className="min-h-11 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700">View Receipt</button>
                 <button type="button" onClick={() => onPrintReceipt?.(order)} className="min-h-11 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-medium text-teal-700">Print Receipt</button>
-              </div>
-            ) : null}
+              </> : null}
+            </div>
           </div>
         ) : (
           <p className="mt-4 text-sm text-rose-600">Unable to load order details.</p>

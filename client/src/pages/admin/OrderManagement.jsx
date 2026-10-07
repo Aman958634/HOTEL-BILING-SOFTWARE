@@ -9,6 +9,7 @@ import CreateOrderModal from "../../components/admin/orders/CreateOrderModal";
 import EditOrderModal from "../../components/admin/orders/EditOrderModal";
 import HotelUpiPaymentModal from "../../components/payments/HotelUpiPaymentModal";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
+import KitchenKotReceipt from "../../components/admin/orders/KitchenKotReceipt";
 import OrderPaymentPromptModal from "../../components/admin/orders/OrderPaymentPromptModal";
 import RetryPaymentModal from "../../components/admin/orders/RetryPaymentModal";
 import OrderStats from "../../components/admin/orders/OrderStats";
@@ -23,6 +24,7 @@ import {
   createOrder,
   deleteOrder,
   getOrderById,
+  getOrderKot,
   getOrderStats,
   getOrders,
   payOrder,
@@ -128,6 +130,7 @@ const OrderManagement = () => {
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [paidOrderReceipt, setPaidOrderReceipt] = useState(null);
+  const [kitchenKot, setKitchenKot] = useState(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [statusTarget, setStatusTarget] = useState(null);
@@ -498,6 +501,16 @@ const OrderManagement = () => {
       setHotelPaymentActionLoading(false);
     }
   };
+
+  const openKitchenKot = useCallback(async (order) => {
+    if (!order?._id) return;
+    try {
+      const { data } = await getOrderKot(order._id);
+      setKitchenKot(data.data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to load Kitchen KOT");
+    }
+  }, []);
 
   const confirmHotelUpiPaymentReceived = async (transactionId) => {
     const paymentId = hotelPaymentData?.payment?._id || hotelPaymentData?.payment?.paymentId;
@@ -945,6 +958,7 @@ const OrderManagement = () => {
         onEdit={openEdit}
         onDelete={requestDelete}
         onRetryPayment={openRetryPayment}
+        onPrintKot={openKitchenKot}
         canCollectPayments={canCollectPayments}
         kitchenOnly={isChef}
       />
@@ -996,7 +1010,9 @@ const OrderManagement = () => {
         }}
         onViewReceipt={isChef ? undefined : openReceipt}
         onPrintReceipt={isChef ? undefined : openReceipt}
+        onPrintKot={openKitchenKot}
       />
+      <KitchenKotReceipt kot={kitchenKot} onClose={() => setKitchenKot(null)} />
 
       <RetryPaymentModal
         open={Boolean(retryTarget)}

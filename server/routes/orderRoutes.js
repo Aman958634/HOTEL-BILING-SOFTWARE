@@ -7,6 +7,7 @@ import {
 	deleteOrder,
 	downloadInvoice,
 	getOrderById,
+	getOrderKot,
 	getOrderStats,
 	getPendingOrders,
 	getTodayOrders,
@@ -96,6 +97,7 @@ router.post(
 	createOrder
 );
 
+router.get("/:id/kot", [param("id").isMongoId().withMessage("Invalid order id")], validate, getOrderKot);
 router.get("/:id", [param("id").isMongoId().withMessage("Invalid order id")], validate, getOrderById);
 
 router.put(

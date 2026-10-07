@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { FiCheckCircle, FiEdit2, FiEye, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiCheckCircle, FiEdit2, FiEye, FiPrinter, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 import { currency, dateTime } from "../../../utils/format";
 import { orderPaymentLabel, paymentBadgeClasses } from "../../../utils/paymentUtils";
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -15,7 +15,7 @@ const elapsedTime = (value) => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollectPayments, kitchenOnly = false }) => (
+const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false }) => (
   <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
@@ -26,7 +26,7 @@ const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollect
     </div>
 
     <p className="mt-2 break-words text-sm font-medium text-slate-700">
-      {order.table?.tableNumber ? `Table ${order.table.tableNumber}` : order.customer?.fullName || "Guest"}
+      {order.table?.tableNumber ? `Table ${order.table.tableNumber}` : String(order.orderType || "").toUpperCase() === "TAKEAWAY" ? "PARCEL" : order.customer?.fullName || "Guest"}
     </p>
     {order.table?.tableNumber && order.customer?.fullName ? <p className="mt-0.5 break-words text-xs text-slate-500">{order.customer.fullName}</p> : null}
 
@@ -56,6 +56,9 @@ const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, canCollect
     {!kitchenOnly && <div className="mt-2 flex gap-2">
       <button type="button" onClick={() => onEdit(order)} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-white px-3 text-sm font-medium text-teal-700 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30" aria-label={`Edit order ${order.orderNumber}`}>
         <FiEdit2 className="h-4 w-4 shrink-0" aria-hidden="true" /> Edit
+      </button>
+      <button type="button" onClick={() => onPrintKot(order)} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800" aria-label={`Print Kitchen KOT for ${order.orderNumber}`}>
+        <FiPrinter className="h-4 w-4 shrink-0" aria-hidden="true" /> KOT
       </button>
       <button type="button" onClick={() => onDelete(order)} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-sm font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500/30" aria-label={`Delete order ${order.orderNumber}`}>
         <FiTrash2 className="h-4 w-4 shrink-0" aria-hidden="true" /> Delete

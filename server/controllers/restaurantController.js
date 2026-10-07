@@ -62,6 +62,8 @@ const normalizePayload = (body = {}) => {
     payload.reservationsEnabled !== undefined ? Boolean(payload.reservationsEnabled) : true;
   payload.onlineOrdersEnabled =
     payload.onlineOrdersEnabled !== undefined ? Boolean(payload.onlineOrdersEnabled) : true;
+  payload.kitchenDisplayEnabled =
+    payload.kitchenDisplayEnabled !== undefined ? Boolean(payload.kitchenDisplayEnabled) : true;
 
   if (!payload.slug || !String(payload.slug).trim()) {
     payload.slug = slugifyRestaurantName(payload.name);

@@ -5,6 +5,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import { requireActiveSubscription } from "../middleware/subscriptionMiddleware.js";
 import { requireRole } from "../middleware/roleMiddleware.js";
 import { requirePermission } from "../middleware/auth.js";
+import { requireKitchenDisplayEnabled } from "../middleware/kitchenDisplayMiddleware.js";
 import { validate } from "../middleware/validate.js";
 import {
   bulkReadyKitchenItems,
@@ -21,6 +22,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware, requireActiveSubscription);
+router.use(requireKitchenDisplayEnabled);
 // Kitchen queues can change the fulfilment state of an order. They must never
 // be writable by customer accounts merely because they hold a valid session.
 router.use(requirePermission("kds.view"));

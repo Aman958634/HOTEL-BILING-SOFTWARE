@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutThunk } from "../../redux/slices/authSlice";
 import ModuleIcon from "../common/ModuleIcon";
+import { getRestaurantSettings } from "../../services/restaurantService";
 
 const links = [
   { group: "Overview", to: "/dashboard/admin", label: "Dashboard", icon: <FiHome />, tone: "dashboard", role: ["admin", "manager"] },
@@ -82,11 +83,25 @@ const AdminSidebar = ({ open, setOpen, subscriptionLocked = false }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
+  const [kitchenDisplayEnabled, setKitchenDisplayEnabled] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState(() => new Set(["Overview", "Operations"]));
   const canManageHotelSettings = ["admin", "hotel_admin", "restaurant_admin", "super_admin"].includes(String(user?.role || "").toLowerCase());
-  const allowed = useCallback((link) => user?.role === "admin"
-    || (link.to.endsWith("/settings") && canManageHotelSettings)
-    || (!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission)), [canManageHotelSettings, user?.permissions, user?.role]);
+  const allowed = useCallback((link) => {
+    const role = String(user?.role || "").toLowerCase();
+    if (role === "super_admin") return true;
+    if (link.to.endsWith("/settings") && canManageHotelSettings) return true;
+    if (link.to.endsWith("/kitchen") && kitchenDisplayEnabled === false) return false;
+    return role === "admin" || ((!link.role || link.role.includes(user?.role)) && (!link.permission || user?.permissions?.includes(link.permission)));
+  }, [canManageHotelSettings, kitchenDisplayEnabled, user?.permissions, user?.role]);
+
+  useEffect(() => {
+    if (!user || String(user.role || "").toLowerCase() === "super_admin") return undefined;
+    let active = true;
+    getRestaurantSettings().then(({ data }) => {
+      if (active) setKitchenDisplayEnabled(data?.data?.kitchenDisplayEnabled !== false);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [user]);
 
   const visibleGroups = useMemo(
     () => linkGroups.map(([group, groupLinks]) => [group, groupLinks.filter(allowed)]).filter(([, groupLinks]) => groupLinks.length),
