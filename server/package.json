@@ -35,6 +35,8 @@
     "migrate:restaurant-order-number-indexes": "node scripts/migrateRestaurantOrderNumberIndexes.js",
     "migrate:performance-indexes": "node scripts/migratePerformanceIndexes.js",
     "test:trial": "node tests/subscriptionTrial.test.js",
+    "test:trial-migration": "node tests/trialSevenDayMigration.test.js",
+    "migrate:trial-5-to-7": "node scripts/migrateTrialFiveToSevenDays.js",
     "test:subscription-entitlement": "node tests/subscriptionEntitlement.test.js",
     "test:subscription-access": "node tests/subscriptionAccessMiddleware.integration.test.js",
     "test:fixed-duration-pricing": "node tests/fixedDurationPricing.test.js",

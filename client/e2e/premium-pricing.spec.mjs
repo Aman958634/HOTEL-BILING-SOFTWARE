@@ -7,7 +7,7 @@ test("Premium pricing selector presents every term and carries the selected term
       body: JSON.stringify({
         success: true,
         data: {
-          trialDays: 5,
+          trialDays: 7,
           plans: [
             { key: "basic", name: "Basic", price: 7500, currency: "INR", durationLabel: "3 months", monthlyEquivalentPrice: 2500, features: [], sortOrder: 1 },
             { key: "professional", name: "Pro", price: 15000, currency: "INR", durationLabel: "6 months", monthlyEquivalentPrice: 2500, features: [], sortOrder: 2 },
@@ -60,7 +60,7 @@ test("checkout sends the persisted Premium term without a browser-controlled tot
   ];
   let checkoutPayload = null;
 
-  await page.route("**/api/v1/public/plans", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ success: true, data: { trialDays: 5, plans } }) }));
+  await page.route("**/api/v1/public/plans", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ success: true, data: { trialDays: 7, plans } }) }));
   await page.route("**/api/v1/admin/billing/subscription", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ success: true, data: { status: "expired", planName: "enterprise", metadata: { selectedPaidPlan: "enterprise", selectedPremiumDurationYears: 5 } } }) }));
   await page.route("**/api/v1/subscriptions/razorpay/create-order", async (route) => {
     checkoutPayload = JSON.parse(route.request().postData() || "{}");

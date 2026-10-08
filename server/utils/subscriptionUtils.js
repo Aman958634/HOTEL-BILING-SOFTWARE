@@ -1,4 +1,4 @@
-/** New SaaS trials are seven days; existing persisted trials retain their end date. */
+/** New SaaS trials are seven days; the explicit 5-to-7 migration preserves starts and extends only eligible expiry timestamps. */
 const FREE_TRIAL_DAYS = 7;
 const LEGACY_FREE_TRIAL_DAYS = 15;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

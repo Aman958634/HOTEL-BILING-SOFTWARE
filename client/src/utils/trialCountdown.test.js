@@ -22,3 +22,10 @@ test("server offset keeps display based on entitlement server time", () => {
   assert.equal(offset, 10 * 60 * 1000);
   assert.equal(getTrialCountdown(new Date(end).toISOString(), offset, clientNow).remainingMs, end - serverNow);
 });
+test("an expiry extended by 48 hours continues the same countdown", () => {
+  const currentTime = Date.parse("2026-10-08T10:00:00.000Z");
+  const originalExpiry = currentTime + 8 * 60 * 60 * 1000;
+  const extendedExpiry = originalExpiry + 48 * 60 * 60 * 1000;
+  const countdown = getTrialCountdown(new Date(extendedExpiry).toISOString(), 0, currentTime);
+  assert.deepEqual(countdown, { remainingMs: 56 * 60 * 60 * 1000, days: 2, hours: 8, minutes: 0, seconds: 0 });
+});

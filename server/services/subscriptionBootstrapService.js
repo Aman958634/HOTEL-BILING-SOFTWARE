@@ -51,7 +51,7 @@ export const ensureRestaurantSubscriptions = async () => {
     const plan = await resolvePlan("basic");
     const trialStart = restaurant.createdAt ? new Date(restaurant.createdAt) : new Date();
     // A backfill represents an existing restaurant, so preserve the historical
-    // historical policy rather than granting/reducing a new five-day trial.
+    // historical policy rather than granting/reducing a new seven-day trial.
     const legacyTrialDays = 15;
     const trialEnd = calculateTrialEndDate(trialStart, legacyTrialDays);
     const now = new Date();
