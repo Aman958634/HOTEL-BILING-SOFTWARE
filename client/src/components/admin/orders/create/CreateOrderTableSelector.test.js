@@ -55,10 +55,9 @@ test("Create New Order loads every tenant-scoped menu and category page, then fi
   assert.match(managementSource, /getAllAdminCategoriesForOrder\(\)/);
   assert.match(itemsSource, /String\(categoryId\) === String\(menuCategory\)/);
   assert.match(itemsSource, /setMenuSearch\(""\)/);
-  assert.match(itemsSource, /const CategoryChips/);
-  assert.match(itemsSource, /All Categories/);
-  assert.match(itemsSource, /flex flex-wrap gap-2/);
-  assert.match(itemsSource, /whitespace-normal break-words/);
-  assert.doesNotMatch(itemsSource, /const CategoryFilter/);
-  assert.doesNotMatch(itemsSource, /role="combobox"/);
+  assert.match(itemsSource, /grid gap-2 sm:grid-cols-\[minmax\(0,1fr\)_180px\]/);
+  assert.match(itemsSource, /<select aria-label="Filter by category"/);
+  assert.match(itemsSource, /<option value="">All Categories<\/option>/);
+  assert.match(itemsSource, /categories\.map\(\(category\) => <option/);
+  assert.doesNotMatch(itemsSource, /const CategoryChips/);
 });
