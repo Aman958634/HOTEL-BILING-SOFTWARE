@@ -1,4 +1,4 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { FiMinus, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import { currency } from "../../../../utils/format";
 import { useKeyboardShortcutScope } from "../../../../context/useKeyboardShortcutScope";
@@ -35,59 +35,18 @@ const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
   </article>
 ));
 
-const CategoryFilter = memo(({ categories, value, onChange }) => {
-  const rootRef = useRef(null);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const selectedCategory = categories.find((category) => String(category._id) === String(value));
-  const matchingCategories = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return [...categories]
-      .sort((left, right) => String(left.name || "").localeCompare(String(right.name || "")))
-      .filter((category) => !normalizedQuery || String(category.name || "").toLocaleLowerCase().includes(normalizedQuery));
-  }, [categories, query]);
+const CategoryChips = memo(({ categories, value, onChange }) => {
+  const sortedCategories = useMemo(
+    () => [...categories].sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""))),
+    [categories]
+  );
 
-  useEffect(() => {
-    const closeWhenClickedOutside = (event) => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeWhenClickedOutside);
-    return () => document.removeEventListener("pointerdown", closeWhenClickedOutside);
-  }, []);
-
-  const chooseCategory = useCallback((categoryId) => {
-    onChange(categoryId);
-    setQuery("");
-    setOpen(false);
-  }, [onChange]);
-
-  return <div ref={rootRef} className="relative min-w-0">
-    <label htmlFor="order-menu-category" className="sr-only">Filter by category</label>
-    <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-    <input
-      id="order-menu-category"
-      type="search"
-      role="combobox"
-      aria-label="Search or filter by category"
-      aria-autocomplete="list"
-      aria-controls="order-menu-category-options"
-      aria-expanded={open}
-      className={`${fieldClass} pl-10 pr-9`}
-      value={open ? query : (selectedCategory?.name || "All Categories")}
-      onFocus={() => { setQuery(""); setOpen(true); }}
-      onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") { setOpen(false); event.currentTarget.blur(); }
-        if (event.key === "Enter" && matchingCategories.length === 1) { event.preventDefault(); chooseCategory(matchingCategories[0]._id); }
-      }}
-      placeholder="Search categories…"
-    />
-    {(value || (open && query)) ? <button type="button" aria-label="Clear category filter" onClick={() => chooseCategory("")} className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX className="h-4 w-4" /></button> : null}
-    {open ? <div id="order-menu-category-options" role="listbox" aria-label="Menu categories" className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-      <button type="button" role="option" aria-selected={!value} onClick={() => chooseCategory("")} className={`min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition ${!value ? "bg-brand-50 text-brand-800" : "text-slate-700 hover:bg-slate-50"}`}>All Categories</button>
-      {matchingCategories.map((category) => <button key={category._id} type="button" role="option" aria-selected={String(value) === String(category._id)} onClick={() => chooseCategory(category._id)} className={`min-h-10 w-full whitespace-normal break-words rounded-lg px-3 py-2 text-left text-sm transition ${String(value) === String(category._id) ? "bg-brand-50 font-semibold text-brand-800" : "text-slate-700 hover:bg-slate-50"}`}>{category.name}</button>)}
-      {!matchingCategories.length ? <p className="px-3 py-4 text-center text-sm text-slate-500">No categories match that search.</p> : null}
-    </div> : null}
+  return <div aria-label="Menu categories" className="min-w-0">
+    <p className="mb-1.5 text-xs font-medium text-slate-600">Categories</p>
+    <div className="flex flex-wrap gap-2">
+      <button type="button" aria-pressed={!value} onClick={() => onChange("")} className={`min-h-10 max-w-full whitespace-normal break-words rounded-xl border px-3 py-2 text-left text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-600/20 ${!value ? "border-brand-600 bg-brand-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-brand-300 hover:bg-brand-50"}`}>All Categories</button>
+      {sortedCategories.map((category) => <button key={category._id} type="button" aria-pressed={String(value) === String(category._id)} onClick={() => onChange(category._id)} className={`min-h-10 max-w-full whitespace-normal break-words rounded-xl border px-3 py-2 text-left text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-600/20 ${String(value) === String(category._id) ? "border-brand-600 bg-brand-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-brand-300 hover:bg-brand-50"}`}>{category.name}</button>)}
+    </div>
   </div>;
 });
 const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore, activeIndex, onActiveIndex, emptyMessage }) => {
@@ -157,9 +116,9 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, items, err
   return <>
     <section className={cardClass}>
       <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-slate-900">Menu</h3><p className="text-xs text-slate-500">Search or tap an item to add it.</p></div>{items.length ? <span className="rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">{items.length} selected</span> : null}</div>
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.7fr)]">
+      <div className="space-y-3">
         <div className="relative"><FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input ref={menuSearchRef} type="search" aria-label="Search food items" className={`${fieldClass} pl-10`} value={menuSearch} onChange={(event) => setMenuSearch(event.target.value)} placeholder="Search food items…" />{menuSearch ? <button type="button" onClick={() => setMenuSearch("")} aria-label="Clear menu search" className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX className="h-4 w-4" /></button> : null}</div>
-        <CategoryFilter categories={categories} value={menuCategory} onChange={handleMenuCategoryChange} />
+        <CategoryChips categories={categories} value={menuCategory} onChange={handleMenuCategoryChange} />
       </div>
       <MenuResults loading={menuLoading} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}

@@ -15,8 +15,8 @@ const elapsedTime = (value) => {
   return `${hours}h ${minutes % 60}m`;
 };
 
-const OrderCard = ({ order, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false, simplePrintedKotWorkflow = false }) => (
-  <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+const OrderCard = ({ order, selected, onSelect, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false, simplePrintedKotWorkflow = false }) => (
+  <article onClick={() => onSelect?.(order)} className={`min-w-0 cursor-pointer rounded-2xl border bg-white p-3 shadow-sm transition sm:p-4 ${selected ? "border-brand-400 ring-2 ring-brand-500/20" : "border-slate-200 hover:border-brand-200"}`}>
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="break-words text-sm font-semibold text-slate-900">#{order.orderNumber}</p>

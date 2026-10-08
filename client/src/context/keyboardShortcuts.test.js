@@ -40,8 +40,29 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(itemsSection, /delete:/);
   assert.match(orderManagement, /f2:/);
   assert.match(orderManagement, /f7:/);
-  assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(selectedOrder\)/);
-  assert.match(orderManagement, /f9:[\s\S]*openReceipt\(selectedOrder\)/);
+  assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(operationalShortcutOrder\)/);
+  assert.match(orderManagement, /PaymentReceipt from "\.\.\/\.\.\/components\/payments\/PaymentReceipt"/);
+  assert.match(orderManagement, /getOrderPaymentSummary\(order\._id\)[\s\S]*filter\(canViewPaymentReceipt\)/);
+  assert.match(orderManagement, /No payment receipt available for this order\./);
+  assert.match(orderManagement, /multiple verified payments/);
+  assert.match(orderManagement, /f9:[\s\S]*void openReceipt\(selectedOrder\)/);
+  assert.match(orderManagement, /f9:[\s\S]*hasOpenOrderDialog/);
   assert.doesNotMatch(globalSearch, /document\.addEventListener\("keydown", onShortcut/);
   assert.doesNotMatch(globalSearch, /document\.addEventListener\("keydown", onEscape/);
+});
+test("F9 receipt selection is explicit and does not reuse the Order Details drawer", async () => {
+  const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+  const [orderManagement, orderTable, orderCard] = await Promise.all([
+    read("../pages/admin/OrderManagement.jsx"),
+    read("../components/admin/orders/OrderTable.jsx"),
+    read("../components/admin/orders/OrderCard.jsx"),
+  ]);
+
+  assert.match(orderManagement, /selectedOrderId=\{selectedOrder\?\._id\}/);
+  assert.match(orderManagement, /onSelect=\{setSelectedOrder\}/);
+  assert.match(orderManagement, /f9:[\s\S]*if \(!selectedOrder \|\| hasOpenOrderDialog\) return false/);
+  assert.match(orderManagement, /setReceiptOpen\(true\)/);
+  assert.doesNotMatch(orderManagement, /f9:[\s\S]{0,300}setDetailsOpen\(true\)/);
+  assert.match(orderTable, /selectedOrderId, onSelect/);
+  assert.match(orderCard, /onClick=\{\(\) => onSelect\?\.\(order\)\}/);
 });

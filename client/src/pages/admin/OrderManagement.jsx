@@ -8,6 +8,7 @@ import CashPaymentConfirmationModal from "../../components/admin/orders/CashPaym
 import CreateOrderModal from "../../components/admin/orders/CreateOrderModal";
 import EditOrderModal from "../../components/admin/orders/EditOrderModal";
 import HotelUpiPaymentModal from "../../components/payments/HotelUpiPaymentModal";
+import PaymentReceipt from "../../components/payments/PaymentReceipt";
 import OrderDetailsDrawer from "../../components/admin/orders/OrderDetailsDrawer";
 import KitchenKotReceipt from "../../components/admin/orders/KitchenKotReceipt";
 import OrderPaymentPromptModal from "../../components/admin/orders/OrderPaymentPromptModal";
@@ -31,9 +32,10 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "../../services/orderService";
-import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentById, getPaymentByOrderId, getPaymentReceipt, verifyGatewayPayment } from "../../services/paymentService";
+import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, getPaymentById, getPaymentReceipt, verifyGatewayPayment } from "../../services/paymentService";
 import { generateHotelPaymentQr, getHotelPaymentSettings, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
+import { canViewPaymentReceipt } from "../../utils/paymentUtils";
 import { getAllTablesForOrder } from "../../services/tableService";
 import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
@@ -80,6 +82,23 @@ const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
+const ReceiptPaymentPicker = ({ open, order, payments, loadingPaymentId, onClose, onSelect }) => {
+  if (!open) return null;
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="receipt-payment-picker-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-5">
+      <div className="flex items-start justify-between gap-3"><div><h3 id="receipt-payment-picker-title" className="text-lg font-bold text-slate-900">Select payment receipt</h3><p className="mt-1 text-sm text-slate-600">Order #{order?.orderNumber || ""} has multiple verified payments.</p></div><button type="button" onClick={onClose} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700">Close</button></div>
+      <div className="mt-4 space-y-2">{payments.map((payment) => {
+        const paymentId = String(payment._id || payment.paymentId || "");
+        const paidAt = payment.paidAt || payment.createdAt;
+        return <button key={paymentId} type="button" disabled={Boolean(loadingPaymentId)} onClick={() => onSelect(payment)} className="w-full rounded-xl border border-slate-200 p-3 text-left transition hover:border-brand-300 hover:bg-brand-50 disabled:cursor-wait disabled:opacity-60">
+          <span className="flex flex-wrap items-start justify-between gap-2"><span className="font-semibold text-slate-900">{payment.paymentId || "Verified payment"}</span><span className="font-bold text-slate-900">{formatINR.format(Number(payment.totalAmount ?? payment.amount ?? 0))}</span></span>
+          <span className="mt-1 block text-xs text-slate-600">{String(payment.paymentMethod || "Payment").replaceAll("_", " ")} · {paidAt ? new Date(paidAt).toLocaleString("en-IN") : "Verified payment"}</span>
+        </button>;
+      })}</div>
+    </section>
+  </div>;
+};
 const OrderManagement = () => {
   const socket = useSocket();
   const { user, activeOutletId, authorizedOutlets, outletStatus } = useSelector((state) => state.auth);
@@ -131,7 +150,13 @@ const OrderManagement = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [paidOrderReceipt, setPaidOrderReceipt] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState(null);
+  const [receiptPickerOpen, setReceiptPickerOpen] = useState(false);
+  const [receiptCandidates, setReceiptCandidates] = useState([]);
+  const [receiptDownloadLoading, setReceiptDownloadLoading] = useState(false);
+  const [receiptLoadingPaymentId, setReceiptLoadingPaymentId] = useState("");
   const [kitchenKot, setKitchenKot] = useState(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -161,6 +186,10 @@ const OrderManagement = () => {
   const createSubmittingRef = useRef(false);
   const cashConfirmSubmittingRef = useRef(false);
   const cashSettlementIdempotencyKeyRef = useRef("");
+  const receiptLookupRequestRef = useRef(false);
+  const receiptPaymentRequestRef = useRef("");
+  const receiptDownloadRequestRef = useRef(false);
+  const receiptPrintRequestRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
 
@@ -394,11 +423,12 @@ const OrderManagement = () => {
     setDetailsOpen(true);
     setDetailsLoading(true);
     setDetailsOrder(order);
-    setPaidOrderReceipt(null);
+    setSelectedOrder(order);
 
     try {
       const { data } = await getOrderById(order._id);
       setDetailsOrder(data.data);
+      setSelectedOrder(data.data);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load order details");
     } finally {
@@ -417,18 +447,93 @@ const OrderManagement = () => {
     }
   }, [loadOrderTables]);
 
-  const openReceipt = async (order) => {
-    if (isChef) return;
+  const openReceiptPayment = useCallback(async (payment) => {
+    const paymentId = String(payment?._id || payment?.paymentId || "");
+    if (!paymentId || receiptPaymentRequestRef.current) return;
+    receiptPaymentRequestRef.current = paymentId;
+    setReceiptLoadingPaymentId(paymentId);
     try {
-      const { data } = await getPaymentByOrderId(order._id);
-      setPaidOrderReceipt(data.data);
-      setDetailsOpen(true);
-      setDetailsLoading(false);
-      setDetailsOrder(data.data.order || order);
+      const { data } = await getPaymentById(paymentId);
+      const verifiedPayment = data.data;
+      if (!canViewPaymentReceipt(verifiedPayment)) {
+        toast.error("No payment receipt available for this order.");
+        return;
+      }
+      setReceiptPayment(verifiedPayment);
+      setReceiptPickerOpen(false);
+      setDetailsOpen(false);
+      setDetailsOrder(null);
+      setReceiptOpen(true);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to load payment receipt");
+    } finally {
+      if (receiptPaymentRequestRef.current === paymentId) receiptPaymentRequestRef.current = "";
+      setReceiptLoadingPaymentId("");
     }
-  };
+  }, []);
+
+  const openReceipt = useCallback(async (order) => {
+    if (isChef || !order?._id || receiptOpen || receiptPickerOpen || receiptLookupRequestRef.current || receiptPaymentRequestRef.current) return;
+    receiptLookupRequestRef.current = true;
+    try {
+      const { data } = await getOrderPaymentSummary(order._id);
+      const verifiedPayments = (data.data?.payments || []).filter(canViewPaymentReceipt);
+      if (!verifiedPayments.length) {
+        toast.error("No payment receipt available for this order.");
+        return;
+      }
+      if (verifiedPayments.length > 1) {
+        setReceiptCandidates(verifiedPayments);
+        setReceiptPickerOpen(true);
+        return;
+      }
+      await openReceiptPayment(verifiedPayments[0]);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to load payment receipt");
+    } finally {
+      receiptLookupRequestRef.current = false;
+    }
+  }, [isChef, openReceiptPayment, receiptOpen, receiptPickerOpen]);
+
+  const downloadReceipt = useCallback(async () => {
+    if (!receiptPayment || receiptDownloadRequestRef.current) return;
+    receiptDownloadRequestRef.current = true;
+    setReceiptDownloadLoading(true);
+    try {
+      const { data } = await getPaymentReceipt(receiptPayment._id || receiptPayment.paymentId);
+      const url = URL.createObjectURL(data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `receipt-${receiptPayment.paymentId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Receipt downloaded");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to download receipt");
+    } finally {
+      receiptDownloadRequestRef.current = false;
+      setReceiptDownloadLoading(false);
+    }
+  }, [receiptPayment]);
+
+  const printReceipt = useCallback(() => {
+    if (receiptPrintRequestRef.current || !document.getElementById("payment-receipt-print")) return;
+    receiptPrintRequestRef.current = true;
+    const clearPrintMode = () => {
+      document.body.classList.remove("payment-receipt-printing");
+      receiptPrintRequestRef.current = false;
+    };
+    document.body.classList.add("payment-receipt-printing");
+    window.addEventListener("afterprint", clearPrintMode, { once: true });
+    try {
+      window.print();
+    } catch (_error) {
+      clearPrintMode();
+      toast.error("Unable to open the print dialog");
+    }
+  }, []);
 
   const openRetryPayment = useCallback(async (order) => {
     if (!canCollectPayments || !order?._id) return;
@@ -917,26 +1022,31 @@ const OrderManagement = () => {
     if (cashConfirmOpen) { if (!cashConfirmLoading) setCashConfirmOpen(false); return; }
     if (hotelPaymentOrder) { closeHotelUpiPayment(); return; }
     if (retryTarget) { closeRetryPayment(); return; }
+    if (receiptOpen) { setReceiptOpen(false); setReceiptPayment(null); return; }
+    if (receiptPickerOpen) { setReceiptPickerOpen(false); setReceiptCandidates([]); return; }
     if (kitchenKot) { setKitchenKot(null); return; }
-    if (detailsOpen) { setDetailsOpen(false); setDetailsOrder(null); setPaidOrderReceipt(null); return; }
+    if (detailsOpen) { setDetailsOpen(false); setDetailsOrder(null); return; }
     if (editOpen) { if (!saving) { setEditOpen(false); setEditOrder(null); } return; }
     if (createOpen) { if (!saving) { setCreateOpen(false); setCreateInitialTable(null); } return; }
     return false;
   };
 
-  const selectedOrder = detailsOrder || orders[0];
+  const operationalShortcutOrder = selectedOrder || detailsOrder || orders[0] || null;
+  const hasOpenOrderDialog = Boolean(
+    createOpen || editOpen || detailsOpen || kitchenKot || paymentPromptOpen || cashConfirmOpen || retryTarget || hotelPaymentOrder || deleteTarget || statusTarget || receiptOpen || receiptPickerOpen
+  );
   useKeyboardShortcutScope({
     escape: { handler: closeTopmostPanel },
-    f2: { handler: () => { if (isChef || createOpen || editOpen || detailsOpen || kitchenKot || paymentPromptOpen) return false; openCreate(); } },
-    f7: { handler: () => { if (!selectedOrder || createOpen || editOpen || paymentPromptOpen) return false; openKitchenKot(selectedOrder); } },
+    f2: { handler: () => { if (isChef || hasOpenOrderDialog) return false; openCreate(); } },
+    f7: { handler: () => { if (!operationalShortcutOrder || hasOpenOrderDialog) return false; openKitchenKot(operationalShortcutOrder); } },
     f8: { handler: () => {
-      if (!canCollectPayments || !selectedOrder || createOpen || editOpen || paymentPromptOpen) return false;
-      if (["PAID", "REFUNDED", "CANCELLED"].includes(String(selectedOrder.paymentStatus || "").toUpperCase())) return false;
-      openRetryPayment(selectedOrder);
+      if (!canCollectPayments || !operationalShortcutOrder || hasOpenOrderDialog) return false;
+      if (["PAID", "REFUNDED", "CANCELLED"].includes(String(operationalShortcutOrder.paymentStatus || "").toUpperCase())) return false;
+      openRetryPayment(operationalShortcutOrder);
     } },
     f9: { handler: () => {
-      if (!selectedOrder || createOpen || editOpen || paymentPromptOpen || String(selectedOrder.paymentStatus || "").toUpperCase() !== "PAID") return false;
-      openReceipt(selectedOrder);
+      if (!selectedOrder || hasOpenOrderDialog) return false;
+      void openReceipt(selectedOrder);
     } },
   }, { priority: 20 });
 
@@ -999,6 +1109,8 @@ const OrderManagement = () => {
         orders={visibleOrders}
         loading={orderTableLoading}
         error={!hasCurrentOrders ? currentOrdersError : ""}
+        selectedOrderId={selectedOrder?._id}
+        onSelect={setSelectedOrder}
         hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
         onOpen={openDetails}
         onEdit={openEdit}
@@ -1048,16 +1160,31 @@ const OrderManagement = () => {
 
       <OrderDetailsDrawer
         open={detailsOpen}
-        order={paidOrderReceipt?.order || detailsOrder}
+        order={detailsOrder}
         loading={detailsLoading}
         onClose={() => {
           setDetailsOpen(false);
           setDetailsOrder(null);
-          setPaidOrderReceipt(null);
         }}
         onViewReceipt={isChef ? undefined : openReceipt}
         onPrintReceipt={isChef ? undefined : openReceipt}
         onPrintKot={openKitchenKot}
+      />
+      <ReceiptPaymentPicker
+        open={receiptPickerOpen}
+        order={selectedOrder}
+        payments={receiptCandidates}
+        loadingPaymentId={receiptLoadingPaymentId}
+        onClose={() => { if (!receiptLoadingPaymentId) { setReceiptPickerOpen(false); setReceiptCandidates([]); } }}
+        onSelect={(payment) => { void openReceiptPayment(payment); }}
+      />
+      <PaymentReceipt
+        open={receiptOpen}
+        payment={receiptPayment}
+        downloading={receiptDownloadLoading}
+        onClose={() => { if (!receiptDownloadLoading) { setReceiptOpen(false); setReceiptPayment(null); } }}
+        onDownload={downloadReceipt}
+        onPrint={printReceipt}
       />
       <KitchenKotReceipt kot={kitchenKot} onClose={() => setKitchenKot(null)} />
 
