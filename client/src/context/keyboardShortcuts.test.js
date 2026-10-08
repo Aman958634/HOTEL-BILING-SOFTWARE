@@ -21,11 +21,12 @@ test("protects standard editable controls from non-explicit shortcuts", () => {
 
 test("POS actions use the central shortcut scope and retain payment safeguards", async () => {
   const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
-  const [provider, orderManagement, createModal, itemsSection, globalSearch] = await Promise.all([
+  const [provider, orderManagement, createModal, itemsSection, modalNavigation, globalSearch] = await Promise.all([
     read("./KeyboardShortcutContext.jsx"),
     read("../pages/admin/OrderManagement.jsx"),
     read("../components/admin/orders/CreateOrderModal.jsx"),
     read("../components/admin/orders/create/ItemsSection.jsx"),
+    read("../utils/orderModalNavigation.js"),
     read("../components/common/GlobalSearch.jsx"),
   ]);
 
@@ -35,9 +36,11 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(createModal, /"ctrl\+enter"/);
   assert.match(itemsSection, /f5:/);
   assert.match(itemsSection, /f6:/);
-  assert.match(itemsSection, /arrowdown:/);
-  assert.match(itemsSection, /plus:/);
-  assert.match(itemsSection, /delete:/);
+  assert.doesNotMatch(itemsSection, /arrowdown:/);
+  assert.match(createModal, /useOrderModalKeyboardNavigation/);
+  assert.match(modalNavigation, /findSpatialTarget/);
+  assert.match(modalNavigation, /event\.key === "Tab"/);
+  assert.match(modalNavigation, /onCartQuantity/);
   assert.match(orderManagement, /f2:/);
   assert.match(orderManagement, /f7:/);
   assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(operationalShortcutOrder\)/);

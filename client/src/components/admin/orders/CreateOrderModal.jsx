@@ -9,8 +9,9 @@ import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
 import { cardClass, fieldClass, labelClass } from "./create/constants";
-import { getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
+import { clearOrderDraft, getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 import { useKeyboardShortcutScope } from "../../../context/useKeyboardShortcutScope";
+import { useOrderModalKeyboardNavigation } from "../../../utils/orderModalNavigation";
 
 const newIdempotencyKey = () => globalThis.crypto?.randomUUID?.() || `order-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -77,6 +78,10 @@ const CreateOrderModal = ({
   categories = [],
   tables = [],
   dependenciesLoading = false,
+  dependenciesReady = false,
+  dependenciesError = "",
+  tablesLoading = false,
+  onRetryDependencies,
   submissionError = "",
   initialData = null,
   hotelUpiCapability,
@@ -85,8 +90,8 @@ const CreateOrderModal = ({
   onSubmit,
 }) => {
   const isEdit = Boolean(initialData?._id);
-  const user = useSelector((state) => state.auth.user);
-  const outletId = localStorage.getItem("selectedOutletId") || "";
+  const { user, activeOutletId } = useSelector((state) => state.auth);
+  const outletId = activeOutletId || localStorage.getItem("selectedOutletId") || "";
   const draftScope = getOrderDraftScope({ user, outletId });
 
   const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories, restaurantGstRate));
@@ -101,7 +106,13 @@ const CreateOrderModal = ({
   const [errors, setErrors] = useState({});
   const menuSearchRef = useRef(null);
   const tableSelectRef = useRef(null);
+  const modalRef = useRef(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
+  const [draftCandidate, setDraftCandidate] = useState(null);
+  const [draftResolution, setDraftResolution] = useState("new");
+  const modalSessionRef = useRef("");
+  const latestFormRef = useRef(form);
+  latestFormRef.current = form;
 
   const patchForm = useCallback((updates) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -115,17 +126,25 @@ const CreateOrderModal = ({
     });
   }, []);
 
-  // Initialize form state before the modal paints when dependency props arrive.
-  // This prevents an immediately selected table or menu item from being reset
-  // by a delayed passive effect during first render.
+  // A modal session is initialized once. Re-running this when paginated menu
+  // data arrives used to silently restore and reset a draft multiple times.
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      modalSessionRef.current = "";
+      return;
+    }
+
+    const sessionKey = `${isEdit ? `edit:${initialData?._id || ""}` : "create"}:${draftScope || ""}`;
+    if (modalSessionRef.current === sessionKey) return;
+    modalSessionRef.current = sessionKey;
+
     const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate);
+    if (!isEdit && !initialForm.idempotencyKey) initialForm.idempotencyKey = newIdempotencyKey();
     const draft = !isEdit ? readOrderDraft(draftScope) : null;
-    const restoredForm = draft ? { ...initialForm, ...buildInitialState(draft, menuItems, categories, restaurantGstRate) } : initialForm;
-    if (!isEdit && !restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
-    setForm(restoredForm);
-    if (draft) toast.success("Unsent order restored.", { id: "order-draft-restored" });
+
+    setForm(initialForm);
+    setDraftCandidate(draft);
+    setDraftResolution(draft ? "choose" : "new");
     setCustomerSearch("");
     setCustomerResults([]);
     setShowCustomerForm(false);
@@ -133,20 +152,27 @@ const CreateOrderModal = ({
     setErrors({});
     setSubmissionMessage("");
     setGuestCount(1);
-
-    if (initialData?.createdAt) {
-      const created = new Date(initialData.createdAt);
-      setOrderDate(created);
-    } else {
-      setOrderDate(new Date());
-    }
-  }, [draftScope, initialData, isEdit, menuItems, categories, open, restaurantGstRate]);
+    setOrderDate(initialData?.createdAt ? new Date(initialData.createdAt) : new Date());
+  }, [categories, draftScope, initialData, initialData?._id, isEdit, menuItems, open, restaurantGstRate]);
 
   useEffect(() => {
-    if (!open || isEdit || !draftScope || !form.items.length) return undefined;
+    if (!open || isEdit || !draftScope || draftResolution === "choose" || draftResolution === "confirm-new" || !form.items.length) return undefined;
     const timer = window.setTimeout(() => writeOrderDraft(draftScope, form), 350);
     return () => window.clearTimeout(timer);
-  }, [draftScope, form, isEdit, open]);
+  }, [draftResolution, draftScope, form, isEdit, open]);
+
+  // Closing the dialog or refreshing must retain the local, tenant-scoped draft.
+  useEffect(() => {
+    if (!open || isEdit || !draftScope || draftResolution === "choose" || draftResolution === "confirm-new") return undefined;
+    const persistDraft = () => {
+      if (latestFormRef.current.items.length) writeOrderDraft(draftScope, latestFormRef.current);
+    };
+    window.addEventListener("pagehide", persistDraft);
+    return () => {
+      persistDraft();
+      window.removeEventListener("pagehide", persistDraft);
+    };
+  }, [draftResolution, draftScope, isEdit, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -307,6 +333,28 @@ const CreateOrderModal = ({
     }
   }, [customerForm, selectCustomer]);
 
+  const restoreDraft = useCallback(() => {
+    if (!draftCandidate || !dependenciesReady) return;
+    const restoredForm = {
+      ...buildInitialState(initialData, menuItems, categories, restaurantGstRate),
+      ...buildInitialState(draftCandidate, menuItems, categories, restaurantGstRate),
+    };
+    if (!restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
+    setForm(restoredForm);
+    setDraftCandidate(null);
+    setDraftResolution("restored");
+  }, [categories, dependenciesReady, draftCandidate, initialData, menuItems, restaurantGstRate]);
+
+  const requestNewOrder = useCallback(() => setDraftResolution("confirm-new"), []);
+
+  const startNewOrder = useCallback(() => {
+    clearOrderDraft(draftScope);
+    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate);
+    if (!initialForm.idempotencyKey) initialForm.idempotencyKey = newIdempotencyKey();
+    setForm(initialForm);
+    setDraftCandidate(null);
+    setDraftResolution("new");
+  }, [categories, draftScope, initialData, menuItems, restaurantGstRate]);
   const validate = () => {
     const next = {};
     if (!form.items.length) next.items = "Add at least one food item.";
@@ -360,11 +408,19 @@ const CreateOrderModal = ({
     });
   };
 
+  const awaitingDraftDecision = !isEdit && (draftResolution === "choose" || draftResolution === "confirm-new");
+  const { onKeyDownCapture } = useOrderModalKeyboardNavigation({
+    open,
+    modalRef,
+    focusKey: open ? "order-form" : "",
+    onCartQuantity: updateItemQty,
+  });
+
   useKeyboardShortcutScope({
     escape: { handler: () => { if (loading) return false; onClose(); } },
     f3: { allowInEditable: true, handler: () => { if (form.orderType !== "DINE_IN") return false; tableSelectRef.current?.focus(); } },
     f4: { allowInEditable: true, handler: () => { if (isEdit) return false; patchForm({ orderType: "TAKEAWAY", table: "" }); } },
-    "ctrl+enter": { allowInEditable: true, handler: () => { if (loading) return false; handleSubmit({ preventDefault() {} }); } },
+    "ctrl+enter": { allowInEditable: true, handler: () => { if (loading || draftResolution === "choose" || draftResolution === "confirm-new") return false; handleSubmit({ preventDefault() {} }); } },
   }, { enabled: open, priority: 110 });
 
   if (!open) return null;
@@ -373,6 +429,9 @@ const CreateOrderModal = ({
 
   return (
     <div
+      ref={modalRef}
+      onKeyDownCapture={onKeyDownCapture}
+      data-order-navigation-modal="true"
       className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-slate-900/55 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
@@ -407,6 +466,16 @@ const CreateOrderModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          {awaitingDraftDecision ? <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-4 sm:p-6">
+            <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="order-draft-choice-title">
+              <h3 id="order-draft-choice-title" className="text-lg font-bold text-slate-900">{draftResolution === "confirm-new" ? "Start a new order?" : "Unsent order found"}</h3>
+              {draftResolution === "confirm-new" ? <p className="mt-2 text-sm text-slate-600">This clears only this local unsent draft for the current user, restaurant and outlet. Saved orders and payments are not affected.</p> : <p className="mt-2 text-sm text-slate-600">Choose whether to restore the local unsent order for this user, restaurant and outlet, or start a new order.</p>}
+              {dependenciesError ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert"><p>{dependenciesError}</p><button type="button" onClick={onRetryDependencies} disabled={dependenciesLoading} className="mt-2 min-h-10 rounded-lg border border-rose-300 bg-white px-3 text-sm font-semibold text-rose-800 disabled:opacity-60">Retry menu loading</button></div> : null}
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                {draftResolution === "confirm-new" ? <><button type="button" onClick={() => setDraftResolution("choose")} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700">Keep Draft</button><button type="button" onClick={startNewOrder} data-order-primary-focus="true" className="min-h-11 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white">Confirm Start New Order</button></> : <><button type="button" onClick={requestNewOrder} data-order-primary-focus="true" className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700">Start New Order</button><button type="button" onClick={restoreDraft} disabled={!dependenciesReady || dependenciesLoading} className="min-h-11 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{dependenciesLoading || !dependenciesReady ? "Loading menu…" : "Restore Draft"}</button></>}
+              </div>
+            </section>
+          </div> : <>
           <div className="grid flex-1 gap-4 overflow-y-auto overscroll-contain p-3 pb-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-4 sm:space-y-5">
               <CustomerSection
@@ -442,7 +511,7 @@ const CreateOrderModal = ({
                 orderDateLabel={formatLocalDate(orderDate)}
                 orderTimeLabel={formatLocalTime(orderDate)}
                 tables={tables}
-                tablesLoading={dependenciesLoading}
+                tablesLoading={tablesLoading}
                 isEdit={isEdit}
                 errors={errors}
                 onPatch={patchForm}
@@ -457,6 +526,8 @@ const CreateOrderModal = ({
                 menuItems={menuItems}
                 categories={categories}
                 menuLoading={dependenciesLoading}
+                menuError={dependenciesError}
+                onRetryMenu={onRetryDependencies}
                 items={form.items}
                 errors={errors}
                 discountPercent={form.discountPercent}
@@ -499,6 +570,7 @@ const CreateOrderModal = ({
               {loading ? (isEdit ? "Updating Order..." : "Creating Order...") : isEdit ? "Update Order" : "Create Order"}
             </button>
           </div>
+          </>}
         </form>
       </div>
     </div>

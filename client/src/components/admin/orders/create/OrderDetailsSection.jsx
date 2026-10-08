@@ -69,6 +69,8 @@ const OrderDetailsSection = ({
           <button
             key={value}
             type="button"
+            data-order-nav-group="order-type"
+            data-order-primary-focus={value === "DINE_IN" ? "true" : undefined}
             onClick={() => onPatch({ orderType: value, table: value === "DINE_IN" ? tableId : "" })}
             className={`flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 ${
               active
@@ -153,7 +155,7 @@ const OrderDetailsSection = ({
           <FiCalendar className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
           Order Date
         </label>
-        <input id="order-date" readOnly value={orderDateLabel} className={`${fieldClass} bg-slate-50`} />
+        <input id="order-date" readOnly data-order-arrow-nav="true" value={orderDateLabel} className={`${fieldClass} bg-slate-50`} />
       </div>
 
       <div>
@@ -161,7 +163,7 @@ const OrderDetailsSection = ({
           <FiClock className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
           Order Time
         </label>
-        <input id="order-time" readOnly value={orderTimeLabel} className={`${fieldClass} bg-slate-50`} />
+        <input id="order-time" readOnly data-order-arrow-nav="true" value={orderTimeLabel} className={`${fieldClass} bg-slate-50`} />
       </div>
     </div>
 

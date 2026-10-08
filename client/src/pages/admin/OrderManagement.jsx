@@ -52,6 +52,8 @@ import {
   getSharedOrderListRequest,
 } from "../../utils/orderListCache";
 
+const ORDER_DEPENDENCY_TIMEOUT_MS = 30000;
+
 const STATUS_TRANSITIONS = {
   PENDING: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["PREPARING", "CANCELLED"],
@@ -133,6 +135,8 @@ const OrderManagement = () => {
   const [ordersError, setOrdersError] = useState("");
   const [ordersErrorCacheKey, setOrdersErrorCacheKey] = useState("");
   const [dependenciesLoading, setDependenciesLoading] = useState(false);
+  const [dependenciesReady, setDependenciesReady] = useState(false);
+  const [dependenciesError, setDependenciesError] = useState("");
   const [tablesLoading, setTablesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -183,6 +187,8 @@ const OrderManagement = () => {
   const activeOrderCacheKeyRef = useRef(orderCacheKey);
   const orderRequestRef = useRef(0);
   const tableRequestRef = useRef(0);
+  const dependencyRequestRef = useRef(0);
+  const dependencyInFlightRef = useRef(null);
   const createSubmittingRef = useRef(false);
   const cashConfirmSubmittingRef = useRef(false);
   const cashSettlementIdempotencyKeyRef = useRef("");
@@ -312,26 +318,57 @@ const OrderManagement = () => {
   }, [orderCacheKey]);
 
   const loadOrderDependencies = useCallback(async () => {
+    const requestScope = String(activeOutletId || "");
+    const currentRequest = dependencyInFlightRef.current;
+    if (currentRequest?.scope === requestScope) return currentRequest.promise;
+
+    const requestId = dependencyRequestRef.current + 1;
+    dependencyRequestRef.current = requestId;
     setDependenciesLoading(true);
-    try {
-      const [menuItems, orderCategories, { data: restaurantData }] = await Promise.all([
-        getAllAdminMenu({ available: true }),
-        getAllAdminCategoriesForOrder(),
-        getRestaurantSettings(),
-      ]);
+    setDependenciesReady(false);
+    setDependenciesError("");
 
-      setFoods(menuItems);
-      setCategories(orderCategories);
+    const promise = (async () => {
+      try {
+        let timeoutId;
+        let dependencies;
+        try {
+          dependencies = await Promise.race([
+            Promise.all([
+              getAllAdminMenu({ available: true }),
+              getAllAdminCategoriesForOrder(),
+              getRestaurantSettings(),
+            ]),
+            new Promise((_, reject) => {
+              timeoutId = window.setTimeout(() => reject(new Error("Menu loading timed out. Please retry.")), ORDER_DEPENDENCY_TIMEOUT_MS);
+            }),
+          ]);
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+        const [menuItems, orderCategories, { data: restaurantData }] = dependencies;
+        if (requestId !== dependencyRequestRef.current) return false;
 
-      const configuredRate = Number(restaurantData?.data?.gstRate);
-      setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
-      setSimplePrintedKotWorkflow(Boolean(restaurantData?.data?.simpleOrderWorkflowEnabled && restaurantData?.data?.kitchenDisplayEnabled === false));
-    } catch {
-      toast.error("Unable to preload order dependencies");
-    } finally {
-      setDependenciesLoading(false);
-    }
-  }, []);
+        setFoods(menuItems);
+        setCategories(orderCategories);
+        const configuredRate = Number(restaurantData?.data?.gstRate);
+        setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
+        setSimplePrintedKotWorkflow(Boolean(restaurantData?.data?.simpleOrderWorkflowEnabled && restaurantData?.data?.kitchenDisplayEnabled === false));
+        setDependenciesReady(true);
+        return true;
+      } catch (error) {
+        if (requestId !== dependencyRequestRef.current) return false;
+        setDependenciesError(error?.response?.data?.message || error?.message || "Unable to load menu items. Please retry.");
+        return false;
+      } finally {
+        if (requestId === dependencyRequestRef.current) setDependenciesLoading(false);
+        if (dependencyInFlightRef.current?.requestId === requestId) dependencyInFlightRef.current = null;
+      }
+    })();
+
+    dependencyInFlightRef.current = { requestId, scope: requestScope, promise };
+    return promise;
+  }, [activeOutletId]);
 
   useEffect(() => {
     let active = true;
@@ -370,7 +407,7 @@ const OrderManagement = () => {
   useEffect(() => {
     if ((!createOpen && !editOpen) || isChef) return;
     void loadOrderDependencies();
-  }, [createOpen, editOpen, isChef, loadOrderDependencies]);
+  }, [activeOutletId, createOpen, editOpen, isChef, loadOrderDependencies]);
 
   // Refresh at the interaction boundary so recently-created tables are never
   // hidden behind a dependency cache or the paginated list's first page.
@@ -1131,7 +1168,11 @@ const OrderManagement = () => {
         menuItems={foods}
         categories={categories}
         tables={tables}
-        dependenciesLoading={dependenciesLoading || tablesLoading}
+        dependenciesLoading={dependenciesLoading}
+        dependenciesReady={dependenciesReady}
+        dependenciesError={dependenciesError}
+        tablesLoading={tablesLoading}
+        onRetryDependencies={() => void loadOrderDependencies()}
         submissionError={createSubmitError}
         initialData={createInitialTable ? { table: createInitialTable } : null}
         hotelUpiCapability={createHotelUpiCapability}
@@ -1149,7 +1190,11 @@ const OrderManagement = () => {
         menuItems={foods}
         categories={categories}
         tables={tables}
-        dependenciesLoading={dependenciesLoading || tablesLoading}
+        dependenciesLoading={dependenciesLoading}
+        dependenciesReady={dependenciesReady}
+        dependenciesError={dependenciesError}
+        tablesLoading={tablesLoading}
+        onRetryDependencies={() => void loadOrderDependencies()}
         initialData={editOrder}
         onClose={() => {
           setEditOpen(false);

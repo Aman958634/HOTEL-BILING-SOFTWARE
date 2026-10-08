@@ -69,6 +69,14 @@ button:disabled { cursor: not-allowed; }
   outline-offset: 2px;
 }
 
+/* The order-entry dialog is intentionally usable without a mouse. Keep its
+   focus cue above card/table styling, including controls that reset outline. */
+[data-order-navigation-modal="true"] :focus-visible {
+  outline: 3px solid #059669 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgb(16 185 129 / 0.2) !important;
+}
+
 ::selection { background: #d1fae5; color: #064e3b; }
 
 .glass {

@@ -61,3 +61,38 @@ test("Create New Order loads every tenant-scoped menu and category page, then fi
   assert.match(itemsSource, /categories\.map\(\(category\) => <option/);
   assert.doesNotMatch(itemsSource, /const CategoryChips/);
 });
+
+test("Create New Order requires an explicit scoped draft decision", async () => {
+  const [modalSource, draftSource] = await Promise.all([
+    readSource("../CreateOrderModal.jsx"),
+    readSource("../../../../utils/orderDraft.js"),
+  ]);
+
+  assert.match(modalSource, /Restore Draft/);
+  assert.match(modalSource, /Start New Order/);
+  assert.match(modalSource, /Confirm Start New Order/);
+  assert.match(modalSource, /clearOrderDraft\(draftScope\)/);
+  assert.match(modalSource, /activeOutletId \|\| localStorage\.getItem\("selectedOutletId"\)/);
+  assert.doesNotMatch(modalSource, /toast\.success\("Unsent order restored/);
+  assert.match(draftSource, /userId.*restaurantId.*outletId/s);
+});
+
+test("Create New Order separates retryable menu loading from table loading", async () => {
+  const [managementSource, modalSource, itemsSource] = await Promise.all([
+    readSource("../../../../pages/admin/OrderManagement.jsx"),
+    readSource("../CreateOrderModal.jsx"),
+    readSource("./ItemsSection.jsx"),
+  ]);
+
+  assert.match(managementSource, /dependencyInFlightRef/);
+  assert.match(managementSource, /currentRequest\?\.scope === requestScope/);
+  assert.match(managementSource, /ORDER_DEPENDENCY_TIMEOUT_MS = 30000/);
+  assert.match(managementSource, /Menu loading timed out\. Please retry\./);
+  assert.match(managementSource, /setDependenciesError\(error\?\.response\?\.data\?\.message \|\| error\?\.message/);
+  assert.match(managementSource, /dependenciesLoading=\{dependenciesLoading\}/);
+  assert.match(managementSource, /tablesLoading=\{tablesLoading\}/);
+  assert.match(modalSource, /tablesLoading=\{tablesLoading\}/);
+  assert.match(modalSource, /menuError=\{dependenciesError\}/);
+  assert.match(itemsSource, /Array\.from\(\{ length: 6 \}/);
+  assert.match(itemsSource, /Retry/);
+});

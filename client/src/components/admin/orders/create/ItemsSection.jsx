@@ -13,7 +13,7 @@ const QuantityControl = memo(({ item, onUpdateQty }) => (
 ));
 
 const SelectedOrderRow = memo(({ item, onUpdateQty, onRemoveItem, selected, onSelect }) => (
-  <tr onClick={onSelect} className={selected ? "bg-brand-50/70" : "bg-white"}>
+  <tr tabIndex="0" data-order-cart-item={item.menuItem} onClick={onSelect} className={selected ? "bg-brand-50/70" : "bg-white"}>
     <td className="px-3 py-3"><p className="font-medium text-slate-900">{item.name}</p>{item.description ? <p className="line-clamp-1 text-xs text-slate-500">{item.description}</p> : null}</td>
     <td className="px-3 py-3 text-xs text-slate-600">{item.categoryName || "—"}</td>
     <td className="whitespace-nowrap px-3 py-3 text-slate-700">{currency(item.price)}</td>
@@ -23,7 +23,7 @@ const SelectedOrderRow = memo(({ item, onUpdateQty, onRemoveItem, selected, onSe
   </tr>
 ));
 const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
-  <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+  <article tabIndex="0" data-order-cart-item={item.menuItem} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{item.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{item.categoryName || "Uncategorised"} · {currency(item.price)} each</p></div>
       <p className="shrink-0 text-sm font-bold text-slate-900">{currency(item.price * item.quantity)}</p>
@@ -35,8 +35,9 @@ const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
   </article>
 ));
 
-const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore, activeIndex, onActiveIndex, emptyMessage }) => {
-  if (loading) return <p className="mt-3 text-sm text-slate-500">Loading menu items...</p>;
+const MenuResults = memo(({ loading, error, onRetry, items, visibleCount, onAddItem, onShowMore, activeIndex, onActiveIndex, emptyMessage }) => {
+  if (loading) return <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-2 md:grid-cols-2" role="status" aria-live="polite" aria-busy="true"><span className="sr-only">Loading menu items...</span>{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-200/80" />)}</div>;
+  if (error) return <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert"><p>{error}</p><button type="button" onClick={onRetry} className="mt-3 min-h-10 rounded-lg border border-rose-300 bg-white px-3 text-sm font-semibold text-rose-800 hover:bg-rose-100">Retry</button></div>;
 
   return <>
     <div className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-slate-100 bg-slate-50/60 p-2 max-h-72 overflow-y-auto md:grid-cols-2 md:gap-2">
@@ -51,7 +52,7 @@ const MenuResults = memo(({ loading, items, visibleCount, onAddItem, onShowMore,
     {items.length > visibleCount ? <button type="button" onClick={onShowMore} className="mt-2 min-h-10 w-full rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50">Show more ({items.length - visibleCount} remaining)</button> : null}
   </>;
 });
-const ItemsSection = ({ menuItems = [], categories = [], menuLoading, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, menuSearchRef }) => {
+const ItemsSection = ({ menuItems = [], categories = [], menuLoading, menuError = "", onRetryMenu, items, errors, discountPercent, onAddItem, onUpdateQty, onRemoveItem, onDiscountPercentChange, menuSearchRef }) => {
   const [menuSearch, setMenuSearch] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [visibleCount, setVisibleCount] = useState(60);
@@ -91,12 +92,6 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, items, err
   useKeyboardShortcutScope({
     f5: { allowInEditable: true, handler: () => { menuSearchRef.current?.focus(); } },
     f6: { allowInEditable: true, handler: addActiveMenuItem },
-    arrowdown: { allowInEditable: true, handler: (event) => { if (event.target !== menuSearchRef.current && event.target?.tagName) return false; if (!visibleMenuItems.length) return false; setActiveMenuIndex((index) => Math.min(index + 1, visibleMenuItems.length - 1)); } },
-    arrowup: { allowInEditable: true, handler: (event) => { if (event.target !== menuSearchRef.current && event.target?.tagName) return false; if (!visibleMenuItems.length) return false; setActiveMenuIndex((index) => Math.max(index - 1, 0)); } },
-    enter: { allowInEditable: true, handler: (event) => { if (event.target !== menuSearchRef.current && event.target?.tagName) return false; return addActiveMenuItem(); } },
-    plus: { handler: () => { if (!selectedItem) return false; onUpdateQty(selectedItem.menuItem, 1); } },
-    minus: { handler: () => { if (!selectedItem) return false; onUpdateQty(selectedItem.menuItem, -1); } },
-    delete: { handler: () => { if (!selectedItem) return false; onRemoveItem(selectedItem.menuItem); } },
   }, { priority: 120 });
 
   return <>
@@ -109,7 +104,7 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, items, err
           {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
         </select>
       </div>
-      <MenuResults loading={menuLoading} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
+      <MenuResults loading={menuLoading} error={menuError} onRetry={onRetryMenu} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
       <div className="mt-4 space-y-2 md:hidden">{items.length ? items.map((item) => <div key={item.menuItem} onClick={() => setSelectedCartItem(item.menuItem)} className={String(selectedItem?.menuItem) === String(item.menuItem) ? "rounded-xl ring-2 ring-brand-500/30" : "rounded-xl"}><SelectedOrderCard item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} /></div>) : <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}</div>
       <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
