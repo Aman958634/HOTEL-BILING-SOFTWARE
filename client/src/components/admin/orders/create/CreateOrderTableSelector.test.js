@@ -39,3 +39,22 @@ test("table labels omit unavailable capacity and Kitchen stays in the admin rout
   assert.match(routerSource, /<Route path="kitchen" element=\{<RoleRoute/);
   assert.doesNotMatch(routerSource, /path="\/dashboard\/admin\/kitchen"/);
 });
+test("Create New Order loads every tenant-scoped menu and category page, then filters by category id", async () => {
+  const [menuServiceSource, categoryServiceSource, managementSource, itemsSource] = await Promise.all([
+    readSource("../../../../services/menuService.js"),
+    readSource("../../../../services/categoryService.js"),
+    readSource("../../../../pages/admin/OrderManagement.jsx"),
+    readSource("./ItemsSection.jsx"),
+  ]);
+
+  assert.match(menuServiceSource, /getAllAdminMenu/);
+  assert.match(menuServiceSource, /totalPages/);
+  assert.match(categoryServiceSource, /getAllAdminCategoriesForOrder/);
+  assert.match(categoryServiceSource, /Array\.from\(\{ length: totalPages - 1 \}/);
+  assert.match(managementSource, /getAllAdminMenu\(\{ available: true \}\)/);
+  assert.match(managementSource, /getAllAdminCategoriesForOrder\(\)/);
+  assert.match(itemsSource, /String\(categoryId\) === String\(menuCategory\)/);
+  assert.match(itemsSource, /setMenuSearch\(""\)/);
+  assert.match(itemsSource, /whitespace-normal break-words/);
+  assert.match(itemsSource, /max-h-64 w-full overflow-y-auto/);
+});

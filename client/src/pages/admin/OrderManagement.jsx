@@ -18,8 +18,8 @@ import OrderToolbar from "../../components/admin/orders/OrderToolbar";
 import RequestState from "../../components/common/RequestState";
 import TablePagination from "../../components/common/TablePagination";
 import { useSocket } from "../../context/SocketContext";
-import { getAdminCategories } from "../../services/categoryService";
-import { getAdminMenu } from "../../services/menuService";
+import { getAllAdminCategoriesForOrder } from "../../services/categoryService";
+import { getAllAdminMenu } from "../../services/menuService";
 import {
   createOrder,
   deleteOrder,
@@ -285,15 +285,14 @@ const OrderManagement = () => {
   const loadOrderDependencies = useCallback(async () => {
     setDependenciesLoading(true);
     try {
-      const [{ data: foodsData }, { data: categoriesData }, { data: restaurantData }] = await Promise.all([
-        getAdminMenu({ limit: 200, available: true }),
-        getAdminCategories(),
-
+      const [menuItems, orderCategories, { data: restaurantData }] = await Promise.all([
+        getAllAdminMenu({ available: true }),
+        getAllAdminCategoriesForOrder(),
         getRestaurantSettings(),
       ]);
 
-      setFoods(foodsData.data || []);
-      setCategories(categoriesData.data || []);
+      setFoods(menuItems);
+      setCategories(orderCategories);
 
       const configuredRate = Number(restaurantData?.data?.gstRate);
       setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
