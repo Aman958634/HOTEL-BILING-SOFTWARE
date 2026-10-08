@@ -17,6 +17,19 @@ test("spatial order navigation follows nearby controls in the requested directio
   assert.equal(findSpatialTarget(takeaway, [dineIn, takeaway, delivery, table], "ArrowDown"), table);
 });
 
+test("spatial navigation keeps menu cards in their visible grid row and column", () => {
+  const topLeft = control(0, 0);
+  const topRight = control(100, 0);
+  const lowerLeft = control(0, 60);
+  const lowerRight = control(100, 60);
+  const menuItems = [topLeft, topRight, lowerLeft, lowerRight];
+
+  assert.equal(findSpatialTarget(topLeft, menuItems, "ArrowRight"), topRight);
+  assert.equal(findSpatialTarget(topRight, menuItems, "ArrowLeft"), topLeft);
+  assert.equal(findSpatialTarget(topLeft, menuItems, "ArrowDown"), lowerLeft);
+  assert.equal(findSpatialTarget(lowerLeft, menuItems, "ArrowUp"), topLeft);
+});
+
 test("native editable controls retain their own arrow-key behavior", () => {
   assert.equal(isEditableOrderControl({ tagName: "INPUT", dataset: {} }), true);
   assert.equal(isEditableOrderControl({ tagName: "SELECT", dataset: {} }), true);

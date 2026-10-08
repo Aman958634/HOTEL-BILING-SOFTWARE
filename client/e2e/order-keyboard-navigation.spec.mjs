@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const manager = { email: "browser-admin@test.invalid", password: "RoleMatrix@123" };
 
 const login = async (page) => {
-  await page.goto("/login");
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Email address").fill(manager.email);
   await page.getByRole("textbox", { name: "Password" }).fill(manager.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
@@ -18,7 +18,7 @@ const pressTabUntilFocused = async (page, target, limit = 24) => {
   await expect(target).toBeFocused();
 };
 
-test("Create New Order supports keyboard-only type, menu, cart and explicit submission", async ({ page }) => {
+test("Create New Order moves from Menu Search through menu cards, cart and explicit submission", async ({ page }) => {
   let submissions = 0;
   // Entitlement is enforced by the fixture API for operational requests. Stub
   // only the presentation endpoint so this focused keyboard test cannot be
@@ -33,7 +33,7 @@ test("Create New Order supports keyboard-only type, menu, cart and explicit subm
   });
 
   await login(page);
-  await page.goto("/dashboard/admin/orders");
+  await page.goto("/dashboard/admin/orders", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Create Order", exact: true }).click();
 
   const dialog = page.getByRole("dialog", { name: /create new order/i });
@@ -61,20 +61,36 @@ test("Create New Order supports keyboard-only type, menu, cart and explicit subm
 
   const menuSearch = dialog.getByLabel("Search food items");
   await pressTabUntilFocused(page, menuSearch);
-  await page.keyboard.type("Paneer Tikka");
-  const menuItem = dialog.getByRole("button", { name: /paneer tikka/i }).first();
-  await expect(menuItem).toBeVisible();
-  await pressTabUntilFocused(page, menuItem);
+  const menuItems = dialog.locator("[data-order-menu-item='true']");
+  await expect(menuItems.first()).toBeVisible();
+
+  // Arrow Down is the intentional hand-off from the editable search field.
+  await page.keyboard.press("ArrowDown");
+  await expect(menuItems.first()).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(menuItems.nth(1)).toBeFocused();
+  const selectedMenuItem = await menuItems.nth(1).innerText();
   await page.keyboard.press("Enter");
 
   const cartRow = dialog.locator("tr[data-order-cart-item]").first();
   await expect(cartRow).toBeVisible();
+  await expect(cartRow).toContainText(selectedMenuItem.split("\n")[0]);
   for (let index = 0; index < 6 && !await cartRow.evaluate((element) => document.activeElement === element); index += 1) {
     await page.keyboard.press("ArrowDown");
   }
   await expect(cartRow).toBeFocused();
   await page.keyboard.press("+");
   await expect(cartRow.locator("span.min-w-9")).toHaveText("2");
+
+  // Native category selection remains intact; returning to search still hands
+  // Arrow Down to the newly filtered menu grid.
+  const category = dialog.getByLabel("Filter by category");
+  await pressTabUntilFocused(page, category, 48);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Shift+Tab");
+  await expect(menuSearch).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(menuItems.first()).toBeFocused();
 
   // No request is made while focus moves or quantities change.
   expect(submissions).toBe(0);

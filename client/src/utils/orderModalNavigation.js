@@ -59,6 +59,15 @@ const focusControl = (element) => {
 const getControls = (root, group = "") => Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR))
   .filter((element) => isVisible(element) && (!group || element.dataset.orderNavGroup === group));
 
+// Menu cards live in their own scrollable, responsive grid.  Limiting spatial
+// matching to these controls first keeps a right/down press inside the grid
+// from being captured by an unrelated control elsewhere in the modal.
+const getMenuItems = (root) => Array.from(root.querySelectorAll("[data-order-menu-item='true']"))
+  .filter(isVisible);
+
+const getCartItems = (root) => Array.from(root.querySelectorAll("[data-order-cart-item]"))
+  .filter(isVisible);
+
 export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCartQuantity }) => {
   const previousFocusRef = useRef(null);
 
@@ -74,6 +83,25 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
       if (next) {
         focusControl(next);
         return true;
+      }
+    }
+
+    if (current.dataset.orderMenuItem === "true") {
+      const menuTarget = findSpatialTarget(current, getMenuItems(root), direction);
+      if (menuTarget) {
+        focusControl(menuTarget);
+        return true;
+      }
+
+      // The cart sits below a nested, scrollable menu grid. Its coordinates
+      // are not consistently comparable to a card scrolled inside that grid,
+      // so make the final-row hand-off deterministic.
+      if (direction === "ArrowDown") {
+        const firstCartItem = getCartItems(root)[0];
+        if (firstCartItem) {
+          focusControl(firstCartItem);
+          return true;
+        }
       }
     }
 
@@ -104,7 +132,20 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
     }
 
     const current = event.target.closest?.(FOCUSABLE_SELECTOR);
-    if (!current || !root.contains(current) || isEditableOrderControl(current)) return;
+    if (!current || !root.contains(current)) return;
+
+    // Search remains a normal text field for caret/editing keys. Arrow Down is
+    // the one intentional hand-off to the visible menu grid.
+    if (current.dataset.orderMenuSearch === "true" && event.key === "ArrowDown") {
+      const firstMenuItem = getMenuItems(root)[0];
+      if (firstMenuItem) {
+        event.preventDefault();
+        focusControl(firstMenuItem);
+      }
+      return;
+    }
+
+    if (isEditableOrderControl(current)) return;
 
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
       if (moveFocus(current, event.key)) event.preventDefault();
