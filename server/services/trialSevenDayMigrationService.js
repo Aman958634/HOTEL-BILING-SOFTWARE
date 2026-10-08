@@ -27,11 +27,11 @@ export const getTrialSevenDayMigrationUpdate = (subscription, migratedAt = new D
 export const extendEligibleTrialExpiries = async ({ SubscriptionModel, now = new Date(), apply = false }) => {
   const migrationTime = new Date(now);
   if (!validDate(migrationTime)) throw new Error("A valid migration timestamp is required");
-  const candidates = await SubscriptionModel.find({ status: "trial", trialEndDate: { $type: "date", $gt: migrationTime }, "metadata.trialDurationDays": PREVIOUS_FREE_TRIAL_DAYS, [`metadata.${TRIAL_SEVEN_DAY_MIGRATION_MARKER}`]: { $exists: false } }).select("_id restaurant trialStartDate trialEndDate metadata").lean();
+  const candidates = await SubscriptionModel.find({ status: "trial", trialEndDate: { $type: "date", $gt: migrationTime }, "metadata.trialDurationDays": PREVIOUS_FREE_TRIAL_DAYS, [`metadata.${TRIAL_SEVEN_DAY_MIGRATION_MARKER}`]: { $exists: false } }).select("_id restaurant status trialStartDate trialEndDate metadata").lean();
   const summary = { migration: "trial-5-day-to-7-day-v1", mode: apply ? "apply" : "dry-run", migrationTime: migrationTime.toISOString(), eligible: candidates.length, updated: 0, skippedDuringApply: 0, samples: [] };
   for (const subscription of candidates) {
     const operation = getTrialSevenDayMigrationUpdate(subscription, migrationTime);
-    if (!operation) { summary.skippedDuringApply += 1; continue; }
+    if (!operation) { if (apply) summary.skippedDuringApply += 1; continue; }
     if (summary.samples.length < 20) summary.samples.push({ subscriptionId: String(subscription._id), restaurantId: String(subscription.restaurant), trialStartDate: subscription.trialStartDate ? new Date(subscription.trialStartDate).toISOString() : null, originalTrialEndDate: operation.originalTrialEndDate.toISOString(), newTrialEndDate: operation.newTrialEndDate.toISOString() });
     if (!apply) continue;
     const result = await SubscriptionModel.updateOne(operation.filter, operation.update);
