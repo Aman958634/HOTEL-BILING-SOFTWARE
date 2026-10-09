@@ -144,6 +144,7 @@ const OrderManagement = () => {
   const [categories, setCategories] = useState([]);
   const [tables, setTables] = useState([]);
   const [restaurantGstRate, setRestaurantGstRate] = useState(0);
+  const [restaurantDefaultDiscountPercent, setRestaurantDefaultDiscountPercent] = useState(0);
   const [simplePrintedKotWorkflow, setSimplePrintedKotWorkflow] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -353,6 +354,8 @@ const OrderManagement = () => {
         setCategories(orderCategories);
         const configuredRate = Number(restaurantData?.data?.gstRate);
         setRestaurantGstRate(Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 100 ? configuredRate : 0);
+        const configuredDiscount = Number(restaurantData?.data?.defaultDiscountPercent);
+        setRestaurantDefaultDiscountPercent(Number.isFinite(configuredDiscount) && configuredDiscount >= 0 && configuredDiscount <= 100 ? configuredDiscount : 0);
         setSimplePrintedKotWorkflow(Boolean(restaurantData?.data?.simpleOrderWorkflowEnabled && restaurantData?.data?.kitchenDisplayEnabled === false));
         setDependenciesReady(true);
         return true;
@@ -1181,6 +1184,7 @@ const OrderManagement = () => {
         initialData={createInitialTable ? { table: createInitialTable } : null}
         hotelUpiCapability={createHotelUpiCapability}
         restaurantGstRate={restaurantGstRate}
+        restaurantDefaultDiscountPercent={restaurantDefaultDiscountPercent}
         onClose={() => {
           setCreateOpen(false);
           setCreateInitialTable(null);

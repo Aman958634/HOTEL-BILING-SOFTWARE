@@ -30,6 +30,11 @@ const normalizePercentInput = (value) => {
   return value;
 };
 
+const normalizeDefaultDiscountPercent = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? String(Math.max(0, Math.min(100, numeric))) : "0";
+};
+
 const mapOrderItem = (item, menuItems, categories) => {
   const menuItemId = item.menuItem?._id || item.menuItem || item.food?._id || item.food;
   const menuRef = menuItems.find((entry) => String(entry._id) === String(menuItemId));
@@ -51,7 +56,7 @@ const mapOrderItem = (item, menuItems, categories) => {
   };
 };
 
-const buildInitialState = (initialData, menuItems, categories, restaurantGstRate) => {
+const buildInitialState = (initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent) => {
   const subtotal = Number(initialData?.subtotal || 0);
   const discount = Number(initialData?.discount || 0);
   const taxableBase = Math.max(0, subtotal - discount);
@@ -63,7 +68,7 @@ const buildInitialState = (initialData, menuItems, categories, restaurantGstRate
     items: (initialData?.items || []).map((item) => mapOrderItem(item, menuItems, categories)),
 
     notes: initialData?.notes || "",
-    discountPercent: derivePercent(discount, subtotal),
+    discountPercent: initialData?._id ? derivePercent(discount, subtotal) : normalizeDefaultDiscountPercent(restaurantDefaultDiscountPercent),
     taxPercent: normalizeGstRate(initialData?.gstRate ?? restaurantGstRate),
     serviceChargePercent: derivePercent(initialData?.serviceCharge, taxableBase),
     deliveryCharge: initialData?.deliveryCharge ?? "",
@@ -95,6 +100,7 @@ const CreateOrderModal = ({
   initialData = null,
   hotelUpiCapability,
   restaurantGstRate = 0,
+  restaurantDefaultDiscountPercent = 0,
   onClose,
   onSubmit,
 }) => {
@@ -103,7 +109,7 @@ const CreateOrderModal = ({
   const outletId = activeOutletId || localStorage.getItem("selectedOutletId") || "";
   const draftScope = getOrderDraftScope({ user, outletId });
 
-  const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories, restaurantGstRate));
+  const [form, setForm] = useState(() => buildInitialState(initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent));
   const [guestCount, setGuestCount] = useState(1);
   const [orderDate, setOrderDate] = useState(() => new Date());
   const [customerSearch, setCustomerSearch] = useState("");
@@ -142,12 +148,13 @@ const CreateOrderModal = ({
       modalSessionRef.current = "";
       return;
     }
+    if (!dependenciesReady) return;
 
     const sessionKey = `${isEdit ? `edit:${initialData?._id || ""}` : "create"}:${draftScope || ""}`;
     if (modalSessionRef.current === sessionKey) return;
     modalSessionRef.current = sessionKey;
 
-    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate);
+    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent);
     if (!isEdit && !initialForm.idempotencyKey) initialForm.idempotencyKey = newIdempotencyKey();
     const draft = !isEdit ? readOrderDraft(draftScope) : null;
 
@@ -162,7 +169,7 @@ const CreateOrderModal = ({
     setSubmissionMessage("");
     setGuestCount(1);
     setOrderDate(initialData?.createdAt ? new Date(initialData.createdAt) : new Date());
-  }, [categories, draftScope, initialData, initialData?._id, isEdit, menuItems, open, restaurantGstRate]);
+  }, [categories, dependenciesReady, draftScope, initialData, initialData?._id, isEdit, menuItems, open, restaurantDefaultDiscountPercent, restaurantGstRate]);
 
   useEffect(() => {
     if (!open || isEdit || !draftScope || draftResolution === "choose" || draftResolution === "confirm-new" || !form.items.length) return undefined;
@@ -345,25 +352,25 @@ const CreateOrderModal = ({
   const restoreDraft = useCallback(() => {
     if (!draftCandidate || !dependenciesReady) return;
     const restoredForm = {
-      ...buildInitialState(initialData, menuItems, categories, restaurantGstRate),
-      ...buildInitialState(draftCandidate, menuItems, categories, restaurantGstRate),
+      ...buildInitialState(initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent),
+      ...buildInitialState(draftCandidate, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent),
     };
     if (!restoredForm.idempotencyKey) restoredForm.idempotencyKey = newIdempotencyKey();
     setForm(restoredForm);
     setDraftCandidate(null);
     setDraftResolution("restored");
-  }, [categories, dependenciesReady, draftCandidate, initialData, menuItems, restaurantGstRate]);
+  }, [categories, dependenciesReady, draftCandidate, initialData, menuItems, restaurantDefaultDiscountPercent, restaurantGstRate]);
 
   const requestNewOrder = useCallback(() => setDraftResolution("confirm-new"), []);
 
   const startNewOrder = useCallback(() => {
     clearOrderDraft(draftScope);
-    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate);
+    const initialForm = buildInitialState(initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent);
     if (!initialForm.idempotencyKey) initialForm.idempotencyKey = newIdempotencyKey();
     setForm(initialForm);
     setDraftCandidate(null);
     setDraftResolution("new");
-  }, [categories, draftScope, initialData, menuItems, restaurantGstRate]);
+  }, [categories, draftScope, initialData, menuItems, restaurantDefaultDiscountPercent, restaurantGstRate]);
   const validate = () => {
     const next = {};
     if (!form.items.length) next.items = "Add at least one food item.";

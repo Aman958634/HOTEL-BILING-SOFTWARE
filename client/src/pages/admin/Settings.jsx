@@ -20,6 +20,7 @@ const defaultSettings = {
   city: "",
   gstNumber: "",
   gstRate: 0,
+  defaultDiscountPercent: 0,
   openingHours: "09:00-23:00",
   logoUrl: "",
   website: "",
@@ -55,6 +56,7 @@ const toSavePayload = (settings, includeGstRate) => {
     city,
     gstNumber,
     gstRate,
+    defaultDiscountPercent,
     openingHours,
     logoUrl,
     website,
@@ -73,7 +75,7 @@ const toSavePayload = (settings, includeGstRate) => {
     address,
     city,
     gstNumber,
-    ...(includeGstRate ? { gstRate } : {}),
+    ...(includeGstRate ? { gstRate, defaultDiscountPercent } : {}),
     openingHours,
     logoUrl,
     website,
@@ -405,6 +407,20 @@ const Settings = () => {
                 className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
               />
               <span className="block text-xs text-slate-500">Used for new orders only; existing orders retain their saved rate.</span>
+            </label>
+            <label className="space-y-2 text-sm text-slate-700">
+              <span>Default order discount (%)</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={settings.defaultDiscountPercent ?? 0}
+                onChange={(event) => handleChange("defaultDiscountPercent", event.target.value)}
+                disabled={!gstRateAdmin}
+                className="w-full rounded-2xl border border-slate-300 p-3 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
+              />
+              <span className="block text-xs text-slate-500">Applied to new POS orders only; staff can adjust it per order.</span>
             </label>
             <label className="space-y-2 text-sm text-slate-700">
               <span>Opening Hours</span>

@@ -13,6 +13,14 @@ const normalizeGstRate = (value) => {
   return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 0;
 };
 
+export const normalizeDefaultDiscountPercent = (value) => {
+  const percent = Number(value);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+    throw new ApiError(400, "Default discount must be between 0 and 100 percent.");
+  }
+  return percent;
+};
+
 /** Resolve tenant-scoped query — admin users use JWT restaurant id. */
 const getRestaurantQueryForUser = (user) => {
   if (user?.restaurant && mongoose.isValidObjectId(user.restaurant)) {
@@ -54,6 +62,9 @@ const normalizePayload = (body = {}) => {
   payload.phone = payload.phone ? String(payload.phone).trim() : "";
   payload.gstNumber = payload.gstNumber ? String(payload.gstNumber).trim() : "";
   if (Object.hasOwn(payload, "gstRate")) payload.gstRate = normalizeGstRate(payload.gstRate);
+  if (Object.hasOwn(payload, "defaultDiscountPercent")) {
+    payload.defaultDiscountPercent = normalizeDefaultDiscountPercent(payload.defaultDiscountPercent);
+  }
   payload.openingHours = payload.openingHours ? String(payload.openingHours).trim() : "09:00-23:00";
   payload.logoUrl = payload.logoUrl ? String(payload.logoUrl).trim() : "";
   payload.website = payload.website ? String(payload.website).trim() : "";
@@ -103,6 +114,9 @@ export const updateRestaurantSettings = asyncHandler(async (req, res) => {
   const currentRestaurant = await Restaurant.findOne(query).select("slug").lean();
   if (Object.hasOwn(req.body || {}, "gstRate") && !GST_SETTINGS_ADMIN_ROLES.has(String(req.user?.role || "").toLowerCase())) {
     throw new ApiError(403, "Only a hotel or restaurant administrator can change GST rate.");
+  }
+  if (Object.hasOwn(req.body || {}, "defaultDiscountPercent") && !GST_SETTINGS_ADMIN_ROLES.has(String(req.user?.role || "").toLowerCase())) {
+    throw new ApiError(403, "Only a hotel or restaurant administrator can change default discount.");
   }
   const payload = normalizePayload(req.body);
 
