@@ -20,6 +20,16 @@ const derivePercent = (amount, base) => {
   return Number.isFinite(percent) ? String(Math.round(percent * 100) / 100) : "";
 };
 
+const normalizePercentInput = (value) => {
+  if (value === "") return "";
+  if (/^\d+\.$/.test(value)) return value;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "";
+  if (numeric < 0) return "0";
+  if (numeric > 100) return "100";
+  return value;
+};
+
 const mapOrderItem = (item, menuItems, categories) => {
   const menuItemId = item.menuItem?._id || item.menuItem || item.food?._id || item.food;
   const menuRef = menuItems.find((entry) => String(entry._id) === String(menuItemId));
@@ -302,7 +312,7 @@ const CreateOrderModal = ({
     setShowCustomerForm(true);
   }, [form.customer]);
   const patchCustomerForm = useCallback((updates) => setCustomerForm((prev) => ({ ...prev, ...updates })), []);
-  const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: value }), [patchForm]);
+  const patchDiscountPercent = useCallback((value) => patchForm({ discountPercent: normalizePercentInput(value) }), [patchForm]);
   const patchNotes = useCallback((value) => patchForm({ notes: value }), [patchForm]);
   const patchServiceChargePercent = useCallback((value) => patchForm({ serviceChargePercent: value }), [patchForm]);
 

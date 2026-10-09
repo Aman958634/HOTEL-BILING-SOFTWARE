@@ -20,6 +20,11 @@ export const isEditableOrderControl = (element) => {
   return tag === "input" || tag === "select" || tag === "textarea" || Boolean(element.isContentEditable);
 };
 
+const isTextEntryControl = (element) => {
+  const tag = String(element?.tagName || "").toLowerCase();
+  return tag === "textarea" || (tag === "input" && !["button", "checkbox", "radio", "range", "submit"].includes(String(element.type || "text").toLowerCase()));
+};
+
 const centre = (rect) => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
 
 // Prefer the nearest control in the requested direction, then favour controls
@@ -145,7 +150,20 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
       return;
     }
 
+    // Text fields must not bubble Enter to the order form. Buttons retain
+    // their native Enter activation.
+    if (event.key === "Enter" && isTextEntryControl(current)) {
+      event.preventDefault();
+      return;
+    }
+
     if (isEditableOrderControl(current)) return;
+
+    if (current.dataset.orderCartItem && (event.key === "ArrowLeft" || event.key === "ArrowRight") && onCartQuantity) {
+      onCartQuantity(current.dataset.orderCartItem, event.key === "ArrowLeft" ? -1 : 1);
+      event.preventDefault();
+      return;
+    }
 
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
       if (moveFocus(current, event.key)) event.preventDefault();

@@ -37,3 +37,11 @@ test("native editable controls retain their own arrow-key behavior", () => {
   assert.equal(isEditableOrderControl({ tagName: "INPUT", dataset: { orderArrowNav: "true" } }), false);
   assert.equal(isEditableOrderControl({ tagName: "BUTTON", dataset: {} }), false);
 });
+
+test("spatial navigation can move between the form and summary columns", () => {
+  const formControl = control(0, 120);
+  const summaryControl = control(440, 120);
+
+  assert.equal(findSpatialTarget(formControl, [formControl, summaryControl], "ArrowRight"), summaryControl);
+  assert.equal(findSpatialTarget(summaryControl, [formControl, summaryControl], "ArrowLeft"), formControl);
+});

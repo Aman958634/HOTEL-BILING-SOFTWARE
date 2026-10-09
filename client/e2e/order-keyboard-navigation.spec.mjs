@@ -60,6 +60,9 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   const dineIn = dialog.getByRole("button", { name: "Dine In", exact: true });
   const takeaway = dialog.getByRole("button", { name: "Take Away", exact: true });
   const delivery = dialog.getByRole("button", { name: "Delivery", exact: true });
+  const customerSearch = dialog.getByLabel("Search Customer");
+  await expect(customerSearch).toBeFocused();
+  await page.keyboard.press("ArrowDown");
   await expect(dineIn).toBeFocused();
 
   await page.keyboard.press("ArrowRight");
@@ -101,6 +104,13 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await expect(cartRow).toBeFocused();
   await page.keyboard.press("+");
   await expect(cartRow.locator("span.min-w-9")).toHaveText("2");
+  await page.keyboard.press("ArrowRight");
+  await expect(cartRow.locator("span.min-w-9")).toHaveText("3");
+
+  // Enter in a text field is navigation-safe and cannot submit an order.
+  await menuSearch.focus();
+  await page.keyboard.press("Enter");
+  expect(submissions).toBe(0);
 
   // Native category selection remains intact; returning to search still hands
   // Arrow Down to the newly filtered menu grid.
