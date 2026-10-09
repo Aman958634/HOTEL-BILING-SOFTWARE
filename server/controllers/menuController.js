@@ -28,6 +28,11 @@ const parseBoolean = (value, fallback) => {
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const buildPrefixMenuSearchFilter = (value) => {
+  const search = String(value || "").trim();
+  return search ? { name: { $regex: `^${escapeRegex(search)}`, $options: "i" } } : {};
+};
+
 const resolveRestaurant = async (restaurantId, user) => {
   const restaurant = await resolveRestaurantForUser({ restaurantId, user });
   return restaurant;
@@ -37,12 +42,7 @@ export const listMenuItems = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   let filter = {};
 
-  if (req.query.search) {
-    filter.$or = [
-      { name: { $regex: escapeRegex(req.query.search), $options: "i" } },
-      { description: { $regex: escapeRegex(req.query.search), $options: "i" } },
-    ];
-  }
+  if (req.query.search) Object.assign(filter, buildPrefixMenuSearchFilter(req.query.search));
 
   if (req.query.category) {
     if (!mongoose.isValidObjectId(req.query.category)) throw new ApiError(400, "Invalid category id");

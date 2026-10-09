@@ -91,7 +91,7 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, menuError 
           {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
         </select>
       </div>
-      <MenuResults loading={menuLoading} error={menuError} onRetry={onRetryMenu} items={filteredMenuItems} onAddItem={onAddItem} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
+      <MenuResults loading={menuLoading} error={menuError} onRetry={onRetryMenu} items={filteredMenuItems} onAddItem={onAddItem} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuSearch.trim() ? "No matching menu items found." : menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
       <div className="mt-3 border-t border-slate-200 pt-3"><h3 className="text-sm font-semibold text-slate-900">Cart</h3></div>
       <div className="mt-2 space-y-2 md:hidden">{items.length ? items.map((item) => <div key={item.menuItem} onClick={() => setSelectedCartItem(item.menuItem)} className={String(selectedItem?.menuItem) === String(item.menuItem) ? "ring-2 ring-brand-500/30" : ""}><SelectedOrderCard item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} /></div>) : <p className="border-y border-dashed border-slate-200 px-3 py-5 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}</div>
