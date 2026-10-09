@@ -106,7 +106,7 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await page.keyboard.press("Escape");
   await page.keyboard.press("ArrowDown");
   await expect(menuItems.first()).toBeFocused();
-  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
   await expect(menuItems.nth(1)).toBeFocused();
   const selectedMenuItem = await menuItems.nth(1).innerText();
   await page.keyboard.press("Enter");

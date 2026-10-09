@@ -25,7 +25,7 @@ const PaymentReceipt = ({ open, payment, downloading = false, onClose, onDownloa
   const serviceCharge = firstDefined(order.serviceCharge, payment.serviceCharge, 0);
   const total = getPaymentAmount(payment) || firstDefined(order.total, 0);
   const gstRate = Number(firstDefined(order.gstRate, payment.gstRate, 0) || 0);
-  const restaurant = payment.restaurant || {};
+  const restaurant = payment.restaurant?.name ? payment.restaurant : order.restaurant || {};
   const restaurantName = restaurant.name || payment.restaurantName || "RestoSphere";
 
   return createPortal(
@@ -41,12 +41,12 @@ const PaymentReceipt = ({ open, payment, downloading = false, onClose, onDownloa
               <img src="/restosphere-logo.png" alt="RestoSphere" className="mx-auto h-9 w-auto object-contain" />
               <p className="mt-2 text-base font-extrabold tracking-wide text-brand-700">RestoSphere</p>
               <p className="mt-0.5 break-words text-xs font-bold uppercase tracking-[0.12em] text-slate-700">{restaurantName}</p>
+              <p className="mt-1 text-sm font-bold text-slate-800">{tableOrType(order, payment)}</p>
               <div className="payment-receipt-success mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800"><FiCheck aria-hidden="true" className="text-base" /> Payment Successful</div>
             </header>
             <section className="payment-receipt-details space-y-2 border-b border-slate-200 px-4 py-4 text-sm">
               <ReceiptField label="Order No" value={order.orderNumber || payment.orderIdValue} />
               <ReceiptField label="Date & Time" value={formatPaymentDate(payment.paidAt || payment.createdAt)} />
-              <ReceiptField label="Table / Type" value={tableOrType(order, payment)} />
             </section>
             <section className="payment-receipt-items border-b border-slate-200 px-4 py-4">
               <table className="payment-receipt-items-table w-full table-fixed text-left text-sm">

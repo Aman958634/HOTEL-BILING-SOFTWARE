@@ -465,6 +465,7 @@ const CreateOrderModal = ({
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
+              data-order-footer-action="cancel"
               onClick={onClose}
               aria-label="Close"
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
@@ -573,6 +574,7 @@ const CreateOrderModal = ({
             </button>
             <button
               type="submit"
+              data-order-footer-action="submit"
               disabled={loading}
               className="min-h-10 w-full rounded-lg bg-brand-700 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >

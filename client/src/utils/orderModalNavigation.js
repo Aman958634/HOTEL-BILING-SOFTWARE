@@ -94,8 +94,12 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
     if (current.dataset.orderMenuItem === "true") {
       const menuItems = getMenuItems(root);
       const index = menuItems.indexOf(current);
-      if ((direction === "ArrowLeft" || direction === "ArrowRight") && menuItems[index + (direction === "ArrowRight" ? 1 : -1)]) {
-        focusControl(menuItems[index + (direction === "ArrowRight" ? 1 : -1)]);
+      if (direction === "ArrowDown" && menuItems[index + 1]) {
+        focusControl(menuItems[index + 1]);
+        return true;
+      }
+      if (direction === "ArrowUp" && menuItems[index - 1]) {
+        focusControl(menuItems[index - 1]);
         return true;
       }
       if (direction === "ArrowUp") {
@@ -106,6 +110,20 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
         }
       }
       if (direction === "ArrowDown") {
+        const cartTarget = getCartItems(root)[0] || root.querySelector("#discount-percent");
+        if (cartTarget) {
+          focusControl(cartTarget);
+          return true;
+        }
+      }
+      if (direction === "ArrowLeft") {
+        const category = root.querySelector("[data-order-menu-category='true']");
+        if (category) {
+          focusControl(category);
+          return true;
+        }
+      }
+      if (direction === "ArrowRight") {
         const cartTarget = getCartItems(root)[0] || root.querySelector("#discount-percent");
         if (cartTarget) {
           focusControl(cartTarget);
@@ -134,7 +152,7 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
     }
 
     if (current.id === "discount-percent") {
-      const target = direction === "ArrowUp" ? getCartItems(root).at(-1) : direction === "ArrowDown" ? root.querySelector("#summary-service") : null;
+      const target = direction === "ArrowUp" ? getCartItems(root).at(-1) : direction === "ArrowDown" ? root.querySelector("[data-order-footer-action='cancel']") : null;
       if (target) {
         focusControl(target);
         return true;
@@ -150,7 +168,17 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
     }
 
     if (current.id === "customer-note") {
-      const target = direction === "ArrowUp" ? root.querySelector("#summary-service") : direction === "ArrowDown" ? root.querySelector("button[type='submit']") : null;
+      const target = direction === "ArrowUp" ? root.querySelector("#summary-service") : direction === "ArrowDown" ? root.querySelector("[data-order-footer-action='cancel']") : null;
+      if (target) {
+        focusControl(target);
+        return true;
+      }
+    }
+
+    if (current.dataset.orderFooterAction) {
+      const target = (direction === "ArrowLeft" || direction === "ArrowRight")
+        ? root.querySelector(`[data-order-footer-action='${current.dataset.orderFooterAction === "cancel" ? "submit" : "cancel"}']`)
+        : direction === "ArrowUp" ? root.querySelector("#discount-percent") : null;
       if (target) {
         focusControl(target);
         return true;
@@ -286,6 +314,14 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
         }
         return;
       }
+    }
+
+    // Discount arrows are reserved for navigation so an operator can leave
+    // the field without accidentally changing a percentage. Left/Right and
+    // normal typing remain native for editing the value.
+    if (current.id === "discount-percent" && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      if (moveFocus(current, event.key)) event.preventDefault();
+      return;
     }
 
     // Text fields must not bubble Enter to the order form. Buttons retain
