@@ -12,5 +12,7 @@ test("Kitchen KOT uses live ticket data and excludes financial receipt content",
   assert.match(source, /dateTime\(kot\.createdAt\)/);
   assert.match(source, /item\.quantity/);
   assert.match(source, /KITCHEN COPY/);
+  assert.match(source, /kitchen-kot-ticket/);
+  assert.match(source, /text-\[14px\] leading-\[1\.35\]/);
   assert.doesNotMatch(source, /paymentMethod|Grand Total|Subtotal|currency\(/);
 });

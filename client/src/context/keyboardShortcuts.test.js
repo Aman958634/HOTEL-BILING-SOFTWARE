@@ -38,6 +38,10 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(createModal, /"ctrl\+enter"/);
   assert.match(itemsSection, /f5:/);
   assert.match(itemsSection, /f6:/);
+  assert.match(itemsSection, /flex max-w-full snap-x snap-mandatory/);
+  assert.match(itemsSection, /overflow-x-auto/);
+  assert.match(itemsSection, /menuSearch\.trim\(\)\.toLowerCase\(\)/);
+  assert.doesNotMatch(itemsSection, /useDeferredValue/);
   assert.doesNotMatch(itemsSection, /arrowdown:/);
   assert.match(createModal, /useOrderModalKeyboardNavigation/);
   assert.match(modalNavigation, /findSpatialTarget/);
@@ -50,6 +54,8 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(modalNavigation, /orderTableNavigationReady/);
   assert.match(modalNavigation, /orderPaymentNavigationReady/);
   assert.match(modalNavigation, /orderMenuSearch[\s\S]*ArrowUp/);
+  assert.match(modalNavigation, /orderCategoryNavigationReady/);
+  assert.match(modalNavigation, /#discount-percent/);
   assert.match(orderManagement, /f2:/);
   assert.match(orderManagement, /f7:/);
   assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(operationalShortcutOrder\)/);

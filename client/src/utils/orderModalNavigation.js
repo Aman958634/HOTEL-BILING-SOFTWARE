@@ -92,21 +92,68 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
     }
 
     if (current.dataset.orderMenuItem === "true") {
-      const menuTarget = findSpatialTarget(current, getMenuItems(root), direction);
-      if (menuTarget) {
-        focusControl(menuTarget);
+      const menuItems = getMenuItems(root);
+      const index = menuItems.indexOf(current);
+      if ((direction === "ArrowLeft" || direction === "ArrowRight") && menuItems[index + (direction === "ArrowRight" ? 1 : -1)]) {
+        focusControl(menuItems[index + (direction === "ArrowRight" ? 1 : -1)]);
         return true;
       }
-
-      // The cart sits below a nested, scrollable menu grid. Its coordinates
-      // are not consistently comparable to a card scrolled inside that grid,
-      // so make the final-row hand-off deterministic.
-      if (direction === "ArrowDown") {
-        const firstCartItem = getCartItems(root)[0];
-        if (firstCartItem) {
-          focusControl(firstCartItem);
+      if (direction === "ArrowUp") {
+        const category = root.querySelector("[data-order-menu-category='true']");
+        if (category) {
+          focusControl(category);
           return true;
         }
+      }
+      if (direction === "ArrowDown") {
+        const cartTarget = getCartItems(root)[0] || root.querySelector("#discount-percent");
+        if (cartTarget) {
+          focusControl(cartTarget);
+          return true;
+        }
+      }
+    }
+
+    if (current.dataset.orderCartItem) {
+      const cartItems = getCartItems(root);
+      const index = cartItems.indexOf(current);
+      if (direction === "ArrowDown") {
+        const next = cartItems[index + 1] || root.querySelector("#discount-percent");
+        if (next) {
+          focusControl(next);
+          return true;
+        }
+      }
+      if (direction === "ArrowUp") {
+        const previous = cartItems[index - 1] || getMenuItems(root).at(-1);
+        if (previous) {
+          focusControl(previous);
+          return true;
+        }
+      }
+    }
+
+    if (current.id === "discount-percent") {
+      const target = direction === "ArrowUp" ? getCartItems(root).at(-1) : direction === "ArrowDown" ? root.querySelector("#summary-service") : null;
+      if (target) {
+        focusControl(target);
+        return true;
+      }
+    }
+
+    if (current.id === "summary-service") {
+      const target = direction === "ArrowUp" ? root.querySelector("#discount-percent") : direction === "ArrowDown" ? root.querySelector("#customer-note") : null;
+      if (target) {
+        focusControl(target);
+        return true;
+      }
+    }
+
+    if (current.id === "customer-note") {
+      const target = direction === "ArrowUp" ? root.querySelector("#summary-service") : direction === "ArrowDown" ? root.querySelector("button[type='submit']") : null;
+      if (target) {
+        focusControl(target);
+        return true;
       }
     }
 
@@ -155,6 +202,37 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
         if (paymentMethod && isVisible(paymentMethod)) {
           event.preventDefault();
           focusControl(paymentMethod);
+        }
+      }
+      if (event.key === "Enter") {
+        const firstMenuItem = getMenuItems(root)[0];
+        if (firstMenuItem) {
+          event.preventDefault();
+          focusControl(firstMenuItem);
+        }
+      }
+      return;
+    }
+
+    if (current.dataset.orderMenuCategory === "true") {
+      if (event.key === "Enter") {
+        current.dataset.orderCategoryNavigationReady = "true";
+        return;
+      }
+      if (event.key === "ArrowDown" && current.dataset.orderCategoryNavigationReady === "true") {
+        current.dataset.orderCategoryNavigationReady = "";
+        const firstMenuItem = getMenuItems(root)[0];
+        if (firstMenuItem) {
+          event.preventDefault();
+          focusControl(firstMenuItem);
+        }
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        const menuSearch = root.querySelector("[data-order-menu-search='true']");
+        if (menuSearch) {
+          event.preventDefault();
+          focusControl(menuSearch);
         }
       }
       return;

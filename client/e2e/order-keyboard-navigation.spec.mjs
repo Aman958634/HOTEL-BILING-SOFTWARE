@@ -83,6 +83,7 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await expect(table).not.toHaveValue("");
 
   const menuSearch = dialog.getByLabel("Search food items");
+  const category = dialog.getByLabel("Filter by category");
   const paymentMethod = dialog.getByLabel("Payment Method");
   await paymentMethod.focus();
   await page.keyboard.press("Enter");
@@ -97,6 +98,12 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await expect(menuItems.first()).toBeVisible();
 
   // Arrow Down is the intentional hand-off from the editable search field.
+  await page.keyboard.press("ArrowDown");
+  await expect(menuItems.first()).toBeFocused();
+
+  await category.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
   await page.keyboard.press("ArrowDown");
   await expect(menuItems.first()).toBeFocused();
   await page.keyboard.press("ArrowRight");
@@ -123,7 +130,6 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
 
   // Native category selection remains intact; returning to search still hands
   // Arrow Down to the newly filtered menu grid.
-  const category = dialog.getByLabel("Filter by category");
   await pressTabUntilFocused(page, category, 48);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Shift+Tab");
