@@ -783,12 +783,16 @@ button:disabled { cursor: not-allowed; }
 }
 
 @media print {
+  @page { size: auto; margin: 0; }
   body.kitchen-kot-printing > :not(.kitchen-kot-modal) { display: none !important; }
   body.kitchen-kot-printing .kitchen-kot-modal { display: block !important; position: static !important; background: #fff !important; }
-  body.kitchen-kot-printing .kitchen-kot-dialog { display: block !important; position: static !important; width: 80mm !important; max-width: 80mm !important; box-shadow: none !important; background: #fff !important; }
-  body.kitchen-kot-printing #kitchen-kot-print { display: block !important; width: 72mm !important; margin: 0 !important; padding: 4mm !important; box-shadow: none !important; }
+  body.kitchen-kot-printing .kitchen-kot-dialog { display: block !important; position: static !important; width: 100% !important; max-width: 80mm !important; box-shadow: none !important; background: #fff !important; }
+  body.kitchen-kot-printing #kitchen-kot-print { display: block !important; width: 100% !important; max-width: 72mm !important; margin: 0 !important; padding: 3.5mm !important; box-shadow: none !important; border: 0 !important; }
   body.kitchen-kot-printing #kitchen-kot-print * { color: #000 !important; }
+  body.kitchen-kot-printing #kitchen-kot-print .bg-slate-100 { background: #f1f1f1 !important; }
 }
+
+.kitchen-kot-ticket { font-family: Arial, Helvetica, sans-serif; }
 
 @media (max-width: 639px) {
   .app-page-container { padding: 0.75rem; }
