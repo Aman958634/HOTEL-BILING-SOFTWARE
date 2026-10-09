@@ -200,6 +200,7 @@ const OrderDetailsSection = ({
         <label htmlFor="payment-method" className={labelClass}>Payment Method</label>
         <select
           id="payment-method"
+          data-order-payment-select="true"
           className={fieldClass}
           value={paymentMethod}
           onChange={(e) => onPatch({ paymentMethod: e.target.value })}

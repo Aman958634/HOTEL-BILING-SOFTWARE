@@ -45,8 +45,11 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(modalNavigation, /onCartQuantity/);
   assert.match(customerSection, /data-order-customer-search="true"/);
   assert.match(orderDetailsSection, /data-order-table-select="true"/);
+  assert.match(orderDetailsSection, /data-order-payment-select="true"/);
   assert.match(modalNavigation, /orderCustomerSearch[\s\S]*ArrowDown/);
   assert.match(modalNavigation, /orderTableNavigationReady/);
+  assert.match(modalNavigation, /orderPaymentNavigationReady/);
+  assert.match(modalNavigation, /orderMenuSearch[\s\S]*ArrowUp/);
   assert.match(orderManagement, /f2:/);
   assert.match(orderManagement, /f7:/);
   assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(operationalShortcutOrder\)/);

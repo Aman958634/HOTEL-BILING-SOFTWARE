@@ -141,11 +141,21 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
 
     // Search remains a normal text field for caret/editing keys. Arrow Down is
     // the one intentional hand-off to the visible menu grid.
-    if (current.dataset.orderMenuSearch === "true" && event.key === "ArrowDown") {
-      const firstMenuItem = getMenuItems(root)[0];
-      if (firstMenuItem) {
-        event.preventDefault();
-        focusControl(firstMenuItem);
+    if (current.dataset.orderMenuSearch === "true") {
+      if (event.key === "ArrowDown") {
+        const firstMenuItem = getMenuItems(root)[0];
+        if (firstMenuItem) {
+          event.preventDefault();
+          focusControl(firstMenuItem);
+        }
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        const paymentMethod = root.querySelector("[data-order-payment-select='true']");
+        if (paymentMethod && isVisible(paymentMethod)) {
+          event.preventDefault();
+          focusControl(paymentMethod);
+        }
       }
       return;
     }
@@ -176,6 +186,25 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
         if (next) {
           event.preventDefault();
           focusControl(next);
+        }
+        return;
+      }
+    }
+
+    // Payment Method stays a native select while choosing Cash/Card/UPI.
+    // After Enter accepts/closes it, Arrow Down follows the POS flow to the
+    // menu instead of altering the selected payment method again.
+    if (current.dataset.orderPaymentSelect === "true") {
+      if (event.key === "Enter") {
+        current.dataset.orderPaymentNavigationReady = "true";
+        return;
+      }
+      if (event.key === "ArrowDown" && current.dataset.orderPaymentNavigationReady === "true") {
+        current.dataset.orderPaymentNavigationReady = "";
+        const menuSearch = root.querySelector("[data-order-menu-search='true']");
+        if (menuSearch && isVisible(menuSearch)) {
+          event.preventDefault();
+          focusControl(menuSearch);
         }
         return;
       }

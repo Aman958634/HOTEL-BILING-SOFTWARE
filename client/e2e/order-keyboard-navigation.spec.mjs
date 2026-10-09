@@ -83,6 +83,15 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await expect(table).not.toHaveValue("");
 
   const menuSearch = dialog.getByLabel("Search food items");
+  const paymentMethod = dialog.getByLabel("Payment Method");
+  await paymentMethod.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ArrowDown");
+  await expect(menuSearch).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(paymentMethod).toBeFocused();
+
   await pressTabUntilFocused(page, menuSearch);
   const menuItems = dialog.locator("[data-order-menu-item='true']");
   await expect(menuItems.first()).toBeVisible();
