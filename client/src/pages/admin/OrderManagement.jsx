@@ -1082,7 +1082,11 @@ const OrderManagement = () => {
       openRetryPayment(operationalShortcutOrder);
     } },
     f9: { handler: () => {
-      if (!selectedOrder || hasOpenOrderDialog) return false;
+      if (hasOpenOrderDialog) return false;
+      if (!selectedOrder) {
+        toast.error("Select an order to open its payment receipt.");
+        return;
+      }
       void openReceipt(selectedOrder);
     } },
   }, { priority: 20 });

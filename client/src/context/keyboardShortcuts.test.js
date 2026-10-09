@@ -21,12 +21,14 @@ test("protects standard editable controls from non-explicit shortcuts", () => {
 
 test("POS actions use the central shortcut scope and retain payment safeguards", async () => {
   const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
-  const [provider, orderManagement, createModal, itemsSection, modalNavigation, globalSearch] = await Promise.all([
+  const [provider, orderManagement, createModal, itemsSection, modalNavigation, customerSection, orderDetailsSection, globalSearch] = await Promise.all([
     read("./KeyboardShortcutContext.jsx"),
     read("../pages/admin/OrderManagement.jsx"),
     read("../components/admin/orders/CreateOrderModal.jsx"),
     read("../components/admin/orders/create/ItemsSection.jsx"),
     read("../utils/orderModalNavigation.js"),
+    read("../components/admin/orders/create/CustomerSection.jsx"),
+    read("../components/admin/orders/create/OrderDetailsSection.jsx"),
     read("../components/common/GlobalSearch.jsx"),
   ]);
 
@@ -41,6 +43,10 @@ test("POS actions use the central shortcut scope and retain payment safeguards",
   assert.match(modalNavigation, /findSpatialTarget/);
   assert.match(modalNavigation, /event\.key === "Tab"/);
   assert.match(modalNavigation, /onCartQuantity/);
+  assert.match(customerSection, /data-order-customer-search="true"/);
+  assert.match(orderDetailsSection, /data-order-table-select="true"/);
+  assert.match(modalNavigation, /orderCustomerSearch[\s\S]*ArrowDown/);
+  assert.match(modalNavigation, /orderTableNavigationReady/);
   assert.match(orderManagement, /f2:/);
   assert.match(orderManagement, /f7:/);
   assert.match(orderManagement, /f8:[\s\S]*openRetryPayment\(operationalShortcutOrder\)/);
@@ -63,7 +69,8 @@ test("F9 receipt selection is explicit and does not reuse the Order Details draw
 
   assert.match(orderManagement, /selectedOrderId=\{selectedOrder\?\._id\}/);
   assert.match(orderManagement, /onSelect=\{setSelectedOrder\}/);
-  assert.match(orderManagement, /f9:[\s\S]*if \(!selectedOrder \|\| hasOpenOrderDialog\) return false/);
+  assert.match(orderManagement, /f9:[\s\S]*if \(hasOpenOrderDialog\) return false/);
+  assert.match(orderManagement, /Select an order to open its payment receipt\./);
   assert.match(orderManagement, /setReceiptOpen\(true\)/);
   assert.doesNotMatch(orderManagement, /f9:[\s\S]{0,300}setDetailsOpen\(true\)/);
   assert.match(orderTable, /selectedOrderId, onSelect/);

@@ -98,6 +98,7 @@ const OrderDetailsSection = ({
               <select
                 id="order-table"
                 ref={tableSelectRef}
+                data-order-table-select="true"
                 className={fieldClass}
                 value={tableId}
                 onChange={(e) => onPatch({ table: e.target.value })}

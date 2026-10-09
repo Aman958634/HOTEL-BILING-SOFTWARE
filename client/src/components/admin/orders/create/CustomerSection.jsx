@@ -136,6 +136,7 @@ const CustomerSection = ({
           <input
             id="customer-search"
             data-order-primary-focus="true"
+            data-order-customer-search="true"
             type="search"
             className={`${fieldClass} pl-10`}
             value={customerSearch}

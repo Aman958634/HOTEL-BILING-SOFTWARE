@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFile } from "node:fs/promises";
+
+test("Kitchen KOT uses live ticket data and excludes financial receipt content", async () => {
+  const source = await readFile(new URL("./KitchenKotReceipt.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /kot\.restaurant\?\.name/);
+  assert.match(source, /kot\.table\?\.tableNumber/);
+  assert.match(source, /kot\.kotNumber/);
+  assert.match(source, /kot\.orderNumber/);
+  assert.match(source, /dateTime\(kot\.createdAt\)/);
+  assert.match(source, /item\.quantity/);
+  assert.match(source, /KITCHEN COPY/);
+  assert.doesNotMatch(source, /paymentMethod|Grand Total|Subtotal|currency\(/);
+});

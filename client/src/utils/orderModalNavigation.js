@@ -150,6 +150,37 @@ export const useOrderModalKeyboardNavigation = ({ open, modalRef, focusKey, onCa
       return;
     }
 
+    // Customer Search has no useful vertical caret movement. Hand Arrow Down
+    // to the first order type while retaining normal text editing keys.
+    if (current.dataset.orderCustomerSearch === "true" && event.key === "ArrowDown") {
+      const firstOrderType = root.querySelector("[data-order-nav-group='order-type']");
+      if (firstOrderType && isVisible(firstOrderType)) {
+        event.preventDefault();
+        focusControl(firstOrderType);
+      }
+      return;
+    }
+
+    // Keep the table selector completely native while it is being used. Once
+    // Enter closes/accepts it, the next Arrow Down continues through the form
+    // instead of unexpectedly changing the selected table again.
+    if (current.dataset.orderTableSelect === "true") {
+      if (event.key === "Enter") {
+        current.dataset.orderTableNavigationReady = "true";
+        return;
+      }
+      if (event.key === "ArrowDown" && current.dataset.orderTableNavigationReady === "true") {
+        current.dataset.orderTableNavigationReady = "";
+        const controls = getControls(root);
+        const next = controls[controls.indexOf(current) + 1];
+        if (next) {
+          event.preventDefault();
+          focusControl(next);
+        }
+        return;
+      }
+    }
+
     // Text fields must not bubble Enter to the order form. Buttons retain
     // their native Enter activation.
     if (event.key === "Enter" && isTextEntryControl(current)) {
