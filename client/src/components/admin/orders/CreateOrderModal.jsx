@@ -8,7 +8,6 @@ import CustomerSection from "./create/CustomerSection";
 import ItemsSection from "./create/ItemsSection";
 import OrderDetailsSection from "./create/OrderDetailsSection";
 import SummaryPanel from "./create/SummaryPanel";
-import { cardClass, fieldClass, labelClass } from "./create/constants";
 import { clearOrderDraft, getOrderDraftScope, readOrderDraft, writeOrderDraft } from "../../../utils/orderDraft";
 import { useKeyboardShortcutScope } from "../../../context/useKeyboardShortcutScope";
 import { useOrderModalKeyboardNavigation } from "../../../utils/orderModalNavigation";
@@ -437,18 +436,18 @@ const CreateOrderModal = ({
       aria-modal="true"
       aria-labelledby="create-order-title"
     >
-      <div className="flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden bg-slate-100 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl sm:border sm:border-slate-200">
+      <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[96dvh] sm:w-[96vw] sm:max-w-[1600px] sm:rounded-xl sm:border sm:border-slate-200">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-5">
           <div className="min-w-0 flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-              <FiCalendar className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+              <FiCalendar className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <h2 id="create-order-title" className="text-xl font-bold text-slate-900 sm:text-2xl">
+              <h2 id="create-order-title" className="text-lg font-bold text-slate-900 sm:text-xl">
                 {isEdit ? "Edit Order" : "Create New Order"}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="text-xs text-slate-500">
                 {isEdit ? "Correct order details and items" : "Add items, manage order details and create a new order"}
               </p>
             </div>
@@ -458,7 +457,7 @@ const CreateOrderModal = ({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
             >
               <FiX className="h-5 w-5" />
             </button>
@@ -476,8 +475,8 @@ const CreateOrderModal = ({
               </div>
             </section>
           </div> : <>
-          <div className="grid flex-1 gap-4 overflow-y-auto overscroll-contain p-3 pb-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="space-y-4 sm:space-y-5">
+          <div data-order-form-layout="true" className="grid min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid-cols-[minmax(0,7fr)_minmax(300px,3fr)]">
+            <div data-order-form-left="true" className="min-w-0 divide-y divide-slate-200">
               <CustomerSection
                 customer={form.customer}
                 readOnly={isEdit}
@@ -552,20 +551,20 @@ const CreateOrderModal = ({
           </div>
 
           {/* Bottom action bar */}
-          <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-slate-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-6 sm:py-4">
+          <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-slate-200 bg-white px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:flex sm:items-center sm:justify-end sm:px-5">
             {submissionMessage || submissionError ? <p className="col-span-2 text-sm text-amber-800 sm:mr-auto" role="status">{submissionMessage || submissionError}</p> : null}
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="min-h-12 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60 sm:w-auto"
+              className="min-h-10 w-full rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-600/30 disabled:opacity-60 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="min-h-12 w-full rounded-xl bg-brand-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              className="min-h-10 w-full rounded-lg bg-brand-700 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {loading ? (isEdit ? "Updating Order..." : "Creating Order...") : isEdit ? "Update Order" : "Create Order"}
             </button>

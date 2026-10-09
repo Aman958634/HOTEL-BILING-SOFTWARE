@@ -23,11 +23,13 @@ export const TABLE_STATUS_STYLES = {
 };
 
 export const fieldClass =
-  "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
+  "min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
 
-export const labelClass = "mb-1.5 block text-xs font-medium text-slate-600";
+export const labelClass = "mb-1 block text-xs font-medium text-slate-600";
 
-export const cardClass = "rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4";
+// Create Order is a single connected POS form. Sections use spacing only; the
+// parent supplies the shared background and divider lines.
+export const cardClass = "px-4 py-3 sm:px-5 sm:py-3.5";
 
 export const NOTE_MAX = 200;
 export const INSTRUCTIONS_MAX = 250;

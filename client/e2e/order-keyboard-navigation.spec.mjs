@@ -18,7 +18,24 @@ const pressTabUntilFocused = async (page, target, limit = 24) => {
   await expect(target).toBeFocused();
 };
 
+const expectConnectedDesktopColumns = async (dialog) => {
+  const left = dialog.locator("[data-order-form-left='true']");
+  const summary = dialog.locator("[data-order-summary='true']");
+  await expect(left).toBeVisible();
+  await expect(summary).toBeVisible();
+  const [leftBox, summaryBox] = await Promise.all([left.boundingBox(), summary.boundingBox()]);
+  expect(leftBox).not.toBeNull();
+  expect(summaryBox).not.toBeNull();
+  expect(Math.abs(leftBox.y - summaryBox.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs((leftBox.x + leftBox.width) - summaryBox.x)).toBeLessThanOrEqual(1);
+};
+
 test("Create New Order moves from Menu Search through menu cards, cart and explicit submission", async ({ page }) => {
+  // A cold Vite transform can legitimately delay the modal's authenticated
+  // menu/table dependency requests on Windows. Wait for the real control
+  // instead of relying on a fixed delay while preserving a bounded test run.
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
   let submissions = 0;
   // Entitlement is enforced by the fixture API for operational requests. Stub
   // only the presentation endpoint so this focused keyboard test cannot be
@@ -37,6 +54,9 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await page.getByRole("button", { name: "Create Order", exact: true }).click();
 
   const dialog = page.getByRole("dialog", { name: /create new order/i });
+  await expectConnectedDesktopColumns(dialog);
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await expectConnectedDesktopColumns(dialog);
   const dineIn = dialog.getByRole("button", { name: "Dine In", exact: true });
   const takeaway = dialog.getByRole("button", { name: "Take Away", exact: true });
   const delivery = dialog.getByRole("button", { name: "Delivery", exact: true });
@@ -53,7 +73,7 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Enter");
   const table = dialog.getByLabel("Table");
-  await expect(table).toBeVisible();
+  await expect(table).toBeVisible({ timeout: 30_000 });
   await page.keyboard.press("ArrowDown");
   await expect(table).toBeFocused();
   await page.keyboard.press("ArrowDown");
@@ -98,4 +118,12 @@ test("Create New Order moves from Menu Search through menu cards, cart and expli
   await pressTabUntilFocused(page, createOrder, 30);
   await page.keyboard.press("Enter");
   await expect.poll(() => submissions).toBe(1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const layoutMetrics = await dialog.locator("[data-order-form-layout='true']").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(layoutMetrics.scrollWidth).toBeLessThanOrEqual(layoutMetrics.clientWidth + 1);
+  await expect(dialog.getByText("Order Summary", { exact: true })).toBeVisible();
 });

@@ -59,10 +59,10 @@ const OrderDetailsSection = ({
   tableSelectRef,
 }) => (
   <section className={cardClass}>
-    <h3 className="mb-4 text-base font-semibold text-slate-900">Order Details</h3>
+    <h3 className="mb-2 text-base font-semibold text-slate-900">Order Details</h3>
 
     <p className={labelClass}>Order Type</p>
-    <div className="grid grid-cols-1 gap-2 min-[430px]:grid-cols-3">
+    <div className="grid grid-cols-3 gap-2">
       {ORDER_TYPES.map(({ value, label, icon: Icon }) => {
         const active = orderType === value;
         return (
@@ -72,14 +72,14 @@ const OrderDetailsSection = ({
             data-order-nav-group="order-type"
             data-order-primary-focus={value === "DINE_IN" ? "true" : undefined}
             onClick={() => onPatch({ orderType: value, table: value === "DINE_IN" ? tableId : "" })}
-            className={`flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 ${
+            className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-center text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-600/30 sm:text-sm ${
               active
                 ? "border-brand-600 bg-brand-50 text-brand-800 shadow-sm"
                 : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <span className={`rounded-lg p-2 ${active ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-500"}`}>
-              <Icon className="h-4 w-4" aria-hidden="true" />
+            <span className={`rounded-md p-1.5 ${active ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-500"}`}>
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             {label}
           </button>
@@ -87,52 +87,47 @@ const OrderDetailsSection = ({
       })}
     </div>
 
-    {orderType === "DINE_IN" ? (
-      <div className="mt-5">
-        <label htmlFor="order-table" className={labelClass}>Table</label>
-        {tablesLoading ? (
-          <p className="text-sm text-slate-500">Loading tables...</p>
-        ) : (
-          <>
-            <select
-              id="order-table"
-              ref={tableSelectRef}
-              className={fieldClass}
-              value={tableId}
-              onChange={(e) => onPatch({ table: e.target.value })}
-              aria-invalid={Boolean(errors.table)}
-            >
-              <option value="">Select Table</option>
-              {tables.map((table) => {
-                const selectable = isTableSelectable(table);
-                return (
-                  <option key={table._id} value={table._id} disabled={!selectable}>
-                    {tableOptionLabel(table)}
-                  </option>
-                );
-              })}
-            </select>
-            {tableId ? (
-              <div className="mt-2">
-                <TableStatusBadge status={tables.find((t) => String(t._id) === String(tableId))?.status} />
-              </div>
-            ) : null}
-            {errors.table ? <p className="mt-1 text-xs text-rose-600">{errors.table}</p> : null}
-          </>
-        )}
-      </div>
-    ) : null}
-
-    <div className="mt-5 grid gap-4 sm:grid-cols-3">
+    <div className={`mt-3 grid gap-3 ${orderType === "DINE_IN" ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+      {orderType === "DINE_IN" ? (
+        <div>
+          <label htmlFor="order-table" className={labelClass}>Table</label>
+          {tablesLoading ? (
+            <p className="min-h-10 py-2 text-sm text-slate-500">Loading tables...</p>
+          ) : (
+            <>
+              <select
+                id="order-table"
+                ref={tableSelectRef}
+                className={fieldClass}
+                value={tableId}
+                onChange={(e) => onPatch({ table: e.target.value })}
+                aria-invalid={Boolean(errors.table)}
+              >
+                <option value="">Select Table</option>
+                {tables.map((table) => {
+                  const selectable = isTableSelectable(table);
+                  return (
+                    <option key={table._id} value={table._id} disabled={!selectable}>
+                      {tableOptionLabel(table)}
+                    </option>
+                  );
+                })}
+              </select>
+              {tableId ? <div className="mt-1"><TableStatusBadge status={tables.find((t) => String(t._id) === String(tableId))?.status} /></div> : null}
+              {errors.table ? <p className="mt-1 text-xs text-rose-600">{errors.table}</p> : null}
+            </>
+          )}
+        </div>
+      ) : null}
       <div>
         <span className={labelClass}>Guests</span>
-        <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white">
+        <div className="inline-flex min-h-10 items-center rounded-lg border border-slate-200 bg-white">
           <button
             type="button"
             aria-label="Decrease guest count"
             onClick={() => onGuestChange(Math.max(1, guestCount - 1))}
             disabled={isEdit}
-            className="inline-flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
+            className="inline-flex h-9 w-9 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
           >
             <FiMinus className="h-4 w-4" />
           </button>
@@ -142,12 +137,12 @@ const OrderDetailsSection = ({
             aria-label="Increase guest count"
             onClick={() => onGuestChange(guestCount + 1)}
             disabled={isEdit}
-            className="inline-flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
+            className="inline-flex h-9 w-9 items-center justify-center text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600/30"
           >
             <FiPlus className="h-4 w-4" />
           </button>
         </div>
-        {isEdit ? <p className="mt-2 text-xs text-slate-500">Guest count is only recorded during new-order entry and cannot be changed here.</p> : null}
+        {isEdit ? <p className="mt-1 text-xs text-slate-500">Guest count is only recorded during new-order entry.</p> : null}
       </div>
 
       <div>
@@ -168,7 +163,7 @@ const OrderDetailsSection = ({
     </div>
 
     {orderType === "DELIVERY" ? (
-      <div className="mt-5 space-y-3 border-t border-slate-100 pt-5">
+      <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
         <div>
           <label htmlFor="delivery-address" className={labelClass}>Delivery Address *</label>
           <textarea
@@ -199,7 +194,7 @@ const OrderDetailsSection = ({
       </div>
     ) : null}
 
-    <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+    <div className="mt-3 grid gap-3 border-t border-slate-200 pt-3 sm:grid-cols-2">
       <div>
         <label htmlFor="payment-method" className={labelClass}>Payment Method</label>
         <select
@@ -220,7 +215,7 @@ const OrderDetailsSection = ({
         <p className={labelClass}>Payment Status</p>
         <output
           aria-label="Payment status"
-          className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700"
+          className="flex min-h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-semibold text-slate-700"
         >
           {isEdit ? String(paymentStatus || "PENDING").replaceAll("_", " ") : "PENDING"}
         </output>

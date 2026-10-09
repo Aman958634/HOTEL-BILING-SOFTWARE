@@ -23,7 +23,7 @@ const SelectedOrderRow = memo(({ item, onUpdateQty, onRemoveItem, selected, onSe
   </tr>
 ));
 const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
-  <article tabIndex="0" data-order-cart-item={item.menuItem} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+  <article tabIndex="0" data-order-cart-item={item.menuItem} className="border-y border-slate-200 bg-white p-3">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{item.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{item.categoryName || "Uncategorised"} · {currency(item.price)} each</p></div>
       <p className="shrink-0 text-sm font-bold text-slate-900">{currency(item.price * item.quantity)}</p>
@@ -36,11 +36,11 @@ const SelectedOrderCard = memo(({ item, onUpdateQty, onRemoveItem }) => (
 ));
 
 const MenuResults = memo(({ loading, error, onRetry, items, visibleCount, onAddItem, onShowMore, activeIndex, onActiveIndex, emptyMessage }) => {
-  if (loading) return <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-2 md:grid-cols-2" role="status" aria-live="polite" aria-busy="true"><span className="sr-only">Loading menu items...</span>{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-200/80" />)}</div>;
+  if (loading) return <div className="mt-2 grid grid-cols-1 gap-2 bg-slate-50/60 p-2 md:grid-cols-2" role="status" aria-live="polite" aria-busy="true"><span className="sr-only">Loading menu items...</span>{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-12 animate-pulse rounded-lg bg-slate-200/80" />)}</div>;
   if (error) return <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert"><p>{error}</p><button type="button" onClick={onRetry} className="mt-3 min-h-10 rounded-lg border border-rose-300 bg-white px-3 text-sm font-semibold text-rose-800 hover:bg-rose-100">Retry</button></div>;
 
   return <>
-    <div data-order-menu-grid="true" className="mt-3 grid grid-cols-1 gap-1.5 rounded-xl border border-slate-100 bg-slate-50/60 p-2 max-h-72 overflow-y-auto md:grid-cols-2 md:gap-2">
+    <div data-order-menu-grid="true" className="mt-2 grid grid-cols-1 gap-1.5 bg-slate-50/60 p-2 md:grid-cols-2 md:gap-2 xl:grid-cols-3">
       {items.length ? items.slice(0, visibleCount).map((item, index) => (
         <button key={item._id} data-order-menu-item="true" type="button" onMouseEnter={() => onActiveIndex(index)} onFocus={() => onActiveIndex(index)} onClick={() => onAddItem(item)} className={`flex min-h-12 w-full items-center gap-3 rounded-lg border bg-white px-2 py-2 text-left transition focus:outline-none focus:ring-2 focus:ring-brand-600/20 ${activeIndex === index ? "border-brand-400 bg-brand-50/60" : "border-transparent hover:border-brand-200 hover:bg-brand-50/40"}`}>
           {item.image ? <img src={item.image} alt="" className="h-9 w-9 rounded-lg object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-400">{item.name?.charAt(0) || "?"}</span>}
@@ -96,7 +96,7 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, menuError 
 
   return <>
     <section className={cardClass}>
-      <div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-slate-900">Menu</h3><p className="text-xs text-slate-500">Search or tap an item to add it.</p></div>{items.length ? <span className="rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">{items.length} selected</span> : null}</div>
+      <div className="mb-2 flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-slate-900">Menu</h3><p className="text-xs text-slate-500">Search or tap an item to add it.</p></div>{items.length ? <span className="rounded-full bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">{items.length} selected</span> : null}</div>
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
         <div className="relative"><FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input ref={menuSearchRef} data-order-menu-search="true" type="search" aria-label="Search food items" className={`${fieldClass} pl-10`} value={menuSearch} onChange={(event) => setMenuSearch(event.target.value)} placeholder="Search food items…" />{menuSearch ? <button type="button" onClick={() => setMenuSearch("")} aria-label="Clear menu search" className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiX className="h-4 w-4" /></button> : null}</div>
         <select aria-label="Filter by category" className={fieldClass} value={menuCategory} onChange={(event) => handleMenuCategoryChange(event.target.value)}>
@@ -106,8 +106,9 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, menuError 
       </div>
       <MenuResults loading={menuLoading} error={menuError} onRetry={onRetryMenu} items={filteredMenuItems} visibleCount={visibleCount} onAddItem={onAddItem} onShowMore={showMoreMenuItems} activeIndex={activeMenuIndex} onActiveIndex={setActiveMenuIndex} emptyMessage={menuCategory ? `No available items in ${selectedCategory?.name || "this category"}.` : "No available menu items found."} />
       {errors.items ? <p className="mt-2 text-xs text-rose-600">{errors.items}</p> : null}
-      <div className="mt-4 space-y-2 md:hidden">{items.length ? items.map((item) => <div key={item.menuItem} onClick={() => setSelectedCartItem(item.menuItem)} className={String(selectedItem?.menuItem) === String(item.menuItem) ? "rounded-xl ring-2 ring-brand-500/30" : "rounded-xl"}><SelectedOrderCard item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} /></div>) : <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}</div>
-      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+      <div className="mt-3 border-t border-slate-200 pt-3"><h3 className="text-sm font-semibold text-slate-900">Cart</h3></div>
+      <div className="mt-2 space-y-2 md:hidden">{items.length ? items.map((item) => <div key={item.menuItem} onClick={() => setSelectedCartItem(item.menuItem)} className={String(selectedItem?.menuItem) === String(item.menuItem) ? "ring-2 ring-brand-500/30" : ""}><SelectedOrderCard item={item} onUpdateQty={onUpdateQty} onRemoveItem={onRemoveItem} /></div>) : <p className="border-y border-dashed border-slate-200 px-3 py-5 text-center text-sm text-slate-500">No items added. Search and add from the menu above.</p>}</div>
+      <div className="mt-2 hidden overflow-x-auto border-y border-slate-200 md:block">
         <table className="min-w-[640px] w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-2.5">Item</th><th className="px-3 py-2.5">Category</th><th className="px-3 py-2.5">Price</th><th className="px-3 py-2.5">Qty</th><th className="px-3 py-2.5">Total</th><th className="px-3 py-2.5"><span className="sr-only">Action</span></th></tr></thead>
           <tbody className="divide-y divide-slate-100">
@@ -115,7 +116,7 @@ const ItemsSection = ({ menuItems = [], categories = [], menuLoading, menuError 
           </tbody>
         </table>
       </div>
-      <div className="mt-3 flex items-center gap-2"><label htmlFor="discount-percent" className="text-xs font-medium text-slate-600">Discount</label><div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1"><input id="discount-percent" type="number" min="0" max="100" step="0.01" className="w-14 border-0 bg-transparent text-sm text-slate-900 outline-none focus:ring-0" value={discountPercent} onChange={(event) => onDiscountPercentChange(event.target.value)} aria-label="Discount percentage" /><span className="text-sm text-slate-500">%</span></div></div>
+      <div className="mt-2 flex items-center gap-2"><label htmlFor="discount-percent" className="text-xs font-medium text-slate-600">Discount</label><div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1"><input id="discount-percent" type="number" min="0" max="100" step="0.01" className="w-14 border-0 bg-transparent text-sm text-slate-900 outline-none focus:ring-0" value={discountPercent} onChange={(event) => onDiscountPercentChange(event.target.value)} aria-label="Discount percentage" /><span className="text-sm text-slate-500">%</span></div></div>
     </section>
   </>;
 };

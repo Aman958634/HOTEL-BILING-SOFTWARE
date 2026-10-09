@@ -22,13 +22,13 @@ const CustomerSection = ({
   onSaveCustomer,
 }) => (
   <section className={cardClass}>
-    <div className="mb-4 flex items-center justify-between gap-2">
+    <div className="mb-2 flex items-center justify-between gap-2">
       <h3 className="text-base font-semibold text-slate-900">Customer</h3>
       {!readOnly && !customer && !showCustomerForm ? (
         <button
           type="button"
           onClick={onOpenAddForm}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 min-h-11 px-3 py-1.5 text-xs font-semibold text-brand-800 transition hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-800 transition hover:bg-brand-100 focus:outline-none focus:ring-2 focus:ring-brand-600/30"
         >
           <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
           Add Customer
@@ -37,10 +37,10 @@ const CustomerSection = ({
     </div>
 
     {customer && !showCustomerForm ? (
-      <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+      <div className="border-y border-slate-100 bg-slate-50/70 p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-800">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-800">
               <FiUser className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
@@ -77,8 +77,8 @@ const CustomerSection = ({
     ) : readOnly ? (
       <p className="text-sm text-slate-500">Customer assignment is locked while editing an existing order.</p>
     ) : showCustomerForm ? (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="border-y border-dashed border-slate-300 bg-slate-50 p-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           {customer ? "Update Customer" : "New Customer"}
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -114,7 +114,7 @@ const CustomerSection = ({
             />
           </div>
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-3 flex gap-2">
           <button
             type="button"
             onClick={onSaveCustomer}

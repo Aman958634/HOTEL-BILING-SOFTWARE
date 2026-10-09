@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const externalServers = process.env.PLAYWRIGHT_EXTERNAL_SERVERS === "1";
+const apiPort = process.env.PLAYWRIGHT_API_PORT || "5003";
+const appPort = process.env.PLAYWRIGHT_APP_PORT || "5174";
+const apiUrl = `http://127.0.0.1:${apiPort}`;
+const appUrl = `http://127.0.0.1:${appPort}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -8,7 +12,7 @@ export default defineConfig({
   fullyParallel: process.env.PLAYWRIGHT_PARALLEL === "1",
   retries: 0,
   use: {
-    baseURL: "http://127.0.0.1:5174",
+    baseURL: appUrl,
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -17,18 +21,18 @@ export default defineConfig({
   webServer: externalServers ? undefined : [
     {
       cwd: "../server",
-      command: "set PORT=5003&& node scripts/browserRoleMatrixFixture.mjs && node scripts/startBrowserTestServer.mjs",
-      url: "http://127.0.0.1:5003/api/v1/ready",
+      command: `set PORT=${apiPort}&& node scripts/browserRoleMatrixFixture.mjs && node scripts/startBrowserTestServer.mjs`,
+      url: `${apiUrl}/api/v1/ready`,
       reuseExistingServer: true,
       timeout: 45_000,
     },
     {
-      command: "node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5174",
+      command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${appPort} --strictPort`,
       env: {
-        VITE_API_URL: "http://127.0.0.1:5003/api/v1",
-        VITE_SOCKET_URL: "http://127.0.0.1:5003",
+        VITE_API_URL: `${apiUrl}/api/v1`,
+        VITE_SOCKET_URL: apiUrl,
       },
-      url: "http://127.0.0.1:5174",
+      url: appUrl,
       // Reuse only the local test Vite server when the runner is invoked
       // repeatedly for independent release-gate scenarios.
       reuseExistingServer: true,
