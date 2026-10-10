@@ -62,18 +62,17 @@ test("Create New Order loads every tenant-scoped menu and category page, then fi
   assert.doesNotMatch(itemsSource, /const CategoryChips/);
 });
 
-test("Create New Order requires an explicit scoped draft decision", async () => {
+test("Create New Order clears only its scoped draft and opens fresh", async () => {
   const [modalSource, draftSource] = await Promise.all([
     readSource("../CreateOrderModal.jsx"),
     readSource("../../../../utils/orderDraft.js"),
   ]);
 
-  assert.match(modalSource, /Restore Draft/);
-  assert.match(modalSource, /Start New Order/);
-  assert.match(modalSource, /Confirm Start New Order/);
+  assert.doesNotMatch(modalSource, /Restore Draft|Unsent order found|Start New Order/);
+  assert.doesNotMatch(modalSource, /readOrderDraft|draftResolution|awaitingDraftDecision/);
   assert.match(modalSource, /clearOrderDraft\(draftScope\)/);
   assert.match(modalSource, /activeOutletId \|\| localStorage\.getItem\("selectedOutletId"\)/);
-  assert.doesNotMatch(modalSource, /toast\.success\("Unsent order restored/);
+  assert.match(modalSource, /buildInitialState\(initialData, menuItems, categories, restaurantGstRate, restaurantDefaultDiscountPercent\)/);
   assert.match(draftSource, /userId.*restaurantId.*outletId/s);
 });
 
