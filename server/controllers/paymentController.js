@@ -21,6 +21,7 @@ import {
 } from "../utils/paymentUtils.js";
 import { formatPaymentId, paymentIdLookupPattern } from "../utils/paymentId.js";
 import { assertDirectCashSettlement } from "../utils/paymentSecurity.js";
+import { paiseToGatewayAmount } from "../utils/money.js";
 import {
   buildPaymentReceipt,
   recordVerifiedPayment,
@@ -331,7 +332,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
   if (provider === "stripe") {
     if (!stripe) throw new ApiError(500, "Stripe not configured");
     const intent = await stripe.paymentIntents.create({
-      amount: Math.round(amountDue * 100),
+      amount: paiseToGatewayAmount(amountDue),
       currency: "inr",
       metadata: { orderId: String(order._id) },
     });
@@ -361,7 +362,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
       return res.status(200).json(new ApiResponse(true, "Existing Razorpay order returned", {
         keyId: process.env.RAZORPAY_KEY_ID || "",
         razorpayOrderId: priorAttempt.razorpayOrderId,
-        amount: Math.round(Number(priorAttempt.amount || amountDue) * 100),
+        amount: paiseToGatewayAmount(priorAttempt.amount || amountDue),
         currency: "INR",
         paymentId: priorAttempt.paymentId,
         orderId: order.orderNumber,
@@ -371,7 +372,7 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     logger.info(`Razorpay create-order requested for order=${order.orderNumber} amount=${amountDue} method=${resolvedMethod}`);
 
     const razorOrder = await razorpayClient.orders.create({
-      amount: Math.round(amountDue * 100),
+      amount: paiseToGatewayAmount(amountDue),
       currency: "INR",
       receipt: String(order.orderNumber),
     });

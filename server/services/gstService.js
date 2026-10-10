@@ -1,6 +1,6 @@
-export const DEFAULT_GST_RATE = 0;
+import { fromPaise, percentageOfPaise, toPaise } from "../utils/money.js";
 
-const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+export const DEFAULT_GST_RATE = 0;
 const normalizeState = (value) => String(value || "").trim().toLowerCase();
 
 export const normalizeGstRate = (value) => {
@@ -15,14 +15,13 @@ export const resolveGstType = ({ restaurantState, billingState } = {}) => {
 };
 
 export const calculateGst = (taxableAmount, gstType = "CGST_SGST", gstRate = DEFAULT_GST_RATE) => {
-  const taxable = Math.max(0, Number(taxableAmount || 0));
+  const taxablePaise = Math.max(0, toPaise(taxableAmount));
   const rate = normalizeGstRate(gstRate);
-  const totalTax = round2((taxable * rate) / 100);
+  const totalTaxPaise = percentageOfPaise(taxablePaise, rate);
   if (gstType === "IGST") {
-    return { gstType: "IGST", gstRate: rate, cgst: 0, sgst: 0, igst: totalTax, totalTax };
+    return { gstType: "IGST", gstRate: rate, cgst: 0, sgst: 0, igst: fromPaise(totalTaxPaise), totalTax: fromPaise(totalTaxPaise) };
   }
-
-  const cgst = round2(totalTax / 2);
-  const sgst = round2(totalTax - cgst);
-  return { gstType: "CGST_SGST", gstRate: rate, cgst, sgst, igst: 0, totalTax };
+  const cgstPaise = Math.round(totalTaxPaise / 2);
+  const sgstPaise = totalTaxPaise - cgstPaise;
+  return { gstType: "CGST_SGST", gstRate: rate, cgst: fromPaise(cgstPaise), sgst: fromPaise(sgstPaise), igst: 0, totalTax: fromPaise(totalTaxPaise) };
 };

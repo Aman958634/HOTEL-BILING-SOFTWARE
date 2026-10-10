@@ -1,11 +1,6 @@
-const toNumber = (value, fallback = 0) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-};
+import { fromPaise, multiplyPaise, percentageOfPaise, toPaise } from "./money";
 
-const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
-
-export const normalizeGstRate = (value) => {
+const safeRate = (value) => {
   const rate = Number(value);
   return Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 0;
 };
@@ -20,45 +15,30 @@ export const calculateOrderTotals = ({
   deliveryCharge = 0,
   orderType = "DINE_IN",
 }) => {
-  let rawSubtotal = 0;
-  let normalizedSubtotal = 0;
   let itemCount = 0;
   const normalizedItems = items.map((item) => {
-    const quantity = Math.max(1, toNumber(item.quantity, 1));
-    const price = Math.max(0, toNumber(item.price, 0));
-    const lineSubtotal = round2(price * quantity);
-    rawSubtotal += price * quantity;
-    normalizedSubtotal += lineSubtotal;
+    const quantity = Math.max(1, Number(item.quantity) || 1);
+    const pricePaise = Math.max(0, toPaise(item.price));
+    const linePaise = multiplyPaise(pricePaise, quantity);
     itemCount += quantity;
-    return { ...item, quantity, price, subtotal: lineSubtotal, lineTotal: lineSubtotal };
+    return { ...item, quantity, price: fromPaise(pricePaise), subtotal: fromPaise(linePaise), lineTotal: fromPaise(linePaise) };
   });
-
-  const subtotal = round2(normalizedSubtotal);
-  const requestedDiscount = discountPercent === undefined
-    ? discount
-    : round2((rawSubtotal * Math.max(0, Math.min(100, toNumber(discountPercent)))) / 100);
-  let safeDiscount = Math.max(0, toNumber(requestedDiscount));
-  safeDiscount = Math.min(safeDiscount, subtotal);
-
-  const taxableBase = Math.max(0, subtotal - safeDiscount);
-  // Preview only: the server resolves the authoritative restaurant GST rate.
-  const tax = round2((taxableBase * normalizeGstRate(taxPercent)) / 100);
-  const serviceCharge = round2((taxableBase * Math.max(0, toNumber(serviceChargePercent))) / 100);
-  const resolvedDeliveryCharge =
-    String(orderType).toUpperCase() === "DELIVERY" ? Math.max(0, toNumber(deliveryCharge)) : 0;
-
-  const total = round2(Math.max(0, subtotal - safeDiscount + tax + serviceCharge + resolvedDeliveryCharge));
+  const subtotalPaise = normalizedItems.reduce((sum, item) => sum + toPaise(item.subtotal), 0);
+  const requestedDiscountPaise = discountPercent === undefined
+    ? toPaise(discount)
+    : percentageOfPaise(subtotalPaise, Math.max(0, Math.min(100, safeRate(discountPercent))));
+  const discountPaise = Math.min(Math.max(requestedDiscountPaise, 0), subtotalPaise);
+  const taxablePaise = subtotalPaise - discountPaise;
+  const taxPaise = percentageOfPaise(taxablePaise, safeRate(taxPercent));
+  const servicePaise = percentageOfPaise(taxablePaise, Math.max(0, safeRate(serviceChargePercent)));
+  const deliveryPaise = String(orderType).toUpperCase() === "DELIVERY" ? Math.max(0, toPaise(deliveryCharge)) : 0;
+  const totalPaise = Math.max(0, subtotalPaise - discountPaise + taxPaise + servicePaise + deliveryPaise);
 
   return {
-    items: normalizedItems,
-    itemCount,
-    subtotal,
-    discount: round2(safeDiscount),
-    tax,
-    serviceCharge,
-    deliveryCharge: round2(resolvedDeliveryCharge),
-    total,
+    items: normalizedItems, itemCount, subtotal: fromPaise(subtotalPaise), discount: fromPaise(discountPaise),
+    tax: fromPaise(taxPaise), serviceCharge: fromPaise(servicePaise), deliveryCharge: fromPaise(deliveryPaise), total: fromPaise(totalPaise),
   };
 };
 
+export const normalizeGstRate = safeRate;
 export default calculateOrderTotals;

@@ -12,9 +12,7 @@ import { normalizeGstRate } from "./gstService.js";
 import { emitPaymentUpdated } from "../socket/paymentSocket.js";
 
 const OPEN_STATUSES = ["OPEN", "PARTIALLY_PAID"];
-const MONEY_FACTOR = 100;
-const toPaise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * MONEY_FACTOR);
-const fromPaise = (value) => Number((Math.round(value) / MONEY_FACTOR).toFixed(2));
+import { fromPaise, toPaise } from "../utils/money.js";
 const id = (value) => value?._id || value;
 
 const nextBillNumber = async (session) => {

@@ -28,6 +28,7 @@ import { awardPointsForPaidOrder } from "./loyaltyService.js";
 import { triggerSuccessfulPaymentSideEffects } from "./whatsappService.js";
 import { getRestaurantWorkflowSettings, isSimplePrintedKotWorkflow } from "../utils/workflowSettings.js";
 import logger from "../utils/logger.js";
+import { fromPaise, toPaise } from "../utils/money.js";
 
 export const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -125,8 +126,6 @@ const buildOrderLookup = async (orderId, session = null) => {
   return query;
 };
 
-const toPaise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
-const fromPaise = (value) => Number((Math.round(value) / 100).toFixed(2));
 const collectedPaymentStatuses = new Set(["PAID", "PARTIALLY_REFUNDED", "REFUNDED"]);
 
 const getOrderPaymentLedger = async (orderId, session = null) => {
@@ -358,11 +357,10 @@ export const recordVerifiedPayment = async (
 ) => {
   const orderId = order?._id || order;
   if (!orderId) throw new ApiError(404, "Order not found");
-  const requestedAmount = amount === undefined || amount === null || amount === ""
-    ? null
-    : Number(amount);
-  if (requestedAmount !== null && (!Number.isFinite(requestedAmount) || requestedAmount <= 0)) {
-    throw new ApiError(422, "Payment amount must be greater than zero");
+  let requestedPaise = null;
+  if (amount !== undefined && amount !== null && amount !== "") {
+    try { requestedPaise = toPaise(amount, { allowNegative: false }); } catch { throw new ApiError(422, "Payment amount must be greater than zero"); }
+    if (requestedPaise <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
   }
   const stableIdempotencyKey = String(idempotencyKey || (existingPaymentId ? `existing-payment:${existingPaymentId}` : "") || razorpayPaymentId || transactionId || "").trim();
   if (!stableIdempotencyKey) {
@@ -386,7 +384,7 @@ export const recordVerifiedPayment = async (
           order: orderDoc,
           payment: priorPayment,
           paidTotal,
-          remaining: Math.max(Number(orderDoc.total || 0) - paidTotal, 0),
+          remaining: fromPaise(Math.max(toPaise(orderDoc.total) - toPaise(paidTotal), 0)),
           fullyPaid: String(orderDoc.paymentStatus || "").toUpperCase() === "PAID",
           idempotent: true,
         };
@@ -397,14 +395,15 @@ export const recordVerifiedPayment = async (
         throw new ApiError(409, "Payment already completed.");
       }
 
-      const billTotal = Number(orderDoc.total || 0);
+      const billTotalPaise = toPaise(orderDoc.total);
       const paidBefore = await getSuccessfulPaymentTotal(orderDoc._id, session);
-      const remaining = Math.max(billTotal - paidBefore, 0);
-      const paymentAmount = requestedAmount === null ? remaining : requestedAmount;
-      if (paymentAmount > remaining + 0.01) {
+      const remainingPaise = Math.max(billTotalPaise - toPaise(paidBefore), 0);
+      const paymentPaise = requestedPaise === null ? remainingPaise : requestedPaise;
+      if (paymentPaise > remainingPaise) {
         throw new ApiError(422, "Payment amount exceeds the remaining balance");
       }
-      if (paymentAmount <= 0) throw new ApiError(409, "Order balance is already settled");
+      if (paymentPaise <= 0) throw new ApiError(409, "Order balance is already settled");
+      const paymentAmount = fromPaise(paymentPaise);
 
       const method = normalizePaymentMethod(paymentMethod || orderDoc.paymentMethod || "OTHER");
       const payment = existingPaymentId
@@ -485,7 +484,7 @@ export const recordVerifiedPayment = async (
           order: currentOrder,
           payment: priorPayment,
           paidTotal,
-          remaining: Math.max(Number(currentOrder?.total || 0) - paidTotal, 0),
+          remaining: fromPaise(Math.max(toPaise(currentOrder?.total) - toPaise(paidTotal), 0)),
           fullyPaid: String(currentOrder?.paymentStatus || "").toUpperCase() === "PAID",
           idempotent: true,
         };
@@ -565,8 +564,10 @@ export const recordOrderPayment = async (order, options = {}) => {
       }
 
       const method = normalizePaymentMethod(options.paymentMethod || orderDoc.paymentMethod || "OTHER");
-      const amount = Number(options.amount ?? orderDoc.total ?? 0);
-      if (!Number.isFinite(amount) || amount <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
+      let amountPaise;
+      try { amountPaise = toPaise(options.amount ?? orderDoc.total ?? 0, { allowNegative: false }); } catch { throw new ApiError(422, "Payment amount must be greater than zero"); }
+      if (amountPaise <= 0) throw new ApiError(422, "Payment amount must be greater than zero");
+      const amount = fromPaise(amountPaise);
       const payment = new Payment({
         paymentId: await nextPaymentSequence(session), orderId: orderDoc._id,
         customerId: orderDoc.customer?._id || orderDoc.customer || null, tableId: orderDoc.table?._id || orderDoc.table || null,

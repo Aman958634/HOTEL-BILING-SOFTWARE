@@ -12,8 +12,7 @@ import { emitPaymentRefunded, emitPaymentUpdated } from "../socket/paymentSocket
 import { NOTIFICATION_EVENTS, publishBusinessEvent } from "./notificationService.js";
 import { deriveOrderPaymentState } from "./paymentService.js";
 
-const paise = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100);
-const money = (value) => Number((Math.round(value) / 100).toFixed(2));
+import { fromPaise as money, toPaise as paise } from "../utils/money.js";
 const validPayment = { $in: ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] };
 
 export const deriveBillReconciliation = async (bill) => {

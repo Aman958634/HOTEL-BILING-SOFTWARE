@@ -8,11 +8,12 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { buildOutletQuery } from "../utils/tenantUtils.js";
 import { resolveBusinessRange } from "../services/businessIntelligenceService.js";
 
+import { fromPaise, toPaise } from "../utils/money.js";
 const SUCCESS_PAYMENT_STATUSES = ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"];
 const CANCELLED_STATUSES = new Set(["CANCELLED", "REJECTED"]);
-const asMoney = (value) => Number(Math.max(0, Number(value) || 0).toFixed(2));
+const asMoney = (value) => fromPaise(Math.max(0, toPaise(value)));
 const orderKey = (value) => String(value?._id || value || "");
-const paymentNet = (payment) => asMoney((payment.amount ?? payment.totalAmount ?? 0) - (payment.refundAmount || 0));
+const paymentNet = (payment) => fromPaise(Math.max(toPaise(payment.amount ?? payment.totalAmount ?? 0) - toPaise(payment.refundAmount), 0));
 
 const formatMoney = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(asMoney(value));
 const formatInZone = (value, timeZone, options) => new Intl.DateTimeFormat("en-IN", { timeZone, ...options }).format(new Date(value));
