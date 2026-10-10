@@ -37,6 +37,7 @@ import { generateHotelPaymentQr, getHotelPaymentSettings, verifyHotelPayment } f
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { canViewPaymentReceipt } from "../../utils/paymentUtils";
 import { getAllTablesForOrder } from "../../services/tableService";
+import { resolveReceiptShortcutOrder } from "../../utils/orderReceiptShortcut";
 import { getRestaurantSettings } from "../../services/restaurantService";
 import { clearOrderDraft, getOrderDraftScope } from "../../utils/orderDraft";
 import { applyAuthoritativeCashPayment } from "../../utils/cashPaymentConfirmation";
@@ -144,6 +145,7 @@ const OrderManagement = () => {
   const [categories, setCategories] = useState([]);
   const [tables, setTables] = useState([]);
   const [restaurantGstRate, setRestaurantGstRate] = useState(0);
+  const focusedOrderRef = useRef(null);
   const [restaurantDefaultDiscountPercent, setRestaurantDefaultDiscountPercent] = useState(0);
   const [simplePrintedKotWorkflow, setSimplePrintedKotWorkflow] = useState(false);
 
@@ -1086,11 +1088,12 @@ const OrderManagement = () => {
     } },
     f9: { handler: () => {
       if (hasOpenOrderDialog) return false;
-      if (!selectedOrder) {
+      const receiptOrder = resolveReceiptShortcutOrder(selectedOrder, focusedOrderRef.current);
+      if (!receiptOrder) {
         toast.error("Select an order to open its payment receipt.");
         return;
       }
-      void openReceipt(selectedOrder);
+      void openReceipt(receiptOrder);
     } },
   }, { priority: 20 });
 
@@ -1154,7 +1157,7 @@ const OrderManagement = () => {
         loading={orderTableLoading}
         error={!hasCurrentOrders ? currentOrdersError : ""}
         selectedOrderId={selectedOrder?._id}
-        onSelect={setSelectedOrder}
+        onSelect={(order) => { focusedOrderRef.current = order; setSelectedOrder(order); }}
         hasFilters={Boolean(filters.search || filters.status || filters.orderType || filters.paymentStatus || filters.date)}
         onOpen={openDetails}
         onEdit={openEdit}

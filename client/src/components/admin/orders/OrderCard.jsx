@@ -14,9 +14,18 @@ const elapsedTime = (value) => {
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
 };
+const selectAdjacentOrder = (event, direction) => {
+  if (event.target !== event.currentTarget || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  const cards = [...(event.currentTarget.parentElement?.querySelectorAll("[data-order-selectable]") || [])];
+  const next = cards[cards.indexOf(event.currentTarget) + direction];
+  if (!next) return;
+  event.preventDefault();
+  next.focus();
+};
+
 
 const OrderCard = ({ order, selected, onSelect, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly = false, simplePrintedKotWorkflow = false }) => (
-  <article onClick={() => onSelect?.(order)} className={`min-w-0 cursor-pointer rounded-2xl border bg-white p-3 shadow-sm transition sm:p-4 ${selected ? "border-brand-400 ring-2 ring-brand-500/20" : "border-slate-200 hover:border-brand-200"}`}>
+  <article data-order-selectable tabIndex={0} aria-selected={selected} onFocus={() => onSelect?.(order)} onKeyDown={(event) => selectAdjacentOrder(event, event.key === "ArrowUp" ? -1 : 1)} onClick={() => onSelect?.(order)} className={`min-w-0 cursor-pointer rounded-2xl border bg-white p-3 shadow-sm outline-none transition focus-visible:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/30 sm:p-4 ${selected ? "border-emerald-400 ring-2 ring-emerald-500/20" : "border-slate-200 hover:border-brand-200"}`}>
     <div className="flex min-w-0 items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="break-words text-sm font-semibold text-slate-900">#{order.orderNumber}</p>

@@ -15,6 +15,16 @@ const deleteBtnClass =
 
 const cellClass = "px-4 py-3 align-middle whitespace-nowrap";
 
+const selectAdjacentOrder = (event, direction) => {
+  if (event.target !== event.currentTarget || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  const rows = [...(event.currentTarget.parentElement?.querySelectorAll("[data-order-selectable]") || [])];
+  const index = rows.indexOf(event.currentTarget);
+  const next = rows[index + direction];
+  if (!next) return;
+  event.preventDefault();
+  next.focus();
+};
+
 const useDesktopOrderLayout = () => {
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
 
@@ -32,7 +42,7 @@ const openBtnClass =
   "inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-700 px-2 py-1 text-xs font-semibold text-white transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500/30";
 
 const OrderRow = memo(({ order, selected, onSelect, onOpen, onEdit, onDelete, onRetryPayment, onPrintKot, canCollectPayments, kitchenOnly, simplePrintedKotWorkflow }) => kitchenOnly ? (
-  <tr onClick={() => onSelect?.(order)} className={`cursor-pointer border-b border-slate-100 text-slate-700 ${selected ? "bg-brand-50/70" : "hover:bg-slate-50"}`}>
+  <tr data-order-selectable tabIndex={0} aria-selected={selected} onFocus={() => onSelect?.(order)} onKeyDown={(event) => selectAdjacentOrder(event, event.key === "ArrowUp" ? -1 : 1)} onClick={() => onSelect?.(order)} className={`cursor-pointer border-b border-slate-100 text-slate-700 outline-none focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${selected ? "bg-emerald-50/80" : "hover:bg-slate-50"}`}>
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "PARCEL"}</td>
     <td className={cellClass}><ul>{order.items?.map((item) => <li key={item._id || item.name}>{item.quantity} x {item.name}</li>)}</ul></td>
@@ -42,7 +52,7 @@ const OrderRow = memo(({ order, selected, onSelect, onOpen, onEdit, onDelete, on
     <td className={cellClass}><button type="button" onClick={() => onOpen(order)} className={openBtnClass} aria-label={`Open kitchen order ${order.orderNumber}`}><FiEye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> View</button></td>
   </tr>
 ) : (
-  <tr onClick={() => onSelect?.(order)} className={`cursor-pointer border-b border-slate-100 text-slate-700 ${selected ? "bg-brand-50/70" : "hover:bg-slate-50"}`}>
+  <tr data-order-selectable tabIndex={0} aria-selected={selected} onFocus={() => onSelect?.(order)} onKeyDown={(event) => selectAdjacentOrder(event, event.key === "ArrowUp" ? -1 : 1)} onClick={() => onSelect?.(order)} className={`cursor-pointer border-b border-slate-100 text-slate-700 outline-none focus-visible:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${selected ? "bg-emerald-50/80" : "hover:bg-slate-50"}`}>
     <td className={`${cellClass} font-medium`}>#{order.orderNumber}</td>
     <td className={cellClass}>{order.customer?.fullName || "Guest"}</td>
     <td className={cellClass}>{order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "PARCEL"}</td>
@@ -115,7 +125,7 @@ const OrderTable = ({ orders, loading, error, selectedOrderId, onSelect, onOpen,
   ) : (
       <div className="grid gap-3">
         {orders.map((order) => (
-          <OrderCard key={order._id} order={order} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} simplePrintedKotWorkflow={simplePrintedKotWorkflow} />
+          <OrderCard key={order._id} order={order} selected={String(selectedOrderId) === String(order._id)} onSelect={onSelect} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onRetryPayment={onRetryPayment} onPrintKot={onPrintKot} canCollectPayments={canCollectPayments} kitchenOnly={kitchenOnly} simplePrintedKotWorkflow={simplePrintedKotWorkflow} />
         ))}
       </div>
   );
