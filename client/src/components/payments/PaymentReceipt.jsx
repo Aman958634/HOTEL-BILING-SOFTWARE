@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FiCheck, FiDownload, FiPrinter, FiX } from "react-icons/fi";
 import { formatCurrency, formatPaymentDate, getPaymentAmount } from "../../utils/paymentUtils";
@@ -15,6 +15,25 @@ const tableOrType = (order = {}, payment = {}) => {
 };
 
 const PaymentReceipt = ({ open, payment, downloading = false, onClose, onDownload, onPrint }) => {
+  useEffect(() => {
+    if (!open || !payment) return undefined;
+
+    const enableReceiptPrint = () => {
+      if (!document.getElementById("payment-receipt-print")) return;
+      document.body.classList.remove("kitchen-kot-printing");
+      document.body.classList.add("payment-receipt-printing");
+    };
+    const clearReceiptPrint = () => document.body.classList.remove("payment-receipt-printing");
+
+    window.addEventListener("beforeprint", enableReceiptPrint);
+    window.addEventListener("afterprint", clearReceiptPrint);
+    return () => {
+      window.removeEventListener("beforeprint", enableReceiptPrint);
+      window.removeEventListener("afterprint", clearReceiptPrint);
+      clearReceiptPrint();
+    };
+  }, [open, payment]);
+
   if (!open || !payment) return null;
 
   const order = payment.order || {};

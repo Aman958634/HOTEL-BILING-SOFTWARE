@@ -653,6 +653,14 @@ button:disabled { cursor: not-allowed; }
   /* The receipt is portaled beside #root, so printing hides the application in
      one operation instead of restyling every dashboard descendant. */
   body.payment-receipt-printing > :not(.payment-receipt-modal) { display: none !important; }
+  body.payment-receipt-printing #root,
+  body.payment-receipt-printing .kitchen-kot-modal { display: none !important; }
+
+  /* Keep the receipt's own branch as the only printable modal content, even
+     when another application portal is mounted while the browser print dialog opens. */
+  body.payment-receipt-printing .payment-receipt-modal > :not(.payment-receipt-dialog),
+  body.payment-receipt-printing .payment-receipt-dialog > :not(.payment-receipt-scroll),
+  body.payment-receipt-printing .payment-receipt-scroll > :not(#payment-receipt-print) { display: none !important; }
 
   body.payment-receipt-printing .payment-receipt-modal,
   body.payment-receipt-printing .payment-receipt-dialog,

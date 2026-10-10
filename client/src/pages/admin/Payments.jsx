@@ -11,6 +11,7 @@ import PaymentTable from "../../components/payments/PaymentTable";
 import { useSocket } from "../../context/SocketContext";
 import { deletePayment, exportPayments, getPaymentById, getPaymentReceipt, getPayments, getPaymentStats, reconcilePayment, refundPayment, sendOrderReceiptWhatsApp } from "../../services/paymentService";
 import { canViewPaymentReceipt, formatCurrency, getPaymentAmount, paymentMethodLabel, paymentStatusLabel } from "../../utils/paymentUtils";
+import { printPaymentReceipt } from "../../utils/printPaymentReceipt";
 import { rejectHotelPayment, verifyHotelPayment } from "../../services/hotelPaymentService";
 import HotelUpiVerificationModal from "../../components/payments/HotelUpiVerificationModal";
 import useListRequestState from "../../hooks/useListRequestState";
@@ -67,7 +68,6 @@ const Payments = () => {
   const selectedPaymentRef = useRef(null);
   const receiptOpenRequestRef = useRef("");
   const receiptDownloadRequestRef = useRef(false);
-  const receiptPrintRequestRef = useRef(false);
 
   useEffect(() => {
     selectedPaymentRef.current = selectedPayment;
@@ -271,23 +271,7 @@ const Payments = () => {
   }, []);
 
   const printReceipt = useCallback(() => {
-    if (receiptPrintRequestRef.current) return;
-    const receipt = document.getElementById("payment-receipt-print");
-    if (!receipt) return;
-
-    receiptPrintRequestRef.current = true;
-    const clearPrintMode = () => {
-      document.body.classList.remove("payment-receipt-printing");
-      receiptPrintRequestRef.current = false;
-    };
-    document.body.classList.add("payment-receipt-printing");
-    window.addEventListener("afterprint", clearPrintMode, { once: true });
-    try {
-      window.print();
-    } catch (_error) {
-      clearPrintMode();
-      toast.error("Unable to open the print dialog");
-    }
+    if (!printPaymentReceipt()) toast.error("Payment receipt is not ready to print");
   }, []);
 
   const openRefund = useCallback(async (payment) => {

@@ -36,6 +36,7 @@ import { createCashfreePayment, createGatewayPayment, getOrderPaymentSummary, ge
 import { generateHotelPaymentQr, getHotelPaymentSettings, verifyHotelPayment } from "../../services/hotelPaymentService";
 import { openCashfreeCheckout } from "../../utils/cashfreeCheckout";
 import { canViewPaymentReceipt } from "../../utils/paymentUtils";
+import { printPaymentReceipt } from "../../utils/printPaymentReceipt";
 import { getAllTablesForOrder } from "../../services/tableService";
 import { resolveReceiptShortcutOrder } from "../../utils/orderReceiptShortcut";
 import { getRestaurantSettings } from "../../services/restaurantService";
@@ -198,7 +199,6 @@ const OrderManagement = () => {
   const receiptLookupRequestRef = useRef(false);
   const receiptPaymentRequestRef = useRef("");
   const receiptDownloadRequestRef = useRef(false);
-  const receiptPrintRequestRef = useRef(false);
   const [createSubmitError, setCreateSubmitError] = useState("");
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
 
@@ -561,20 +561,7 @@ const OrderManagement = () => {
   }, [receiptPayment]);
 
   const printReceipt = useCallback(() => {
-    if (receiptPrintRequestRef.current || !document.getElementById("payment-receipt-print")) return;
-    receiptPrintRequestRef.current = true;
-    const clearPrintMode = () => {
-      document.body.classList.remove("payment-receipt-printing");
-      receiptPrintRequestRef.current = false;
-    };
-    document.body.classList.add("payment-receipt-printing");
-    window.addEventListener("afterprint", clearPrintMode, { once: true });
-    try {
-      window.print();
-    } catch (_error) {
-      clearPrintMode();
-      toast.error("Unable to open the print dialog");
-    }
+    if (!printPaymentReceipt()) toast.error("Payment receipt is not ready to print");
   }, []);
 
   const openRetryPayment = useCallback(async (order) => {
