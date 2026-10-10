@@ -41,8 +41,8 @@ const KitchenKotReceipt = ({ kot, onClose }) => {
               <tbody>
                 {(kot.items || []).map((item, index) => (
                   <tr key={`${item.name}-${index}`} className="border-b border-dashed border-slate-300 last:border-0">
-                    <td className="py-2.5 pr-2 font-bold leading-snug">{item.name}{item.specialInstructions ? <p className="mt-0.5 text-[11px] font-medium">Note: {item.specialInstructions}</p> : null}</td>
-                    <td className="w-10 py-2.5 text-right font-bold">{item.quantity}</td>
+                    <td className="py-0 pr-2 font-bold leading-snug">{item.name}{item.specialInstructions ? <p className="mt-0.5 text-[11px] font-medium">Note: {item.specialInstructions}</p> : null}</td>
+                    <td className="w-10 py-0 text-right font-bold">{item.quantity}</td>
                   </tr>
                 ))}
               </tbody>
