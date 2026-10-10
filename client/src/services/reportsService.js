@@ -9,4 +9,5 @@ export const getReportsCategories = (params = {}, config = {}) => api.get("/admi
 export const getReportsPayments = (params = {}, config = {}) => api.get("/admin/reports/payments", withConfig(params, config));
 export const getReportsCustomers = (params = {}, config = {}) => api.get("/admin/reports/customers", withConfig(params, config));
 export const getReportsSales = (params = {}, config = {}) => api.get("/admin/reports/sales", withConfig(params, config));
+export const downloadDailyOrderReport = (date) => api.get("/admin/reports/daily-order-pdf", { params: { date }, responseType: "blob" });
 export const exportReports = (params = {}) => api.get("/admin/reports/export", { params, responseType: "blob" });

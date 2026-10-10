@@ -7,6 +7,7 @@ import StatCard from "../../components/admin/StatCard";
 import RequestState from "../../components/common/RequestState";
 import { currency, dateTime } from "../../utils/format";
 import {
+  downloadDailyOrderReport,
   exportReports,
   getReportsCategories,
   getReportsCustomers,
@@ -17,6 +18,7 @@ import {
   getReportsSummary,
   getReportsTopItems,
 } from "../../services/reportsService";
+import { getRestaurantSettings } from "../../services/restaurantService";
 
 const RANGE_OPTIONS = [
   { value: "today", label: "Today" },
@@ -62,6 +64,12 @@ const paymentLabel = (value) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+const dateInTimeZone = (timeZone = "Asia/Kolkata") => {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+};
+
 const Reports = () => {
   const [filters, setFilters] = useState(defaultFilters);
   const [loading, setLoading] = useState(true);
@@ -76,6 +84,16 @@ const Reports = () => {
   const [customers, setCustomers] = useState(null);
   const [salesRows, setSalesRows] = useState([]);
   const [salesMeta, setSalesMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+  const [dailyDate, setDailyDate] = useState(() => dateInTimeZone());
+  const [dailyReportState, setDailyReportState] = useState({ loading: false, error: "" });
+
+  useEffect(() => {
+    let active = true;
+    getRestaurantSettings().then(({ data }) => {
+      if (active) setDailyDate(dateInTimeZone(data?.data?.timeZone || "Asia/Kolkata"));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const filtersRef = useRef(filters);
   const requestControllerRef = useRef(null);
@@ -199,6 +217,29 @@ const Reports = () => {
     }
   };
 
+  const onDailyPdfDownload = async () => {
+    if (!dailyDate) return;
+    setDailyReportState({ loading: true, error: "" });
+    try {
+      const { data } = await downloadDailyOrderReport(dailyDate);
+      const blobUrl = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `daily-order-report-${dailyDate}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+      toast.success("Daily order report downloaded");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Unable to download daily order report";
+      setDailyReportState({ loading: false, error: message });
+      toast.error(message);
+      return;
+    }
+    setDailyReportState({ loading: false, error: "" });
+  };
+
   const summaryCards = useMemo(() => {
     if (!summary) return [];
     return [
@@ -290,7 +331,18 @@ const Reports = () => {
         </div>
       </div>
 
-        <section className="ops-filter-bar mt-4" aria-label="Report filters">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Daily Order Report">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h3 className="text-base font-semibold text-slate-900">Daily Order Report</h3><p className="mt-1 text-sm text-slate-500">Download a complete A4 order and payment report for a selected business day.</p></div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-sm font-medium text-slate-700">Date<input type="date" value={dailyDate} onChange={(event) => { setDailyDate(event.target.value); setDailyReportState({ loading: false, error: "" }); }} className="mt-1 block rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" /></label>
+            <button type="button" onClick={onDailyPdfDownload} disabled={!dailyDate || dailyReportState.loading} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-wait disabled:opacity-60"><FiDownload />{dailyReportState.loading ? "Preparing PDF..." : "Download PDF"}</button>
+          </div>
+        </div>
+        {dailyReportState.error ? <p className="mt-3 text-sm text-rose-700">{dailyReportState.error} <button type="button" onClick={onDailyPdfDownload} className="font-semibold underline">Retry</button></p> : null}
+      </section>
+
+      <section className="ops-filter-bar mt-4" aria-label="Report filters">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Range</label>

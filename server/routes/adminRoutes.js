@@ -14,6 +14,7 @@ import {
 	getSalesReport,
 	getTopItemsReport,
 } from "../controllers/reportController.js";
+import { downloadDailyOrderReport } from "../controllers/dailyOrderReportController.js";
 import * as billingCtrl from "../controllers/billingController.js";
 import {
   selectBillingPlan,
@@ -24,7 +25,7 @@ import notificationRoutes from "./notificationRoutes.js";
 import restaurantRoutes from "./restaurantRoutes.js";
 import { createBackup, listBackups, restoreBackup } from "../controllers/backupController.js";
 import settlementRoutes from "./settlementRoutes.js";
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 import { validate } from "../middleware/validate.js";
 import { paymentLimiter } from "../middleware/rateLimiter.js";
 
@@ -70,6 +71,7 @@ router.get("/reports/customers", getCustomerReport);
 router.get("/reports/sales", getSalesReport);
 router.get("/reports/export", exportReports);
 
+router.get("/reports/daily-order-pdf", [query("date").isString().matches(/^\d{4}-\d{2}-\d{2}$/).withMessage("date must use YYYY-MM-DD")], validate, downloadDailyOrderReport);
 router.use("/notifications", notificationRoutes);
 router.use("/restaurant", restaurantRoutes);
 router.use("/settlement", settlementRoutes);
